@@ -1,12 +1,24 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "yazses-hci-lab-fixtures-0.1-prototype",
-  "title": "YazSes HCI lab fixtures (0.1-prototype, provisional)",
-  "description": "Documentation-grade schema for fixtures.js. NOT the canonical schema: issue #699 owns that, and this file must migrate to it. All data is synthetic.",
+  "$id": "yazses-hci-lab-fixtures-1.0",
+  "title": "YazSes HCI lab fixtures (schema 1.0)",
+  "description": "Schema for fixtures.js, maintained in examples/hci-hf-lab/ (issue #699). All data is synthetic. Timeline events are listed in arrival order (seq); t_ms is the source timestamp.",
   "type": "object",
-  "required": ["schema_version", "synthetic", "license", "provenance", "generator", "thresholds", "desktop", "intents", "activation_kinds", "scenarios"],
+  "required": [
+    "schema_version",
+    "synthetic",
+    "consent",
+    "license",
+    "provenance",
+    "generator",
+    "thresholds",
+    "desktop",
+    "intents",
+    "activation_kinds",
+    "scenarios"
+  ],
   "properties": {
-    "schema_version": { "const": "0.1-prototype" },
+    "schema_version": { "const": "1.0" },
     "synthetic": { "const": true },
     "license": { "const": "Apache-2.0", "description": "SPDX identifier." },
     "provenance": { "type": "string", "minLength": 1 },
@@ -14,7 +26,15 @@
     "notice": { "type": "string" },
     "thresholds": {
       "type": "object",
-      "required": ["gaze_min_confidence", "max_age_ms", "voice_min_confidence", "activation_min_confidence", "emg_min_hold_ms", "blink_refractory_ms"],
+      "required": [
+        "gaze_min_confidence",
+        "max_age_ms",
+        "voice_min_confidence",
+        "activation_min_confidence",
+        "emg_min_hold_ms",
+        "blink_refractory_ms",
+        "ambiguity_margin_pct"
+      ],
       "properties": {
         "gaze_min_confidence": { "$ref": "#/$defs/confidence" },
         "max_age_ms": { "$ref": "#/$defs/ms" },
@@ -25,7 +45,13 @@
           "additionalProperties": { "$ref": "#/$defs/confidence" }
         },
         "emg_min_hold_ms": { "$ref": "#/$defs/ms" },
-        "blink_refractory_ms": { "$ref": "#/$defs/ms" }
+        "blink_refractory_ms": { "$ref": "#/$defs/ms" },
+        "ambiguity_margin_pct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "A gaze-only target is ambiguous when the gaze point is within this many percent of another window."
+        }
       }
     },
     "desktop": {
@@ -37,7 +63,7 @@
           "minItems": 1,
           "items": {
             "type": "object",
-            "required": ["id", "label", "rect"],
+            "required": ["id", "label", "rect", "trusted"],
             "properties": {
               "id": { "type": "string" },
               "label": { "type": "string" },
@@ -46,7 +72,8 @@
                 "required": ["x", "y", "w", "h"],
                 "description": "Percent of the simulated desktop, 0..100.",
                 "additionalProperties": { "type": "number", "minimum": 0, "maximum": 100 }
-              }
+              },
+              "trusted": { "type": "boolean", "description": "False: the resolver never proposes an action on this window." }
             }
           }
         }
@@ -72,10 +99,14 @@
         }
       }
     },
-    "scenarios": {
-      "type": "array",
-      "minItems": 14,
-      "items": { "$ref": "#/$defs/scenario" }
+    "scenarios": { "type": "array", "minItems": 14, "items": { "$ref": "#/$defs/scenario" } },
+    "consent": {
+      "type": "object",
+      "required": ["required", "reason"],
+      "properties": {
+        "required": { "const": false, "description": "Consent is not applicable: no person is recorded." },
+        "reason": { "type": "string", "minLength": 1 }
+      }
     }
   },
   "$defs": {
@@ -85,15 +116,34 @@
     "modality": { "enum": ["voice_intent", "gaze", "face", "emg", "eeg_eog_experimental"] },
     "scenario": {
       "type": "object",
-      "required": ["id", "title", "description", "synthetic", "negative_example", "modality", "inputs", "intended_target", "expected", "decision_at_ms", "timeline", "simulated_conditions"],
+      "required": [
+        "id",
+        "title",
+        "description",
+        "synthetic",
+        "negative_example",
+        "modality",
+        "inputs",
+        "intended_target",
+        "expected",
+        "decision_at_ms",
+        "timeline",
+        "simulated_conditions"
+      ],
       "properties": {
         "id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
         "title": { "type": "string" },
         "description": { "type": "string" },
         "synthetic": { "const": true },
-        "negative_example": { "type": "boolean", "description": "True when the correct outcome is to refuse an activation that should not have fired." },
+        "negative_example": {
+          "type": "boolean",
+          "description": "True when the correct outcome is to refuse an activation that should not have fired."
+        },
         "modality": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/modality" } },
-        "intended_target": { "type": ["string", "null"], "description": "Window id the simulated user meant; used only to count wrong-target accepts." },
+        "intended_target": {
+          "type": ["string", "null"],
+          "description": "Window id the simulated user meant; used only to count wrong-target accepts."
+        },
         "simulated_conditions": {
           "type": "object",
           "required": ["lighting", "device"],
@@ -102,14 +152,16 @@
         "decision_at_ms": { "$ref": "#/$defs/ms" },
         "timeline": {
           "type": "array",
-          "description": "Events in non-decreasing t_ms order, all at or before decision_at_ms.",
+          "description": "Events in arrival order. seq is 1..n in that order. t_ms never decreases, except for an event flagged out_of_order, whose t_ms is earlier than an event that arrived before it. All t_ms are at or before decision_at_ms.",
           "items": {
             "type": "object",
-            "required": ["t_ms", "source", "event"],
+            "required": ["seq", "t_ms", "source", "event"],
             "properties": {
               "t_ms": { "$ref": "#/$defs/ms" },
               "source": { "enum": ["system", "gaze", "voice", "activation"] },
-              "event": { "type": "string" }
+              "event": { "type": "string" },
+              "seq": { "type": "integer", "minimum": 1 },
+              "out_of_order": { "type": "boolean" }
             }
           }
         },
@@ -120,13 +172,14 @@
             "emergency_stop": { "type": "boolean" },
             "gaze": {
               "type": "object",
-              "required": ["connected", "x", "y", "confidence", "age_ms"],
+              "required": ["connected", "x", "y", "confidence", "age_ms", "quality"],
               "properties": {
                 "connected": { "type": "boolean" },
                 "x": { "type": "number", "minimum": 0, "maximum": 100 },
                 "y": { "type": "number", "minimum": 0, "maximum": 100 },
-                "confidence": { "$ref": "#/$defs/confidence" },
-                "age_ms": { "$ref": "#/$defs/ms" }
+                "confidence": { "$ref": "#/$defs/confidenceOrUnknown" },
+                "age_ms": { "$ref": "#/$defs/ms" },
+                "quality": { "$ref": "#/$defs/quality" }
               }
             },
             "voice": {
@@ -140,27 +193,53 @@
             },
             "activation": {
               "type": "object",
-              "required": ["kind", "confidence", "age_ms", "hold_ms", "bounce_count", "bounce_gap_ms"],
+              "required": ["kind", "confidence", "age_ms", "hold_ms", "bounce_count", "bounce_gap_ms", "quality"],
               "properties": {
                 "kind": { "enum": ["none", "blink", "face_gesture", "emg_hold", "eeg_eog"] },
-                "confidence": { "$ref": "#/$defs/confidence" },
+                "confidence": { "$ref": "#/$defs/confidenceOrUnknown" },
                 "age_ms": { "$ref": "#/$defs/ms" },
                 "hold_ms": { "$ref": "#/$defs/ms" },
                 "bounce_count": { "type": "integer", "minimum": 0 },
-                "bounce_gap_ms": { "oneOf": [{ "$ref": "#/$defs/ms" }, { "type": "null" }] }
+                "bounce_gap_ms": {
+                  "oneOf": [
+                    { "$ref": "#/$defs/ms" },
+                    { "type": "null" }
+                  ]
+                },
+                "quality": { "$ref": "#/$defs/quality" }
               }
             }
           }
         },
         "expected": {
           "type": "object",
-          "required": ["decision"],
+          "required": ["decision", "intent", "target", "outcome"],
           "properties": {
             "decision": { "$ref": "#/$defs/decision" },
-            "target": { "type": "string", "description": "Optional; a window id." }
+            "intent": { "type": ["string", "null"], "description": "The intent candidate: the spoken intent, or null." },
+            "target": {
+              "type": ["string", "null"],
+              "description": "The target candidate: a window id, or null when none is proposed."
+            },
+            "outcome": { "$ref": "#/$defs/outcome" }
           }
         }
       }
+    },
+    "confidenceOrUnknown": {
+      "oneOf": [
+        { "$ref": "#/$defs/confidence" },
+        { "type": "null" }
+      ],
+      "description": "null means the confidence is unknown, which is not the same as zero."
+    },
+    "quality": {
+      "enum": ["good", "degraded", "unknown"],
+      "description": "Annotation for evaluators: good, or degraded (confidence below its threshold or older than max_age_ms), or unknown (no connected stream or an unknown confidence). The resolver decides from confidence and age."
+    },
+    "outcome": {
+      "enum": ["previewed", "awaiting_confirmation", "nothing_proposed", "stopped"],
+      "description": "The simulated, verified outcome. Nothing is ever executed."
     }
   }
 }

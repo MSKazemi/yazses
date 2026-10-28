@@ -20,15 +20,17 @@ function scenario(id) {
 
 test("fixtures load and are marked synthetic", () => {
   assert.equal(FX.synthetic, true);
-  assert.equal(FX.schema_version, "0.1-prototype");
-  assert.ok(FX.scenarios.length >= 14);
+  assert.equal(FX.schema_version, "1.0");
+  assert.ok(FX.scenarios.length >= 21);
 });
 
 for (const sc of FX.scenarios) {
   test(`scenario ${sc.id}: resolver matches expected decision`, () => {
     const r = R.resolve(sc.inputs, FX);
     assert.equal(r.decision, sc.expected.decision, r.reasons.join(" "));
-    if (sc.expected.target !== undefined) assert.equal(r.target, sc.expected.target);
+    assert.equal(r.target, sc.expected.target, "target candidate");
+    assert.equal(r.intent, sc.expected.intent, "intent candidate");
+    assert.equal(R.simulatedOutcome(r), sc.expected.outcome, "simulated outcome");
     assert.ok(r.reasons.length > 0);
   });
 }
@@ -184,4 +186,91 @@ test("evaluateAll counts a wrong target only when it was accepted", () => {
   const out = R.evaluateAll(cfg);
   assert.equal(out.summary.wrong_target, 1);
   assert.equal(out.rows.find((r) => r.id === sc.id).wrong_target, true);
+});
+
+// ---- schema 1.0 rules: unknown confidence, ambiguity, untrusted targets, outcomes -------------
+
+function withGaze(id, patch) {
+  const inputs = scenario(id);
+  Object.assign(inputs.gaze, patch);
+  return inputs;
+}
+
+test("an unknown (null) confidence is unusable and is reported as unknown, not as low", () => {
+  const gaze = R.resolve(withGaze("correct_target", { confidence: null }), FX);
+  assert.equal(gaze.decision, "abstain");
+  assert.match(gaze.reasons.join(" "), /Gaze confidence is unknown/);
+  assert.doesNotMatch(gaze.reasons.join(" "), /below/);
+
+  const inputs = scenario("correct_target");
+  inputs.activation.confidence = null;
+  const act = R.resolve(inputs, FX);
+  assert.equal(act.decision, "abstain");
+  assert.match(act.reasons.join(" "), /Activation confidence is unknown/);
+});
+
+test("a gaze-only target within the ambiguity margin abstains; just outside it is accepted", () => {
+  const margin = FX.thresholds.ambiguity_margin_pct;
+  const terminal = FX.desktop.windows.find((w) => w.id === "terminal").rect;
+  const inside = R.resolve(withGaze("correct_target", { x: terminal.x - margin, y: 30 }), FX);
+  assert.equal(inside.decision, "abstain", "a point exactly at the margin is ambiguous");
+  assert.match(inside.reasons.join(" "), /Ambiguous target/);
+  const outside = R.resolve(withGaze("correct_target", { x: terminal.x - margin - 0.5, y: 30 }), FX);
+  assert.equal(outside.decision, "accept");
+  assert.equal(outside.target, "notes");
+});
+
+test("a spoken target settles an ambiguous gaze point", () => {
+  const inputs = withGaze("ambiguous_gaze_edge", {});
+  inputs.voice.target_ref = "notes";
+  const r = R.resolve(inputs, FX);
+  assert.equal(r.decision, "accept");
+  assert.equal(r.target, "notes");
+});
+
+test("the ambiguity rule is skipped when the margin is not configured", () => {
+  const cfg = JSON.parse(JSON.stringify(FX));
+  delete cfg.thresholds.ambiguity_margin_pct;
+  assert.equal(R.resolve(scenario("ambiguous_gaze_edge"), cfg).decision, "accept");
+});
+
+test("an untrusted window is never a target, whichever modality names it", () => {
+  const viaVoiceAndGaze = R.resolve(scenario("untrusted_target"), FX);
+  assert.equal(viaVoiceAndGaze.decision, "abstain");
+  assert.match(viaVoiceAndGaze.reasons.join(" "), /not a trusted window/);
+
+  const viaGazeAlone = scenario("untrusted_target");
+  viaGazeAlone.voice.target_ref = null;
+  assert.equal(R.resolve(viaGazeAlone, FX).decision, "abstain");
+
+  const viaVoiceAlone = scenario("untrusted_target");
+  viaVoiceAlone.gaze.connected = false;
+  assert.equal(R.resolve(viaVoiceAlone, FX).decision, "abstain");
+
+  const cfg = JSON.parse(JSON.stringify(FX));
+  cfg.desktop.windows.find((w) => w.id === "browser").trusted = true;
+  assert.equal(R.resolve(scenario("untrusted_target"), cfg).decision, "accept");
+});
+
+test("emergency stop still wins over an untrusted or ambiguous target", () => {
+  for (const id of ["untrusted_target", "ambiguous_gaze_edge"]) {
+    const inputs = scenario(id);
+    inputs.emergency_stop = true;
+    assert.equal(R.resolve(inputs, FX).decision, "stop", id);
+  }
+});
+
+test("simulatedOutcome follows the decision and nothing is ever executed", () => {
+  assert.deepEqual(R.OUTCOMES.slice().sort(), ["awaiting_confirmation", "nothing_proposed", "previewed", "stopped"]);
+  for (const decision of R.DECISIONS) assert.ok(R.OUTCOMES.includes(R.simulatedOutcome({ decision })));
+  assert.equal(R.simulatedOutcome({ decision: "accept" }), "previewed");
+  assert.equal(R.simulatedOutcome({ decision: "stop" }), "stopped");
+});
+
+test("an out-of-order sample is stale by its own timestamp", () => {
+  const sc = FX.scenarios.find((s) => s.id === "out_of_order_sample");
+  const late = sc.timeline.find((e) => e.out_of_order);
+  assert.equal(sc.inputs.gaze.age_ms, sc.decision_at_ms - late.t_ms);
+  assert.ok(sc.inputs.gaze.age_ms > FX.thresholds.max_age_ms);
+  assert.equal(R.resolve(sc.inputs, FX).decision, "abstain");
 });

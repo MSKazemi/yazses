@@ -12,6 +12,10 @@
  *   inputs.activation { kind, confidence, age_ms, hold_ms, bounce_count, bounce_gap_ms }
  *   config            the fixtures object: thresholds, desktop.windows, intents
  *
+ * A confidence of null means UNKNOWN (not zero): the stream is treated as unusable and the
+ * reason says so. A `quality` annotation on a stream is data for evaluators; the resolver
+ * decides from confidence and age only.
+ *
  * Order of evaluation. The first rule that fires decides; later rules never override it.
  *   1  stop intent or emergency stop          -> stop           (always wins)
  *   2  no activation (kind "none")            -> abstain
@@ -24,7 +28,10 @@
  *        no named target, gaze unusable               -> abstain (use keyboard/voice fallback)
  *        no named target, gaze on no window           -> abstain
  *        no named target, gaze usable                 -> the gazed window
- *      "Gaze unusable" = sensor not connected, confidence < gaze_min_confidence,
+ *        target window has trusted:false              -> abstain (untrusted target)
+ *        target came from gaze alone and the gaze point is within
+ *          ambiguity_margin_pct of another window     -> abstain (ambiguous target)
+ *      "Gaze unusable" = sensor not connected, confidence unknown or < gaze_min_confidence,
  *      or age > max_age_ms.
  *   5  voice intent missing or confidence < voice_min_confidence -> abstain
  *   6  risk: destructive intents (delete, send) and eeg_eog activation -> ask_confirmation
@@ -61,6 +68,34 @@
     return null;
   }
 
+  function windowById(desktop, id) {
+    var ws = desktop.windows || [];
+    for (var i = 0; i < ws.length; i++) if (ws[i].id === id) return ws[i];
+    return null;
+  }
+
+  // Distance, in percent of the desktop, from a point to a rectangle (0 when inside it).
+  function rectDistance(r, x, y) {
+    var dx = Math.max(r.x - x, 0, x - (r.x + r.w));
+    var dy = Math.max(r.y - y, 0, y - (r.y + r.h));
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  // The closest window other than `exceptId` that lies within `margin` of the point, or null.
+  function nearOther(desktop, x, y, exceptId, margin) {
+    var best = null;
+    var bestD = Infinity;
+    (desktop.windows || []).forEach(function (w) {
+      if (w.id === exceptId) return;
+      var d = rectDistance(w.rect, x, y);
+      if (d <= margin && d < bestD) {
+        best = w;
+        bestD = d;
+      }
+    });
+    return best;
+  }
+
   function gazeState(g, th, desktop) {
     g = g || {};
     var conf = num(g.confidence, 0);
@@ -69,6 +104,9 @@
     if (!g.connected) {
       state.code = "disconnected";
       state.reason = "Gaze sensor is not connected.";
+    } else if (g.confidence === null) {
+      state.code = "unknown_confidence";
+      state.reason = "Gaze confidence is unknown.";
     } else if (conf < th.gaze_min_confidence) {
       state.code = "low_confidence";
       state.reason = "Gaze confidence " + conf.toFixed(2) + " is below " + th.gaze_min_confidence + ".";
@@ -93,7 +131,9 @@
     var conf = num(a.confidence, 0);
     var min = (th.activation_min_confidence || {})[kind];
     if (typeof min !== "number") min = 1;
-    if (conf < min) {
+    if (a.confidence === null) {
+      out.reasons.push("Activation confidence is unknown.");
+    } else if (conf < min) {
       out.reasons.push("Activation confidence " + conf.toFixed(2) + " is below " + min + " for " + kind + ".");
     }
     if (num(a.age_ms, 0) > th.max_age_ms) {
@@ -163,6 +203,22 @@
     } else {
       target = gaze.target;
       targetSource = "gaze";
+    }
+
+    var targetWindow = windowById(desktop, target);
+    if (targetWindow && targetWindow.trusted === false) {
+      return done("abstain", null, [
+        windowLabel(desktop, target) + " is not a trusted window, so no action is proposed on it.",
+      ]);
+    }
+    if (targetSource === "gaze" && typeof th.ambiguity_margin_pct === "number") {
+      var near = nearOther(desktop, num(inputs.gaze.x, -1), num(inputs.gaze.y, -1), target, th.ambiguity_margin_pct);
+      if (near) {
+        return done("abstain", null, [
+          "Ambiguous target: the gaze point is on " + windowLabel(desktop, target) + " but within " +
+            th.ambiguity_margin_pct + "% of " + windowLabel(desktop, near.id) + ". Name the target by voice.",
+        ]);
+      }
     }
 
     if (!voiceOk) {
@@ -273,6 +329,15 @@
     return stages;
   }
 
+  // The simulated, verified outcome of a decision. Nothing is ever executed.
+  var OUTCOMES = ["previewed", "awaiting_confirmation", "nothing_proposed", "stopped"];
+
+  function simulatedOutcome(result) {
+    return { accept: "previewed", ask_confirmation: "awaiting_confirmation", abstain: "nothing_proposed", stop: "stopped" }[
+      result.decision
+    ];
+  }
+
   // Wording is fixed here so the UI and the tests agree on the closing sentence.
   var PREVIEW_ONLY = "Preview only — nothing was executed.";
 
@@ -317,6 +382,8 @@
 
   var api = {
     DECISIONS: DECISIONS,
+    OUTCOMES: OUTCOMES,
+    simulatedOutcome: simulatedOutcome,
     PREVIEW_ONLY: PREVIEW_ONLY,
     resolve: resolve,
     previewLine: previewLine,

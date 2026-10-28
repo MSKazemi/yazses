@@ -3,8 +3,8 @@
 The lab is a static research prototype, not a product feature. What must stay true:
 
 * it is self-contained: no network, no device or microphone API, no external asset;
-* its fixtures are synthetic and match the provisional ``0.1-prototype`` schema
-  (issue #699 owns the canonical one -- this file must then migrate to it);
+* its fixtures are synthetic and match schema ``1.0`` (issue #699), which is maintained
+  next to them in ``fixtures.schema.json``;
 * the resolver, run under Node when available, agrees with every fixture;
 * the page keeps the accessibility basics it was built with.
 
@@ -15,6 +15,7 @@ hand-rolled validator, and the tests below prove it rejects bad input.
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import re
 import shutil
@@ -30,6 +31,10 @@ LAB = ROOT / "examples" / "hci-hf-lab"
 APP_FILES = ("index.html", "style.css", "app.js", "resolver.js", "fixtures.js")
 MODALITIES = {"voice_intent", "gaze", "face", "emg", "eeg_eog_experimental"}
 DECISIONS = {"accept", "ask_confirmation", "abstain", "stop"}
+QUALITIES = {"good", "degraded", "unknown"}
+OUTCOMES = {"previewed", "awaiting_confirmation", "nothing_proposed", "stopped"}
+OUTCOME_OF = {"accept": "previewed", "ask_confirmation": "awaiting_confirmation",
+              "abstain": "nothing_proposed", "stop": "stopped"}
 REQUIRED_IDS = {
     "correct_target",
     "low_confidence",
@@ -39,6 +44,11 @@ REQUIRED_IDS = {
     "accidental_blink",
     "confirmation_required",
     "emergency_stop",
+    "out_of_order_sample",
+    "emg_hold_chatter",
+    "ambiguous_gaze_edge",
+    "untrusted_target",
+    "sensor_recovery",
 }
 
 
@@ -55,7 +65,7 @@ def _load_fixtures() -> dict[str, Any]:
 
 
 # --------------------------------------------------------------------------------------
-# A small validator for the 0.1-prototype schema. It mirrors fixtures.schema.json for the
+# A small validator for schema 1.0. It mirrors fixtures.schema.json for the
 # properties the tests care about; the schema file stays the documentation.
 # --------------------------------------------------------------------------------------
 
@@ -87,10 +97,46 @@ def _confidences(node: Any, path: str = "") -> list[tuple[str, Any]]:
     return found
 
 
+def _quality(stream: dict[str, Any], minimum: float | None, max_age: int) -> str:
+    """What `quality` must say for a stream, given the thresholds."""
+    conf = stream.get("confidence")
+    if conf is None or minimum is None:
+        return "unknown"
+    return "degraded" if conf < minimum or stream.get("age_ms", 0) > max_age else "good"
+
+
+def _validate_timeline(sid: str, sc: dict[str, Any], errors: list[str]) -> None:
+    events = sc.get("timeline", [])
+    if not events:
+        errors.append(f"{sid}: empty timeline")
+        return
+    for i, event in enumerate(events):
+        t = event.get("t_ms")
+        if not _is_int(t) or t < 0:
+            errors.append(f"{sid}: malformed timestamp {t!r}")
+        if event.get("seq") != i + 1:
+            errors.append(f"{sid}: seq must be {i + 1} (arrival order, from 1), not {event.get('seq')!r}")
+    stamps = [e.get("t_ms") for e in events if _is_int(e.get("t_ms"))]
+    highest = -1
+    for event in events:
+        t = event.get("t_ms")
+        if not _is_int(t):
+            continue
+        late = event.get("out_of_order") is True
+        if late and t >= highest:
+            errors.append(f"{sid}: seq {event.get('seq')} is flagged out_of_order but is not earlier than a prior event")
+        if not late and t < highest:
+            errors.append(f"{sid}: timeline is not monotonic at seq {event.get('seq')}")
+        highest = max(highest, t)
+    at = sc.get("decision_at_ms")
+    if not _is_int(at) or at < 0 or (stamps and at < max(stamps)):
+        errors.append(f"{sid}: decision_at_ms {at!r} must be an int >= the last event")
+
+
 def validate_fixtures(doc: dict[str, Any]) -> list[str]:
     errors: list[str] = []
-    if doc.get("schema_version") != "0.1-prototype":
-        errors.append("schema_version must be '0.1-prototype'")
+    if doc.get("schema_version") != "1.0":
+        errors.append("schema_version must be '1.0'")
     if doc.get("synthetic") is not True:
         errors.append("top-level synthetic must be true")
     if doc.get("license") != "Apache-2.0":
@@ -98,12 +144,28 @@ def validate_fixtures(doc: dict[str, Any]) -> list[str]:
     for key in ("provenance", "generator", "thresholds", "desktop", "intents", "activation_kinds"):
         if key not in doc:
             errors.append(f"missing top-level key {key}")
+    consent = doc.get("consent")
+    if not isinstance(consent, dict) or consent.get("required") is not False or not consent.get("reason"):
+        errors.append("consent must state required: false and a reason (synthetic data records no person)")
 
+    th = doc.get("thresholds", {})
+    margin = th.get("ambiguity_margin_pct")
+    if not _is_num(margin) or not 0 <= margin <= 100:
+        errors.append(f"thresholds.ambiguity_margin_pct {margin!r} must be a number in [0, 100]")
+    max_age = th.get("max_age_ms", 0)
+
+    unknown_ok = ("inputs.gaze.confidence", "inputs.activation.confidence")
     for where, value in _confidences(doc):
+        if value is None and where.endswith(unknown_ok):
+            continue  # null means unknown, which is not the same as zero
         if not _is_num(value) or not 0 <= value <= 1:
             errors.append(f"{where}: confidence {value!r} not in [0, 1]")
 
-    window_ids = {w.get("id") for w in doc.get("desktop", {}).get("windows", [])}
+    windows = doc.get("desktop", {}).get("windows", [])
+    window_ids = {w.get("id") for w in windows}
+    for w in windows:
+        if not isinstance(w.get("trusted"), bool):
+            errors.append(f"window {w.get('id')!r}: trusted must be a boolean")
     scenarios = doc.get("scenarios")
     if not isinstance(scenarios, list) or len(scenarios) < 14:
         errors.append("need at least 14 scenarios")
@@ -123,39 +185,48 @@ def validate_fixtures(doc: dict[str, Any]) -> list[str]:
             for m in mods:
                 if m not in MODALITIES:
                     errors.append(f"{sid}: unknown modality {m!r}")
-        decision = sc.get("expected", {}).get("decision")
+        expected = sc.get("expected", {})
+        decision = expected.get("decision")
         if decision not in DECISIONS:
             errors.append(f"{sid}: expected.decision {decision!r} not one of {sorted(DECISIONS)}")
-        target = sc.get("expected", {}).get("target")
+        for key in ("intent", "target", "outcome"):
+            if key not in expected:
+                errors.append(f"{sid}: expected.{key} is missing (use null for none)")
+        target = expected.get("target")
         if target is not None and target not in window_ids:
             errors.append(f"{sid}: expected.target {target!r} is not a window id")
+        outcome = expected.get("outcome")
+        if outcome not in OUTCOMES:
+            errors.append(f"{sid}: expected.outcome {outcome!r} not one of {sorted(OUTCOMES)}")
+        elif decision in DECISIONS and outcome != OUTCOME_OF[decision]:
+            errors.append(f"{sid}: expected.outcome {outcome!r} does not follow decision {decision!r}")
         if "intended_target" not in sc:
             errors.append(f"{sid}: missing intended_target (use null if none)")
         if "inputs" not in sc:
             errors.append(f"{sid}: missing inputs")
 
-        stamps = [e.get("t_ms") for e in sc.get("timeline", [])]
-        if not stamps:
-            errors.append(f"{sid}: empty timeline")
-        for t in stamps:
-            if not _is_int(t) or t < 0:
-                errors.append(f"{sid}: malformed timestamp {t!r}")
-        ints = [t for t in stamps if _is_int(t)]
-        if ints != sorted(ints):
-            errors.append(f"{sid}: timeline is not monotonic")
-        at = sc.get("decision_at_ms")
-        if not _is_int(at) or at < 0 or (ints and at < max(ints)):
-            errors.append(f"{sid}: decision_at_ms {at!r} must be an int >= the last event")
+        _validate_timeline(sid, sc, errors)
 
         inputs = sc.get("inputs", {})
-        for stream, keys in (
-            ("gaze", ("age_ms",)),
-            ("activation", ("age_ms", "hold_ms")),
-        ):
+        for stream, keys in (("gaze", ("age_ms",)), ("activation", ("age_ms", "hold_ms"))):
             for k in keys:
                 v = inputs.get(stream, {}).get(k)
                 if not _is_int(v) or v < 0:
                     errors.append(f"{sid}: inputs.{stream}.{k} {v!r} must be a non-negative int")
+        gaze = inputs.get("gaze", {})
+        act = inputs.get("activation", {})
+        for name, stream, minimum in (
+            ("gaze", gaze, th.get("gaze_min_confidence") if gaze.get("connected") else None),
+            ("activation", act, (th.get("activation_min_confidence") or {}).get(act.get("kind"))),
+        ):
+            quality = stream.get("quality")
+            if quality not in QUALITIES:
+                errors.append(f"{sid}: inputs.{name}.quality {quality!r} not one of {sorted(QUALITIES)}")
+            elif quality != _quality(stream, minimum, max_age):
+                errors.append(
+                    f"{sid}: inputs.{name}.quality {quality!r} disagrees with its confidence and age "
+                    f"(expected {_quality(stream, minimum, max_age)!r})"
+                )
     return errors
 
 
@@ -176,9 +247,45 @@ def test_fixtures_parse_and_validate(fixtures: dict[str, Any]) -> None:
 def test_required_scenarios_are_present(fixtures: dict[str, Any]) -> None:
     ids = {s["id"] for s in fixtures["scenarios"]}
     assert REQUIRED_IDS <= ids
-    assert len(ids) >= 16
+    assert len(ids) >= 21
     negatives = [s["id"] for s in fixtures["scenarios"] if s["negative_example"]]
     assert len(negatives) >= 2, "issue #699 asks for negative examples, not only successes"
+
+
+# The ten scenarios issue #699 lists, mapped to the fixtures that cover them.
+ISSUE_699_SCENARIOS = {
+    "correct coarse gaze + spoken reference": ("gaze_plus_voice", "correct_target"),
+    "contradictory voice and gaze targets": ("conflicting_modalities",),
+    "missing or low-confidence camera signal": ("low_confidence", "sensor_disconnection"),
+    "stale observation and out-of-order timestamps": ("stale_sensor", "out_of_order_sample"),
+    "muscle hold/release with bounce": ("muscle_hold_release", "emg_hold_chatter"),
+    "accidental blink double-event": ("accidental_blink",),
+    "ambiguous or untrusted target requiring abstention": ("ambiguous_gaze_edge", "untrusted_target"),
+    "destructive command requiring confirmation": ("confirmation_required",),
+    "stop, fallback and recovery on a missing sensor": ("emergency_stop", "sensor_disconnection", "sensor_recovery"),
+    "false activations and negative examples": ("false_activation", "muscle_hold_release", "accidental_blink"),
+}
+
+
+def test_every_scenario_issue_699_lists_is_covered(fixtures: dict[str, Any]) -> None:
+    by_id = {s["id"]: s for s in fixtures["scenarios"]}
+    for need, ids in ISSUE_699_SCENARIOS.items():
+        missing = [i for i in ids if i not in by_id]
+        assert not missing, f"{need}: no fixture {missing}"
+    # The two scenarios that were gaps are covered by what they actually exercise.
+    chatter = by_id["emg_hold_chatter"]["inputs"]["activation"]
+    assert chatter["kind"] == "emg_hold" and chatter["bounce_count"] >= 1
+    late = [e for e in by_id["out_of_order_sample"]["timeline"] if e.get("out_of_order")]
+    assert late, "out_of_order_sample must contain an event flagged out_of_order"
+    assert by_id["untrusted_target"]["expected"]["decision"] == "abstain"
+    assert any(e["event"] == "reconnect" for e in by_id["sensor_recovery"]["timeline"])
+    assert by_id["sensor_recovery"]["expected"]["decision"] == "accept"
+
+
+def test_an_unknown_confidence_is_null_not_zero(fixtures: dict[str, Any]) -> None:
+    disconnected = next(s for s in fixtures["scenarios"] if s["id"] == "sensor_disconnection")
+    gaze = disconnected["inputs"]["gaze"]
+    assert gaze["connected"] is False and gaze["confidence"] is None and gaze["quality"] == "unknown"
 
 
 def test_fixture_ages_agree_with_the_timeline(fixtures: dict[str, Any]) -> None:
@@ -205,7 +312,10 @@ def test_schema_file_agrees_with_the_validator(fixtures: dict[str, Any]) -> None
     defs = schema["$defs"]
     assert set(defs["modality"]["enum"]) == MODALITIES
     assert set(defs["decision"]["enum"]) == DECISIONS
-    assert "#699" in schema["description"], "the schema must say it is provisional"
+    assert set(defs["quality"]["enum"]) == QUALITIES
+    assert set(defs["outcome"]["enum"]) == OUTCOMES
+    assert "#699" in schema["description"], "the schema must name the issue that owns it"
+    assert "provisional" not in schema["description"].lower()
 
 
 def _mutated(fixtures: dict[str, Any], fn: Any) -> list[str]:
@@ -228,6 +338,40 @@ def _mutated(fixtures: dict[str, Any], fn: Any) -> list[str]:
         ("missing expected decision", lambda d: d["scenarios"][0]["expected"].pop("decision"), "expected.decision"),
         ("bad decision value", lambda d: d["scenarios"][0]["expected"].update(decision="yes"), "expected.decision"),
         ("too few scenarios", lambda d: d["scenarios"].__delitem__(slice(3, None)), "at least 14"),
+        ("wrong schema version", lambda d: d.update(schema_version="0.1-prototype"), "schema_version must be"),
+        ("missing consent", lambda d: d.pop("consent"), "consent must state"),
+        ("consent required", lambda d: d["consent"].update(required=True), "consent must state"),
+        ("missing seq", lambda d: d["scenarios"][0]["timeline"][1].pop("seq"), "seq must be"),
+        ("seq out of arrival order", lambda d: d["scenarios"][0]["timeline"][1].update(seq=9), "seq must be"),
+        (
+            "out_of_order flag on an in-order event",
+            lambda d: d["scenarios"][0]["timeline"][2].update(out_of_order=True),
+            "not earlier than a prior event",
+        ),
+        ("unknown quality", lambda d: d["scenarios"][0]["inputs"]["gaze"].update(quality="great"), "quality"),
+        (
+            "quality disagrees with confidence",
+            lambda d: d["scenarios"][0]["inputs"]["gaze"].update(quality="degraded"),
+            "disagrees",
+        ),
+        (
+            "unknown confidence with quality good",
+            lambda d: d["scenarios"][0]["inputs"]["gaze"].update(confidence=None),
+            "disagrees",
+        ),
+        ("missing outcome", lambda d: d["scenarios"][0]["expected"].pop("outcome"), "expected.outcome"),
+        (
+            "outcome that does not follow the decision",
+            lambda d: d["scenarios"][0]["expected"].update(outcome="stopped"),
+            "does not follow decision",
+        ),
+        ("missing intent candidate", lambda d: d["scenarios"][0]["expected"].pop("intent"), "expected.intent"),
+        ("window without trusted flag", lambda d: d["desktop"]["windows"][0].pop("trusted"), "trusted must be"),
+        (
+            "ambiguity margin out of range",
+            lambda d: d["thresholds"].update(ambiguity_margin_pct=250),
+            "ambiguity_margin_pct",
+        ),
     ],
 )
 def test_validator_rejects_bad_fixtures(fixtures: dict[str, Any], label: str, mutate: Any, needle: str) -> None:
@@ -276,7 +420,7 @@ def test_app_files_use_no_device_or_network_api(name: str) -> None:
     assert not hits, f"{name} uses forbidden identifiers: {hits}"
 
 
-EVAL_FILES = ("eval/replay.js", "eval/replay.test.js")
+EVAL_FILES = ("eval/replay.js", "eval/replay.test.js", "eval/make_manifest.js")
 NONDETERMINISTIC = ("Date.now", "new Date", "Math.random", "performance.now", "process.hrtime")
 NODE_NETWORK_OR_SHELL = ('require("node:http', 'require("http', 'require("node:https', 'require("https',
                          'require("node:net', 'require("net', "child_process", "node:dgram", "node:dns")
@@ -322,7 +466,7 @@ def test_readme_front_matter_is_a_static_space() -> None:
     assert meta["title"] == "YazSes Multimodal HCI Lab (synthetic)"
     for issue in ("#692", "#693", "#699"):
         assert issue in readme
-    assert "0.1-prototype" in readme
+    assert "schema_version: \"1.0\"" in readme
 
 
 def test_dataset_card_is_a_labelled_draft() -> None:
@@ -453,3 +597,34 @@ def test_replay_eval_tests_and_cli_pass_under_node() -> None:
     report = json.loads(first.stdout)
     assert report["synthetic"] is True
     assert report["false_activations_per_hour"]["value"] is None
+
+
+# --------------------------------------------------------------------------------------
+# Manifest (issue #699): generated, so it must never drift from the files it describes
+# --------------------------------------------------------------------------------------
+
+
+def test_the_manifest_describes_the_data_files_exactly(fixtures: dict[str, Any]) -> None:
+    manifest = json.loads(_read("fixtures.manifest.json"))
+    assert manifest["schema_version"] == fixtures["schema_version"]
+    assert manifest["synthetic"] is True and manifest["consent"] == fixtures["consent"]
+    assert manifest["scenarios"] == [s["id"] for s in fixtures["scenarios"]]
+    assert manifest["scenario_count"] == len(fixtures["scenarios"])
+    assert {f["path"] for f in manifest["files"]} == {"fixtures.js", "fixtures.schema.json"}
+    for entry in manifest["files"]:
+        data = (LAB / entry["path"]).read_bytes()
+        assert b"\r" not in data, f"{entry['path']} must be stored with LF endings (see .gitattributes)"
+        assert entry["bytes"] == len(data), f"{entry['path']}: size drifted; regenerate the manifest"
+        assert entry["sha256"] == hashlib.sha256(data).hexdigest(), f"{entry['path']}: hash drifted; regenerate"
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
+@pytest.mark.timeout(60)
+def test_the_manifest_generator_agrees_with_the_committed_manifest() -> None:
+    node = shutil.which("node")
+    assert node is not None
+    proc = subprocess.run(  # noqa: S603 -- fixed argv, no shell
+        [node, str(LAB / "eval" / "make_manifest.js"), "--check"],
+        cwd=ROOT, capture_output=True, text=True, encoding="utf-8", timeout=25, check=False,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
