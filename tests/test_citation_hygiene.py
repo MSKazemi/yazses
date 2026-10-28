@@ -78,13 +78,38 @@ def _tracked(paths: tuple[str, ...]) -> list[str]:
     return [line for line in out.splitlines() if line]
 
 
+#: The one place a PDF may be tracked: the maintainer's *own* papers, which are theirs to
+#: publish. The copyright guard exists for other people's papers, so the exception is a
+#: single directory, flat, and every file in it must be linked from its landing page.
+AUTHOR_PAPERS = "docs/papers/"
+
+
 def test_no_pdf_is_committed_anywhere():
-    """`.gitignore` and the hook guard the commit; this guards the index itself."""
-    pdfs = [f for f in _tracked(()) if f.lower().endswith(".pdf")]
+    """`.gitignore` and the hook guard the commit; this guards the index itself.
+
+    The only exception is `docs/papers/`, the author's own papers (see `AUTHOR_PAPERS`).
+    """
+    pdfs = [
+        f for f in _tracked(())
+        if f.lower().endswith(".pdf")
+        and not (f.startswith(AUTHOR_PAPERS) and "/" not in f[len(AUTHOR_PAPERS):])
+    ]
     assert not pdfs, (
         f"these PDFs are tracked: {pdfs}. Other people's papers are cited, never "
-        f"redistributed — and our own generated PDFs are build artifacts."
+        f"redistributed — and our own generated PDFs are build artifacts. Only the "
+        f"author's own papers may live flat in {AUTHOR_PAPERS}."
     )
+
+
+def test_every_author_paper_pdf_is_linked_from_its_landing_page():
+    """An author paper with no landing page is an unreviewed file, not a publication."""
+    page = (ROOT / AUTHOR_PAPERS / "index.md").read_text(encoding="utf-8")
+    pdfs = [
+        f[len(AUTHOR_PAPERS):] for f in _tracked(()) if f.lower().endswith(".pdf")
+        and f.startswith(AUTHOR_PAPERS)
+    ]
+    unlinked = [f for f in pdfs if f"]({f})" not in page]
+    assert not unlinked, f"{unlinked} are tracked in {AUTHOR_PAPERS} but not linked from index.md"
 
 
 def test_the_scan_actually_reads_the_published_trees():

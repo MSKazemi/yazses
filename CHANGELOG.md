@@ -6,6 +6,15 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — a Papers page, with the measurement study's PDF
+
+`docs/papers/index.md` lists the two papers by the project's author: the system paper
+(arXiv 2607.28878) and the measurement study of silent failures in on-device speech recognition,
+whose PDF now lives beside it. The copyright guard against committed PDFs (`.gitignore`, the
+pre-commit hook, `tests/test_citation_hygiene.py`) is unchanged for every other PDF; the single
+exception is the author's own papers, flat in `docs/papers/`, each of which must be linked from
+that page. AGENTS.md rule 10 records the exception.
+
 ### Fixed — on Windows the Speech page no longer offers settings that do nothing
 
 The settings window's **Text injection** box listed eight values on every OS: `auto`,

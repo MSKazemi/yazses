@@ -151,6 +151,9 @@ docs/yazses-complete-reference.pdf
 # we publish the citation, never the paper. The pre-commit hook blocks *.pdf
 # outright as the enforcing check — this is the belt to that pair of braces.
 *.pdf
+# ...except the maintainer's OWN papers, flat in docs/papers/ (index.md links each one;
+# tests/test_citation_hygiene.py enforces it). Third-party PDFs stay blocked everywhere.
+!docs/papers/*.pdf
 
 # Extra secret belt-and-suspenders
 *.local

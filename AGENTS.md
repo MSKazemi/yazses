@@ -176,7 +176,9 @@ regression test.
     pre-commit hook both block it), and a `.pdf` URL is the wrong citation even though
     linking is not redistribution: it skips the page carrying the version, licence and
     DOI, and rots when the author reorganises their site.
-    `tests/test_citation_hygiene.py` enforces both.
+    `tests/test_citation_hygiene.py` enforces both. The one exception is the maintainer's own
+    papers, which live flat in `docs/papers/` behind a landing page (`docs/papers/index.md`)
+    that links each file; every other PDF stays blocked.
 11. **Private tiers stay private.** Nothing under a private tree may be committed, and no
     public file may reference a path inside one. The pre-commit hook guards the reference;
     `tests/test_private_tiers_stay_private.py` guards the commit.

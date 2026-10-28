@@ -391,6 +391,7 @@ nav:
           - vs Speech Note: compare/yazses-vs-speech-note.md
           - vs nerd-dictation: compare/yazses-vs-nerd-dictation.md
       - Benchmarks: benchmarks.md
+      - Papers: papers/index.md
       - FAQ: faq.md
       - v2 features (preview): v2-features.md
       - CLI reference: cli-reference.md
