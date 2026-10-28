@@ -68,6 +68,13 @@ classifiers = [
 ]
 dependencies = [
     "faster-whisper>=1.2.1",
+    # PyAV is faster-whisper's own dependency (`av>=11`, no ceiling), capped here so a
+    # fresh `pip install` stops resolving 19.x. faster-whisper 1.2.1's `decode_audio`
+    # calls `av.open(..., metadata_errors=...)`, which PyAV 19.0.2 rejects with a
+    # TypeError, so every file decode fails (`yazses transcribe`, the MCP transcribe tool).
+    # Live dictation and meeting capture hand the model arrays and are unaffected. The lockfile already
+    # holds 18.x. Raise the ceiling once a faster-whisper release works with PyAV 19.
+    "av<19",
     "sounddevice>=0.5.5",
     "numpy>=2.4.6",
     "typer>=0.26.8",

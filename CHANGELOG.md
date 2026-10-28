@@ -6,6 +6,21 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a fresh `pip install` could no longer transcribe a file
+
+`yazses transcribe <file>` and the MCP server's transcribe tool decode the file with
+faster-whisper's `decode_audio`, which uses PyAV. faster-whisper 1.2.1 requires `av>=11`
+with no ceiling, so a fresh `pip install yazses` resolved PyAV 19.0.2, and 19 removed an
+argument faster-whisper still passes (`av.open(..., metadata_errors=...)`). The result
+was `TypeError: open() got an unexpected keyword argument 'metadata_errors'` for every
+file, even a plain WAV, on any machine without a system `ffmpeg` to fall back on.
+Installs from the lockfile, which holds PyAV 18, were never affected, and neither were
+live dictation or meeting capture, which hand the model arrays.
+
+`av` is now capped below 19 in `pyproject.toml`, with the reason beside it. The ceiling
+comes off once a faster-whisper release works with PyAV 19. A new test decodes a WAV with
+the ffmpeg fallback removed, so the PyAV path is tested on its own.
+
 ### Fixed — on Windows the Speech page no longer offers settings that do nothing
 
 The settings window's **Text injection** box listed eight values on every OS: `auto`,
