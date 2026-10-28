@@ -118,10 +118,16 @@ Every rate is reported with its numerator and denominator. No single "gaze accur
 ## 8. CI without hardware
 
 The metric code gets E2-style tests with fake numeric samples and known answers: angular-error
-geometry on constructed points, exposure-based rate suppression below the minimum, the leakage
-guard (a split that puts one session on both sides fails), and report-schema checks. These tests
-use no camera, no image and no model download. **They are not built in this change**; this document
-specifies them so the implementation can be reviewed against it.
+geometry on constructed points, the leakage guard (a split that puts one session on both sides
+fails), and report-schema checks. These tests use no camera, no image and no model download.
+
+**Implemented** in `scripts/hci_gaze_compare.py`, tested in `tests/test_hci_gaze_compare.py`:
+angular error (and its refusal without the display geometry), nearest-rank median and p95 with `n`,
+a participant/session leakage guard, a calibration/validation disjointness check, and a report-shape
+check that requires limitations and non-claims, refuses a moving ref as a revision, and rejects any raw
+or identifying field (frames, images, landmarks, video, audio, embeddings). Exposure-based rate
+suppression is **not** reimplemented: `yazses.eyeeval.analysis` already refuses an hourly rate below a
+provisional minimum exposure, and a comparison uses that.
 
 ## 9. Live study requirements
 
@@ -147,12 +153,14 @@ section 3. A report with no limitations section is incomplete.
 
 ## 12. Open questions for the maintainer
 
-1. The minimum exposure time for reporting an accidental-activation rate (to be frozen before any
-   study).
+1. The minimum exposure time for reporting an accidental-activation rate. The repository already has a
+   provisional default (`DEFAULT_MIN_EXPOSURE_S`, 600 s, in `yazses.eyeeval.analysis`); the question is
+   whether this study keeps it, and it must be frozen before any study.
 2. Whether the first comparison should be restricted to the two shipped backends until a Hub
    checkpoint clears the #694 review.
-3. Which existing rung owns the harness: an extension of `yazses gaze measure`, or a separate
-   research script outside `src/`.
+3. Where the live harness lives. The metric code is a research script outside `src/`
+   (`scripts/hci_gaze_compare.py`), so nothing in the daemon imports it; whether a live harness extends
+   `yazses gaze measure` or stays a separate script is still open.
 
 Cross-references: epic #692; #694 (provenance, draft PR #704); #701 and #698 (publication gate and
 playbook); #104, #414, #418, #419 (eye programme); `design/eye-control/ROADMAP.md`; ADR-030.
