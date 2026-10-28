@@ -24,14 +24,30 @@ Percentiles are nearest-rank (an observed value, never an interpolated one), the
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from fractions import Fraction
 from typing import Any
 
 PROTOCOL_VERSION = "0.1-proposed"
 
-#: Keys that would mean a raw or identifying signal is in a report. Matched on the key name, at any depth.
-RAW_DATA_KEYS = frozenset({"frame", "frames", "image", "images", "landmark", "landmarks", "video", "audio", "embedding"})
+#: Keys that would mean a raw or identifying signal is in a report. Matched on the whole key name (trimmed,
+#: lower-cased) at any depth. It is deliberately not a substring match: a legitimate field such as
+#: `frame_rate_hz` (the camera's negotiated rate) must stay allowed.
+RAW_DATA_KEYS = frozenset(
+    {
+        "frame", "frames", "raw_frame", "raw_frames",
+        "image", "images", "pixel", "pixels",
+        "landmark", "landmarks",
+        "video", "videos",
+        "audio",
+        "embedding", "embeddings",
+    }
+)
+
+#: A revision or hash, never a moving ref: a 40-hex commit id, or a SHA-256 (optionally prefixed).
+REVISION = re.compile(r"(?:sha256:)?(?:[0-9a-f]{40}|[0-9a-f]{64})")
 
 #: What a comparison report must contain (protocol section 10).
 REPORT_KEYS = (
@@ -74,7 +90,8 @@ def nearest_rank(values: Sequence[float], percentile: float) -> float:
     if not 0 < percentile <= 100:
         raise ValueError("percentile must be in (0, 100]")
     ordered = sorted(values)
-    rank = max(1, math.ceil(percentile / 100.0 * len(ordered)))
+    # Exact arithmetic: ceil(7 / 100.0 * 100) is 8 in floating point, and the answer is 7.
+    rank = max(1, math.ceil(Fraction(str(percentile)) * len(ordered) / 100))
     return ordered[rank - 1]
 
 
@@ -87,9 +104,12 @@ def angular_error_deg(error_px: float, geometry: Geometry | None) -> float:
     """The angle a pixel error subtends at the eye.
 
     The offset in millimetres is ``error_px * pixel_pitch_mm`` and the angle is
-    ``atan(offset / viewing_distance)``. This assumes the eye is on the screen's normal near the
-    target, which is a good approximation for small offsets and an underestimate far off-axis; the
-    report must say so. Without both numbers there is no angle, only a pixel error.
+    ``atan(offset / viewing_distance)``. This assumes the eye is on the screen's normal at the target.
+    It is a good approximation for small offsets near the axis and an OVERestimate far off-axis (the
+    same offset subtends a smaller angle where the line of sight is oblique); for example, with a
+    500 mm viewing distance and a target 400 mm off-axis, a 50 mm error is 3.33 degrees but this
+    formula gives 5.71. A report must say so. Without both numbers there is no angle, only a pixel
+    error.
     """
     if geometry is None:
         raise MissingGeometry("angular error needs pixel_pitch_mm and viewing_distance_mm")
@@ -126,22 +146,27 @@ def check_split(records: Iterable[Mapping[str, Any]]) -> list[str]:
     """Leakage between a development partition and an evaluation partition.
 
     Each record names its `participant`, `session` and `split` (`dev` or `eval`). Adjacent frames
-    and trials are not independent, so no participant and no session may appear in both splits.
-    Returns a list of problems; empty means no leakage.
+    and trials are not independent, so no participant and no session may appear in both splits. Ids are
+    compared after trimming and case-folding, so `P01` and `p01 ` are the same participant. Session ids
+    must be unique across participants: a session id reused by two participants is reported, because it
+    cannot be told apart from leakage. Returns a list of problems; empty means no leakage.
     """
     problems: list[str] = []
     seen: dict[str, dict[str, set[str]]] = {"participant": {}, "session": {}}
     for i, record in enumerate(records):
+        if not isinstance(record, Mapping):
+            problems.append(f"record {i}: not a mapping")
+            continue
         split = record.get("split")
         if split not in SPLITS:
             problems.append(f"record {i}: split {split!r} is not one of {SPLITS}")
             continue
         for unit in seen:
             ident = record.get(unit)
-            if not isinstance(ident, str) or not ident:
+            if not isinstance(ident, str) or not ident.strip():
                 problems.append(f"record {i}: missing {unit}")
                 continue
-            seen[unit].setdefault(ident, set()).add(split)
+            seen[unit].setdefault(ident.strip().casefold(), set()).add(split)
     for unit, by_id in seen.items():
         for ident, splits in sorted(by_id.items()):
             if len(splits) > 1:
@@ -155,49 +180,68 @@ def check_calibration_validation_disjoint(calibration_points: Iterable[Any], val
     return [f"point {p!r} is in both the calibration and the validation set" for p in sorted(shared, key=repr)]
 
 
-def _walk_keys(node: Any, path: str = "") -> Iterable[tuple[str, str]]:
+def _walk(node: Any, path: str = "") -> Iterable[tuple[str, str | None]]:
+    """Yield (where, key) for every key at any depth, and (where, None) for a bytes value."""
     if isinstance(node, Mapping):
         for key, value in node.items():
             where = f"{path}.{key}" if path else str(key)
             yield where, str(key)
-            yield from _walk_keys(value, where)
-    elif isinstance(node, list):
+            yield from _walk(value, where)
+    elif isinstance(node, (list, tuple)):
         for i, value in enumerate(node):
-            yield from _walk_keys(value, f"{path}[{i}]")
+            yield from _walk(value, f"{path}[{i}]")
+    elif isinstance(node, (bytes, bytearray, memoryview)):
+        yield path, None
 
 
 def validate_report(report: Mapping[str, Any]) -> list[str]:
     """Is this a complete comparison report, and does it carry nothing it must not?
 
-    Returns a list of problems; empty means the shape is right. It checks shape, not truth.
+    Returns a list of problems; empty means the shape is right. It checks shape, not truth, and the raw
+    data scan runs even when sections are missing. It never raises on a malformed report.
     """
     problems: list[str] = []
+    if not isinstance(report, Mapping):
+        return ["report must be a mapping"]
+    for where, key in _walk(report):
+        if key is None:
+            problems.append(f"{where}: binary data must not appear in a report")
+        elif key.strip().lower() in RAW_DATA_KEYS:
+            problems.append(f"{where}: raw or identifying data must not appear in a report")
     for key in REPORT_KEYS:
         if key not in report:
             problems.append(f"missing {key}")
-    if problems:
-        return problems
-    candidates = report["candidates"]
-    if not isinstance(candidates, list) or not candidates:
-        problems.append("candidates must be a non-empty list")
-    else:
-        for i, candidate in enumerate(candidates):
-            for key in CANDIDATE_KEYS:
-                if not candidate.get(key):
-                    problems.append(f"candidates[{i}] lacks {key} (a revision or hash is required, never 'latest')")
-            if str(candidate.get("revision_or_hash", "")).lower() in {"latest", "main", "head"}:
-                problems.append(f"candidates[{i}] names a moving ref instead of a revision or hash")
-    sessions = report["sessions"]
-    for key in SESSION_KEYS:
-        if not isinstance(sessions.get(key), int) or isinstance(sessions.get(key), bool) or sessions[key] < 0:
-            problems.append(f"sessions.{key} must be a non-negative integer (state the number of units)")
-    if not isinstance(report["negative_results"], list):
+    candidates = report.get("candidates")
+    if "candidates" in report:
+        if not isinstance(candidates, list) or not candidates:
+            problems.append("candidates must be a non-empty list")
+        else:
+            for i, candidate in enumerate(candidates):
+                if not isinstance(candidate, Mapping):
+                    problems.append(f"candidates[{i}] must be a mapping")
+                    continue
+                for key in CANDIDATE_KEYS:
+                    if not candidate.get(key):
+                        problems.append(f"candidates[{i}] lacks {key}")
+                revision = str(candidate.get("revision_or_hash", ""))
+                if revision and not REVISION.fullmatch(revision):
+                    problems.append(
+                        f"candidates[{i}].revision_or_hash {revision!r} is not a revision or hash "
+                        "(a 40-hex commit id or a SHA-256; never a branch or 'latest')"
+                    )
+    sessions = report.get("sessions")
+    if "sessions" in report:
+        if not isinstance(sessions, Mapping):
+            problems.append("sessions must be a mapping of counts")
+        else:
+            for key in SESSION_KEYS:
+                value = sessions.get(key)
+                if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                    problems.append(f"sessions.{key} must be a non-negative integer (state the number of units)")
+    if "negative_results" in report and not isinstance(report["negative_results"], list):
         problems.append("negative_results must be a list (empty only if you say why in limitations)")
-    if not isinstance(report["limitations"], list) or not report["limitations"]:
+    if "limitations" in report and (not isinstance(report["limitations"], list) or not report["limitations"]):
         problems.append("limitations must be a non-empty list: a report without them is incomplete")
-    if not isinstance(report["non_claims"], list) or not report["non_claims"]:
+    if "non_claims" in report and (not isinstance(report["non_claims"], list) or not report["non_claims"]):
         problems.append("non_claims must be a non-empty list")
-    for where, key in _walk_keys(report):
-        if key.lower() in RAW_DATA_KEYS:
-            problems.append(f"{where}: raw or identifying data must not appear in a report")
     return problems

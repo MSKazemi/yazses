@@ -15,12 +15,16 @@ behaves as specified, and how a naive and an artifact-aware detector differ on *
 * P1 (injected artifacts): blinks (EOG burst that leaks into the EEG channel), clenches (EMG burst that
   leaks), speech-like muscle activity, rest, and intended switches (an EEG burst), each with known onsets.
 
-It drives no real action, needs no device or network, and uses no clock. It is stdlib only, and it lives
-outside `src/yazses/` on purpose: nothing in the daemon imports it.
+It drives no real action, needs no device or network, and uses no clock. It needs only the standard
+library plus one constant from this repository (`yazses.eyeeval.analysis.DEFAULT_MIN_EXPOSURE_S`), so run it
+with `uv run`. It lives outside `src/yazses/` on purpose: nothing in the daemon imports it.
 
-No hourly rate is printed unless the scored control exposure reaches the repository's provisional minimum
-(`yazses.eyeeval.analysis.DEFAULT_MIN_EXPOSURE_S`); below it the report gives the counts and the
-exposure, and the rate is `null`.
+The detector is causal: the decision at a sample uses only samples up to that sample, so the reported
+latency is the latency a real-time detector would have.
+
+No hourly rate is ever printed for generated data: a rate extrapolated from bursts injected every few
+seconds would be an invented number. The report gives the counts, the exposure and the repository's
+provisional minimum exposure, and the rate is `null` with a note.
 """
 
 from __future__ import annotations
@@ -31,6 +35,7 @@ import math
 import random
 import sys
 from collections.abc import Sequence
+from fractions import Fraction
 from typing import Any
 
 from yazses.eyeeval.analysis import DEFAULT_MIN_EXPOSURE_S
@@ -181,7 +186,9 @@ def detect(
 
     A candidate fires when the EEG envelope has stayed above its threshold for the minimum hold. The
     artifact-aware variant drops a candidate when the EOG or EMG envelope crossed its own threshold in the
-    suppress window around the crossing. A fired or dropped crossing starts the refractory period.
+    suppress window before the decision. A fired or dropped crossing starts the refractory period, and
+    the detector re-arms only after the EEG envelope has fallen back to its threshold, so one sustained
+    burst gives one candidate. The decision at sample ``i`` uses samples up to ``i`` and no later ones.
     """
     hold = int(round(PARAMS["min_hold_s"] * fs))
     refractory = int(round(PARAMS["refractory_s"] * fs))
@@ -190,28 +197,34 @@ def detect(
     times: list[float] = []
     above = 0
     quiet_until = start
+    armed = True
     for i in range(start, end):
-        if i < quiet_until:
+        high = eeg[i] > thresholds["eeg"]
+        if not high:
+            armed = True  # the envelope fell back: ready for the next burst
+        if i < quiet_until or not armed:
             above = 0
             continue
-        above = above + 1 if eeg[i] > thresholds["eeg"] else 0
+        above = above + 1 if high else 0
         if above < hold:
             continue
         crossing = i - hold + 1
-        lo, hi = max(start, crossing - look), min(end, i + look)
+        lo, hi = max(start, crossing - look), i + 1  # causal: nothing after sample i
         artifact = artifact_aware and any(
             envelopes[name][j] > thresholds[name] for name in ("eog", "emg") for j in range(lo, hi)
         )
         quiet_until = i + refractory
         above = 0
+        armed = False
         if not artifact:
             times.append(i / fs)
     return times
 
 
 def _nearest_rank(values: Sequence[float], percentile: float) -> float:
+    # Exact arithmetic: ceil(7 / 100.0 * 100) is 8 in floating point, and the answer is 7.
     ordered = sorted(values)
-    return ordered[max(1, math.ceil(percentile / 100.0 * len(ordered))) - 1]
+    return ordered[max(1, math.ceil(Fraction(str(percentile)) * len(ordered) / 100)) - 1]
 
 
 def score(candidates: Sequence[float], data: dict[str, Any]) -> dict[str, Any]:
@@ -221,6 +234,7 @@ def score(candidates: Sequence[float], data: dict[str, Any]) -> dict[str, Any]:
     spans = [b for b in data["blocks"] if b["label"] != "calibration_rest"]
     hits: dict[int, float] = {}
     false_by_class = {label: 0 for label in CONTROL_LABELS}
+    between_events = 0
     for t in candidates:
         cause = next((i for i, e in enumerate(events) if e["t_s"] <= t < e["t_s"] + match), None)
         if cause is not None and events[cause]["kind"] == "intended":
@@ -230,17 +244,20 @@ def score(candidates: Sequence[float], data: dict[str, Any]) -> dict[str, Any]:
             false_by_class[events[cause]["kind"]] += 1
             continue
         block = next((b["label"] for b in spans if b["start_s"] <= t < b["end_s"]), None)
-        if block in false_by_class:
+        if block in ("rest", "speaking"):
             false_by_class[block] += 1
+        elif block in ("blink", "clench"):
+            between_events += 1  # inside a control block but not within any injected event's window
         # a candidate in the intended block outside any event window, or in calibration, is not a control
         # activation; it is counted below as an unattributed candidate so it is never silently dropped
-    attributed = sum(false_by_class.values()) + len(hits)
+    attributed = sum(false_by_class.values()) + between_events + len(hits)
     intended_total = sum(1 for e in events if e["kind"] == "intended")
     latencies_ms = sorted(round(1000 * v, 1) for v in hits.values())
     counts = {kind: sum(1 for e in events if e["kind"] == kind) for kind in ("blink", "clench")}
     seconds = {b["label"]: b["end_s"] - b["start_s"] for b in spans}
     exposure_s = sum(seconds.get(label, 0.0) for label in CONTROL_LABELS)
-    false_total = sum(false_by_class.values())
+    false_total = sum(false_by_class.values()) + between_events
+    between_s = seconds.get("blink", 0.0) + seconds.get("clench", 0.0)
     return {
         "candidates": len(candidates),
         "unattributed_candidates": len(candidates) - attributed,
@@ -256,6 +273,7 @@ def score(candidates: Sequence[float], data: dict[str, Any]) -> dict[str, Any]:
             "clench": {"numerator": false_by_class["clench"], "denominator": counts["clench"], "unit": "clench events"},
             "rest": {"numerator": false_by_class["rest"], "denominator": seconds.get("rest", 0.0), "unit": "seconds"},
             "speaking": {"numerator": false_by_class["speaking"], "denominator": seconds.get("speaking", 0.0), "unit": "seconds"},
+            "between_events": {"numerator": between_events, "denominator": between_s, "unit": "seconds of blink and clench blocks"},
             "total": false_total,
         },
         "false_activations_per_hour": _per_hour(false_total, exposure_s),
@@ -263,14 +281,17 @@ def score(candidates: Sequence[float], data: dict[str, Any]) -> dict[str, Any]:
 
 
 def _per_hour(events: int, exposure_s: float) -> dict[str, Any]:
-    out: dict[str, Any] = {"events": events, "exposure_s": exposure_s, "minimum_exposure_s": DEFAULT_MIN_EXPOSURE_S}
-    if exposure_s < DEFAULT_MIN_EXPOSURE_S:
-        out["value"] = None
-        out["note"] = "insufficient data: exposure is below the repository's provisional minimum, so no hourly rate is printed"
-    else:
-        out["value"] = round(events * 3600.0 / exposure_s, 3)
-        out["note"] = "synthetic; not a measurement"
-    return out
+    """Never an hourly rate for generated data: the counts and the exposure are the result."""
+    return {
+        "events": events,
+        "exposure_s": exposure_s,
+        "minimum_exposure_s": DEFAULT_MIN_EXPOSURE_S,
+        "value": None,
+        "note": (
+            "No hourly rate is printed for generated data: the bursts are injected at a fixed pace, so a rate "
+            "extrapolated from them would be an invented number. Use the counts and the exposure."
+        ),
+    }
 
 
 def run(seed: int = 0) -> dict[str, Any]:

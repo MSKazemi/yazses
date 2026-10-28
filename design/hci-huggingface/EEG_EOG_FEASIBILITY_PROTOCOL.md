@@ -55,9 +55,10 @@ in section 9.
 ## 4. Metrics
 
 Every rate is reported with its numerator and denominator, and an hourly rate only when the scored
-exposure time reaches a minimum frozen before the run (the same rule as the camera protocol; the
-replay script uses the repository's provisional `DEFAULT_MIN_EXPOSURE_S` from
-`yazses.eyeeval.analysis`). Below the minimum, report the count and the exposure.
+exposure time reaches a minimum frozen before the run (the same rule as the camera protocol, with the
+repository's provisional `DEFAULT_MIN_EXPOSURE_S` in `yazses.eyeeval.analysis` as the starting point).
+Below the minimum, report the count and the exposure. The P0/P1 replay script never prints an hourly
+rate at all: its bursts are injected at a fixed pace, so any rate would be invented.
 
 | Metric | Definition |
 |---|---|

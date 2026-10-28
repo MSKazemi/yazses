@@ -52,19 +52,15 @@ def test_the_report_says_it_is_synthetic_and_claims_nothing_about_eeg() -> None:
     assert report["parameters"]["noise_sigma"] == 1.0, "every choice is recorded so it can be challenged"
 
 
-def test_no_hourly_rate_is_printed_from_too_little_exposure() -> None:
-    for config in E.run(0)["p1_injected"].values():
-        rate = config["false_activations_per_hour"]
-        assert rate["exposure_s"] < rate["minimum_exposure_s"]
-        assert rate["value"] is None
-        assert "insufficient data" in rate["note"]
-
-
-def test_an_hourly_rate_appears_only_at_or_above_the_minimum_exposure() -> None:
-    minimum = E.DEFAULT_MIN_EXPOSURE_S
-    assert E._per_hour(5, minimum - 1)["value"] is None
-    assert E._per_hour(5, 3600)["value"] == 5.0
-    assert E._per_hour(0, minimum)["value"] == 0.0
+def test_no_hourly_rate_is_ever_printed_for_generated_data() -> None:
+    for seed in range(4):
+        for config in E.run(seed)["p1_injected"].values():
+            rate = config["false_activations_per_hour"]
+            assert rate["value"] is None
+            assert "invented number" in rate["note"]
+            assert rate["exposure_s"] == 240 and rate["minimum_exposure_s"] == E.DEFAULT_MIN_EXPOSURE_S
+    # Even with plenty of exposure the helper refuses: injected bursts are not a rate.
+    assert E._per_hour(5, 100 * E.DEFAULT_MIN_EXPOSURE_S)["value"] is None
 
 
 def test_every_count_carries_its_denominator() -> None:
@@ -73,7 +69,21 @@ def test_every_count_carries_its_denominator() -> None:
         false = config["false_activations"]
         assert false["blink"]["denominator"] == 10 and false["clench"]["denominator"] == 10
         assert false["rest"]["denominator"] == 60 and false["speaking"]["denominator"] == 60
+        assert false["between_events"]["denominator"] == 120
         assert config["hits"]["numerator"] + config["missed_switches"]["numerator"] == 10
+
+
+def test_no_count_exceeds_its_denominator_over_many_seeds() -> None:
+    for seed in range(25):
+        for name, config in E.run(seed)["p1_injected"].items():
+            false = config["false_activations"]
+            for klass in ("blink", "clench", "rest", "speaking", "between_events"):
+                assert false[klass]["numerator"] <= false[klass]["denominator"], (seed, name, klass)
+            total = sum(false[k]["numerator"] for k in ("blink", "clench", "rest", "speaking", "between_events"))
+            assert false["total"] == total, (seed, name)
+            assert config["hits"]["numerator"] <= 10
+            # every candidate is a hit, a classified false activation, or reported as unattributed
+            assert config["candidates"] == config["hits"]["numerator"] + total + config["unattributed_candidates"], (seed, name)
 
 
 # -- the generator ------------------------------------------------------------------------
@@ -163,6 +173,36 @@ def test_artifact_awareness_removes_a_candidate_next_to_an_eog_or_emg_burst() ->
         assert E.detect(env, THR, FS, 0, 1000, artifact_aware=True) == []
 
 
+def test_the_detector_is_causal_a_later_burst_cannot_remove_an_earlier_candidate() -> None:
+    n = 1000
+    base = {"eeg": _bump(n, 400, 40), "eog": _flat(n), "emg": _flat(n)}
+    decided = E.detect(base, THR, FS, 0, n, artifact_aware=True)
+    assert len(decided) == 1
+    fired_at = int(round(decided[0] * FS))
+    # An EMG burst that begins AFTER the decision sample must not change what was already decided.
+    later = {**base, "emg": _bump(n, fired_at + 1, 20)}
+    assert E.detect(later, THR, FS, 0, n, artifact_aware=True) == decided
+    # And the decision does not depend on anything after its own sample, for either detector.
+    for aware in (False, True):
+        full = E.detect(base, THR, FS, 0, n, artifact_aware=aware)
+        truncated = E.detect(base, THR, FS, 0, fired_at + 1, artifact_aware=aware)
+        assert truncated == full
+
+
+def test_one_sustained_burst_gives_one_candidate_not_a_stream_of_them() -> None:
+    n = 3000
+    env = {"eeg": _bump(n, 200, 1500), "eog": _flat(n), "emg": _flat(n)}  # 15 s above threshold
+    assert len(E.detect(env, THR, FS, 0, n, artifact_aware=False)) == 1
+
+
+def test_the_detector_re_arms_after_the_envelope_falls_back() -> None:
+    n = 3000
+    eeg = _bump(n, 200, 40)
+    eeg[1400:1440] = [10.0] * 40  # well after the refractory period, with a gap below threshold between
+    env = {"eeg": eeg, "eog": _flat(n), "emg": _flat(n)}
+    assert len(E.detect(env, THR, FS, 0, n, artifact_aware=False)) == 2
+
+
 def test_artifact_awareness_keeps_a_clean_candidate() -> None:
     env = {"eeg": _bump(1000, 400, 40), "eog": _flat(1000), "emg": _flat(1000)}
     assert E.detect(env, THR, FS, 0, 1000, artifact_aware=True) == E.detect(env, THR, FS, 0, 1000, artifact_aware=False)
@@ -229,13 +269,39 @@ def test_a_candidate_that_matches_nothing_is_counted_not_dropped() -> None:
 
 def test_the_p0_stage_reports_plumbing_only() -> None:
     p0 = E.run(0)["p0_noise_only"]
-    assert p0["scored_seconds"] == 120 and isinstance(p0["candidates"], int)
+    assert p0["scored_seconds"] == 120
     assert "Says nothing about EEG" in p0["note"]
+    # Recompute it independently from a noise-only stream and the calibration-block thresholds.
+    noise = E.synthesize(0, (("calibration_rest", 60, 0), ("rest", 120, 0)), inject=False)
+    env = {n: E.envelope(noise["channels"][n], FS, E.PARAMS["envelope_window_s"]) for n in E.CHANNELS}
+    thr = E.thresholds_from(env, 0, 60 * FS, E.PARAMS["threshold_k"])
+    assert p0["candidates"] == len(E.detect(env, thr, FS, 60 * FS, 180 * FS, artifact_aware=False))
 
 
 def test_the_cli_prints_the_same_json_as_run(capsys: pytest.CaptureFixture[str]) -> None:
     assert E.main(["--seed", "2"]) == 0
     assert json.loads(capsys.readouterr().out) == json.loads(json.dumps(E.run(2)))
+
+
+def test_a_candidate_inside_a_control_block_but_between_events_is_counted_as_such() -> None:
+    data = {
+        "events": [{"t_s": 20.0, "kind": "blink"}],
+        "blocks": [
+            {"label": "calibration_rest", "start_s": 0.0, "end_s": 5.0},
+            {"label": "rest", "start_s": 5.0, "end_s": 15.0},
+            {"label": "blink", "start_s": 15.0, "end_s": 30.0},
+        ],
+    }
+    out = E.score([16.0, 20.5, 26.0], data)  # 16 and 26 are in the blink block, outside any event window
+    false = out["false_activations"]
+    assert false["between_events"]["numerator"] == 2
+    assert false["blink"]["numerator"] == 1 and false["blink"]["numerator"] <= false["blink"]["denominator"]
+    assert out["unattributed_candidates"] == 0
+
+
+@pytest.mark.parametrize("p,n", [(7, 100), (50, 10), (95, 10), (14, 100), (95, 20)])
+def test_the_replay_percentile_is_exact(p: int, n: int) -> None:
+    assert E._nearest_rank(list(range(1, n + 1)), p) == max(1, -(-p * n // 100))
 
 
 def test_the_script_is_offline_clockless_and_dependency_light() -> None:
