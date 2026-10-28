@@ -204,7 +204,8 @@
                   "oneOf": [
                     { "$ref": "#/$defs/ms" },
                     { "type": "null" }
-                  ]
+                  ],
+                  "description": "null when bounce_count is 0, a gap in ms when it is above 0. The validator enforces the pairing; the schema alone cannot express it."
                 },
                 "quality": { "$ref": "#/$defs/quality" }
               }

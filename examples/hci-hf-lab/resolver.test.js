@@ -274,3 +274,72 @@ test("an out-of-order sample is stale by its own timestamp", () => {
   assert.ok(sc.inputs.gaze.age_ms > FX.thresholds.max_age_ms);
   assert.equal(R.resolve(sc.inputs, FX).decision, "abstain");
 });
+
+// ---- fixes from an independent review ---------------------------------------------------------
+
+test("a window the desktop does not have is never a target", () => {
+  const inputs = scenario("voice_only");
+  inputs.voice.target_ref = "nonexistent";
+  const r = R.resolve(inputs, FX);
+  assert.equal(r.decision, "abstain");
+  assert.match(r.reasons.join(" "), /not a window on this desktop/);
+});
+
+test("an activation kind the configuration does not know can never pass, whatever its confidence", () => {
+  const inputs = scenario("voice_only");
+  inputs.activation.kind = "telepathy";
+  inputs.activation.confidence = 1;
+  const r = R.resolve(inputs, FX);
+  assert.equal(r.decision, "abstain");
+  assert.match(r.reasons.join(" "), /Unknown activation kind 'telepathy'/);
+});
+
+test("a repeated blink with an unknown gap is treated as accidental", () => {
+  const inputs = scenario("correct_target");
+  inputs.activation.bounce_count = 3;
+  inputs.activation.bounce_gap_ms = null;
+  const r = R.resolve(inputs, FX);
+  assert.equal(r.decision, "abstain");
+  assert.match(r.reasons.join(" "), /unknown gap/);
+  inputs.activation.bounce_count = 0;
+  assert.equal(R.resolve(inputs, FX).decision, "accept");
+});
+
+test("an unknown confidence is shown as unknown in the stage panel, not as 0.00", () => {
+  const inputs = scenario("correct_target");
+  inputs.gaze.confidence = null;
+  inputs.activation.confidence = null;
+  const stages = R.resolve(inputs, FX).stages;
+  assert.equal(stages.gaze.confidence, null);
+  assert.equal(stages.activation.confidence, null);
+});
+
+// The distance to a neighbouring window is Euclidean. Probe a corner, where Euclidean, Manhattan and
+// Chebyshev distances disagree: two windows that meet only diagonally.
+function diagonalConfig(margin) {
+  const cfg = JSON.parse(JSON.stringify(FX));
+  cfg.thresholds.ambiguity_margin_pct = margin;
+  cfg.desktop.windows = [
+    { id: "a", label: "A", rect: { x: 0, y: 0, w: 40, h: 40 }, trusted: true },
+    { id: "b", label: "B", rect: { x: 43, y: 44, w: 40, h: 40 }, trusted: true },
+  ];
+  return cfg;
+}
+
+test("the ambiguity distance is Euclidean: it separates a corner case that other metrics get wrong", () => {
+  const cfg = diagonalConfig(5.5);
+  const at = (x, y) => {
+    const inputs = scenario("correct_target");
+    inputs.gaze.x = x;
+    inputs.gaze.y = y;
+    return R.resolve(inputs, cfg);
+  };
+  // (40, 40) is 3 right and 4 above B's corner: Euclidean 5 <= 5.5 (ambiguous); Manhattan would say 7.
+  assert.equal(at(40, 40).decision, "abstain");
+  assert.match(at(40, 40).reasons.join(" "), /Ambiguous target/);
+  // (39, 39) is 4 right and 5 above: Euclidean 6.4 > 5.5 (clear); Chebyshev would say 5 and abstain.
+  const clear = at(39, 39);
+  assert.equal(clear.decision, "accept");
+  assert.equal(clear.target, "a");
+});
+

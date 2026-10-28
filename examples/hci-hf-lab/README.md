@@ -55,6 +55,7 @@ with `uv run python -m pytest tests/test_hci_hf_lab.py`.
 | `fixtures.schema.json` | JSON Schema 1.0 for the fixtures (issue #699). |
 | `fixtures.manifest.json` | Generated: schema version, scenario ids and the SHA-256 of the two data files. `node eval/make_manifest.js` writes it; `--check` fails when it is stale. Never edit by hand. |
 | `resolver.test.js` | `node:test` unit tests, including every fixture scenario. |
+| `ui.test.js` | Drives the real `app.js` against a stub DOM for every scenario, so a render that throws or prints `NaN`/`undefined`/`null` fails. Not a browser. |
 | `eval/replay.js` | Deterministic replay report: decision counts, wrong actions, abstention, confirmation burden, simulated latency. `node eval/replay.js [--json]`. |
 | `eval/replay.test.js` | `node:test` tests for the report, including cases that force each counter. |
 | `eval/make_manifest.js` | Generator and `--check` for `fixtures.manifest.json`. |
@@ -66,15 +67,17 @@ The first rule that fires decides. Thresholds live in `fixtures.js` under `thres
 
 1. A stop intent or the emergency stop gives **stop**. Stop always wins; the Escape key triggers it.
 2. No activation gives **abstain**.
-3. An invalid activation gives **abstain** with the specific reason: low confidence, a stale
-   sample, an EMG hold shorter than `emg_min_hold_ms`, or a repeated blink inside
-   `blink_refractory_ms`.
+3. An invalid activation gives **abstain** with the specific reason: an activation kind the
+   configuration does not know, low or unknown confidence, a stale sample, an EMG hold shorter than
+   `emg_min_hold_ms`, or a repeated blink inside `blink_refractory_ms` (or repeated with an unknown
+   gap, which is treated as accidental).
 4. Target resolution. If voice names a target and gaze is unusable (disconnected, unknown or
    low confidence, or stale), the named target is used. If gaze is usable and voice names a
    different window, the modalities conflict: **abstain**. With no named target, unusable
    gaze or a gaze point on no window gives **abstain** and suggests the keyboard or voice.
-   Otherwise the gazed window is the target. Then two checks on that target:
-   a window marked `trusted: false` is never a target (**abstain**), and a target taken from
+   Otherwise the gazed window is the target. Then three checks on that target:
+   a named target that is not a window on the desktop (**abstain**), a window marked
+   `trusted: false` (**abstain**, never a target), and a target taken from
    gaze alone is **ambiguous** (**abstain**) when the gaze point is within
    `ambiguity_margin_pct` of another window. Naming the target by voice settles an
    ambiguous gaze point.
@@ -84,7 +87,8 @@ The first rule that fires decides. Thresholds live in `fixtures.js` under `thres
 7. Otherwise **accept**, which is a proposal only.
 
 A confidence of `null` means **unknown**, which is not zero: the stream is treated as
-unusable and the reason says "unknown". The `quality` annotation (`good`, `degraded`,
+unusable and the reason says "unknown"; the page shows it as "unknown" until you move that slider.
+The `quality` annotation (`good`, `degraded`,
 `unknown`) is data for evaluators; the resolver decides from confidence and age only.
 
 ### The 21 scenarios

@@ -39,8 +39,8 @@
     },
     {
       "path": "fixtures.schema.json",
-      "bytes": 9713,
-      "sha256": "7c0db0a8f5b1aed63395e08dec1de513b2e6e556489bc0cee842556281f829ae"
+      "bytes": 9882,
+      "sha256": "b33e946e5ab24ec689d98db6825617f4fbade9ad21690515754b3bd814c76cff"
     }
   ]
 }

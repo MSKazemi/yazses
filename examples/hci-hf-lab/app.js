@@ -10,7 +10,9 @@
   var DECISION_ICON = { accept: "✓", ask_confirmation: "?", abstain: "–", stop: "■" };
   var STAGE_ORDER = ["gaze", "voice", "activation", "resolver", "proposed"];
 
-  var state = { scenarioId: null, inputs: null, fired: false, outcome: null, result: null };
+  // `unknown` remembers a confidence that is null (unknown, not zero) until the user moves its slider;
+  // a range input cannot hold "no value", and showing its midpoint would make one up.
+  var state = { scenarioId: null, inputs: null, fired: false, outcome: null, result: null, unknown: { gaze: false, act: false } };
 
   // ---- helpers -------------------------------------------------------------------------
 
@@ -63,13 +65,15 @@
     $("gaze-connected").checked = !!i.gaze.connected;
     $("gaze-x").value = i.gaze.x;
     $("gaze-y").value = i.gaze.y;
-    $("gaze-conf").value = i.gaze.confidence;
+    state.unknown.gaze = i.gaze.confidence === null;
+    $("gaze-conf").value = state.unknown.gaze ? 0 : i.gaze.confidence;
     $("gaze-age").value = i.gaze.age_ms;
     $("voice-intent").value = i.voice.intent || "";
     $("voice-conf").value = i.voice.confidence;
     $("voice-target").value = i.voice.target_ref || "";
     $("act-kind").value = i.activation.kind;
-    $("act-conf").value = i.activation.confidence;
+    state.unknown.act = i.activation.confidence === null;
+    $("act-conf").value = state.unknown.act ? 0 : i.activation.confidence;
     $("act-age").value = i.activation.age_ms;
     $("act-hold").value = i.activation.hold_ms;
     $("act-bounce").value = i.activation.bounce_count;
@@ -81,13 +85,13 @@
     i.gaze.connected = $("gaze-connected").checked;
     i.gaze.x = Number($("gaze-x").value);
     i.gaze.y = Number($("gaze-y").value);
-    i.gaze.confidence = Number($("gaze-conf").value);
+    i.gaze.confidence = state.unknown.gaze ? null : Number($("gaze-conf").value);
     i.gaze.age_ms = intVal($("gaze-age"), 0);
     i.voice.intent = $("voice-intent").value || null;
     i.voice.confidence = Number($("voice-conf").value);
     i.voice.target_ref = $("voice-target").value || null;
     i.activation.kind = $("act-kind").value;
-    i.activation.confidence = Number($("act-conf").value);
+    i.activation.confidence = state.unknown.act ? null : Number($("act-conf").value);
     i.activation.age_ms = intVal($("act-age"), 0);
     i.activation.hold_ms = intVal($("act-hold"), 0);
     i.activation.bounce_count = intVal($("act-bounce"), 0);
@@ -163,6 +167,8 @@
     [["gaze-conf", 2], ["voice-conf", 2], ["act-conf", 2], ["gaze-x", 0], ["gaze-y", 0]].forEach(function (p) {
       $(p[0] + "-out").textContent = Number($(p[0]).value).toFixed(p[1]);
     });
+    if (state.unknown.gaze) $("gaze-conf-out").textContent = "unknown";
+    if (state.unknown.act) $("act-conf-out").textContent = "unknown";
   }
 
   function renderDesktop(live) {
@@ -187,10 +193,11 @@
     var desc;
     if (!g.connected) desc = "Gaze sensor disconnected.";
     else desc = "Gaze at (" + g.x + ", " + g.y + ") over " + (R.windowAt(FX.desktop, g.x, g.y) ? label(R.windowAt(FX.desktop, g.x, g.y)) : "no window") +
-      ", confidence " + g.confidence.toFixed(2) + ", age " + g.age_ms + " ms" +
+      ", confidence " + (g.confidence === null ? "unknown" : g.confidence.toFixed(2)) + ", age " + g.age_ms + " ms" +
       (live.stages.gaze.status === "fail" ? " (unusable: " + live.stages.gaze.note + ")" : "") + ".";
     $("gaze-readout").textContent = desc;
-    $("desktop").setAttribute("aria-label", "Simulated desktop with Notes, Terminal and Mail windows. " + desc);
+    var names = FX.desktop.windows.map(function (w) { return w.label; });
+    $("desktop").setAttribute("aria-label", "Simulated desktop with " + names.slice(0, -1).join(", ") + " and " + names[names.length - 1] + " windows. " + desc);
   }
 
   function stageMeta(s) {
@@ -363,6 +370,9 @@
     buildDesktop();
 
     $("scenario").addEventListener("change", function () { loadScenario($("scenario").value); });
+    // Registered before the generic handlers below, so moving a slider clears "unknown" first.
+    $("gaze-conf").addEventListener("input", function () { state.unknown.gaze = false; });
+    $("act-conf").addEventListener("input", function () { state.unknown.act = false; });
     ["gaze-connected", "gaze-x", "gaze-y", "gaze-conf", "gaze-age", "voice-intent", "voice-conf", "voice-target",
       "act-kind", "act-conf", "act-age", "act-hold", "act-bounce", "act-bounce-gap"].forEach(function (id) {
       $(id).addEventListener("input", onControlChange);

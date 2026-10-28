@@ -133,6 +133,83 @@ def _validate_timeline(sid: str, sc: dict[str, Any], errors: list[str]) -> None:
         errors.append(f"{sid}: decision_at_ms {at!r} must be an int >= the last event")
 
 
+EVENT_SOURCES = {"system", "gaze", "voice", "activation"}
+ID_PATTERN = re.compile(r"^[a-z0-9_]+$")
+
+
+def _in_range(value: Any, low: float, high: float) -> bool:
+    return _is_num(value) and low <= value <= high
+
+
+def _validate_structure(doc: dict[str, Any], errors: list[str]) -> None:
+    """Ranges, enums, id pattern and references: what the JSON Schema says, since it is never executed."""
+    kinds = {k.get("id") for k in doc.get("activation_kinds", [])}
+    extra = set((doc.get("thresholds", {}).get("activation_min_confidence") or {})) - (kinds - {"none"})
+    if extra:
+        errors.append(f"thresholds.activation_min_confidence names unknown kinds {sorted(extra)}")
+    seen_windows: set[Any] = set()
+    for w in doc.get("desktop", {}).get("windows", []):
+        if w.get("id") in seen_windows:
+            errors.append(f"window {w.get('id')!r}: duplicate id")
+        seen_windows.add(w.get("id"))
+        rect = w.get("rect", {})
+        for key in ("x", "y", "w", "h"):
+            if not _in_range(rect.get(key), 0, 100):
+                errors.append(f"window {w.get('id')!r}: rect.{key} {rect.get(key)!r} must be a number in [0, 100]")
+
+
+def _validate_scenario_structure(sid: str, sc: dict[str, Any], doc: dict[str, Any], errors: list[str]) -> None:
+    window_ids = {w.get("id") for w in doc.get("desktop", {}).get("windows", [])}
+    intent_ids = {i.get("id") for i in doc.get("intents", [])}
+    kinds = {k.get("id") for k in doc.get("activation_kinds", [])}
+    if not isinstance(sc.get("id"), str) or not ID_PATTERN.match(sc["id"]):
+        errors.append(f"{sid}: id must match ^[a-z0-9_]+$")
+    if not isinstance(sc.get("negative_example"), bool):
+        errors.append(f"{sid}: negative_example must be a boolean")
+    mods = sc.get("modality")
+    if isinstance(mods, list) and len(mods) != len(set(mods)):
+        errors.append(f"{sid}: modality has duplicates")
+    intended = sc.get("intended_target")
+    if intended is not None and intended not in window_ids:
+        errors.append(f"{sid}: intended_target {intended!r} is not a window id")
+    for event in sc.get("timeline", []):
+        if event.get("source") not in EVENT_SOURCES:
+            errors.append(f"{sid}: timeline source {event.get('source')!r} not one of {sorted(EVENT_SOURCES)}")
+        if not isinstance(event.get("event"), str) or not event["event"]:
+            errors.append(f"{sid}: timeline event needs a name")
+
+    inputs = sc.get("inputs", {})
+    gaze, voice, act = inputs.get("gaze", {}), inputs.get("voice", {}), inputs.get("activation", {})
+    if not isinstance(inputs.get("emergency_stop"), bool):
+        errors.append(f"{sid}: inputs.emergency_stop must be a boolean")
+    for stream, keys in (
+        ("gaze", ("connected", "x", "y", "confidence", "age_ms", "quality")),
+        ("voice", ("intent", "confidence", "target_ref")),
+        ("activation", ("kind", "confidence", "age_ms", "hold_ms", "bounce_count", "bounce_gap_ms", "quality")),
+    ):
+        for key in keys:
+            if key not in inputs.get(stream, {}):
+                errors.append(f"{sid}: inputs.{stream}.{key} is missing")
+    if not isinstance(gaze.get("connected"), bool):
+        errors.append(f"{sid}: inputs.gaze.connected must be a boolean")
+    for axis in ("x", "y"):
+        if not _in_range(gaze.get(axis), 0, 100):
+            errors.append(f"{sid}: inputs.gaze.{axis} {gaze.get(axis)!r} must be a number in [0, 100]")
+    if voice.get("intent") is not None and voice.get("intent") not in intent_ids:
+        errors.append(f"{sid}: inputs.voice.intent {voice.get('intent')!r} is not a known intent")
+    if voice.get("target_ref") is not None and voice.get("target_ref") not in window_ids:
+        errors.append(f"{sid}: inputs.voice.target_ref {voice.get('target_ref')!r} is not a window id")
+    if act.get("kind") not in kinds:
+        errors.append(f"{sid}: inputs.activation.kind {act.get('kind')!r} is not a known activation kind")
+    count, gap = act.get("bounce_count"), act.get("bounce_gap_ms")
+    if not _is_int(count) or count < 0:
+        errors.append(f"{sid}: inputs.activation.bounce_count {count!r} must be a non-negative int")
+    elif count == 0 and gap is not None:
+        errors.append(f"{sid}: bounce_gap_ms must be null when bounce_count is 0")
+    elif count > 0 and (not _is_int(gap) or gap < 0):
+        errors.append(f"{sid}: bounce_gap_ms {gap!r} must be a non-negative int when bounce_count > 0")
+
+
 def validate_fixtures(doc: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     if doc.get("schema_version") != "1.0":
@@ -161,6 +238,7 @@ def validate_fixtures(doc: dict[str, Any]) -> list[str]:
         if not _is_num(value) or not 0 <= value <= 1:
             errors.append(f"{where}: confidence {value!r} not in [0, 1]")
 
+    _validate_structure(doc, errors)
     windows = doc.get("desktop", {}).get("windows", [])
     window_ids = {w.get("id") for w in windows}
     for w in windows:
@@ -206,6 +284,7 @@ def validate_fixtures(doc: dict[str, Any]) -> list[str]:
             errors.append(f"{sid}: missing inputs")
 
         _validate_timeline(sid, sc, errors)
+        _validate_scenario_structure(sid, sc, doc, errors)
 
         inputs = sc.get("inputs", {})
         for stream, keys in (("gaze", ("age_ms",)), ("activation", ("age_ms", "hold_ms"))):
@@ -367,6 +446,48 @@ def _mutated(fixtures: dict[str, Any], fn: Any) -> list[str]:
         ),
         ("missing intent candidate", lambda d: d["scenarios"][0]["expected"].pop("intent"), "expected.intent"),
         ("window without trusted flag", lambda d: d["desktop"]["windows"][0].pop("trusted"), "trusted must be"),
+        ("gaze x out of range", lambda d: d["scenarios"][0]["inputs"]["gaze"].update(x=150), "inputs.gaze.x"),
+        ("rect wider than the desktop", lambda d: d["desktop"]["windows"][0]["rect"].update(w=200), "rect.w"),
+        ("duplicate window id", lambda d: d["desktop"]["windows"][1].update(id="notes"), "duplicate id"),
+        ("unknown timeline source", lambda d: d["scenarios"][0]["timeline"][1].update(source="bogus"), "timeline source"),
+        ("negative bounce count", lambda d: d["scenarios"][0]["inputs"]["activation"].update(bounce_count=-1), "bounce_count"),
+        (
+            "negative bounce gap",
+            lambda d: d["scenarios"][0]["inputs"]["activation"].update(bounce_count=1, bounce_gap_ms=-5),
+            "bounce_gap_ms",
+        ),
+        (
+            "bounce gap with no bounce",
+            lambda d: d["scenarios"][0]["inputs"]["activation"].update(bounce_gap_ms=40),
+            "must be null when bounce_count is 0",
+        ),
+        (
+            "bounce without a gap",
+            lambda d: d["scenarios"][0]["inputs"]["activation"].update(bounce_count=2),
+            "bounce_gap_ms",
+        ),
+        ("bad scenario id", lambda d: d["scenarios"][0].update(id="Bad Id"), "id must match"),
+        ("negative_example not a bool", lambda d: d["scenarios"][0].update(negative_example="no"), "negative_example"),
+        ("duplicate modality", lambda d: d["scenarios"][0]["modality"].append(d["scenarios"][0]["modality"][0]), "duplicates"),
+        (
+            "threshold for an unknown kind",
+            lambda d: d["thresholds"]["activation_min_confidence"].update(telepathy=0.5),
+            "unknown kinds",
+        ),
+        ("missing emergency_stop", lambda d: d["scenarios"][0]["inputs"].pop("emergency_stop"), "emergency_stop"),
+        ("missing bounce_count", lambda d: d["scenarios"][0]["inputs"]["activation"].pop("bounce_count"), "bounce_count"),
+        (
+            "voice names a window that does not exist",
+            lambda d: d["scenarios"][0]["inputs"]["voice"].update(target_ref="nonexistent"),
+            "target_ref",
+        ),
+        ("intended target that does not exist", lambda d: d["scenarios"][0].update(intended_target="nowhere"), "intended_target"),
+        ("unknown spoken intent", lambda d: d["scenarios"][0]["inputs"]["voice"].update(intent="telepathy"), "known intent"),
+        (
+            "unknown activation kind",
+            lambda d: d["scenarios"][0]["inputs"]["activation"].update(kind="telepathy"),
+            "known activation kind",
+        ),
         (
             "ambiguity margin out of range",
             lambda d: d["thresholds"].update(ambiguity_margin_pct=250),
@@ -572,6 +693,18 @@ def test_resolver_unit_tests_pass_under_node() -> None:
         check=False,
     )
     assert proc.returncode == 0, proc.stdout + proc.stderr
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
+@pytest.mark.timeout(60)
+def test_the_page_renders_every_scenario_under_a_stub_dom() -> None:
+    node = shutil.which("node")
+    assert node is not None
+    proc = subprocess.run(  # noqa: S603 -- fixed argv, no shell
+        [node, "--test", str(LAB / "ui.test.js")],
+        cwd=ROOT, capture_output=True, text=True, encoding="utf-8", timeout=50, check=False,
+    )
+    assert proc.returncode == 0, proc.stdout[-3000:] + proc.stderr[-1000:]
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")

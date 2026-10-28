@@ -19,8 +19,9 @@
  * Order of evaluation. The first rule that fires decides; later rules never override it.
  *   1  stop intent or emergency stop          -> stop           (always wins)
  *   2  no activation (kind "none")            -> abstain
- *   3  activation invalid                     -> abstain        (low confidence, stale,
- *        EMG hold shorter than emg_min_hold_ms, blink repeated inside blink_refractory_ms)
+ *   3  activation invalid                     -> abstain        (unknown kind, low or unknown
+ *        confidence, stale, EMG hold shorter than emg_min_hold_ms, blink repeated inside
+ *        blink_refractory_ms or repeated with an unknown gap)
  *   4  target resolution
  *        voice names a target, gaze unusable          -> use the named target (voice-only)
  *        voice names a target, gaze on another window -> abstain (conflicting modalities)
@@ -28,6 +29,7 @@
  *        no named target, gaze unusable               -> abstain (use keyboard/voice fallback)
  *        no named target, gaze on no window           -> abstain
  *        no named target, gaze usable                 -> the gazed window
+ *        a named target that is not a window         -> abstain (unknown window)
  *        target window has trusted:false              -> abstain (untrusted target)
  *        target came from gaze alone and the gaze point is within
  *          ambiguity_margin_pct of another window     -> abstain (ambiguous target)
@@ -130,7 +132,11 @@
     }
     var conf = num(a.confidence, 0);
     var min = (th.activation_min_confidence || {})[kind];
-    if (typeof min !== "number") min = 1;
+    if (typeof min !== "number") {
+      // A kind the configuration does not know has no confidence bar to clear, so it can never pass.
+      out.reasons.push("Unknown activation kind '" + kind + "'.");
+      return out;
+    }
     if (a.confidence === null) {
       out.reasons.push("Activation confidence is unknown.");
     } else if (conf < min) {
@@ -142,11 +148,15 @@
     if (kind === "emg_hold" && num(a.hold_ms, 0) < th.emg_min_hold_ms) {
       out.reasons.push("EMG hold lasted " + num(a.hold_ms, 0) + " ms; at least " + th.emg_min_hold_ms + " ms is required.");
     }
-    if (kind === "blink" && num(a.bounce_count, 0) > 0 && num(a.bounce_gap_ms, Infinity) < th.blink_refractory_ms) {
-      out.reasons.push(
-        "Repeated blink " + num(a.bounce_gap_ms, 0) + " ms after the first (inside the " +
-        th.blink_refractory_ms + " ms refractory window): treated as accidental."
-      );
+    if (kind === "blink" && num(a.bounce_count, 0) > 0) {
+      if (a.bounce_gap_ms === null || a.bounce_gap_ms === undefined) {
+        out.reasons.push("Repeated blink with an unknown gap: treated as accidental.");
+      } else if (num(a.bounce_gap_ms, Infinity) < th.blink_refractory_ms) {
+        out.reasons.push(
+          "Repeated blink " + num(a.bounce_gap_ms, 0) + " ms after the first (inside the " +
+          th.blink_refractory_ms + " ms refractory window): treated as accidental."
+        );
+      }
     }
     out.valid = out.reasons.length === 0;
     return out;
@@ -206,7 +216,10 @@
     }
 
     var targetWindow = windowById(desktop, target);
-    if (targetWindow && targetWindow.trusted === false) {
+    if (!targetWindow) {
+      return done("abstain", null, ["'" + target + "' is not a window on this desktop, so no action is proposed."]);
+    }
+    if (targetWindow.trusted === false) {
       return done("abstain", null, [
         windowLabel(desktop, target) + " is not a trusted window, so no action is proposed on it.",
       ]);
@@ -272,7 +285,7 @@
       label: "Gaze",
       status: gStatus,
       value: gValue,
-      confidence: g.connected ? num(g.confidence, 0) : null,
+      confidence: g.connected && g.confidence !== null ? num(g.confidence, 0) : null,
       age_ms: g.connected ? num(g.age_ms, 0) : null,
       freshness: g.connected ? freshness(num(g.age_ms, 0), th) : "n/a",
       note: gaze.reason,
@@ -295,7 +308,7 @@
       label: "Activation",
       status: aStatus,
       value: act.kind,
-      confidence: act.missing ? null : num(a.confidence, 0),
+      confidence: act.missing || a.confidence === null ? null : num(a.confidence, 0),
       age_ms: act.missing ? null : num(a.age_ms, 0),
       freshness: act.missing ? "n/a" : freshness(num(a.age_ms, 0), th),
       note: act.missing || act.valid ? "" : act.reasons.join(" "),
