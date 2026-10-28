@@ -248,6 +248,84 @@ def test_cleanup_of_a_missing_path_is_a_quiet_false(tmp_path: Path) -> None:
     assert V.safe_cleanup(tmp_path / "missing.wav", tmp_path) is False
 
 
+# --- the duration is read from the header, before anything is decoded -------------------
+
+
+def _write_silent_flac(path: Path, seconds: int, rate: int = 16000) -> Path:
+    av = pytest.importorskip("av")
+    np = pytest.importorskip("numpy")
+    with av.open(str(path), "w") as out:
+        stream = out.add_stream("flac", rate=rate)
+        stream.layout = "mono"
+        for i in range(seconds):
+            frame = av.AudioFrame.from_ndarray(np.zeros((1, rate), dtype=np.int16), format="s16", layout="mono")
+            frame.sample_rate = rate
+            frame.pts = i * rate
+            for packet in stream.encode(frame):
+                out.mux(packet)
+        for packet in stream.encode(None):
+            out.mux(packet)
+    return path
+
+
+def test_a_short_flac_declares_its_length_and_is_accepted(tmp_path: Path) -> None:
+    clip = _write_silent_flac(tmp_path / "short.flac", 3)
+    declared = V.container_duration_seconds(clip)
+    assert declared == pytest.approx(3.0, abs=0.05)
+    assert V.check_declared_duration(declared, clip.stat().st_size) == (True, "")
+
+
+def test_an_hour_of_silence_in_a_tiny_flac_is_refused_without_decoding_it(tmp_path: Path) -> None:
+    # The shape the security review found: a 25 MB cap does not bound a compressed file's length.
+    clip = _write_silent_flac(tmp_path / "hour.flac", 3600)
+    assert clip.stat().st_size < 1024 * 1024, "the file is tiny, so the size cap alone cannot catch it"
+    assert V.check_upload(clip) == (True, "")
+    declared = V.container_duration_seconds(clip)
+    assert declared == pytest.approx(3600.0, abs=1.0)
+    ok, message = V.check_declared_duration(declared, clip.stat().st_size)
+    assert ok is False and "3600 seconds" in message
+
+
+def test_an_unreadable_or_missing_file_has_no_declared_length(tmp_path: Path) -> None:
+    junk = tmp_path / "junk.flac"
+    junk.write_bytes(b"this is not audio" * 100)
+    assert V.container_duration_seconds(junk) is None
+    assert V.container_duration_seconds(tmp_path / "missing.flac") is None
+
+
+def test_without_pyav_the_length_is_unknown_not_an_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import sys
+
+    monkeypatch.setitem(sys.modules, "av", None)  # makes `import av` raise ImportError
+    assert V.container_duration_seconds(tmp_path / "x.flac") is None
+
+
+@pytest.mark.parametrize(
+    ("seconds", "size", "ok"),
+    [
+        (5.0, 10_000_000, True),
+        (V.MAX_DURATION_SECONDS, 10_000_000, True),
+        (V.MAX_DURATION_SECONDS + 0.1, 100, False),
+        (0.0, 100, False),
+        (None, V.MAX_UNKNOWN_DURATION_BYTES, True),
+        (None, V.MAX_UNKNOWN_DURATION_BYTES + 1, False),
+        (None, 100, True),
+    ],
+)
+def test_the_declared_duration_gate(seconds: float | None, size: int, ok: bool) -> None:
+    assert V.check_declared_duration(seconds, size)[0] is ok
+
+
+def test_the_app_checks_the_header_before_it_loads_the_model_or_decodes() -> None:
+    source = (SPACE / "app.py").read_text(encoding="utf-8")
+    body = source[source.index("def transcribe(") :]
+    probe = body.index("container_duration_seconds(")
+    gate = body.index("check_declared_duration(")
+    load = body.index("_get_model()")
+    decode = body.index("model.transcribe(")
+    assert probe < gate < load < decode
+
+
 # --- the decoder, on a synthetic clip, when the stack and the model are present ----------
 
 

@@ -100,6 +100,14 @@ def test_validate_has_no_secrets_environment_or_write_permission() -> None:
     assert "secrets" not in json.dumps(validate)
 
 
+def test_the_job_that_can_request_the_oidc_token_pins_uv_exactly() -> None:
+    installs = [s for s in _publish_steps() if str(s.get("uses", "")).endswith("setup-uv-python")]
+    assert installs, "the publish job must install its dependencies through the composite action"
+    for step in installs:
+        version = str(step.get("with", {}).get("uv-version", ""))
+        assert re.fullmatch(r"\d+\.\d+\.\d+", version), f"uv is not pinned to an exact version: {version!r}"
+
+
 def test_publishing_is_serialised_and_never_cancelled() -> None:
     conc = DOC["concurrency"]
     assert conc["cancel-in-progress"] is False

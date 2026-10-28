@@ -132,10 +132,16 @@ jobs:
       # huggingface-hub (the `hf` CLI, >= 1.19.0 for OIDC) arrives through faster-whisper
       # and is pinned by uv.lock. Installing from the lock keeps the code that holds the
       # OIDC token hash-locked. The project itself is not installed.
+      #
+      # uv itself is pinned here, unlike the repository's other jobs (which follow `latest`,
+      # CI_POLICY.md section 8): this is the one job that can obtain the OIDC token, so the
+      # binary that installs its dependencies must not change underneath it. 0.13.6 is the
+      # version `latest` resolved to in CI when this was written. Bump it on purpose.
       - name: Install uv and dependencies
         uses: ./.github/actions/setup-uv-python
         with:
           python-version: "3.12"
+          uv-version: "0.13.6"
           sync-args: --frozen --no-install-project
 
       - name: Re-validate and stage exactly the allowlisted files

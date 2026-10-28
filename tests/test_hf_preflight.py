@@ -333,6 +333,103 @@ def test_a_symlink_is_rejected(tmp_path, capsys) -> None:
     assert "symlink" in _failures(err)
 
 
+def _tree_with_a_linked_directory(tmp_path, entries):
+    """showcase/linked -> ../../paper/results, which holds a file that must never be uploaded."""
+    root = tmp_path / "repo"
+    manifest, files = _with({"index.html": "<p>ok</p>"}, entries)
+    _write_tree(root, files)
+    (root / "paper/results").mkdir(parents=True)
+    (root / "paper/results/keys.txt").write_text("not for the Hub", encoding="utf-8")
+    (root / "paper/results/private.csv").write_text("a,b\n1,2\n", encoding="utf-8")
+    try:
+        (root / "huggingface/showcase/linked").symlink_to("../../paper/results", target_is_directory=True)
+    except OSError:
+        pytest.skip("symlinks unavailable")
+    return manifest, files
+
+
+@pytest.mark.parametrize("entries", [["index.html", "*/keys.txt"], ["index.html", "linked/private.csv"], ["index.html", "linked/"]])
+def test_a_symlinked_directory_is_never_followed_by_any_allowlist_form(tmp_path, capsys, entries) -> None:
+    manifest, files = _tree_with_a_linked_directory(tmp_path, entries)
+    code, err = _run(tmp_path, manifest, files, capsys=capsys)
+    assert code == 1, err
+    assert "symlink" in _failures(err)
+
+
+def test_a_symlinked_parent_above_source_dir_is_rejected(tmp_path, capsys) -> None:
+    root = tmp_path / "repo"
+    manifest, files = _with({"index.html": "<p>ok</p>"}, ["index.html"])
+    other = tmp_path / "elsewhere" / "showcase"
+    other.mkdir(parents=True)
+    (other / "index.html").write_text("<p>ok</p>", encoding="utf-8")
+    (root / "huggingface").mkdir(parents=True)
+    try:
+        (root / "huggingface/showcase").symlink_to(other, target_is_directory=True)
+    except OSError:
+        pytest.skip("symlinks unavailable")
+    code, err = _run(tmp_path, manifest, files, capsys=capsys)
+    assert code == 1
+    assert "not a directory in the working tree" in _failures(err) or "symlink" in _failures(err)
+
+
+def _leak_labels(data: bytes) -> list[str]:
+    return [label for label, pattern in pf.LEAK_PATTERNS if pattern.search(data)]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        b"OPENAI_API_KEY=abcdefghijklmnopqrstuvwx",
+        b'{"api_key": "abcdefghijklmnopqrstuvwx"}',
+        b"SECRET_KEY=abcdefghijklmnopqrstuvwx",
+        b"AWS_SECRET_ACCESS_KEY=abcdefghijklmnopqrstuvwxyz0123",
+        b"client_secret: abcdefghijklmnopqrstuvwx",
+        b"cd /home/mohsen",
+        b"x@E4Company.com",
+        b"x@UNIBO.IT",
+        b"eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abcdefghijklmnop",
+        b"npm_" + b"a" * 36,
+        b"pypi-" + b"A" * 40,
+        b"AIza" + b"A" * 35,
+        b"postgres://user:hunter2pass@db/x",
+        b"-----BEGIN PGP PRIVATE KEY BLOCK-----",
+        b"-----BEGIN OPENSSH PRIVATE KEY-----",
+    ],
+)
+def test_the_leak_scanner_catches_the_common_forms(text: bytes) -> None:
+    assert _leak_labels(text), text
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        b"HF_TOKEN is read from the environment, never from a file",
+        b"export HF_TOKEN=<your token>",
+        b"the token: expires after an hour",
+        b"/home/runner/work/yazses",
+        b"/home/user/project",
+        b"C:\\Users\\you\\x\\",
+        b"password: set one in the settings page",
+        b"https://huggingface.co/mskazemi/yazses",
+        b"git@github.com:MSKazemi/yazses.git",
+        b"ssh://git@host:22/repo",
+        b"api_key = os.environ['KEY']",
+        b"token_present: Callable[[], bool] = default_token_present",
+        b"max_tokens: 4096",
+    ],
+)
+def test_the_leak_scanner_leaves_ordinary_prose_and_code_alone(text: bytes) -> None:
+    assert _leak_labels(text) == [], text
+
+
+@pytest.mark.parametrize("name", ["credentials.json", "secrets.txt", "Token.json", "id_rsa.txt", "password.csv", "api_key.json"])
+def test_a_file_named_like_a_credential_is_never_uploaded(tmp_path, capsys, name) -> None:
+    manifest, files = _with({"index.html": "<p>ok</p>", name: "{}"}, ["index.html", name])
+    code, err = _run(tmp_path, manifest, files, capsys=capsys)
+    assert code == 1
+    assert "named like a credential" in _failures(err)
+
+
 def test_an_allowlist_entry_matching_nothing_is_rejected(tmp_path, capsys) -> None:
     manifest, files = _with({}, ["data/*.csv", "missing.html"])
     code, err = _run(tmp_path, manifest, files, capsys=capsys)

@@ -1,8 +1,10 @@
 """Pure checks for the hosted YazSes demo: upload validation, duration bounds,
 transcript formatting and temp-file cleanup.
 
-Standard library only, so the Space's logic can be unit-tested on any machine
-without gradio, faster-whisper or a GPU. `app.py` owns the model and the UI.
+Standard library only at import time, so the Space's logic can be unit-tested on any
+machine without gradio, faster-whisper or a GPU. The one exception is the header probe,
+which imports PyAV (it ships with faster-whisper) lazily and treats its absence as "length
+unknown". `app.py` owns the model and the UI.
 """
 
 from __future__ import annotations
@@ -26,6 +28,13 @@ MAX_FILE_BYTES = 25 * 1024 * 1024
 #: to 120 s would need the decode to be 2x faster than that measurement to stay safe,
 #: and the Space's own hardware has not been measured, so the cap stays at 60 s.
 MAX_DURATION_SECONDS = 60.0
+
+#: A file whose container does not declare its length (a browser-recorded WebM often does
+#: not) is accepted only if it is small. Compressed audio of silence can be tiny, so the size
+#: bounds the worst case only roughly: at the lowest bitrates this still allows a few hours,
+#: or a few hundred MB of decoded float samples, rather than the tens of GB that the 25 MB
+#: cap alone would allow.
+MAX_UNKNOWN_DURATION_BYTES = 512 * 1024
 
 #: Container/codec extensions the decoder (PyAV via faster-whisper) is expected to read.
 ALLOWED_EXTENSIONS = frozenset({".wav", ".flac", ".mp3", ".ogg", ".m4a", ".webm"})
@@ -94,6 +103,44 @@ def wav_duration_seconds(path: str | os.PathLike[str]) -> float | None:
             return handle.getnframes() / rate
     except (wave.Error, EOFError, OSError):
         return None
+
+
+def container_duration_seconds(path: str | os.PathLike[str]) -> float | None:
+    """The length a container *declares*, read from its header without decoding, or ``None``.
+
+    This is what lets `app.py` refuse an over-long FLAC, MP3, OGG, M4A or WebM before
+    `faster-whisper` decodes the whole file into memory (it does that before it returns
+    any duration). ``None`` means the container does not say, or PyAV is not installed.
+    """
+    try:
+        import av
+    except ImportError:
+        return None
+    try:
+        with av.open(str(path)) as container:
+            microseconds = container.duration
+    except Exception:  # noqa: BLE001 - an unreadable file is "unknown", decided by the caller
+        return None
+    if microseconds is None or microseconds <= 0:
+        return None
+    return microseconds / 1_000_000
+
+
+def check_declared_duration(seconds: float | None, size_bytes: int) -> tuple[bool, str]:
+    """Decide from the header alone, before any decode, whether a recording may be decoded.
+
+    A declared length goes through `check_duration`. An undeclared one is allowed only for a
+    file no larger than `MAX_UNKNOWN_DURATION_BYTES`; anything bigger is refused because there
+    is no way to bound what decoding it would take.
+    """
+    if seconds is not None:
+        return check_duration(seconds)
+    if size_bytes > MAX_UNKNOWN_DURATION_BYTES:
+        return False, (
+            "Could not determine how long that recording is before decoding it, and the file is "
+            f"too large to try. Trim it to under {MAX_DURATION_SECONDS:.0f} seconds and try again."
+        )
+    return True, ""
 
 
 def format_transcript(segment_texts: list[str]) -> str:

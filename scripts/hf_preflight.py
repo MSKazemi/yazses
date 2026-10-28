@@ -66,6 +66,11 @@ DEFAULT_MANIFEST = REPO_ROOT / "huggingface" / "manifest.json"
 UPLOAD_ROOT = "huggingface"
 #: Under UPLOAD_ROOT, these are reference copy and are never uploaded.
 NEVER_UPLOAD = ("huggingface/profile",)
+#: A file whose name (without its suffix) says it holds credentials is never uploaded, whatever is in it.
+FORBIDDEN_NAME_STEMS = frozenset(
+    {"credential", "credentials", "secret", "secrets", "token", "tokens", "password", "passwords", "passwd",
+     "id_rsa", "id_ed25519", "id_ecdsa", "private", "apikey", "api_key", "api-key"}
+)  # fmt: skip
 #: A path segment that can never appear in an uploaded path, or in a source directory.
 FORBIDDEN_SEGMENTS = frozenset(
     {
@@ -153,30 +158,38 @@ LEAK_PATTERNS: tuple[tuple[str, re.Pattern[bytes]], ...] = (
     ("sk- style API key", re.compile(rb"\bsk-[A-Za-z0-9_-]{20,}")),
     ("AWS access key id", re.compile(rb"\bAKIA[0-9A-Z]{16}\b")),
     ("Slack token", re.compile(rb"xox[abprs]-[A-Za-z0-9-]{10,}")),
-    ("private key block", re.compile(rb"-----BEGIN [A-Z ]*PRIVATE KEY-----")),
+    ("private key block", re.compile(rb"-----BEGIN [A-Z ]*PRIVATE KEY(?: BLOCK)?-----")),
+    ("JSON web token", re.compile(rb"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}")),
+    ("npm token", re.compile(rb"\bnpm_[A-Za-z0-9]{30,}")),
+    ("PyPI token", re.compile(rb"\bpypi-[A-Za-z0-9_-]{30,}")),
+    ("Google API key", re.compile(rb"\bAIza[0-9A-Za-z_-]{35}")),
+    ("credentials in a URL", re.compile(rb"\b[a-z][a-z0-9+.-]*://[^/\s:@]+:[^/\s@]+@")),
     (
         "bearer credential",
         re.compile(rb"(?i)authorization:\s*bearer\s+[A-Za-z0-9._-]{16,}"),
     ),
     (
         "secret assignment",
+        # Any name that contains one of these words (OPENAI_API_KEY, SECRET_KEY, client_secret,
+        # AWS_SECRET_ACCESS_KEY, a quoted JSON key), followed by a 16-character value with no spaces.
         re.compile(
-            rb"(?i)\b(?:HF_TOKEN|HUGGING_?FACE_HUB_TOKEN|API_KEY|PASSWORD|SECRET)"
-            rb"\s*[:=]\s*['\"]?[A-Za-z0-9_\-]{16,}"
+            rb"(?i)(?<![A-Za-z0-9])[A-Za-z0-9_-]*"
+            rb"(?:API[_-]?KEY|SECRET|TOKEN|PASSWORD|PASSWD|ACCESS[_-]?KEY|PRIVATE[_-]?KEY)"
+            rb"[A-Za-z0-9_-]*['\"]?\s*[:=]\s*['\"]?[A-Za-z0-9_\-./+=]{16,}"
         ),
     ),
     (
         "home-directory path",
         re.compile(
-            rb"(?:/home|/Users)/(?!user\b|username\b|you\b|yourname\b|name\b|runner\b|yazses\b)"
-            rb"[A-Za-z_][A-Za-z0-9._-]*/"
+            rb"(?:/home|/Users)/(?!(?:user|username|you|yourname|name|runner|yazses)\b)"
+            rb"[A-Za-z_][A-Za-z0-9._-]*"
         ),
     ),
     (
         "Windows user path",
         re.compile(rb"[A-Za-z]:\\Users\\(?!user\b|username\b|you\b)[A-Za-z_][^\\\s]*\\"),
     ),
-    ("work or legacy mailbox", re.compile(rb"@e4company\.com|@(?:[a-z0-9-]+\.)?unibo\.it")),
+    ("work or legacy mailbox", re.compile(rb"(?i)@e4company\.com|@(?:[a-z0-9-]+\.)?unibo\.it")),
 )
 
 
@@ -575,11 +588,25 @@ def _glob_to_regex(pattern: str) -> re.Pattern[str]:
     return re.compile("^" + "".join(out) + "$")
 
 
+def symlink_on_path(base: Path, path: Path) -> str | None:
+    """The first component of `path` below `base` that is a symlink, as a POSIX path, or None.
+
+    Checking only the final component is not enough: `glob("*/x")` and a plain `dir/x` both follow a
+    symlinked parent directory, so a link planted in the tree could stage files from anywhere.
+    """
+    current = base
+    for part in path.relative_to(base).parts:
+        current = current / part
+        if current.is_symlink():
+            return current.relative_to(base).as_posix()
+    return None
+
+
 def resolve_files(root: Path, name: str, dest: dict, report: Report) -> list[str]:
     """Allowlist -> sorted list of POSIX paths relative to source_dir. Reports problems."""
     where = f"destination {name}"
     source = root / dest["source_dir"]
-    if source.is_symlink() or not source.is_dir():
+    if symlink_on_path(root, source) is not None or not source.is_dir():
         report.error(where, f"source_dir {dest['source_dir']} is not a directory in the working tree")
         return []
     found: set[str] = set()
@@ -587,8 +614,10 @@ def resolve_files(root: Path, name: str, dest: dict, report: Report) -> list[str
 
     def add_file(path: Path) -> None:
         rel = path.relative_to(source).as_posix()
-        if path.is_symlink():
-            report.error(where, f"{rel} is a symlink; links are never uploaded")
+        link = symlink_on_path(source, path)
+        if link is not None:
+            via = "" if link == rel else f" (through the symlink {link})"
+            report.error(where, f"{rel} is a symlink{via}; links are never uploaded")
             return
         if path.is_file():
             found.add(rel)
@@ -599,7 +628,11 @@ def resolve_files(root: Path, name: str, dest: dict, report: Report) -> list[str
         errors_before = len(report.errors)
         if entry.endswith("/"):
             base = source / entry.rstrip("/")
-            if base.is_symlink() or not base.is_dir():
+            link = symlink_on_path(source, base)
+            if link is not None:
+                report.error(where, f"allowlisted directory {entry} is, or sits under, the symlink {link}; links are never uploaded")
+                continue
+            if not base.is_dir():
                 report.error(where, f"allowlisted directory {entry} does not exist")
                 continue
             for dirpath, dirnames, filenames in os.walk(base, followlinks=False):
@@ -657,6 +690,8 @@ def check_paths_and_sizes(
             report.error(where, f"{full}: forbidden path segment(s) {sorted(bad)}")
         if any(p.startswith(".") for p in parts):
             report.error(where, f"{full}: dotfiles are never uploaded")
+        if posixpath.splitext(parts[-1])[0].lower() in FORBIDDEN_NAME_STEMS:
+            report.error(where, f"{full}: a file named like a credential is never uploaded")
         suffix = posixpath.splitext(parts[-1])[1].lower()
         size = (source / rel).stat().st_size
         total += size

@@ -27,6 +27,8 @@ hosting platform and Gradio's temporary upload cache are outside this file; the 
 is swept by the `delete_cache` setting below.
 """
 
+import os
+
 import gradio as gr
 import spaces
 from faster_whisper import WhisperModel
@@ -34,8 +36,10 @@ from validation import (
     ALLOWED_EXTENSIONS,
     MAX_DURATION_SECONDS,
     MAX_FILE_BYTES,
+    check_declared_duration,
     check_duration,
     check_upload,
+    container_duration_seconds,
     format_transcript,
     wav_duration_seconds,
 )
@@ -84,14 +88,16 @@ def transcribe(audio_path):
     ok, message = check_upload(audio_path)
     if not ok:
         return message
-    # WAV is checked from its header before anything is decoded. Other formats are
-    # checked from the decoder's own duration below, which is available before the
-    # segment loop starts, so an over-long recording is never transcribed.
+    # The length is read from the file's header before anything is decoded: faster-whisper
+    # decodes the whole file into memory before it returns `info.duration`, so a check on
+    # that value alone would run after the cost it exists to prevent. A container that does
+    # not declare its length is accepted only if the file is small.
     duration = wav_duration_seconds(audio_path)
-    if duration is not None:
-        ok, message = check_duration(duration)
-        if not ok:
-            return message
+    if duration is None:
+        duration = container_duration_seconds(audio_path)
+    ok, message = check_declared_duration(duration, os.path.getsize(audio_path))
+    if not ok:
+        return message
     try:
         model = _get_model()
     except Exception:  # noqa: BLE001 - the cause is a server-side fault, not user data
@@ -100,6 +106,7 @@ def transcribe(audio_path):
         segments, info = model.transcribe(
             audio_path, beam_size=BEAM_SIZE, vad_filter=VAD_FILTER
         )
+        # A second, authoritative check on what the decoder actually found.
         ok, message = check_duration(info.duration)
         if not ok:
             return message
