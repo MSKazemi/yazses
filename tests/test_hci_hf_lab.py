@@ -276,6 +276,20 @@ def test_app_files_use_no_device_or_network_api(name: str) -> None:
     assert not hits, f"{name} uses forbidden identifiers: {hits}"
 
 
+EVAL_FILES = ("eval/replay.js", "eval/replay.test.js")
+NONDETERMINISTIC = ("Date.now", "new Date", "Math.random", "performance.now", "process.hrtime")
+NODE_NETWORK_OR_SHELL = ('require("node:http', 'require("http', 'require("node:https', 'require("https',
+                         'require("node:net', 'require("net', "child_process", "node:dgram", "node:dns")
+
+
+@pytest.mark.parametrize("name", EVAL_FILES)
+def test_eval_files_are_offline_and_deterministic(name: str) -> None:
+    text = _read(name)
+    assert not re.findall(r"https?://\S+", text), f"{name} references an external URL"
+    hits = [t for t in FORBIDDEN_IDENTIFIERS + NONDETERMINISTIC + NODE_NETWORK_OR_SHELL if t in text]
+    assert not hits, f"{name} uses forbidden identifiers: {hits}"
+
+
 def test_index_loads_only_local_assets() -> None:
     html = _read("index.html")
     refs = re.findall(r"""<(?:script|link|img)\b[^>]*?\b(?:src|href)=["']([^"']+)["']""", html)
@@ -414,3 +428,28 @@ def test_resolver_unit_tests_pass_under_node() -> None:
         check=False,
     )
     assert proc.returncode == 0, proc.stdout + proc.stderr
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
+@pytest.mark.timeout(60)
+def test_replay_eval_tests_and_cli_pass_under_node() -> None:
+    node = shutil.which("node")
+    assert node is not None
+    tests = subprocess.run(  # noqa: S603 -- fixed argv, no shell
+        [node, "--test", str(LAB / "eval" / "replay.test.js")],
+        cwd=ROOT, capture_output=True, text=True, encoding="utf-8", timeout=25, check=False,
+    )
+    assert tests.returncode == 0, tests.stdout + tests.stderr
+    first = subprocess.run(  # noqa: S603
+        [node, str(LAB / "eval" / "replay.js"), "--json"],
+        cwd=ROOT, capture_output=True, text=True, encoding="utf-8", timeout=25, check=False,
+    )
+    second = subprocess.run(  # noqa: S603
+        [node, str(LAB / "eval" / "replay.js"), "--json"],
+        cwd=ROOT, capture_output=True, text=True, encoding="utf-8", timeout=25, check=False,
+    )
+    assert first.returncode == 0, first.stdout + first.stderr
+    assert first.stdout == second.stdout, "the replay report is not deterministic"
+    report = json.loads(first.stdout)
+    assert report["synthetic"] is True
+    assert report["false_activations_per_hour"]["value"] is None
