@@ -259,6 +259,7 @@ def test_silence_through_the_real_decoder_gives_the_no_speech_message(tmp_path: 
         model = WhisperModel("base.en", device="cpu", compute_type="int8", local_files_only=True)
     except Exception as exc:  # noqa: BLE001 - any failure here means "not cached", skip
         pytest.skip(f"base.en is not in the local Hugging Face cache ({type(exc).__name__})")
+        return
 
     clip = _write_wav(tmp_path / "silence.wav", seconds=2.0)
     segments, info = model.transcribe(str(clip), beam_size=5, vad_filter=True)

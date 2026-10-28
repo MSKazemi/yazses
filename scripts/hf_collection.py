@@ -388,7 +388,7 @@ def main(
     if args.apply and args.offline:
         out("hf_collection: ERROR: --offline cannot be combined with --apply")
         return EXIT_USAGE
-    factory = client_factory or (lambda token, owner: HfApiClient(token, owner))
+    factory = client_factory or HfApiClient
 
     try:
         manifest = load_manifest(args.manifest)

@@ -146,7 +146,7 @@ ITEM_REQUIRED = {"type", "id", "status", "url", "destination", "note", "evidence
 TRUSTED_KEYS = {"provider", "repository", "branch", "workflow", "environment", "docs"}
 
 # (label, compiled bytes regex). Matches are NEVER echoed, only file:line and the label.
-SECRET_PATTERNS: tuple[tuple[str, re.Pattern[bytes]], ...] = (
+LEAK_PATTERNS: tuple[tuple[str, re.Pattern[bytes]], ...] = (
     ("Hugging Face token", re.compile(rb"hf_[A-Za-z0-9]{20,}")),
     ("GitHub token", re.compile(rb"gh[pousr]_[A-Za-z0-9]{30,}")),
     ("GitHub fine-grained token", re.compile(rb"github_pat_[A-Za-z0-9_]{20,}")),
@@ -679,7 +679,7 @@ def check_paths_and_sizes(
         report.error(where, f"upload set is {total} bytes; limit {HARD_MAX_TOTAL_BYTES}")
 
 
-def scan_secrets(root: Path, name: str, dest: dict, files: list[str], report: Report) -> None:
+def scan_for_leaks(root: Path, name: str, dest: dict, files: list[str], report: Report) -> None:
     source = root / dest["source_dir"]
     for rel in files:
         data = (source / rel).read_bytes()
@@ -689,7 +689,7 @@ def scan_secrets(root: Path, name: str, dest: dict, files: list[str], report: Re
                 data.decode("utf-8")
             except UnicodeDecodeError:
                 report.error(f"destination {name}", f"{dest['source_dir']}/{rel}: not valid UTF-8")
-        for label, pattern in SECRET_PATTERNS:
+        for label, pattern in LEAK_PATTERNS:
             for match in pattern.finditer(data):
                 line = data.count(b"\n", 0, match.start()) + 1
                 report.error(
@@ -1126,7 +1126,7 @@ def validate_destination(
     if not files:
         return files
     check_paths_and_sizes(root, name, dest, files, report)
-    scan_secrets(root, name, dest, files, report)
+    scan_for_leaks(root, name, dest, files, report)
     check_card(root, name, dest, files, report)
     check_references(root, name, dest, files, report)
     for extra in unlisted_files(root, dest, files):

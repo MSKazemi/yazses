@@ -311,7 +311,7 @@ def test_sensitive_strings_abort_the_export(repo: Path, label: str) -> None:
     doc["config"]["selection"] = f"see {secret}"
     doc["provenance"] = dict(PROV)
     (results / "wer-toy.json").write_text(
-        json.dumps(doc, default=lambda d: float(d)), encoding="utf-8")
+        json.dumps(doc, default=float), encoding="utf-8")
     with pytest.raises(X.ExportError) as err:
         _build(repo)
     message = str(err.value)
