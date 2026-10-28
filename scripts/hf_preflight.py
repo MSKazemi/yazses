@@ -268,17 +268,17 @@ def validate_schema(manifest: dict, report: Report) -> None:
     if manifest.get("schema_version") != 1:
         report.error("manifest", "schema_version must be 1")
 
-    trusted = manifest.get("trusted_publisher")
-    if not isinstance(trusted, dict):
+    publisher = manifest.get("trusted_publisher")
+    if not isinstance(publisher, dict):
         report.error("trusted_publisher", "missing or not an object")
     else:
-        for key in trusted:
+        for key in publisher:
             if key not in TRUSTED_KEYS:
                 report.error("trusted_publisher", f"unknown key {key!r}")
         for key in ("provider", "repository", "branch", "workflow", "environment"):
-            if not _is_str(trusted.get(key)):
+            if not _is_str(publisher.get(key)):
                 report.error("trusted_publisher", f"{key} must be a non-empty string")
-        if trusted.get("provider") != "github-actions":
+        if publisher.get("provider") != "github-actions":
             report.error("trusted_publisher", "provider must be 'github-actions'")
 
     dests = manifest.get("destinations")
