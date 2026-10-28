@@ -129,11 +129,11 @@ def test_publish_needs_validate_and_is_gated_on_main_dry_run_and_the_repository(
 def test_publish_uses_the_approval_environment_named_in_the_manifest() -> None:
     env = JOBS["publish"]["environment"]
     name = env["name"] if isinstance(env, dict) else env
-    assert name == MANIFEST["trusted_publisher"]["environment"] == "huggingface-publish"
+    assert name == MANIFEST["oidc_publisher"]["environment"] == "huggingface-publish"
 
 
-def test_the_trusted_publisher_claims_match_this_workflow() -> None:
-    tp = MANIFEST["trusted_publisher"]
+def test_the_oidc_publisher_claims_match_this_workflow() -> None:
+    tp = MANIFEST["oidc_publisher"]
     assert tp["workflow"] == WORKFLOW.name
     assert tp["branch"] == "main" and tp["provider"] == "github-actions"
     assert tp["repository"] == "MSKazemi/yazses"

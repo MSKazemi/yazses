@@ -40,7 +40,7 @@ name: Publish to Hugging Face
 #      `hf upload` to a missing repo fails by design.
 #   3. On each repository's Settings -> Trusted Publishers, add a GitHub Actions publisher
 #      with claims  repository = MSKazemi/yazses , branch = main ,
-#      workflow = huggingface-publish.yml  (the manifest's `trusted_publisher` block).
+#      workflow = huggingface-publish.yml  (the manifest's `oidc_publisher` block).
 #      Claims are matched exactly. Do this for every destination you will approve.
 #   4. In GitHub: Settings -> Environments -> huggingface-publish, add a required
 #      reviewer, and restrict deployment to the main branch.

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "_comment": "Single source of truth for what YazSes puts on the Hugging Face Hub. Read by scripts/hf_preflight.py, scripts/hf_collection.py and .github/workflows/huggingface-publish.yml. Only the files listed under each destination are ever uploaded. owner_approved stays false until the owner flips it in a reviewed commit; a destination whose repo does not exist yet stays status=planned.",
-  "trusted_publisher": {
+  "oidc_publisher": {
     "provider": "github-actions",
     "repository": "MSKazemi/yazses",
     "branch": "main",

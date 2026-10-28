@@ -62,7 +62,7 @@ def _manifest(**dests: dict) -> dict:
     dests = dests or {"showcase": _dest()}
     return {
         "schema_version": 1,
-        "trusted_publisher": {
+        "oidc_publisher": {
             "provider": "github-actions", "repository": "acme/repo", "branch": "main",
             "workflow": "huggingface-publish.yml", "environment": "huggingface-publish",
         },

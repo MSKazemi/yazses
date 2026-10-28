@@ -135,7 +135,7 @@ _REPO_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$"
 _PUBLISHER = re.compile(r"^[a-z0-9][a-z0-9-]{2,63}$")
 _OWNER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
-TOP_KEYS = {"schema_version", "_comment", "trusted_publisher", "destinations", "collection"}
+TOP_KEYS = {"schema_version", "_comment", "oidc_publisher", "destinations", "collection"}
 DEST_REQUIRED = {
     "repo_id", "repo_type", "url", "source_dir", "files", "status", "owner_approved",
     "publisher", "delete_remote_files", "max_file_bytes", "required_card_keys",
@@ -143,7 +143,7 @@ DEST_REQUIRED = {
 DEST_OPTIONAL = {"export_check", "audio_fixtures", "card_only"}
 COLLECTION_KEYS = {"owner", "owner_approved", "title", "description", "private", "items"}
 ITEM_REQUIRED = {"type", "id", "status", "url", "destination", "note", "evidence"}
-TRUSTED_KEYS = {"provider", "repository", "branch", "workflow", "environment", "docs"}
+PUBLISHER_KEYS = {"provider", "repository", "branch", "workflow", "environment", "docs"}
 
 # (label, compiled bytes regex). Matches are NEVER echoed, only file:line and the label.
 LEAK_PATTERNS: tuple[tuple[str, re.Pattern[bytes]], ...] = (
@@ -268,18 +268,18 @@ def validate_schema(manifest: dict, report: Report) -> None:
     if manifest.get("schema_version") != 1:
         report.error("manifest", "schema_version must be 1")
 
-    publisher = manifest.get("trusted_publisher")
+    publisher = manifest.get("oidc_publisher")
     if not isinstance(publisher, dict):
-        report.error("trusted_publisher", "missing or not an object")
+        report.error("oidc_publisher", "missing or not an object")
     else:
         for key in publisher:
-            if key not in TRUSTED_KEYS:
-                report.error("trusted_publisher", f"unknown key {key!r}")
+            if key not in PUBLISHER_KEYS:
+                report.error("oidc_publisher", f"unknown key {key!r}")
         for key in ("provider", "repository", "branch", "workflow", "environment"):
             if not _is_str(publisher.get(key)):
-                report.error("trusted_publisher", f"{key} must be a non-empty string")
+                report.error("oidc_publisher", f"{key} must be a non-empty string")
         if publisher.get("provider") != "github-actions":
-            report.error("trusted_publisher", "provider must be 'github-actions'")
+            report.error("oidc_publisher", "provider must be 'github-actions'")
 
     dests = manifest.get("destinations")
     if not isinstance(dests, dict) or not dests:
