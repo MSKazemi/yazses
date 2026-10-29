@@ -67,6 +67,10 @@ continue as normal. The hands-free and eye-control features stay available and m
 but get nothing new until someone is observed using them day to day. If that is you,
 [tell us](https://github.com/MSKazemi/yazses/issues/new/choose): it changes the plan.
 
+## Future research: YazSes XR (not scheduled)
+
+[**YazSes XR — voice-first interaction for virtual worlds**](https://github.com/MSKazemi/yazses/tree/main/design/xr) is a **proposed, unimplemented research direction**: privacy-first speech-to-text composition for supported XR apps, with later experiments in app-owned 3D object targeting, avatar actions and hands-free accessibility. The [ten candidates](https://github.com/MSKazemi/yazses/blob/main/design/xr/FEATURES.md), [conditional phase plan](https://github.com/MSKazemi/yazses/blob/main/design/xr/ROADMAP.md), and [security design](https://github.com/MSKazemi/yazses/blob/main/design/xr/ARCHITECTURE.md) document future options, **not features that can be enabled today**. Work remains subject to the ADR-030 breadth freeze and an explicit evidence-based decision before implementation.
+
 ## The destination
 
 The keyboard is a 150-year-old constraint, not a law of nature. YazSes exists
