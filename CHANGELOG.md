@@ -21,6 +21,16 @@ live dictation or meeting capture, which hand the model arrays.
 comes off once a faster-whisper release works with PyAV 19. A new test decodes a WAV with
 the ffmpeg fallback removed, so the PyAV path is tested on its own.
 
+### Removed — the public paper-v2 working draft and its planning package
+
+All of the author's manuscripts are private. `design/publication/` (the paper-v2 LaTeX draft, its
+claim ledger, results delta, authorship protocol and templates), `scripts/gen-paper-v2-tables.py`, the two
+tests that guarded them, the `make docs` step that ran the generator, the "Publication planning"
+site-navigation entry and the "Paper v2 evidence programme" card on the research page are gone from
+the tree. The measurement archive in `paper/benchmark/` and `paper/results/` stays public: it is the
+reproducibility evidence the docs pages rely on. Earlier CHANGELOG entries and release notes describe
+the draft as it was and are left as written. The commits that added the draft remain in git history.
+
 ### Fixed — on Windows the Speech page no longer offers settings that do nothing
 
 The settings window's **Text injection** box listed eight values on every OS: `auto`,
