@@ -278,10 +278,10 @@ def test_a_top_level_readme_link_stays_a_site_path(hook):
 
 
 def test_a_readme_below_a_section_root_is_left_alone(hook):
-    """Only the immediate section README is replaced by an index. `design/publication/
-    paper-v2/README.md` is published as itself, and its link to `authorship/README.md`
+    """Only the immediate section README is replaced by an index. A README one level
+    deeper, such as `design/adr/series/README.md`, is published as itself, and its link to `authorship/README.md`
     resolves on the site -- rewriting that one would be the defect."""
-    out = _rewrite(hook, "design/publication/paper-v2/README.md",
+    out = _rewrite(hook, "design/adr/series/README.md",
                    "start with [authorship/README.md](authorship/README.md)")
     assert out == "start with [authorship/README.md](authorship/README.md)", out
 
