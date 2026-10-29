@@ -570,6 +570,12 @@ def pinned_install_hint(method: str, command: list[str] | None) -> str:
             "unpinned, keeping your extras:\n"
             "    uv tool install 'yazses[desktop]@latest'"
         ),
+        "pipx": (
+            "pipx upgrades from the source it recorded when you installed. If that was a "
+            "folder that has since been deleted, or a version pin, the upgrade finds "
+            "nothing to do. Reinstall from PyPI, keeping your extras:\n"
+            "    pipx install --force 'yazses[desktop]'"
+        ),
         "pip": (
             "A pin or a constraint file makes --upgrade a no-op. Force the reinstall, "
             "keeping your extras:\n"
@@ -987,8 +993,102 @@ def keep_cv2_whole(status: UpdateStatus, *, opencv: OpenCVProbe | None = None) -
     return dataclasses.replace(status, command=command)
 
 
+# ---- a pipx install whose source no longer exists ---------------------------
+#
+# `pipx install /path/to/checkout` records that *path* as the package source in the
+# venv's `pipx_metadata.json`, and `pipx upgrade` re-reads it every time. Delete the
+# checkout (a git worktree, a build directory) and `pipx upgrade yazses` prints
+# "Unable to parse package spec: <path>" and moves nothing -- with exit 0 on the
+# install this was reported from, so the tray's "Install now" looked like it worked.
+# Checked against pipx 1.4.3 in a throwaway PIPX_HOME: `pipx install --force yazses`
+# reinstalls into the same venv, rewrites the source to the PyPI name, and leaves a
+# `pipx upgrade` that works.
+
+def _pipx_source(prefix: str | None) -> str | None:
+    """The package source pipx recorded for the environment at *prefix* (default: the
+    running one), or None when it cannot be read -- not a pipx venv, or damaged."""
+    root = prefix if prefix is not None else sys.prefix
+    try:
+        with open(os.path.join(root, "pipx_metadata.json"), encoding="utf-8") as fh:
+            spec = json.load(fh)["main_package"]["package_or_url"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    return spec.strip() if isinstance(spec, str) and spec.strip() else None
+
+
+def _split_extras(spec: str) -> tuple[str, str]:
+    """``"path[a,b]"`` -> ``("path", "a,b")``; no trailing extras -> ``(spec, "")``."""
+    if spec.endswith("]") and "[" in spec:
+        head, _, tail = spec.rpartition("[")
+        return head, tail[:-1].replace(" ", "")
+    return spec, ""
+
+
+def stale_pipx_source(spec: str) -> str | None:
+    """The extras (``"gaze,desktop"``, possibly empty) to carry across when *spec* is a
+    local folder or file that no longer exists; None for every source that is fine.
+
+    Only a source that is *gone* counts. A PyPI name (with extras or a version range)
+    upgrades normally, a git/https URL is somebody's deliberate choice, and a local
+    path that still exists is a developer's own checkout -- none of those is touched.
+    """
+    head, extras = _split_extras(spec)
+    name, _, direct = head.partition(" @ ")
+    if direct:
+        # A PEP 508 direct reference: `yazses[desktop] @ file:///path`. The extras sit
+        # on the name, the location after the `@`.
+        location, extras = direct.strip(), _split_extras(name.strip())[1] or extras
+    else:
+        location = head.strip()
+    if location.startswith("file://"):
+        from urllib.parse import unquote, urlparse
+
+        location = unquote(urlparse(location).path)
+        if os.name == "nt" and location[:1] == "/" and location[2:3] == ":":
+            location = location[1:]  # file:///C:/x -> C:/x
+    elif "://" in location or location.startswith("git+"):
+        return None
+    looks_local = bool(location) and (
+        os.path.isabs(location)
+        or location.startswith(("~", "."))
+        or "/" in location
+        or "\\" in location
+    )
+    if not looks_local:
+        return None  # a bare name or a version range: PyPI
+    return None if os.path.exists(os.path.expanduser(location)) else extras
+
+
+def repair_pipx_source(
+    status: UpdateStatus, *, prefix: str | None = None, package: str = "yazses"
+) -> UpdateStatus:
+    """*status* whose pipx upgrade becomes a reinstall from PyPI when the install's
+    recorded source is gone (see above), keeping the extras it was installed with.
+
+    Unchanged for every other method, for any command it did not itself recognise
+    (so it is idempotent), for a readable source that is fine, and whenever anything
+    here fails -- an update must never be broken by the look-ahead.
+    """
+    if status.method != "pipx" or status.command != upgrade_command("pipx", package):
+        return status
+    try:
+        spec = _pipx_source(prefix)
+        extras = stale_pipx_source(spec) if spec else None
+    except Exception:  # noqa: BLE001 - must never break an update
+        return status
+    if extras is None:
+        return status
+    import dataclasses
+
+    target = f"{package}[{extras}]" if extras else package
+    return dataclasses.replace(status, command=["pipx", "install", "--force", target])
+
+
 def resolve_upgrade_command(
-    status: UpdateStatus, *, opencv: OpenCVProbe | None = None
+    status: UpdateStatus,
+    *,
+    opencv: OpenCVProbe | None = None,
+    pipx_prefix: str | None = None,
 ) -> UpdateStatus:
     """The one upgrade command every surface shows and runs. Idempotent.
 
@@ -999,6 +1099,7 @@ def resolve_upgrade_command(
     yazses``, so it runs first, and the ``cv2`` step adds its flag to whatever that
     produced (either uv shape).
     """
+    status = repair_pipx_source(status, prefix=pipx_prefix)
     status = preserve_enabled_features(status)
     return keep_cv2_whole(status, opencv=opencv)
 
