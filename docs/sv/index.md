@@ -6,7 +6,7 @@ alternates:
 ---
 
 **Read this in other languages:** [English](../index.md) · [Deutsch](../de/index.md) · [Nederlands](../nl/index.md) · [Tiếng Việt](../vi/index.md) · [Türkçe](../tr/index.md) · [bahasa Indonesia](../id/index.md) · [español](../es/index.md) · [français](../fr/index.md) · [italiano](../it/index.md) · [polski](../pl/index.md) · [português do Brasil](../pt-BR/index.md) · svenska · [čeština](../cs/index.md) · [ελληνικά](../el/index.md) · [Русский](../ru/index.md) · [українська](../uk/index.md) · [اردو](../ur/index.md) · [العربية](../ar/index.md) · [فارسی](../fa/index.md) · [हिंदी](../hi/index.md) · [বাংলা](../bn/index.md) · [தமிழ்](../ta/index.md) · [తెలుగు](../te/index.md) · [ไทย](../th/index.md) · [日本語](../ja/index.md) · [简体中文](../zh-CN/index.md) · [繁體中文](../zh-TW/index.md) · [한국어](../ko/index.md)
-<!-- yazses-l10n: locale=sv; source=README.md; source_sha=3baacb8; scope=partial; status=active;reviewer=@loneicewolf -->
+<!-- yazses-l10n: locale=sv; source=README.md; source_sha=3baacb8; scope=partial; status=active; reviewer=@loneicewolf -->
 
 # YazSes
 
@@ -25,12 +25,12 @@ yazses quickstart
 yazses start
 ```
 
-Första exekveringen hämtar en talmodell. (cirka 148 MB). Därefter behövs inget nätverk alls.
+Första exekveringen hämtar en talmodell (cirka 148 MB). Därefter behövs inget nätverk alls.
 
 ## Vad den gör
 
 - **Diktering** - Håll ned tangenten, tala, släpp. Texten skrivs in i det aktiva fönstret.
-- **Röstkommandon** - Säg "spara filen eller "gå till rad 40" så utförs det, i stället för att orden skrivs.
+- **Röstkommandon** - Säg "spara filen" eller "gå till rad 40" så utförs det, i stället för att orden skrivs.
 - **Möten och inspelningar** - Transkribera en ljudfil eller spela in ett helt möte med talaretiketter - helt offline.
 
 ## Integritet
