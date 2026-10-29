@@ -182,7 +182,7 @@ jobs:
       - name: Publish showcase
         if: ${{ contains(fromJSON(steps.stage.outputs.selected), 'showcase') }}
         env:
-          HF_OIDC_RESOURCE: spaces/yazses/showcase
+          HF_OIDC_RESOURCE: spaces/mskazemi/showcase
           DEST: showcase
         run: |
           set -euo pipefail
@@ -191,14 +191,14 @@ jobs:
             tail -n 5 "$RUNNER_TEMP/oidc-$DEST.err" >&2
             exit 1
           fi
-          uv run --no-sync hf upload "yazses/showcase" "$RUNNER_TEMP/hf-stage/$DEST" . \
+          uv run --no-sync hf upload "mskazemi/showcase" "$RUNNER_TEMP/hf-stage/$DEST" . \
             --repo-type space --commit-message "Publish $DEST from MSKazemi/yazses@${GITHUB_SHA::7}"
-          echo "Published $DEST: https://huggingface.co/spaces/yazses/showcase" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "Published $DEST: https://huggingface.co/spaces/mskazemi/showcase" | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Publish benchmarks
         if: ${{ contains(fromJSON(steps.stage.outputs.selected), 'benchmarks') }}
         env:
-          HF_OIDC_RESOURCE: datasets/yazses/yazses-benchmark-results
+          HF_OIDC_RESOURCE: datasets/mskazemi/yazses-benchmark-results
           DEST: benchmarks
         run: |
           set -euo pipefail
@@ -207,9 +207,9 @@ jobs:
             tail -n 5 "$RUNNER_TEMP/oidc-$DEST.err" >&2
             exit 1
           fi
-          uv run --no-sync hf upload "yazses/yazses-benchmark-results" "$RUNNER_TEMP/hf-stage/$DEST" . \
+          uv run --no-sync hf upload "mskazemi/yazses-benchmark-results" "$RUNNER_TEMP/hf-stage/$DEST" . \
             --repo-type dataset --commit-message "Publish $DEST from MSKazemi/yazses@${GITHUB_SHA::7}"
-          echo "Published $DEST: https://huggingface.co/datasets/yazses/yazses-benchmark-results" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "Published $DEST: https://huggingface.co/datasets/mskazemi/yazses-benchmark-results" | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Publish demo-space
         if: ${{ contains(fromJSON(steps.stage.outputs.selected), 'demo-space') }}

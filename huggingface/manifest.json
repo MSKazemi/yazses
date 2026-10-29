@@ -25,9 +25,9 @@
       "required_card_keys": ["title", "sdk"]
     },
     "showcase": {
-      "repo_id": "yazses/showcase",
+      "repo_id": "mskazemi/showcase",
       "repo_type": "space",
-      "url": "https://huggingface.co/spaces/yazses/showcase",
+      "url": "https://huggingface.co/spaces/mskazemi/showcase",
       "source_dir": "huggingface/showcase",
       "files": ["README.md", "index.html", "styles.css", "assets/"],
       "status": "live",
@@ -38,9 +38,9 @@
       "required_card_keys": ["title", "sdk"]
     },
     "benchmarks": {
-      "repo_id": "yazses/yazses-benchmark-results",
+      "repo_id": "mskazemi/yazses-benchmark-results",
       "repo_type": "dataset",
-      "url": "https://huggingface.co/datasets/yazses/yazses-benchmark-results",
+      "url": "https://huggingface.co/datasets/mskazemi/yazses-benchmark-results",
       "source_dir": "huggingface/benchmarks",
       "files": ["README.md", "data/*.csv", "data/export-metadata.json",
         "data/SHA256SUMS"],
@@ -93,21 +93,21 @@
       },
       {
         "type": "space",
-        "id": "yazses/showcase",
+        "id": "mskazemi/showcase",
         "status": "live",
-        "url": "https://huggingface.co/spaces/yazses/showcase",
+        "url": "https://huggingface.co/spaces/mskazemi/showcase",
         "destination": "showcase",
         "note": "Static showcase of the YazSes offline dictation project. Planned: not published yet.",
-        "evidence": "huggingface.co/api/spaces/yazses/showcase RUNNING, static, public on 2026-10-28"
+        "evidence": "huggingface.co/api/spaces/mskazemi/showcase RUNNING, static, public on 2026-10-28"
       },
       {
         "type": "dataset",
-        "id": "yazses/yazses-benchmark-results",
+        "id": "mskazemi/yazses-benchmark-results",
         "status": "live",
-        "url": "https://huggingface.co/datasets/yazses/yazses-benchmark-results",
+        "url": "https://huggingface.co/datasets/mskazemi/yazses-benchmark-results",
         "destination": "benchmarks",
         "note": "Word error rate and speed results behind the YazSes paper, as CSV with export metadata. Planned: not published yet.",
-        "evidence": "huggingface.co/api/datasets/yazses/yazses-benchmark-results public, 14 configs, 18 files on 2026-10-28"
+        "evidence": "huggingface.co/api/datasets/mskazemi/yazses-benchmark-results public, 14 configs, 18 files on 2026-10-28"
       },
       {
         "type": "model",
