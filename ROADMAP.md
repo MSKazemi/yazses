@@ -13,6 +13,10 @@
 
 ---
 
+## Future research proposal — YazSes XR (not committed delivery)
+
+The [YazSes XR research programme](design/xr/README.md) documents ten ideas for voice, gaze and accessible interaction with existing virtual worlds, an [evidence-gated roadmap](design/xr/ROADMAP.md), [architecture](design/xr/ARCHITECTURE.md), [evaluation criteria](design/xr/EVALUATION.md), and [conditional tasks](design/xr/TASKS.md). This is **design only**; there is no released XR integration and no XR implementation milestone. It does not alter the accepted [ADR-030 focus and breadth freeze](design/adr/adr-030-agent-era-direction.md).
+
 ## Current state (all new features OFF by default)
 
 What is landing right now — the latest release and every unreleased change on `main` — is
