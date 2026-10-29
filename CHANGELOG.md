@@ -6,6 +6,13 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — the Swedish page was reviewed by a native speaker
+
+`docs/sv/index.md` was a machine-assisted draft. A native Swedish reader reworded it so it reads
+naturally, and it is marked reviewed instead of draft. Thank you,
+[@loneicewolf](https://github.com/loneicewolf)
+([#728](https://github.com/MSKazemi/yazses/pull/728), [#350](https://github.com/MSKazemi/yazses/issues/350)).
+
 ### Removed — the public paper-v2 working draft and its planning package
 
 All of the author's manuscripts are private. `design/publication/` (the paper-v2 LaTeX draft, its

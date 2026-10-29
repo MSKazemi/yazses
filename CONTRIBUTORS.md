@@ -199,6 +199,11 @@ found defects that no amount of reading the code here would have surfaced.
   overwritten ([#339](https://github.com/MSKazemi/yazses/issues/339) →
   [#474](https://github.com/MSKazemi/yazses/pull/474))
 - [@lntutor](https://github.com/lntutor)
+- [@loneicewolf](https://github.com/loneicewolf) — native-speaker review of the Swedish page:
+  reworded the machine-assisted draft so it reads naturally, and promoted `sv` from a
+  generator-owned draft to a human-owned translation so it can no longer be silently
+  overwritten ([#350](https://github.com/MSKazemi/yazses/issues/350) →
+  [#728](https://github.com/MSKazemi/yazses/pull/728))
 - [@Maqbool61](https://github.com/Maqbool61)
 - [@MarekMnahoncak](https://github.com/MarekMnahoncak) — the CI change classifier: a
   standard-library script that maps a pull request's changed paths to CI scopes and fails safe

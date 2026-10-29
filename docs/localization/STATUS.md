@@ -35,7 +35,7 @@ language fixes it.
 | italiano (`it`) | [docs/it/index.md](https://mskazemi.com/yazses/it/index.html) | partial | [@mrCabez](https://github.com/mrCabez) | `3baacb8` | active | re-check against English when the README changes materially |
 | polski (`pl`) | [docs/pl/index.md](https://mskazemi.com/yazses/pl/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#348](https://github.com/MSKazemi/yazses/issues/348) |
 | português do Brasil (`pt-BR`) | [docs/pt-BR/index.md](https://mskazemi.com/yazses/pt-BR/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#349](https://github.com/MSKazemi/yazses/issues/349) |
-| svenska (`sv`) | [docs/sv/index.md](https://mskazemi.com/yazses/sv/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#350](https://github.com/MSKazemi/yazses/issues/350) |
+| svenska (`sv`) | [docs/sv/index.md](https://mskazemi.com/yazses/sv/index.html) | partial | [@loneicewolf](https://github.com/loneicewolf) | `3baacb8` | active | re-check against English when the README changes materially |
 | čeština (`cs`) | [docs/cs/index.md](https://mskazemi.com/yazses/cs/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#336](https://github.com/MSKazemi/yazses/issues/336) |
 | ελληνικά (`el`) | [docs/el/index.md](https://mskazemi.com/yazses/el/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#338](https://github.com/MSKazemi/yazses/issues/338) |
 | українська (`uk`) | [docs/uk/index.md](https://mskazemi.com/yazses/uk/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#355](https://github.com/MSKazemi/yazses/issues/355) |
@@ -44,7 +44,7 @@ language fixes it.
 | فارسی (`fa`) | [docs/fa/index.md](https://mskazemi.com/yazses/fa/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#340](https://github.com/MSKazemi/yazses/issues/340) |
 | বাংলা (`bn`) | [docs/bn/index.md](https://mskazemi.com/yazses/bn/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#335](https://github.com/MSKazemi/yazses/issues/335) |
 | தமிழ் (`ta`) | [docs/ta/index.md](https://mskazemi.com/yazses/ta/index.html) | partial | [@Guruharishb](https://github.com/Guruharishb) | `3baacb8` | active | re-check against English when the README changes materially |
-| ไทย (`th`) | [docs/th/index.md](https://mskazemi.com/yazses/th/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#353](https://github.com/MSKazemi/yazses/issues/353) |
+| ไทย (`th`) | [docs/th/index.md](https://mskazemi.com/yazses/th/index.html) | partial | [@Warayuth014](https://github.com/Warayuth014) | `3baacb8` | active | re-check against English when the README changes materially |
 | 日本語 (`ja`) | [docs/ja/index.md](https://mskazemi.com/yazses/ja/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#345](https://github.com/MSKazemi/yazses/issues/345) |
 | 繁體中文 (`zh-TW`) | [docs/zh-TW/index.md](https://mskazemi.com/yazses/zh-TW/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#358](https://github.com/MSKazemi/yazses/issues/358) |
 <!-- generated-drafts:end -->
