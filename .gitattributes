@@ -10,7 +10,6 @@ tests/fixtures/face_switch_replay_report.json text eol=lf
 tests/fixtures/grounding_replay_report.json text eol=lf
 design/eye-control/validation-slots.json text eol=lf
 design/eye-control/generated/** text eol=lf
-design/publication/paper-v2/manuscript/generated/** text eol=lf
 # The Hugging Face benchmark export is hashed byte for byte (SHA256SUMS + export-metadata.json),
 # and the tests compare a fresh export against the checkout. Git for Windows would check the CSVs
 # out with CRLF and every file would read as drifted, so pin them to LF on every OS.
