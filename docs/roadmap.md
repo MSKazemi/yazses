@@ -67,6 +67,10 @@ continue as normal. The hands-free and eye-control features stay available and m
 but get nothing new until someone is observed using them day to day. If that is you,
 [tell us](https://github.com/MSKazemi/yazses/issues/new/choose): it changes the plan.
 
+## Desktop reliability and external first-use validation
+
+The [desktop validation campaign](desktop-validation-campaign.md) turns the feature pause into a practical correctness, hardware-evidence and first-user workflow. It uses the existing [release checklist](contribute/validation.md), [platform matrix](validation-matrix.md) and issue trackers; its weekly plan is a proposed sequence, not a claim that any gate has passed. The open-ended [first-use QA call (#714)](https://github.com/MSKazemi/yazses/issues/714) invites voluntary reports without changing the separate research-consent rules.
+
 ## The destination
 
 The keyboard is a 150-year-old constraint, not a law of nature. YazSes exists
