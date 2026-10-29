@@ -327,7 +327,7 @@
     "load_average_1m": 3.55,
     "compute_type": "int8",
     "device": "cpu",
-    "argv": "paper/benchmark/probes/score_plausibility_from_dump.py .claude/vm-rescue-2026-08-25/yz-x86/guard_ami12.json 1.2 human-annotated RTTM from pyannote/AMI-diarization-setup (only_words, test split), AMI headset mix plausibility-ami16-1.2",
+    "argv": "paper/benchmark/probes/score_plausibility_from_dump.py guard_ami12.json 1.2 human-annotated RTTM from pyannote/AMI-diarization-setup (only_words, test split), AMI headset mix plausibility-ami16-1.2",
     "corpus": null
   },
   "probe": {
