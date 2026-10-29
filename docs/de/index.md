@@ -1,26 +1,20 @@
 ---
 title: "YazSes — Deutsch"
-description: "YazSes ist ein freier, quelloffener Offline-Dienst für Spracheingabe unter Linux, macOS und Windows. Taste gedrückt halten, sprechen, loslassen — der Text erscheint dort, wo Sie gerade schreiben. Alles läuft auf Ihrem eigenen Rechner: keine Cloud, kein Konto, kein Abo."
+description: "YazSes ist ein kostenloser, Open-Source-Dienst für Spracheingabe unter Linux, macOS und Windows. So funktioniert's: Halten Sie den Hotkey gedrückt und sprechen Sie einfach drauflos. Sobald Sie die Taste loslassen, wird der diktierte Text dort eingefügt, wo Sie gerade schreiben. YazSes läuft ausschliesslich auf Ihrem eigenen Recher. Keine Cloud, kein Konto und kein Abo."
 alternates:
   en: index.md
 ---
 
 **Read this in other languages:** [English](../index.md) · Deutsch · [Nederlands](../nl/index.md) · [Tiếng Việt](../vi/index.md) · [Türkçe](../tr/index.md) · [bahasa Indonesia](../id/index.md) · [español](../es/index.md) · [français](../fr/index.md) · [italiano](../it/index.md) · [polski](../pl/index.md) · [português do Brasil](../pt-BR/index.md) · [svenska](../sv/index.md) · [čeština](../cs/index.md) · [ελληνικά](../el/index.md) · [Русский](../ru/index.md) · [українська](../uk/index.md) · [اردو](../ur/index.md) · [العربية](../ar/index.md) · [فارسی](../fa/index.md) · [हिंदी](../hi/index.md) · [বাংলা](../bn/index.md) · [தமிழ்](../ta/index.md) · [తెలుగు](../te/index.md) · [ไทย](../th/index.md) · [日本語](../ja/index.md) · [简体中文](../zh-CN/index.md) · [繁體中文](../zh-TW/index.md) · [한국어](../ko/index.md)
-<!-- yazses-l10n: locale=de; source=README.md; source_sha=3baacb8; scope=partial; status=draft -->
-
-> ⚠️ **Vorläufige Übersetzung** — Maschinell unterstützt und noch nicht von einem Muttersprachler geprüft.
->
-> *This is a machine-assisted **draft** translation, not yet reviewed by a native
-> speaker. English is authoritative: [README.md](https://github.com/MSKazemi/yazses#readme). Improving it is a
-> welcome first contribution — see [issue #337](https://github.com/MSKazemi/yazses/issues/337).*
+<!-- yazses-l10n: locale=de; source=README.md; source_sha=3baacb8; scope=partial; status=; reviewer=@2D00M6 -->
 
 # YazSes
 
-YazSes ist ein freier, quelloffener Offline-Dienst für Spracheingabe unter Linux, macOS und Windows. Taste gedrückt halten, sprechen, loslassen — der Text erscheint dort, wo Sie gerade schreiben. Alles läuft auf Ihrem eigenen Rechner: keine Cloud, kein Konto, kein Abo.
+YazSes ist ein kostenloser, Open-Source-Dienst für Spracheingabe unter Linux, macOS und Windows. So funktioniert's: Halten Sie den Hotkey gedrückt und sprechen Sie einfach drauflos. Sobald Sie die Taste loslassen, wird der diktierte Text dort eingefügt, wo Sie gerade schreiben. YazSes läuft ausschliesslich auf Ihrem eigenen Recher. Keine Cloud, kein Konto und kein Abo.
 
 ## Installation
 
-| Plattform | Befehl |
+| System/Installationsmethode | Befehl |
 |---|---|
 | **Linux** | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)` |
 | **Linux** (Debian/Ubuntu, APT) | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)` |
@@ -31,21 +25,21 @@ yazses quickstart
 yazses start
 ```
 
-Beim ersten Start wird einmalig ein Sprachmodell heruntergeladen (etwa 148 MB). Danach ist überhaupt kein Netz mehr nötig.
+Beim ersten Start wird einmalig ein Sprachmodell heruntergeladen (etwa 148 MB). Danach ist keine Internetverbindung mehr nötig.
 
-## Was es kann
+## Funktionalitäten
 
-- **Diktat** — Taste halten, sprechen, loslassen. Der Text wird in das aktive Fenster geschrieben.
-- **Sprachbefehle** — Sagen Sie „Datei speichern“ oder „gehe zu Zeile 40“ — es handelt, statt die Wörter zu tippen.
-- **Besprechungen und Aufnahmen** — Transkribieren Sie eine Audiodatei oder nehmen Sie eine ganze Besprechung mit Sprecherkennung auf — vollständig offline.
+- **Diktierfunktion** — Hotkey halten, sprechen, loslassen. Der Text wird dort eingefügt, wo du gerade schreibst.
+- **Sprachbefehle** — Sagen Sie beispielsweise "Datei speichern" oder "gehe zu Zeile 40", YazSes versteht den Befehl und führt ihn aus, anstatt den Text zu transkribieren.
+- **Besprechungen und Aufnahmen** — Mit YazSes können Sie Audiodateien transkribieren und vollständige Transkripte per Spracherkennung erstellen.
 
 ## Datenschutz
 
-Standardmäßig wird Audio auf Ihrem Rechner transkribiert und nirgendwohin gesendet. Es gibt keine Telemetrie und keinen Cloud-Pfad.
+Standardmäßig werden alle Audiodateien lokal auf Ihrem Rechner transkribiert und nicht an Dritte übertragen. YazSes verwendet weder Telemetrie noch Cloud-Dienste.
 
-## Mehr
+## Weiterführende Informationen
 
-Die übrige Dokumentation ist derzeit auf Englisch.
+Weitere Dokumentation finden Sie hier:
 
 - [Dokumentation](https://mskazemi.com/yazses/)
 - [Die vollständige englische README](https://github.com/MSKazemi/yazses#readme)
@@ -118,7 +112,6 @@ Die übrige Dokumentation ist derzeit auf Englisch.
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/yoreva-01"><img src="https://avatars.githubusercontent.com/u/195282707?v=4?s=100" width="100px;" alt="Yusuf Orçan"/><br /><sub><b>Yusuf Orçan</b></sub></a><br /><a href="#data-yoreva-01" title="Data">🔣</a> <a href="https://github.com/MSKazemi/yazses/commits?author=yoreva-01" title="Tests">⚠️</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Warayuth014"><img src="https://avatars.githubusercontent.com/u/124881432?v=4?s=100" width="100px;" alt="Warayut Bunbanlu"/><br /><sub><b>Warayut Bunbanlu</b></sub></a><br /><a href="#translation-Warayuth014" title="Translation">🌍</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/nuthakkikeerthi"><img src="https://avatars.githubusercontent.com/u/203968755?v=4?s=100" width="100px;" alt="nuthakkikeerthi"/><br /><sub><b>nuthakkikeerthi</b></sub></a><br /><a href="#translation-nuthakkikeerthi" title="Translation">🌍</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/loneicewolf"><img src="https://avatars.githubusercontent.com/u/68499986?v=4?s=100" width="100px;" alt="loneicewolf"/><br /><sub><b>loneicewolf</b></sub></a><br /><a href="#translation-loneicewolf" title="Translation">🌍</a></td>
     </tr>
   </tbody>
 </table>
