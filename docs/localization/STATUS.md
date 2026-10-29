@@ -27,7 +27,7 @@ language fixes it.
 
 
 <!-- generated-drafts:start -->
-| Deutsch (`de`) | [docs/de/index.md](https://mskazemi.com/yazses/de/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#337](https://github.com/MSKazemi/yazses/issues/337) |
+| Deutsch (`de`) | [docs/de/index.md](https://mskazemi.com/yazses/de/index.html) | partial | [@2D00M6](https://github.com/2D00M6) | `3baacb8` | active | re-check against English when the README changes materially |
 | Nederlands (`nl`) | [docs/nl/index.md](https://mskazemi.com/yazses/nl/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#347](https://github.com/MSKazemi/yazses/issues/347) |
 | Tiếng Việt (`vi`) | [docs/vi/index.md](https://mskazemi.com/yazses/vi/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#357](https://github.com/MSKazemi/yazses/issues/357) |
 | bahasa Indonesia (`id`) | [docs/id/index.md](https://mskazemi.com/yazses/id/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#343](https://github.com/MSKazemi/yazses/issues/343) |

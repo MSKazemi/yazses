@@ -127,6 +127,11 @@ found defects that no amount of reading the code here would have surfaced.
   ([#333](https://github.com/MSKazemi/yazses/pull/333)). Recorded the half that makes the page
   worth having — the distance it held speech at and the room noise it rejected — instead of
   "works fine"
+- [@2D00M6](https://github.com/2D00M6) — native-speaker review of the German page: reworded the
+  machine-assisted draft so it reads naturally, and promoted `de` from a generator-owned draft to
+  a human-owned translation so it can no longer be silently overwritten
+  ([#337](https://github.com/MSKazemi/yazses/issues/337) →
+  [#729](https://github.com/MSKazemi/yazses/pull/729))
 - [@4nmus](https://github.com/4nmus) — Russian README translation, the project's first in
   Cyrillic script
 - [@AmothissacrajT](https://github.com/AmothissacrajT) (Amoth issac raj) — Ubuntu 24.04 (X11) showcase

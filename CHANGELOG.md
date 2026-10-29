@@ -6,6 +6,13 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — the German page was reviewed by a native speaker
+
+`docs/de/index.md` was a machine-assisted draft. A native German reader reworded it so it reads
+naturally, and it is marked reviewed instead of draft. Thank you,
+[@2D00M6](https://github.com/2D00M6)
+([#729](https://github.com/MSKazemi/yazses/pull/729), [#337](https://github.com/MSKazemi/yazses/issues/337)).
+
 ### Changed — the Swedish page was reviewed by a native speaker
 
 `docs/sv/index.md` was a machine-assisted draft. A native Swedish reader reworded it so it reads
