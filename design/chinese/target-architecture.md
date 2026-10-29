@@ -3,6 +3,12 @@
 **Status:** Proposed  
 **Primary goal:** Make English ↔ Mandarin switching a coherent operation while preserving the current STT, command, injection and privacy boundaries.
 
+> **2026-10-29 implementation note:** The proposed orchestration layer now
+> exists under `src/yazses/language/`. This document preserves the design
+> rationale; [language switching architecture](2026-10-29-language-switch-architecture.md)
+> records the current transaction, restart and failure contracts. Do not create a
+> second profile store or another Mandarin STT pipeline.
+
 ## 1. Architectural shape
 
 The target architecture adds a thin **language orchestration layer** above existing canonical configuration.

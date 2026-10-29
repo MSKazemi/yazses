@@ -5,6 +5,12 @@
 
 This register complements ADR-v2-144. It is intentionally broader than ASR accuracy: a Chinese transcript can be correct and the feature can still be unsafe or unusable if configuration, command parsing, injection, packaging, or long-form behavior is wrong.
 
+> **Status refresh (2026-10-29):** This original risk register lists design-time
+> failure modes. Risk R05's **whitespace-only Han count defect** now has a model-free
+> fix and regression tests in main, but the **Mandarin Meeting Mode release gate
+> remains open** until actual sessions establish quality thresholds and notes
+> context budgets. See the [as-built audit](2026-10-29-as-built-audit.md).
+
 ## Severity scale
 
 | Level | Meaning |
@@ -24,7 +30,7 @@ Likelihood is estimated only for prioritization and must be updated once evidenc
 | CHN-R02 | Default English startup/config/latency changes for users who never enable Chinese | High | Medium | English regression suite + import/startup smoke benchmark | keep current defaults; lazy optional deps; zero Chinese model load on default path | **Blocker** |
 | CHN-R03 | Chinese prose is falsely classified as a command | Critical | Medium | curated negative Mandarin corpus; semantic command vectors | anchored deterministic rules; precision-first phrase set; no broad catch-all terminal regex | **Blocker** |
 | CHN-R04 | Correct Han text cannot be injected reliably on an OS/backend | High | High on some backends | real X11/Wayland/macOS/Windows injection matrix | verified native path or explicit clipboard fallback; never imply untested backend support | **Blocker for claimed backend** |
-| CHN-R05 | Meeting quality heuristics miscount unsegmented Han text and can mark a healthy Mandarin meeting `thin` | High | **Confirmed** | Current `meeting/quality.py::tokenize()` uses `[^\\W\\d_]+`; contiguous Han between punctuation becomes one token. `store.live_word_count()` reuses the same tokenizer, so both WPM and live/batch ratio inherit the language assumption. | replace/parameterize the quality unit for CJK (for example language-aware segmentation or a character-rate metric), re-baseline thresholds on Mandarin, and add regression fixtures; otherwise exclude Chinese Meeting Mode | **Blocker for meeting claim** |
+| CHN-R05 | Mandarin Meeting Mode quality misclassification or unmeasured CJK thresholds | High | Original Han-whitespace defect **fixed in model-free source/tests**; real-run likelihood unknown | `meeting/quality.py::tokenize()` now counts Han as quality units; `tests/test_meeting_cjk_word_count.py` and `test_cjk_transcripts.py` cover fixed logic, **not actual microphone/ASR quality** | run real healthy/empty/repetition Mandarin meeting corpus, confirm notes context/window and ratio thresholds; exclude Meeting Mode until measured | **Blocker for unvalidated meeting support claim** |
 | CHN-R06 | `zh-HK` accidentally means Mandarin because the Han converter accepts it as a Traditional-script alias | High | Medium | profile alias tests | script aliases stay local to script resolver; P1 profile rejects zh-HK with Cantonese explanation | **Blocker** |
 | CHN-R07 | Model download or optional dependency installation fails after config has changed | High | Medium | network/package-manager failure tests | download/install before commit; `--no-download`; exact remediation | **Blocker** |
 | CHN-R08 | Alternative ASR engine adds a mandatory heavy runtime or breaks packaging | High | Medium | dependency/import/package matrix | alternative engines optional + lazy; P1 stays on current runtime unless benchmark justifies change | **Blocker if alternative becomes recommended** |
