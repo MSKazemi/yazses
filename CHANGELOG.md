@@ -174,6 +174,43 @@ default-normaliser caveat above still stands.
 `:core:bench` can now normalise English text the way the desktop benchmark does. `Wer.wer`, `Wer.normalise` and `Wer.corpusWer` take a `TextNormalizer`, and `TextNormalizer.WHISPER_ENGLISH` runs `EnglishTextNormalizer`, a line-by-line Kotlin port of the English normaliser in whisper-normalizer 0.1.15 (MIT), the package that `paper/benchmark/bench_wer.py` uses. Under this mode words are split as jiwer splits them (on the ASCII space only, so an unspaced run of CJK characters is one word), and a reference that is empty after Python's `strip()` is skipped, as the desktop skips it. For ordinary English text the port matches the oracle exactly: the replay of 614 vectors generated from the package passes 614/614, and an independent differential review of about 250,000 inputs found no mismatch outside the Unicode case below. The one documented difference is the age of the Unicode tables. The JDK 17 toolchain has Unicode 13 and CPython 3.14 has Unicode 16; they differ on 11,141 code points, 11,139 unassigned in Unicode 13 plus U+1734 and U+1171E, which were reclassified. For those, the port does not treat about 9,787 letters as word characters, so `\b` is wrong beside `um` or `mr`; it does not treat about 110 decimal digits as digits; it keeps about 950 symbols and 208 marks that Python drops, and 59 punctuation marks that Python makes spaces; and it keeps emoji from as early as Unicode 14 (for example U+1F979). On Android the normaliser runs on the operating system's tables, which vary by version; that is not tested. The desktop result also depends on the Unicode version of the Python that runs it. Two further limits: the `\s+'` rule takes time quadratic in the length of a whitespace run in both implementations, and the port is about 20 times slower in that pathological case (20,000 spaces take about 15 s against about 0.7 s in Python; realistic text takes about 18 ms per 1,000 characters); and CPython raises AssertionError on a digit token longer than 4,300 characters, where the port returns the text. The default, `TextNormalizer.SIMPLE`, keeps its normaliser. Its one change is that a reference which is only whitespace under Python's definition (for example a no-break space) is now skipped in every mode, as the desktop skips it.
 
 ## [2.46.0] - 2026-10-24
+### Fixed — the transcript-collapse detector could not see a loop of more than one word
+
+`meeting/quality.py` flags a late-onset decode collapse when one phrase repeats back-to-back at
+least 12 times. It counted a repeat only when an n-gram equalled its *immediate neighbour*, which
+is true of `hello hello hello …` and false of every loop longer than a word: the overlapping
+trigrams of `red blue green red blue green …` rotate through three different values, so the run
+never exceeded 1. A healthy 250-word start followed by that phrase said 16 times scored `ok`
+(top-trigram share 0.054, distinct ratio 0.855, run 1) — the case the check exists for, because
+the whole-transcript ratios stay inside their thresholds. Found by an outside review of the
+measurement paper, reproduced here before the change.
+
+`longest_repeat_run` now tries every period from 1 to `MAX_REPEAT_PERIOD` (8 words) and keeps the
+longest run; period 1 is the old count exactly, so single-word loops and every recorded threshold
+are unchanged. A looping unit longer than 8 words is still caught by the whole-transcript ratios
+once it dominates the text. Regression tests cover three multi-word phrases, a long phrase said
+only ten times (not a loop), the period limit, and the unchanged single-word case. Not validated
+on real multi-word collapses — none has been observed.
+
+### Fixed — "Install now" on a pipx install did nothing, and said so in a balloon that vanished
+
+`pipx install /path/to/checkout` makes pipx remember that *folder* as where the package comes
+from. Delete the folder (a git worktree, a build directory) and `pipx upgrade yazses` prints
+`Unable to parse package spec: <path>` and changes nothing — on the install this was reported
+from it even exits 0. The tray offered an update it could never apply, and the result was a
+two-second balloon, so the user came back to the same version with no explanation.
+
+The upgrade command for a pipx install is now resolved against pipx's own record
+(`pipx_metadata.json`). When the recorded source is a local path that no longer exists, the
+command becomes `pipx install --force yazses[<your extras>]`, which reinstalls into the same
+environment from PyPI, keeps the extras, and leaves a `pipx upgrade` that works from then on.
+A PyPI source, a git/https URL, and a checkout that still exists are untouched. The tray, the
+Settings window and `yazses update` all run the same resolved command. Checked against pipx
+1.4.3 in a throwaway `PIPX_HOME`: 2.43.1 → 2.45.0 through the real checked-upgrade path.
+
+An update that fails or does not move the version now opens a dialog in the Linux tray instead
+of a balloon, and the hint for a pipx install names the reinstall command rather than "reinstall
+the way you first installed it".
 
 ### Changed — the Settings window is a sidebar of pages, and the Features list can finally be seen
 
