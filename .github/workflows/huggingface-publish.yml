@@ -42,7 +42,7 @@ name: Publish to Hugging Face
 #      with claims  repository equals MSKazemi/yazses , ref equals refs/heads/main ,
 #      workflow_ref starts with MSKazemi/yazses/.github/workflows/huggingface-publish.yml@
 #      (the manifest's `oidc_publisher` block; this is how the Hub's form lists them, and
-#      it is what is set on mskazemi/showcase and mskazemi/yazses-benchmark-results).
+#      it is what is set on mskazemi/yazses-showcase and mskazemi/yazses-benchmark-results).
 #      Do this for every destination you will approve.
 #   4. In GitHub: Settings -> Environments -> huggingface-publish, add a required
 #      reviewer, and restrict deployment to the main branch.
@@ -184,7 +184,7 @@ jobs:
       - name: Publish showcase
         if: ${{ contains(fromJSON(steps.stage.outputs.selected), 'showcase') }}
         env:
-          HF_OIDC_RESOURCE: spaces/mskazemi/showcase
+          HF_OIDC_RESOURCE: spaces/mskazemi/yazses-showcase
           DEST: showcase
         run: |
           set -euo pipefail
@@ -193,9 +193,9 @@ jobs:
             tail -n 5 "$RUNNER_TEMP/oidc-$DEST.err" >&2
             exit 1
           fi
-          uv run --no-sync hf upload "mskazemi/showcase" "$RUNNER_TEMP/hf-stage/$DEST" . \
+          uv run --no-sync hf upload "mskazemi/yazses-showcase" "$RUNNER_TEMP/hf-stage/$DEST" . \
             --repo-type space --commit-message "Publish $DEST from MSKazemi/yazses@${GITHUB_SHA::7}"
-          echo "Published $DEST: https://huggingface.co/spaces/mskazemi/showcase" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "Published $DEST: https://huggingface.co/spaces/mskazemi/yazses-showcase" | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Publish benchmarks
         if: ${{ contains(fromJSON(steps.stage.outputs.selected), 'benchmarks') }}

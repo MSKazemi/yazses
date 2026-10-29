@@ -74,7 +74,7 @@ introduction. The pages below live under the maintainer's own account, [huggingf
 
 | Page | What it is |
 |---|---|
-| [Showcase Space](https://huggingface.co/spaces/mskazemi/showcase) | A static one-page overview. It does not run YazSes and processes no audio |
+| [Showcase Space](https://huggingface.co/spaces/mskazemi/yazses-showcase) | A static one-page overview. It does not run YazSes and processes no audio |
 | [Benchmark results dataset](https://huggingface.co/datasets/mskazemi/yazses-benchmark-results) | The archived results as plain CSV tables with provenance (machine, versions, corpus), under a dataset card. It contains no audio, no transcripts and no corpus text |
 | [Research collection](https://huggingface.co/collections/yazses/yazses-offline-speech-recognition-research) | A curated list: the paper, the demo, the showcase, the dataset and the upstream models |
 | [Paper page](https://huggingface.co/papers/2607.28878) | The Hub's page for the arXiv preprint, linked to the dataset and the Spaces that cite it |

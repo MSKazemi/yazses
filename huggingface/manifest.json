@@ -25,9 +25,9 @@
       "required_card_keys": ["title", "sdk"]
     },
     "showcase": {
-      "repo_id": "mskazemi/showcase",
+      "repo_id": "mskazemi/yazses-showcase",
       "repo_type": "space",
-      "url": "https://huggingface.co/spaces/mskazemi/showcase",
+      "url": "https://huggingface.co/spaces/mskazemi/yazses-showcase",
       "source_dir": "huggingface/showcase",
       "files": ["README.md", "index.html", "styles.css", "assets/"],
       "status": "live",
@@ -93,12 +93,12 @@
       },
       {
         "type": "space",
-        "id": "mskazemi/showcase",
+        "id": "mskazemi/yazses-showcase",
         "status": "live",
-        "url": "https://huggingface.co/spaces/mskazemi/showcase",
+        "url": "https://huggingface.co/spaces/mskazemi/yazses-showcase",
         "destination": "showcase",
         "note": "Static showcase of the YazSes offline dictation project. Planned: not published yet.",
-        "evidence": "huggingface.co/api/spaces/mskazemi/showcase RUNNING, static, public on 2026-10-28"
+        "evidence": "huggingface.co/api/spaces/mskazemi/yazses-showcase RUNNING, static, public on 2026-10-29 (renamed from showcase)"
       },
       {
         "type": "dataset",

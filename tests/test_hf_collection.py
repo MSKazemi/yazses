@@ -95,7 +95,7 @@ class FakeHub:
 
 
 #: Items the scenario below holds back as "planned", whatever the real manifest says today.
-SCENARIO_PLANNED = {"2607.28878", "mskazemi/showcase", "mskazemi/yazses-benchmark-results"}
+SCENARIO_PLANNED = {"2607.28878", "mskazemi/yazses-showcase", "mskazemi/yazses-benchmark-results"}
 
 
 def _scenario(*, approved: bool) -> dict:
@@ -217,17 +217,17 @@ def test_a_planned_item_becomes_live_and_is_added_later(manifest_path) -> None:
     _run(manifest_path, "--apply", hub=hub)
     data = json.loads(manifest_path.read_text(encoding="utf-8"))
     for dest in data["destinations"].values():
-        if dest["repo_id"] == "mskazemi/showcase":
-            dest.update(status="live", url="https://huggingface.co/spaces/mskazemi/showcase")
+        if dest["repo_id"] == "mskazemi/yazses-showcase":
+            dest.update(status="live", url="https://huggingface.co/spaces/mskazemi/yazses-showcase")
     for item in data["collection"]["items"]:
-        if item["id"] == "mskazemi/showcase":
-            item.update(status="live", url="https://huggingface.co/spaces/mskazemi/showcase",
+        if item["id"] == "mskazemi/yazses-showcase":
+            item.update(status="live", url="https://huggingface.co/spaces/mskazemi/yazses-showcase",
                         evidence="verified in test")
     manifest_path.write_text(json.dumps(data), encoding="utf-8")
     hub.calls.clear()
     code, out, hub, _ = _run(manifest_path, "--apply", hub=hub)
     assert code == 0, out
-    assert [(c[0], c[2]) for c in hub.mutating_calls] == [("add_item", "mskazemi/showcase")]
+    assert [(c[0], c[2]) for c in hub.mutating_calls] == [("add_item", "mskazemi/yazses-showcase")]
 
 
 def test_extra_remote_items_are_reported_and_never_removed(manifest_path) -> None:
