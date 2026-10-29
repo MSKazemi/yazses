@@ -1,16 +1,16 @@
 ---
 title: "YazSes — Deutsch"
-description: "YazSes ist ein kostenloser, Open-Source-Dienst für Spracheingabe unter Linux, macOS und Windows. So funktioniert's: Halten Sie den Hotkey gedrückt und sprechen Sie einfach drauflos. Sobald Sie die Taste loslassen, wird der diktierte Text dort eingefügt, wo Sie gerade schreiben. YazSes läuft ausschliesslich auf Ihrem eigenen Recher. Keine Cloud, kein Konto und kein Abo."
+description: "YazSes ist ein kostenloser, Open-Source-Dienst für Spracheingabe unter Linux, macOS und Windows. So funktioniert's: Halten Sie den Hotkey gedrückt und sprechen Sie einfach drauflos. Sobald Sie die Taste loslassen, wird der diktierte Text dort eingefügt, wo Sie gerade schreiben. YazSes läuft ausschließlich auf Ihrem eigenen Rechner. Keine Cloud, kein Konto und kein Abo."
 alternates:
   en: index.md
 ---
 
 **Read this in other languages:** [English](../index.md) · Deutsch · [Nederlands](../nl/index.md) · [Tiếng Việt](../vi/index.md) · [Türkçe](../tr/index.md) · [bahasa Indonesia](../id/index.md) · [español](../es/index.md) · [français](../fr/index.md) · [italiano](../it/index.md) · [polski](../pl/index.md) · [português do Brasil](../pt-BR/index.md) · [svenska](../sv/index.md) · [čeština](../cs/index.md) · [ελληνικά](../el/index.md) · [Русский](../ru/index.md) · [українська](../uk/index.md) · [اردو](../ur/index.md) · [العربية](../ar/index.md) · [فارسی](../fa/index.md) · [हिंदी](../hi/index.md) · [বাংলা](../bn/index.md) · [தமிழ்](../ta/index.md) · [తెలుగు](../te/index.md) · [ไทย](../th/index.md) · [日本語](../ja/index.md) · [简体中文](../zh-CN/index.md) · [繁體中文](../zh-TW/index.md) · [한국어](../ko/index.md)
-<!-- yazses-l10n: locale=de; source=README.md; source_sha=3baacb8; scope=partial; status=; reviewer=@2D00M6 -->
+<!-- yazses-l10n: locale=de; source=README.md; source_sha=3baacb8; scope=partial; status=active; reviewer=@2D00M6 -->
 
 # YazSes
 
-YazSes ist ein kostenloser, Open-Source-Dienst für Spracheingabe unter Linux, macOS und Windows. So funktioniert's: Halten Sie den Hotkey gedrückt und sprechen Sie einfach drauflos. Sobald Sie die Taste loslassen, wird der diktierte Text dort eingefügt, wo Sie gerade schreiben. YazSes läuft ausschliesslich auf Ihrem eigenen Recher. Keine Cloud, kein Konto und kein Abo.
+YazSes ist ein kostenloser, Open-Source-Dienst für Spracheingabe unter Linux, macOS und Windows. So funktioniert's: Halten Sie den Hotkey gedrückt und sprechen Sie einfach drauflos. Sobald Sie die Taste loslassen, wird der diktierte Text dort eingefügt, wo Sie gerade schreiben. YazSes läuft ausschließlich auf Ihrem eigenen Rechner. Keine Cloud, kein Konto und kein Abo.
 
 ## Installation
 
@@ -29,17 +29,17 @@ Beim ersten Start wird einmalig ein Sprachmodell heruntergeladen (etwa 148 MB). 
 
 ## Funktionalitäten
 
-- **Diktierfunktion** — Hotkey halten, sprechen, loslassen. Der Text wird dort eingefügt, wo du gerade schreibst.
-- **Sprachbefehle** — Sagen Sie beispielsweise "Datei speichern" oder "gehe zu Zeile 40", YazSes versteht den Befehl und führt ihn aus, anstatt den Text zu transkribieren.
-- **Besprechungen und Aufnahmen** — Mit YazSes können Sie Audiodateien transkribieren und vollständige Transkripte per Spracherkennung erstellen.
+- **Diktierfunktion** — Hotkey halten, sprechen, loslassen. Der Text wird dort eingefügt, wo Sie gerade schreiben.
+- **Sprachbefehle** — Sagen Sie beispielsweise „Datei speichern“ oder „gehe zu Zeile 40“, YazSes versteht den Befehl und führt ihn aus, anstatt den Text zu transkribieren.
+- **Besprechungen und Aufnahmen** — Mit YazSes können Sie Audiodateien transkribieren oder ganze Besprechungen mit Sprecherkennung aufnehmen — vollständig offline.
 
 ## Datenschutz
 
-Standardmäßig werden alle Audiodateien lokal auf Ihrem Rechner transkribiert und nicht an Dritte übertragen. YazSes verwendet weder Telemetrie noch Cloud-Dienste.
+Standardmäßig werden alle Audiodateien lokal auf Ihrem Rechner transkribiert und nirgendwohin übertragen. YazSes verwendet weder Telemetrie noch Cloud-Dienste.
 
 ## Weiterführende Informationen
 
-Weitere Dokumentation finden Sie hier:
+Weitere Dokumentation finden Sie hier (derzeit nur auf Englisch):
 
 - [Dokumentation](https://mskazemi.com/yazses/)
 - [Die vollständige englische README](https://github.com/MSKazemi/yazses#readme)
