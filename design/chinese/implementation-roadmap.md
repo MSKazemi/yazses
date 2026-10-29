@@ -3,6 +3,13 @@
 **Status:** Proposed, issue-ready work decomposition  
 **Goal:** Provide tasks small and explicit enough for multiple community developers to implement in parallel without having to redesign the feature.
 
+> **Implementation status (2026-10-29):** This is the original *design-stage*
+> dependency graph. Many CHN-10..40 steps are now represented by source and tests in main.
+> Do not create duplicate tasks from unchecked headings. Use
+> [the as-built audit](2026-10-29-as-built-audit.md) and
+> [the current community task catalog](2026-10-29-community-task-catalog.md)
+> to decide which tests, real-device evidence and follow-up work remain.
+
 ## 1. Workstream graph
 
 ```text

@@ -1,6 +1,6 @@
 # Chinese language support design package
 
-**Status:** Proposed design package (2026-09-20)  
+**Status:** Proposed ADR/design package (first written 2026-09-20; reconciled to the implementation on 2026-10-29)  
 **Scope:** First-class Mandarin dictation in Simplified and Traditional Chinese, without regressing English or changing YazSes' offline-by-default architecture.
 
 This directory is the implementation-planning record for Chinese language support. It deliberately separates three things that are easy to conflate:
@@ -23,9 +23,24 @@ The repository already contains most of the low-level transcription plumbing:
 - The Settings UI already exposes `Chinese -> zh`.
 - The STT engine is already abstracted behind `SttEngine`.
 
-The missing product-level capability is a **validated, atomic language switch** plus Chinese-aware command recognition, diagnostics, benchmarking, platform validation, and an honest release gate.
+**Current implementation update (2026-10-29):** the profile resolver, transactional switch service, CLI/Settings/doctor, conservative Mandarin command grammar, CJK transcript repairs and Mandarin CER instrument now exist on `main`. The remaining work is **native command review, reproducible real-model/CPU evidence, real-platform injection tests, selected integration gaps, and release signoff**. Treat older “missing” descriptions below as the design-phase history, not the current engineering queue.
 
 The P1 implementation therefore uses the existing faster-whisper backend and a multilingual Whisper model. The starting balanced preset is `small`; higher-cost checkpoints such as `large-v3-turbo` are benchmark candidates, not assumptions. Chinese-specialized engines (Qwen3-ASR, SenseVoice, Paraformer) may be evaluated later behind the existing `SttEngine` protocol and must earn their inclusion by measurement.
+
+## Current (2026-10-29) implementation and community handoff
+
+Start with the **as-built audit** below. The September documents remain the detailed
+architectural record; the new dated artifacts reconcile them against current source,
+tests and outstanding evidence, without silently accepting proposed ADRs.
+
+| Current document | Use |
+|---|---|
+| [Implementation audit and risk delta](2026-10-29-as-built-audit.md) | Grounded source/test inventory; implemented vs automated-tested vs unverified; stale design assumptions to retire |
+| [Language-switching architecture and state machine](2026-10-29-language-switch-architecture.md) | Exact profile/config/CLI/GUI/doctor contract, transaction boundaries, retries, recovery and rollback |
+| [Free/open model decision + benchmark protocol](2026-10-29-model-selection-protocol.md) | Whisper small baseline, permissive model-weight review, fair real-audio comparisons and schema provenance |
+| [CI, physical validation and release gates](2026-10-29-validation-and-release-gates.md) | Negative tests, packaging, native language, real-model CER, desktop injection, per-surface claims, evidence schema |
+| [Community task catalog](2026-10-29-community-task-catalog.md) | 24 proposed small, dependent work contracts with exact files, reviewer commands, negative tests and risk lanes |
+| [ADR implementation reconciliation](2026-10-29-adr-review.md) | Review of existing ADR-v2-140..144, unresolved decisions, maintainer signoff requirements |
 
 ## Documents
 
