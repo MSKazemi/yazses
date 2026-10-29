@@ -1096,6 +1096,122 @@ def _voiceguard_check(cfg, data_dir: Path) -> _Check | None:
     ))
 
 
+def _biosignal_check(
+    cfg, data_dir: Path, *, brainflow_present: bool | None = None, now=None
+) -> _Check:
+    """The biosignal switch row: off, or what stops an enabled one from working.
+
+    ``[biosignal] enabled = false`` is the normal state and reports ``SKIP`` -- "off" is not
+    a problem. Enabled, it checks without opening anything: the ``source`` spec parses (the
+    same grammar the daemon uses), a ``file:`` recording exists, BrainFlow is importable for
+    a ``brainflow:`` source, a board that needs a serial port was given one that exists, and
+    the saved calibration profile exists, is not stale and was made for this board. A
+    missing or old calibration is WARN, not FAIL: the blink switch needs none, and the
+    squeeze switch stays off (it never guesses) until `yazses biosignal calibrate` has run.
+    Every problem line names its fix in plain words.
+    """
+    bio = getattr(cfg, "biosignal", None)
+    if not getattr(bio, "enabled", False):
+        return ("Biosignal switch", "SKIP",
+                "off ([biosignal] enabled = false). Experimental: an electrode board as a switch. "
+                "Try it with no hardware: `yazses biosignal doctor`.")
+
+    fails: list[tuple[str, str]] = []
+    warns: list[tuple[str, str]] = []
+    spec = str(getattr(bio, "source", "") or "").strip()
+    scheme = spec.partition(":")[0].strip().lower()
+    if not spec:
+        warns.append((
+            "enabled, but [biosignal] source is empty, so nothing starts",
+            "set source = \"synthetic\" to try it, or \"brainflow:<board id>[:<port>]\" for a "
+            "board (`yazses biosignal doctor --boards` lists the ids)"))
+    else:
+        try:
+            if scheme == "file":
+                recording = spec.partition(":")[2].strip()
+                if not recording:
+                    raise ValueError("a file: source needs a path, e.g. file:session.csv")
+                if not Path(recording).expanduser().is_file():
+                    raise FileNotFoundError(f"recording not found: {recording}")
+            from yazses.biosignal.sources import open_source
+
+            if scheme != "file":
+                open_source(spec)  # constructs only: starts nothing, opens no hardware
+        except (ValueError, OSError) as exc:
+            fails.append((
+                f"source {spec!r} is not usable: {exc}",
+                "use \"synthetic\", \"file:<recording>\" or \"brainflow:<board id>[:<port>]\""))
+            scheme = ""
+
+    if scheme == "brainflow":
+        present = (importlib.util.find_spec("brainflow") is not None
+                   if brainflow_present is None else brainflow_present)
+        if not present:
+            from yazses.system.remedy import install_hint
+
+            fails.append(("the source is a BrainFlow board but BrainFlow is not installed",
+                          install_hint("emg-band") or "install the YazSes `emg-band` extra"))
+        from yazses.biosignal.boards import preset_for
+
+        preset = preset_for(spec)
+        port = spec.split(":", 2)[2].strip() if spec.count(":") >= 2 else ""
+        if preset is not None and preset.serial_required and not port:
+            warns.append((
+                f"{preset.name} needs a serial port and the source names none",
+                f"write it after the board id, e.g. \"brainflow:{preset.board_id}:/dev/ttyUSB0\" "
+                "(on Windows, COM3)"))
+        elif port.startswith("/") and not Path(port).exists():
+            warns.append((f"serial port {port} is not there",
+                          "plug the board or its dongle in; on Linux your user may need to be in "
+                          "the `dialout` group"))
+
+    if scheme and scheme != "synthetic":
+        from datetime import UTC, datetime
+
+        from yazses.biosignal.calibration import (
+            default_profile_path,
+            load_profile,
+            profile_is_stale,
+        )
+
+        named = str(getattr(bio, "calibration_file", "") or "").strip()
+        path = Path(named).expanduser() if named else default_profile_path(data_dir)
+        profile = load_profile(path)
+        wants_squeeze = bool(getattr(bio, "emg", True))
+        if scheme == "brainflow":
+            from yazses.biosignal.boards import preset_for
+
+            known = preset_for(spec)
+            # A listed EEG-only headset (Muse) has no muscle channel to calibrate.
+            if known is not None and "emg" not in known.kind_hint:
+                wants_squeeze = False
+        if profile is None:
+            if wants_squeeze:
+                warns.append((
+                    f"no calibration profile at {path}: the muscle-squeeze switch stays off "
+                    "(it never guesses a threshold)",
+                    "run `yazses biosignal calibrate`"))
+        else:
+            board = ":".join(spec.split(":")[:2]) if scheme == "brainflow" else scheme
+            if profile.board_id != board:
+                warns.append((
+                    f"the calibration was made for {profile.board_id!r}, not {board!r}; "
+                    "amplitudes do not carry over to another board or placement",
+                    "run `yazses biosignal calibrate` again"))
+            elif profile_is_stale(profile, now or datetime.now(UTC)):
+                warns.append((f"the calibration is old ({profile.created_at or 'unknown date'}): "
+                              "skin and electrode contact drift",
+                              "run `yazses biosignal calibrate` again"))
+
+    if not fails and not warns:
+        return ("Biosignal switch", "OK",
+                f"on, source {spec} -- no problems found. Nothing was opened; "
+                "`yazses biosignal doctor` runs a self-check and "
+                "`yazses biosignal report` measures your false-positive rate")
+    lines = [f"{text}\n    fix: {fix}" for text, fix in fails + warns]
+    return ("Biosignal switch", "FAIL" if fails else "WARN", "\n  ".join(lines))
+
+
 def _config_summary(
     cfg, config_file: Path, *, live_hotkey: str = "", platform_default: str = ""
 ) -> list[_Check]:
@@ -2350,6 +2466,10 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
         voiceguard = _voiceguard_check(cfg, paths.data_dir)
         if voiceguard is not None:
             checks.append(voiceguard)
+        try:
+            checks.append(_biosignal_check(cfg, paths.data_dir))
+        except Exception as exc:  # a diagnostic must not hide the checks after it
+            checks.append(("Biosignal switch", "WARN", f"could not be checked: {exc}"))
         # Every enabled capability whose optional libraries are missing, from the
         # feature registry rather than a hand-kept list. The list this replaced named
         # four features, told end users to run `uv sync --extra …` (a command that

@@ -146,6 +146,65 @@ class _SilentEarcon:
         return None
 
 
+#: The name the biosignal source goes by in the global hands-free gate (ADR-v2-148).
+_BIOSIGNAL_SAFETY_SOURCE = "biosignal"
+#: Daemon states in which the user is speaking: a dictation turn is being recorded (this
+#: includes a turn a squeeze itself started) or a meeting is being captured. Jaw and face
+#: EMG during these is articulation, not a deliberate clench.
+_BIOSIGNAL_SPEAKING_STATES = frozenset({TrayState.RECORDING, TrayState.MEETING})
+#: How recent the newest biosignal block must be for the source to count as alive to the
+#: hands-free gate. Far above any block interval (tens of ms .. ~250 ms for a BLE headband),
+#: and the gate's own staleness window comes on top of it.
+_BIOSIGNAL_FRESH_S = 1.0
+#: How long, with fresh samples, a hold-only biosignal source waits before re-arming itself
+#: after a *stale* disarm (the facegesture amendment to ADR-v2-148; pause/fault still need
+#: an explicit Resume). Unmeasured; same placeholder as the face switch.
+_BIOSIGNAL_REARM_AFTER_MS = 1500.0
+#: How often the biosignal watcher feeds and polls the hands-free gate.
+_BIOSIGNAL_GUARD_POLL_S = 0.1
+
+
+class _BiosignalGuarded:
+    """The biosignal source plus a watcher thread for the global hands-free gate.
+
+    The daemon starts an activation source as ``source.run`` on a thread and stops it with
+    ``source.stop()``. This wraps the real source (the runner, or the older persistence
+    adapter) and, only while it runs, calls ``tick`` every ``_BIOSIGNAL_GUARD_POLL_S``:
+    that is what feeds the gate a heartbeat while blocks arrive and releases a held squeeze
+    the moment a pause lands -- a pause must not wait for the user to relax their muscle
+    before the microphone closes. Every other attribute is the wrapped source's own.
+    """
+
+    def __init__(self, inner: Any, tick: Callable[[], object]) -> None:
+        self._inner = inner
+        self._tick = tick
+        self._halt = threading.Event()
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._inner, name)
+
+    def run(self) -> None:
+        self._halt.clear()
+        watcher = threading.Thread(target=self._watch, name="biosignal-guard", daemon=True)
+        watcher.start()
+        try:
+            self._inner.run()
+        finally:
+            self._halt.set()
+            watcher.join(timeout=1.0)
+
+    def stop(self) -> None:
+        self._halt.set()
+        self._inner.stop()
+
+    def _watch(self) -> None:
+        while not self._halt.wait(_BIOSIGNAL_GUARD_POLL_S):
+            try:
+                self._tick()
+            except Exception:  # a watcher that dies would leave a pause unenforced
+                log.debug("biosignal guard tick failed", exc_info=True)
+
+
 @functools.cache
 def _running_version() -> str:
     """The version of the yazses package this daemon imported. Never raises.
@@ -383,6 +442,20 @@ class Daemon:
     _mouthswitch = None
     #: Vocal Morse (ADR-v2-105): the level-stream runner, or None -- the default.
     _morsevox = None
+    #: Biosignal switches (ADR-v2-152): the activation source around the runner, or None
+    #: -- the default. `_biosignal_mode` is the dictation mode a held squeeze started
+    #: ("" when relaxed); `_biosignal_lock` guards it (the runner calls from its own thread).
+    _biosignal = None
+    _biosignal_mode: str = ""
+    _biosignal_lock = None
+    #: The runner itself (its public API: `note_cancelled`, `governor_release`, `status`),
+    #: or None. `_biosignal_latched` is True from the moment a held squeeze was cut short by
+    #: a global pause until the squeeze is let go, so resuming does not restart a turn the
+    #: user never re-made. `_biosignal_gate_armed` records that the safety gate has heard
+    #: from the source (it registers itself on its first sample, as the face switch does).
+    _biosignal_runner = None
+    _biosignal_latched: bool = False
+    _biosignal_gate_armed: bool = False
     # The face switch's select/confirm/cancel outcome log and the actions bound to it
     # (facegesture/actions.py). None / empty until a face switch is built.
     _switch_outcomes = None
@@ -1970,6 +2043,14 @@ class Daemon:
         available = ["voice", "keyboard"]
         if (cfg.emg.device_port or "").strip():
             available.append("emg")
+        # Biosignal switches (ADR-v2-152): a muscle squeeze is the same kind of input as an
+        # `[emg]` band and takes its `command` role in the preset; `biosignal` is listed too
+        # so the available set says what is plugged in (a preset gives it no role of its own).
+        bio = getattr(cfg, "biosignal", None)
+        if bio is not None and bio.enabled and (bio.source or "").strip():
+            available.append("biosignal")
+            if bio.emg and "emg" not in available:
+                available.append("emg")
         if getattr(self, "_gaze_targeter", None) is not None:
             available.append("gaze")
         policy = ModalityPolicy.from_preset(cfg.modality.preset, cfg.modality.priority)
@@ -1991,6 +2072,9 @@ class Daemon:
         and stopped by one caller rather than each growing its own.
         """
         sources: list = self._build_face_gesture_source(cfg)
+        # Biosignal switches ([biosignal], ADR-v2-152): joins the same list, so it is started
+        # and stopped by the same caller. An empty list, and no import, unless enabled.
+        sources.extend(self._build_biosignal_source(cfg))
         port = (cfg.emg.device_port or "").strip()
         address = (cfg.emg.ble_address or "").strip()
         if not port and not address:
@@ -2059,6 +2143,270 @@ class Daemon:
             log.warning("Both [emg] device_port and ble_address are set — running "
                         "BOTH activation sources. Clear one if that is not intended.")
         return sources
+
+    def _build_biosignal_source(self, cfg) -> list:
+        """The EEG/EMG/EOG switch runner as an activation source, or an empty list.
+
+        Built only when ``[biosignal] enabled`` *and* ``source`` names something to read; the
+        biosignal package is not imported otherwise, so a default daemon is unchanged. A
+        squeeze drives the same hold-to-talk / hold-to-command callbacks as ``[emg]`` (which
+        one is ``[biosignal] mode_map``'s choice per squeeze strength); a double blink or jaw
+        clench becomes an intent *label* that goes through the activation confirmation
+        policy and the ordinary command grammar. Nothing opens until the daemon starts the
+        source on its thread, and any failure here is logged and costs only this source.
+        """
+        bio = getattr(cfg, "biosignal", None)
+        if bio is None or not bio.enabled:
+            return []
+        if not (bio.source or "").strip():
+            log.warning("[biosignal] enabled but no source is set; biosignal stays off. "
+                        "Set [biosignal] source (see `yazses biosignal doctor`).")
+            return []
+        try:
+            import inspect
+
+            from yazses.biosignal.cli_impl import BiosignalActivationSource, ledger_path
+            from yazses.biosignal.runner import RunnerCallbacks, build_runner_from_config
+
+            self._biosignal_lock = threading.Lock()
+            self._biosignal_mode = ""
+            self._biosignal_latched = False
+            self._biosignal_gate_armed = False
+            data_dir = self._platform.paths.data_dir
+            # The runner keeps (and periodically saves) its own activation ledger when this
+            # build of it accepts a path; an older one does not, and then the adapter below
+            # reaches into its pipeline at exit, as it always did.
+            extra: dict[str, Any] = {}
+            accepted = inspect.signature(build_runner_from_config).parameters
+            persists = "ledger_path" in accepted
+            if persists:
+                extra["ledger_path"] = ledger_path(data_dir)
+                if "autosave_seconds" in accepted:
+                    extra["autosave_seconds"] = float(bio.ledger_autosave_seconds)
+            runner = build_runner_from_config(cfg, RunnerCallbacks(
+                on_mode_start=self._biosignal_mode_start,
+                on_mode_end=self._biosignal_mode_end,
+                on_intent=self._biosignal_intent,
+                # Jaw movement while you speak is not a clench: tell the detector.
+                speech_active=self._biosignal_speech_guard() if bio.speech_guard else None,
+            ), **extra)
+            if runner is None:
+                return []
+            self._biosignal_runner = runner
+            # Count the session's activations twice and the false-positive record is wrong:
+            # the adapter only persists when the runner does not.
+            public = (callable(getattr(runner, "note_cancelled", None))
+                      and bool(getattr(runner, "persists_ledger", False)))
+            inner: Any = runner if public else BiosignalActivationSource(runner, data_dir)
+            source = _BiosignalGuarded(inner, self._biosignal_check_gate)
+            self._biosignal = source
+            log.info("Biosignal activation source enabled (%s).", bio.source)
+            return [source]
+        except Exception:
+            log.warning("Biosignal activation source init failed; continuing without.",
+                        exc_info=True)
+            return []
+
+    def _biosignal_speaking(self) -> bool:
+        """Is the user speaking right now? Cheap and thread-safe: one attribute read.
+
+        The same field the tray reads, taken without the daemon lock for the reason the
+        Morse ``busy`` probe gives -- `status` holds that lock while it asks the runner for
+        its state, so waiting on it from the runner's thread could deadlock.
+        """
+        return self._state.state in _BIOSIGNAL_SPEAKING_STATES
+
+    def _biosignal_speech_guard(self) -> Callable[[], bool]:
+        """``speech_active`` for the detectors: speaking now, or only just stopped.
+
+        The hangover (SpeechGuard's default) covers the jaw's last movements after the
+        final word, which a bare state read misses once the turn flips to TRANSCRIBING.
+        Without the module it is the bare state read.
+        """
+        try:
+            from yazses.biosignal.speechguard import SpeechGuard
+
+            return SpeechGuard([self._biosignal_speaking])
+        except Exception:
+            log.debug("biosignal speech guard unavailable; using the plain state", exc_info=True)
+            return self._biosignal_speaking
+
+    def _biosignal_heartbeat(self, gate) -> None:
+        """Tell the global hands-free gate the source is alive, while blocks are arriving.
+
+        A source that stops delivering ages out of the gate like a camera that goes blind
+        (ADR-v2-148) and stays disarmed until Resume. The first sample also registers the
+        source, which is deliberate: it is only ever asked about once it has delivered, so
+        a headset that never connects cannot hold the global state at "not ready" for ever.
+        A source with no intent labels is hold-only and may re-arm itself after a *stale*
+        disarm (never after a pause or fault), exactly as the face switch's holds may.
+        """
+        runner = self._biosignal_runner
+        if runner is None:
+            return
+        try:
+            age = runner.status().get("last_block_age_s")
+        except Exception:
+            return
+        if age is None or age > _BIOSIGNAL_FRESH_S:
+            return
+        gate.sample(_BIOSIGNAL_SAFETY_SOURCE)
+        if not self._biosignal_gate_armed:
+            self._biosignal_gate_armed = True
+            if not tuple(getattr(runner, "vocabulary", ()) or ()):
+                gate.allow_auto_rearm(_BIOSIGNAL_SAFETY_SOURCE, _BIOSIGNAL_REARM_AFTER_MS)
+
+    def _biosignal_check_gate(self) -> bool:
+        """May the biosignal source act? False while the global hands-free state forbids it.
+
+        True without `[handsfree_safety]`: no gate means the global state is not in play, and
+        a switch must not be disabled by a state that does not exist. With it, a squeeze held
+        across a pause is released here, so the microphone closes with the pause. Fails
+        closed: a gate that raises is a refusal. Also the watcher's tick.
+        """
+        gate = self._handsfree_safety
+        if gate is None:
+            return True
+        try:
+            self._biosignal_heartbeat(gate)
+            if not self._biosignal_gate_armed:
+                return False
+            allowed = bool(gate.gate(_BIOSIGNAL_SAFETY_SOURCE).allowed)
+        except Exception:
+            log.debug("biosignal: hands-free gate poll failed", exc_info=True)
+            allowed = False
+        if not allowed:
+            self._biosignal_release_held()
+        return allowed
+
+    def _biosignal_release_held(self) -> None:
+        """End a squeeze-started turn now (a pause arrived mid-hold) and latch until relaxed."""
+        lock = self._biosignal_lock
+        if lock is None:
+            return
+        with lock:
+            held, self._biosignal_mode = self._biosignal_mode, ""
+            if held:
+                self._biosignal_latched = True
+        if held:
+            log.info("Biosignal: hands-free pause during a held squeeze; releasing it.")
+            self._on_hold_end()
+
+    def _biosignal_note_cancelled(self) -> None:
+        """A spoken undo just ran: count the switch's latest activation as a mistake."""
+        try:
+            fn = getattr(self._biosignal_runner, "note_cancelled", None)
+            if not callable(fn):
+                fn = getattr(self._biosignal, "note_cancelled", None)  # older runner
+            if callable(fn):
+                fn()
+        except Exception:
+            log.debug("biosignal note_cancelled failed", exc_info=True)
+
+    def _biosignal_release_governor(self) -> None:
+        """An explicit Resume also releases the false-positive guard's suspension, if any."""
+        try:
+            fn = getattr(self._biosignal_runner, "governor_release", None)
+            if callable(fn):
+                fn()
+        except Exception:
+            log.debug("biosignal governor_release failed", exc_info=True)
+
+    def _biosignal_policy(self) -> tuple[float, float]:
+        """The (confirm threshold, reject floor) a biosignal intent is judged against.
+
+        ``[activation] confirm_threshold`` and ``reject_floor`` while ``[activation]`` is on
+        and they make sense together; otherwise the built-in defaults, so an install that
+        never opted in behaves as before.
+        """
+        from yazses.activation.confirm import DEFAULT_CONFIRM_THRESHOLD, DEFAULT_REJECT_FLOOR
+
+        act = getattr(self._config, "activation", None)
+        if act is not None and act.enabled:
+            threshold, floor = float(act.confirm_threshold), float(act.reject_floor)
+            if 0.0 <= floor <= threshold <= 1.0:
+                return threshold, floor
+            log.warning("[activation] reject_floor %s / confirm_threshold %s are not "
+                        "0 <= floor <= threshold <= 1; using %s / %s for biosignal intents.",
+                        floor, threshold, DEFAULT_REJECT_FLOOR, DEFAULT_CONFIRM_THRESHOLD)
+        return DEFAULT_CONFIRM_THRESHOLD, DEFAULT_REJECT_FLOOR
+
+    def _biosignal_mode_start(self, mode: str) -> None:
+        """A squeeze began (or changed strength): start the dictation the map names.
+
+        ``mode`` is ``command`` or ``full_text``; anything else is refused with a warning
+        rather than absorbed into the other branch (the failure `[emg] mode` once had). A
+        squeeze that gets harder while held upgrades the running turn to a command in place;
+        one that gets lighter keeps the command, so a wobble never splits a turn in two.
+        Refused while the global hands-free state is paused, and the squeeze is then latched
+        out until it is let go, so a Resume mid-squeeze does not start a turn from it.
+        """
+        mode = (mode or "").strip().lower()
+        if mode not in ("command", "full_text"):
+            log.warning("[biosignal] mode_map names %r, which is not a mode; squeeze ignored. "
+                        "Valid values: command | full_text.", mode)
+            return
+        lock = self._biosignal_lock
+        assert lock is not None
+        if not self._biosignal_check_gate():
+            with lock:
+                self._biosignal_latched = True
+            log.info("Biosignal squeeze ignored: hands-free input is paused.")
+            return
+        with lock:
+            if self._biosignal_latched:
+                return
+            held = self._biosignal_mode
+            if held:
+                if mode == "command" and held != "command":
+                    self._biosignal_mode = "command"
+                    self._command_mode = True
+                return
+            self._biosignal_mode = mode
+        if mode == "command":
+            self._on_command_hold_start(0)
+        else:
+            self._on_hold_start(0)
+
+    def _biosignal_mode_end(self) -> None:
+        """The squeeze ended (released, or the runner's watchdog gave up on the device)."""
+        lock = self._biosignal_lock
+        if lock is None:
+            return
+        with lock:
+            held, self._biosignal_mode = self._biosignal_mode, ""
+            self._biosignal_latched = False
+        if held:
+            self._on_hold_end()  # consumes `_command_mode` when the turn was a command
+
+    def _biosignal_intent(self, intent) -> None:
+        """A blink/clench label: validate, classify, gate on confidence x consequence, act.
+
+        The path a Gesture Chord's or a Mouth-Sound Switch's command takes. Fails closed: a
+        decision that needs a confirmation is refused (no prompt UI here yet), so a low-
+        confidence press does nothing rather than something. Ignored while a dictation turn
+        is being recorded, when a blink is part of speaking, and while hands-free input is
+        paused. The thresholds are ``[activation]``'s (see :meth:`_biosignal_policy`).
+        """
+        source = self._biosignal
+        if source is None or self._state.state is TrayState.RECORDING:
+            return
+        if not self._biosignal_check_gate():
+            log.info("Biosignal intent %r ignored: hands-free input is paused.", intent.label)
+            return
+        try:
+            from yazses.activation.pipeline import handle_intent
+
+            threshold, floor = self._biosignal_policy()
+            outcome = handle_intent(
+                intent, source.vocabulary,
+                classify=self._gesture_classify, dispatch=self._gesture_dispatch,
+                threshold=threshold, floor=floor,
+            )
+            log.info("Biosignal intent %r -> %s", intent.label,
+                     "done" if outcome.executed else "not run")
+        except Exception:
+            log.warning("Biosignal intent %r raised; ignored.", intent.label, exc_info=True)
 
     def _build_face_gesture_source(self, cfg) -> list:
         """The webcam face-gesture switch, or an empty list (#102).
@@ -4584,6 +4932,12 @@ class Daemon:
                 if self._config.cmdsafety.enabled:
                     if not self._cmdsafety_command_gate(intent, event):
                         return
+                # A spoken "undo" right after a biosignal switch fired is the user saying it
+                # misfired: count it against the switch's false-positive budget. (The
+                # switch's own "undo" goes through `_biosignal_intent`, not here, so it can
+                # never cancel itself.)
+                if intent.action == "undo" and getattr(self, "_biosignal", None) is not None:
+                    self._biosignal_note_cancelled()
                 cmd_dispatch(intent, injector,
                              macro_table=self._macro_table,
                              macro_context=self._build_macro_context(),
@@ -8512,6 +8866,8 @@ class Daemon:
                 if gate is not None:
                     gate.pause("paused by the user")
                     scope.append("all hands-free input")
+                    if getattr(self, "_biosignal", None) is not None:
+                        self._biosignal_check_gate()  # releases a held squeeze at once
                 if runtime is not None:
                     runtime.command("pause")
                     if gate is None:
@@ -8548,6 +8904,12 @@ class Daemon:
             if (morse := getattr(self, "_morsevox", None)) is not None:
                 # Reopens the level stream that listens for the entry hum, if that is on.
                 ok = morse.toggle("resume", scope, reasons) and ok
+            if getattr(self, "_biosignal", None) is not None:
+                # One explicit action lifts the false-positive guard's suspension too, and
+                # lets the gate know the source is alive so the resume below can arm it.
+                self._biosignal_release_governor()
+                if gate is not None:
+                    self._biosignal_heartbeat(gate)
             if gate is not None:
                 rearm = gate.resume()
                 scope.extend(n for n in rearm.armed if n not in scope)

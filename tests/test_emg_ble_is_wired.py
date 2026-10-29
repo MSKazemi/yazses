@@ -48,6 +48,12 @@ class _Daemon:
 
         return Daemon._build_face_gesture_source(self, cfg)
 
+    # Same for the biosignal seam: unconfigured (`[biosignal] enabled` is off) it returns [].
+    def _build_biosignal_source(self, cfg) -> list:
+        from yazses.core.daemon import Daemon
+
+        return Daemon._build_biosignal_source(self, cfg)
+
 
 def _sources(monkeypatch: pytest.MonkeyPatch, **emg):
     """Run the real factory against a config stub, with both backends faked."""

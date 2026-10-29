@@ -6,6 +6,57 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — biosignal switches: artifact-grade EMG/EOG/EEG events under a false-positive budget (ADR-v2-152)
+
+A new opt-in `yazses.biosignal` package reads raw electrode samples (a synthetic source, a
+recording replay, or a BrainFlow board such as OpenBCI or Muse through the existing `emg-band` extra) and
+turns them into a small closed set of events: a graded squeeze, a blink or double blink, and a jaw clench.
+Events drive the same `on_mode_start` / `on_mode_end` callbacks as the EMG sources and send labels-only
+intents through `activation/intent.py`; detectors never execute an action themselves.
+
+- **A quality gate suppresses events.** Flatline, saturation, mains interference, baseline drift and
+  sample dropout each produce silence, never a trigger. A max-hold watchdog ends a hold that never
+  releases, and the jaw-clench detector carries a speech guard.
+- **The false-positive budget is enforced, not just reported.** Each activation goes in a local ledger;
+  the cancelled fraction (a proxy, shown with a Wilson confidence interval) feeds a governor that
+  desensitizes and then suspends the switch past `max_cancelled_per_hour`.
+- **Calibration is per person.** `yazses biosignal calibrate` records relax, light and hard squeeze,
+  blink and clench phases into a local `0600` profile with no raw samples.
+- **Off by default.** `[biosignal] enabled = false`; the new commands are `yazses biosignal doctor`,
+  `calibrate`, `monitor`, `replay` and `report`. Nothing is imported until you enable it, and no new
+  network path exists.
+- **Scope is narrow on purpose.** Blink and jaw clench are muscle and eye artifacts, not brain signals,
+  and talking confounds the jaw. This does not reverse ADR-v2-129: decoding thoughts, motor imagery,
+  SSVEP or P300 stays rejected. The thresholds are unmeasured design choices until field reports exist.
+- **The governor escalates in one order: desensitize, then suspend.** It acts on a conservative
+  lower bound of the cancelled rate with a minimum amount of evidence, not on the displayed
+  fraction; a suspension recovers by itself after a timer that grows on repeats, into the
+  desensitized state, and ends at once on a single release. Rates count active exposure time only.
+  Decision record: `design/adr/adr-v2-153-biosignal-false-positive-governor.md`.
+- **A speech guard for the jaw clench** (`biosignal/speechguard.py`) combines the dictation
+  recording flag with optional voice-activity and speech-playback flags, with a hangover tail and a
+  watchdog so a stuck flag cannot lock the switch out; a failing source counts as speaking.
+- **An evaluation harness** (`biosignal/evaluate.py`) scores detectors against scripted events
+  (recall, precision, latency) and counts phantom activations per hour on an idle stream, with
+  confidence intervals. Its reports say that synthetic results prove the logic, not real-world
+  accuracy.
+- Still unmeasured, and said so in the docs: the thresholds are untuned on real recordings, the
+  cancelled fraction is a proxy, and validation is synthetic only.
+- **The measurement survives a crash.** The activation counters are saved periodically
+  (`[biosignal] ledger_autosave_seconds`, default 60 s) and on stop, not only at a clean shutdown.
+- **The switch obeys the global hands-free pause** (ADR-v2-148): a squeeze held when a pause arrives
+  is released and stays off until the signal relaxes, and intents are ignored while paused. An
+  explicit Resume (`yazses handsfree resume`) lifts a false-positive suspension in one
+  action. New commands: `record`, `evaluate`, `boards` and `profile`; new key `speech_guard` (on by
+  default; it matters only when `jaw_clench` is on).
+- Still planned and not claimed here: calibrated blink and jaw-clench detectors with a runtime
+  sensitivity scale and the blink-detector warm-up fix. The spec's
+  "Round-2 status" table lists what is present.
+- Docs: how-to `docs/how-to/biosignal-switch.md` (Use a muscle, blink or jaw-clench switch), the
+  decision records `design/adr/adr-v2-152-biosignal-artifact-switches.md` and
+  `design/adr/adr-v2-153-biosignal-false-positive-governor.md`, the spec
+  `design/specs/biosignal-pipeline.md`, and an architecture row in `design/architecture.md`.
+
 ### Changed — the Swedish page was reviewed by a native speaker
 
 `docs/sv/index.md` was a machine-assisted draft. A native Swedish reader reworded it so it reads

@@ -453,3 +453,19 @@ by the maker), *secondary* (review or reporting).
 *See also: [eye control](eye-control.md) for the gaze half of the hands-free
 stack, the [accessibility use-case guide](../use-cases/accessibility-rsi-hands-free.md),
 and the [research index](index.md) for how these channels compare on bandwidth.*
+
+---
+
+## What shipped after this was written
+
+*Added 2026-10-29.* The page above is the reasoning; part of it is now software. YazSes has an opt-in
+**biosignal switch** (`[biosignal]`, off by default) that reads raw electrode samples from a BrainFlow
+board (or a replay file) and reports a squeeze, a blink or double
+blink, or a jaw clench, behind a signal-quality gate and a false-positive budget it measures on your
+own machine. See [Use a muscle, blink or jaw-clench switch](../how-to/biosignal-switch.md).
+
+This does not change the conclusions above. The switches are the muscle and eye *artifacts* this page
+describes, not brain signals, and the jaw clench still has to cope with talking. Consumer-EEG "thought"
+triggers, motor imagery, SSVEP and P300 remain rejected. What is new is the means to measure the number
+this page says the field lacks: a user can now count their own cancelled activations, with a confidence
+interval, instead of guessing. Open question 1 still stands until people publish what they measure.

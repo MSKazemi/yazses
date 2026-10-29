@@ -801,6 +801,45 @@ repeats it. The scanner keeps the recent segments, so select-at-onset stays exac
 non-stale click. One click selects at most once. The scan stops on a pop, on pause or
 dictation, and after three passes with no selection, counted from the last one.
 
+### `src/yazses/biosignal/` (artifact-grade EMG/EOG/EEG switches, [ADR-v2-152](adr/adr-v2-152-biosignal-artifact-switches.md) — experimental, off by default)
+
+Raw electrode samples in, a closed set of events out (graded squeeze, blink, double blink, jaw
+clench), held to a measured false-positive budget. A fourth activation source beside the keyboard, the
+EMG/BrainFlow sources and the face-gesture switch: events feed the same `on_mode_start` /
+`on_mode_end` callbacks and, as labels only, `activation/intent.py`. Full design in
+[`specs/biosignal-pipeline.md`](specs/biosignal-pipeline.md); the governor's mechanism is
+[ADR-v2-153](adr/adr-v2-153-biosignal-false-positive-governor.md). Thought, motor-imagery, SSVEP and
+P300 decoding stays rejected (ADR-v2-129); blink and jaw clench are artifacts, and the thresholds are
+unmeasured. Validation is synthetic only.
+
+| File | Role |
+|---|---|
+| `types.py` | The shared contract: `SignalKind`, `EventKind`, `ChannelInfo`, `SampleBlock`, `BioEvent`, and the `BlockSource` / `StreamDetector` Protocols. No behaviour. |
+| `filters.py` | Pure numpy streaming DSP (notch, band-pass); output independent of block size. |
+| `quality.py` | Per-window signal-quality gate (flatline, saturation, mains, drift, dropout); an untrusted channel emits no events. |
+| `emg_onset.py` | TKEO double-threshold onset/offset with a frozen baseline, a max-hold watchdog and graded light/hard squeeze. |
+| `artifacts.py` | `BlinkDetector` (with the double-blink gesture) and `JawClenchDetector` (with a speech guard). |
+| `calibration.py` | RELAX / SQUEEZE_LIGHT / SQUEEZE_HARD (+ optional BLINK_X3 / CLENCH_X3) session to a local `0600` JSON profile with no raw samples; the profile's `thresholds` map is the hook detectors are built from. |
+| `speechguard.py` | `SpeechGuard`: combines dictation-recording, VAD and TTS flags into the `speech_guard` callable the jaw-clench detector takes (hangover, stuck-source watchdog, fails closed). Audio-side state only. |
+| `fprate.py` | Activation ledger (per active exposure time), cancelled-fraction proxy with Wilson interval, budget governor: desensitize, then suspend, auto-recover with backoff, one-action `release()`; persists aggregate counters only ([ADR-v2-153](adr/adr-v2-153-biosignal-false-positive-governor.md)). |
+| `evaluate.py` | Evaluation harness: recall, precision and latency against scripted events, and phantom activations per hour on an idle stream, with intervals and a synthetic-data caveat. |
+| `boards.py` | A small table of known boards and their BrainFlow ids (advice for choosing `[biosignal] source`; stdlib only, opens nothing). |
+| `sources.py` | `SyntheticSource`, `FileReplaySource`, `BrainFlowBlockSource`, `open_source('synthetic' \| 'file:…' \| 'brainflow:<id>')`; `brainflow` imported lazily (the `emg-band` extra). |
+| `pipeline.py`, `runner.py` | `BiosignalPipeline` (pure: blocks in, events out) and `BiosignalRunner` (the thread, `mode_map` / `intent_map`, stuck-hold watchdog, status). |
+| `cli_impl.py` | The `yazses biosignal` command bodies, the `BiosignalActivationSource` adapter the daemon starts, and the ledger counters file. |
+
+**Invariant: an untrusted signal never produces an event, and a hold can never stay open.** The quality
+gate suppresses events from a flat, clipped, mains-dominated, drifting or gappy channel; the max-hold
+watchdog and the runner's stop/suspend path close any open hold. **The governor escalates in one
+order, desensitize then suspend, and a suspension heals itself or ends on one user action.**
+The ledger counters are autosaved periodically so a killed daemon keeps its measurement, and the daemon
+adapter enforces the global hands-free pause (ADR-v2-148) by releasing and latching a held squeeze.
+Not confirmed present at the last update (the spec's "Round-2 status" table is the authority):
+calibrated blink/clench detectors with a runtime sensitivity scale, and the blink warm-up fix.
+**No new egress path:** the package
+opens no socket and adds nothing to ADR-019's inventory; recordings and profiles are local-only
+biometric-adjacent data.
+
 ### `src/yazses/overlay/` (voice-activity overlay, `yazses-overlay`)
 
 Standalone process (separate from the daemon, which is blocked by the hotkey

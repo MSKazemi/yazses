@@ -730,6 +730,10 @@ def test_speech_only_dictation_does_not_consult_the_hands_free_gate():
         # pointer; the grid itself is reached from `_on_hold_end` only through its runtime,
         # which never consults the gate for dictation (it returns None for non-grid speech).
         "_build_mousegrid",
+        # The biosignal switch (ADR-v2-152) is a non-camera input that obeys the global pause:
+        # `_biosignal_check_gate` is the one place it asks the gate (and reports a heartbeat),
+        # called by the source's own wrapper and the pause handler. Dictation never reaches it.
+        "_biosignal_check_gate",
     }
     for dictation in ("_on_hold_start", "_on_hold_end", "_on_command_hold_start",
                       "_on_command_hold_end"):

@@ -45,7 +45,7 @@ It stays listed so contributors can pick it up; see the matching design/adr/ ent
 ```
 
 **<!-- registry:unwired -->25<!-- /registry --> capabilities are in that state today**, out
-of <!-- registry:total -->150<!-- /registry --> in the registry. Both numbers are counted
+of <!-- registry:total -->151<!-- /registry --> in the registry. Both numbers are counted
 from the feature registry when the docs are generated, not typed by hand.
 
 ### "Hold the command key" — what that means
