@@ -8015,7 +8015,8 @@ def biosignal_doctor(
 
     Needs no hardware: the self-check pushes scripted blinks through the real filters,
     quality gate and detector. A missing board is reported, not an error; the exit code is
-    1 only when the self-check itself fails.
+    1 only when the self-check itself fails. The last line is a verdict: ready, or the one
+    thing to do next.
     """
     from yazses.biosignal.cli_impl import run_doctor
 
@@ -8159,6 +8160,34 @@ def biosignal_record(
     raise typer.Exit(run_record(
         cfg, data_dir, source=source, seconds=seconds, out=out, force=force, seed=seed,
         truth_out=truth_out, as_json=as_json))
+
+
+@biosignal_app.command(
+    "field-test",
+    epilog=_examples(
+        "yazses biosignal field-test                      guided: sit still, talk, chew, type, look around",
+        "yazses biosignal field-test --minutes 10         a longer, steadier measurement",
+        "yazses biosignal field-test --json --out ft.json   machine-readable, and keep the counts",
+    ),
+)
+def biosignal_field_test(
+    source: str = typer.Option("", "--source", help="Test this source instead of [biosignal] source (synthetic | file:<path> | brainflow:<id>[:<port>])."),
+    minutes: float = typer.Option(0.0, "--minutes", min=0.0, max=120.0, help="Stretch or shrink the test to about this long (0 = the standard length)."),
+    as_json: bool = typer.Option(False, "--json", help="Print one JSON object instead of text."),
+    out: str = typer.Option("", "--out", "-o", help="Also write the counts to this JSON file (owner-only; never overwrites)."),
+) -> None:
+    """Guided test of how often the switches fire by mistake during ordinary activity.
+
+    Prompts on screen ask you to sit still, talk, chew, type and look around while the
+    real detectors run on your signal. Afterwards you get the phantom activations per
+    hour for each activity: the number that decides whether a switch is safe to leave on.
+    Only those counts are reported or saved, never the signal. Nothing is typed or acted on.
+    """
+    from yazses.biosignal.cli_impl import run_field_test
+
+    cfg, data_dir = _biosignal_context()
+    raise typer.Exit(run_field_test(
+        cfg, data_dir, source=source, minutes=minutes, as_json=as_json, out=out))
 
 
 @biosignal_app.command(

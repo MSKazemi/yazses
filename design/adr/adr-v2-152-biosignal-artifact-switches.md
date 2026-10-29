@@ -10,7 +10,8 @@ Protocol), [[adr-011]] (zero telemetry), [[adr-019-egress-inventory-and-escalati
 [[adr-021-invest-in-error-cost]] (rule 9: a guard is judged on how rarely it fires),
 [[adr-v2-148-hands-free-composition]] (the one global pause/kill state this source must obey),
 [[adr-v2-153-biosignal-false-positive-governor]] (the governor mechanism in detail), research:
-`docs/research/muscle-brain-control.md`, spec: `design/specs/biosignal-pipeline.md`
+`docs/research/muscle-brain-control.md`, spec: `design/specs/biosignal-pipeline.md`, field protocol:
+`design/specs/biosignal-validation-protocol.md`
 
 ## Context
 
@@ -154,9 +155,10 @@ adapter callbacks; the package stays free of daemon imports. The runner exposes 
 API (`ledger`, `pipeline`, `note_cancelled`, `governor_release`, `save_ledger`, `status`) so the
 daemon never reaches into private attributes. An explicit Resume of the global state also releases
 the governor: the governor's release is one
-action (ADR-v2-153). Today the pipeline and ledger keep running while the global state is paused
-(only the daemon-side effects are gated), so a paused period still accrues exposure time; that is
-a known limit.
+action (ADR-v2-153). The pipeline keeps running while the global state is paused (only the
+daemon-side effects are gated), but the daemon pauses the runner's exposure accounting
+(`pause_accounting()` / `resume_accounting()`) on the gate's transitions, so a paused period does not
+accrue as ledger exposure and cannot dilute the measured rate.
 
 ### 7. Measurement is built in: the ledger survives a crash, and an evaluation harness scores the detectors
 
@@ -170,9 +172,10 @@ a known limit.
   scripted events (recall, precision, latency) and counts phantom activations per hour on a stream
   with nothing happening, with Wilson and Poisson intervals. Its report states on every run that
   synthetic results prove the logic and not real-world accuracy.
-- **Commands to record, evaluate, inspect profiles and boards, and resume a suspended switch** sit
-  beside the first five (`doctor`, `calibrate`, `monitor`, `replay`, `report`); see the spec for
-  the current command set and which of them exist yet. A table of known boards (`boards.py`) is
+- **Commands to record, evaluate, field-test, inspect profiles and boards** sit beside the first five
+  (`doctor`, `calibrate`, `monitor`, `replay`, `report`); see the spec for the current command set.
+  A suspended switch is released by the global `yazses handsfree resume`; there is no
+  `yazses biosignal resume`. A table of known boards (`boards.py`) is
   advice for choosing a `source` string, built only from ids read from the installed BrainFlow
   package; it opens nothing.
 
@@ -242,14 +245,117 @@ What is still unmeasured or unproven, stated plainly so no page overstates it:
 - **Speech suppression reads audio-side state only.** The speech guard fires on the dictation
   state, a voice-activity flag and playback, not on the jaw electrode itself. If those sources are
   absent or late, a clench during speech can still pass.
-- **Blink and jaw-clench detectors may not yet take calibration values**, so their per-person
-  adaptation can be weaker than the EMG switch's, and the governor reaches them only through the
-  pipeline's confidence floor unless they expose a sensitivity scale. A blink-detector warm-up
-  defect was found in review and its fix is tracked in the spec's checklist.
+- **Per-person adaptation is only as good as the calibration the person could produce.** The blink
+  and jaw-clench detectors take calibration values and a sensitivity scale, and the pipeline refuses
+  a stale or mismatched profile, but all of that is validated on synthetic signal only; whether
+  the intended users can perform the calibration gestures is unmeasured. A blink-detector warm-up
+  defect found in review is fixed (see the spec).
 - **Hardware coverage.** Only the synthetic source runs without hardware. BrainFlow boards are
   reached through BrainFlow's own support and are not individually verified here.
 - **Time-of-day, fatigue and electrode drift** over a workday are not modelled; a re-seated
   electrode needs a new calibration.
+
+## Evidence and what it does not show
+
+This ADR rests on reasoning and on a small amount of published literature, all of it recorded on the
+research page (`docs/research/muscle-brain-control.md`, which grades each reference *measured*, *vendor*
+or *secondary*). The figures below are quoted as that page records them; this ADR did not re-derive them
+from the primary papers. What each one supports, and what it does not:
+
+| What is cited | What it supports | What it does **not** show |
+|---|---|---|
+| An EOG blink switch at 99.5% accuracy, 1.3 s response and **0.10 false positives per minute** (Li et al., *Neurocomputing* 2018; *measured*) | That an artifact-grade switch can be accurate, and that the **best published** false-positive rate for a blink switch is of this order, about 50 phantom activations in a workday | That our detector reaches it; that it holds on a headband rather than the study's electrodes; that it holds over a workday of talking and typing; that 0.10/min is *livable* (the research page calls it a fatal problem without extra safeguards). It is a ceiling to beat, not a result we have. |
+| A breath-hold PPG toggle at **0.02 false operations per minute** (Han et al., *Sensors* 2020; *measured*) | That a different physiological channel can be five times quieter than a blink switch | Anything about EMG or EOG. It motivates choosing the channel where the action is loudest; it supplies no number for ours. |
+| Meta's *Nature* 2025 sEMG wristband (Kaifosh et al.; *measured*): large-scale offline gesture decoding on held-out users | That surface EMG gestures generalise across many people in an offline evaluation | A false-activation rate. As the research page records, the paper reports **no false-activation rate**, which is the number that decides whether a trigger is livable. Its hardware is also not available to this project (no raw EMG, no Linux, ADR-v2-129). |
+| "Jaw clench about 90%, sub-second possible" (a row of the research page's table) | Nothing citable: that row carries no reference on the page | Do not quote it as evidence. The same table names the real problem, chewing and talking, and no cited source measures the rate under them. |
+| BCI inefficiency (Tibrewal et al.; *measured*) | Why thought decoding stays out of scope: some users never produce usable patterns | Anything about artifact switches. |
+| **This repository's own results** | That the code does what the spec says: the quality gate suppresses, the watchdog closes holds, the governor escalates in order, the ledger counts correctly. Synthetic and replayed signals only. | Anything about a human body: no phantom-activation rate, no hit rate, no latency, no calibration time, and no behaviour on any board has been measured on a real person. However large the synthetic test suite is, it is evidence about the logic, not about physiology. |
+
+Taken together: **the literature establishes that the idea is not absurd and that the false-positive rate
+is the number that matters; it does not establish that this implementation meets any rate, and the
+repository has no real-signal evidence at all.** The structure this ADR decides (gate, budget, ledger,
+measurement) is the response to that gap. It is not a claim that the gap is closed.
+
+Further unknowns that no cited source settles: how the cancelled-activation proxy relates to labelled
+phantom activations (never compared); how far a person's rate varies day to day and electrode re-seat to
+re-seat; whether the speech guard, which reads audio-side state, is enough in real dictation; and whether
+the intended users, who matter most, can produce the gesture the calibration asks for as reliably as the
+volunteers any first study will be able to find.
+
+## Falsifiable acceptance criteria
+
+The status stays **Proposed** until a real-hardware field test, run under
+`design/specs/biosignal-validation-protocol.md`, meets the gates below. They are **design choices**, set
+before any data exists so they cannot be bent to fit data; they are not derived from a clinical or
+usability standard, and they can be changed only by a recorded amendment made *before* the run they
+govern. Moving the status is a maintainer decision recorded as a dated amendment to this ADR; passing the
+gates makes the move permitted, not automatic.
+
+Common conditions for every gate: thresholds, budget and mapping frozen before the evaluation round (no
+tuning on the data being judged); each participant calibrated for their own configuration; bounds
+computed as the protocol states (a one-sided 95% Poisson upper bound for rates per usable hour, a
+two-sided 95% Wilson interval for proportions, read at the **conservative** end); results reported per
+configuration and per participant beside the pool.
+
+**Tier 1: Proposed to Accepted.**
+
+| # | Gate | Pass condition |
+|---|---|---|
+| A0 | Sample | At least 5 participants, using at least 2 distinct board or electrode-site configurations, each configuration with at least 2 participants. |
+| A1 | Phantom activations | In each of the phases `rest`, `hands_busy` (typing), `speech` and `chew` of the field test, the pooled one-sided 95% upper bound on phantom activations per usable hour, over all trigger kinds the configuration enabled, is at most **6 per hour**. With no phantom seen that needs about half an hour of pooled usable signal in the phase (rule of three), more if any were seen; the report prints the extra hours needed. The 6 per hour is the best published blink switch (0.10 per minute) expressed per hour, which makes the gate "no worse than the best published artifact switch", a floor and not a statement that 6 an hour is pleasant. The per-kind counts are reported beside it. |
+| A2 | Hit rate | The two-sided 95% Wilson **lower** bound on deliberate-gesture hits (pooled scored cues of the `gesture_*` phases) is at least **90% for the squeeze** and at least **80% for the double blink**, which with no misses needs about 35 and 16 scored cues respectively (a default session scores 8 per switch). This is stricter than the tool's own advisory `usable` verdict, which judges the hit rate on the point estimate. |
+| A3 | Calibration time | At least 80% of participants reach a written profile within **5 minutes of wall-clock time and 3 attempts** from the start of `yazses biosignal calibrate`, electrode seating included. (The guided phases themselves are about half a minute of recorded data at the default timings in `CalibrationConfig`; the ceiling is for the person, not the code.) Participant counts are small, so the proportion is reported with its interval and read on the point estimate. |
+| A4 | Safety | **Zero stuck-mic events** in the full stress list of the protocol on real hardware (cable pull, USB unplug mid-squeeze, daemon restart mid-hold, pause mid-hold, governor suspension mid-hold) and in all of the participants' live use (the field-test command itself drives nothing, so it cannot see a stuck microphone). One event fails the gate; the fix restarts the list. |
+| A5 | Governor behaviour | Judged in live use, because the field test acts on nothing and reports no cancels, so it cannot move the governor: in the participants' own days with the daemon and ledger on, the governor does not leave `OK` for those who meet A1; in one deliberately noisy live session it escalates in order (desensitize, then suspend); and a single release returns it to `OK` from each state, every time it is tried. Details: ADR-v2-153, "Falsifiable acceptance criteria". |
+| A6 | Privacy | The shared field-test JSON contains no signal, no recording, no profile and no per-event timestamps, confirmed by reading the schema and a sample file. |
+
+**Jaw clench (separate, optional).** It is off by default and stays off unless it meets A1 and A2 in
+`speech` and `chew`, with the speech guard on. Chewing is itself a clench, so failing is a plausible
+outcome and is not a failure of the rest of the feature: the squeeze can reach Accepted while the jaw
+clench is documented as unsupported.
+
+**Tier 2: leaving "experimental".** The feature stays labelled experimental on every page until all of
+Tier 1 holds **and**: at least 10 participants on at least 3 configurations, including intended users of
+the feature (people for whom a key press is difficult), who take part voluntarily and are asked for no
+health information; a phantom upper bound of at most **2 per usable hour** in `rest` and `hands_busy`; at
+least 5 days of each of several participants' own use with the live ledger on (the cancelled-activation
+proxy, shown against the labelled field-test counts); and no gate regression after the last code change
+to a detector, the quality gate or the governor. Leaving "experimental" removes a label. It does not make
+the feature default-on: AGENTS.md rule 2 (new features ship off by default) is not relaxed by a field
+test.
+
+## Kill criteria
+
+A feature that cannot meet its own budget should stop, not drift. These are decisions recorded in
+advance; each is a design choice and applies to the **tested hardware and code revision**, not to
+electrodes in general.
+
+1. **Budget unreachable on a board.** If a board or electrode-site configuration still exceeds A1 after
+   **2 tuning rounds** (each judged on a fresh round after its configuration was frozen), it is recorded
+   as failing and removed from the documented hardware. If **every** configuration tested fails A1 for
+   the squeeze, the biosignal switch is withdrawn as a user feature: the package is reduced to the
+   evaluation harness and the replay tools, and the user pages are rewritten to say so. Blink and jaw
+   events are withdrawn first (the likelier to fail), and the squeeze on a dedicated muscle electrode is
+   the last thing standing, because it is the case the research page argues for.
+2. **Calibration is the barrier.** If fewer than 60% of participants reach a profile within the A3
+   ceiling after 2 rounds of calibration-procedure changes, the per-person calibration design is wrong
+   and needs a new ADR before any other work; the feature does not proceed on a calibration most people
+   cannot complete.
+3. **A stuck-mic event that cannot be designed out.** If a stuck-mic event recurs after its fix and the
+   cause is a property of the hardware path rather than a defect (for example a driver that reports a
+   healthy stream while delivering stale data), the affected source type is removed, not guarded
+   further.
+4. **The governor's evidence is unusable.** If the field-test shows the cancelled-activation proxy does
+   not move with labelled phantom activations (silent when phantoms are frequent, or loud when there are
+   none), the proxy-driven governor is retired or replaced with a different mechanism by a new ADR. The
+   measurement and the one-action release stay.
+5. **No evidence.** If no real-hardware field result exists after **two minor releases** from the first
+   release containing the feature, a maintainer reviews the status and either extends with a stated
+   reason or withdraws the user-facing pages. A feature nobody can measure is not kept alive on the
+   strength of its test suite.
+6. **Scope creep.** Any request to turn the feature into a decoder of thought, intent, emotion or health
+   is out of scope under section 1 and is not a "next step" of this ADR (it needs its own ADR and
+   evidence, and may not cite this one).
 
 ## Implementation status
 
@@ -259,8 +365,10 @@ field measurement exists; an item here can be present in code and still be unmea
 | Item | State |
 |---|---|
 | Package, quality gate, detectors, calibration session and profile, sources, pipeline, runner, daemon wiring, ledger, governor, `doctor` / `calibrate` / `monitor` / `replay` / `report` | present |
-| Speech guard combiner (`speechguard.py`, used by the daemon, config `speech_guard`), evaluation harness (`evaluate.py`), global-pause handling in the daemon adapter, public runner API, periodic ledger autosave (`ledger_autosave_seconds`), board table (`boards.py`), commands `record` / `evaluate` / `boards` / `resume` / `profile` | present |
+| Speech guard combiner (`speechguard.py`, used by the daemon, config `speech_guard`), evaluation harness (`evaluate.py`), global-pause handling in the daemon adapter, public runner API, periodic ledger autosave (`ledger_autosave_seconds`), board table (`boards.py`), commands `record` / `evaluate` / `boards` / `profile` / `profile-clear` | present |
 | Calibrated blink/clench detectors with a runtime sensitivity scale, and the blink warm-up fix | present (synthetic-signal validation only); the spec's "Round-2 status" table is the authority |
+| Round-3 hardening: squeeze artifact blanking and channel agreement; block-size-independent jaw timing and an opt-in chew hold-off; per-hop quality evaluation with lead-off, common-mode and contact score; calibration provenance enforcement (`calibration_max_age_days`); `reset(keep_governor_state=...)`; release survives one evaluation; accounting pause/resume; richer `status()`; `watchdog_seconds` and `min_event_confidence`; daemon status block and ordered shutdown | present (synthetic-signal validation only); the spec's "Round-3 status" table is the authority |
+| `fieldtest.py` and `yazses biosignal field-test`, the doctor `Verdict:` line, and the validation protocol | present as tooling and a written protocol. **No field-test result exists.** The gates above are unmet; the status stays Proposed. |
 
 ## Not decided here
 

@@ -263,8 +263,15 @@ class SpeechGuard:
             if run[2] == result:
                 run[1] = now
             else:
-                # State changed between polls: hold the previous state until this poll.
-                self._runs.append([last_t, now, result])
+                # State changed between two polls and the guard cannot know when. The
+                # previous state is held until THIS poll (the last moment anything was
+                # actually observed) and the new state starts here: suppression begins
+                # no later than the first poll that saw speech, and it is credited up to
+                # the poll that saw silence, so one late poll cannot make the guard look
+                # quieter (or louder) than what was observed. A design choice, not a
+                # measurement.
+                run[1] = now
+                self._runs.append([now, now, result])
         else:
             self._runs.append([now, now, result])
         self._last_poll_t = now

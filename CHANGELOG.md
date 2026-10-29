@@ -47,15 +47,56 @@ intents through `activation/intent.py`; detectors never execute an action themse
 - **The switch obeys the global hands-free pause** (ADR-v2-148): a squeeze held when a pause arrives
   is released and stays off until the signal relaxes, and intents are ignored while paused. An
   explicit Resume (`yazses handsfree resume`) lifts a false-positive suspension in one
-  action. New commands: `record`, `evaluate`, `boards` and `profile`; new key `speech_guard` (on by
+  action. New commands: `record`, `evaluate`, `boards`, `profile` and `profile-clear`; new key `speech_guard` (on by
   default; it matters only when `jaw_clench` is on).
-- Still planned and not claimed here: calibrated blink and jaw-clench detectors with a runtime
-  sensitivity scale and the blink-detector warm-up fix. The spec's
-  "Round-2 status" table lists what is present.
+- Calibrated blink and jaw-clench detectors (`from_calibration`, a runtime sensitivity scale the
+  governor drives) and the blink-detector warm-up fix are present, validated on synthetic signal only; the
+  spec's "Round-2 status" and "Round-3 status" tables list what exists.
+- **Hardening round 3: a dead, noisy or mis-calibrated signal fails closed.**
+  - The squeeze detector blanks itself on a DC step, a pop or (when the amplifier range is given) a
+    saturation, and a hold that is open at that moment is released. A share of channels must agree
+    (`min_channel_fraction`) before the mean envelope can cross a threshold.
+  - Jaw-clench event times no longer depend on how the stream was cut into blocks; an opt-in chew
+    hold-off (a detector constructor option, not a config key) can only remove events. Detectors report a
+    `health()` snapshot.
+  - The quality monitor judges every hop inside a large block, recognises a lifted electrode (an abrupt
+    step then a flat line) and movement shared by every channel, and scores electrode contact.
+  - **A calibration profile that is stale (`calibration_max_age_days`, default 30) or was made for another
+    board, channel set, signal kinds or sampling rate is not used.** The switches built from it are held
+    off, a held squeeze is released and the status says why; the squeeze, which has no built-in
+    defaults, stays off until `yazses biosignal calibrate` is run again. Profile ages are shown in words.
+  - A stream gap no longer erases the governor's verdict (`pipeline.reset(keep_governor_state=...)`),
+    and a user's release survives one evaluation, so dismissed cancellations cannot re-suspend the switch at
+    once. Paused time no longer counts as ledger exposure (`pause_accounting()` / `resume_accounting()`,
+    called by the daemon on the global hands-free pause).
+  - New `[biosignal]` keys `calibration_max_age_days` (30), `watchdog_seconds` (1.5, releases a squeeze when
+    samples stop arriving) and `min_event_confidence` (0, off). The runner gains `recent_events()` and a
+    richer `status()`; the daemon status payload gains an aggregate `biosignal` block and its shutdown is
+    ordered (release the squeeze, save the ledger, then join the threads).
+  - `yazses biosignal doctor` ends with a `Verdict:` line (ready, or the one next step), and the system
+    `yazses doctor` has a "Biosignal switch" row.
+  - The synthetic source gains `ground_truth(pairs=True)`, `schedule_motion_artifact` and `schedule_dc_step`.
+- **`yazses biosignal field-test`**: a guided, in-situ measurement of how often the switches fire when you
+  did not mean it. You sit, talk, chew, type and look around with the real detectors live (nothing is typed
+  or acted on, no signal is saved), then make each gesture on cue; the report gives phantom activations per
+  usable hour for each activity with one-sided upper bounds, the hit rate with a Wilson interval, and an
+  advisory verdict. `--minutes` stretches it, `--json` and `--out` write counts only (owner-only, never
+  over an existing file). `FieldTestAggregate` merges sessions so the bounds tighten. Every threshold and
+  verdict rung is a design choice and no real-hardware result has been collected.
+- **Evidence, acceptance criteria and kill criteria are written down.** ADR-v2-152 and ADR-v2-153 gain
+  "Evidence and what it does not show" (the cited literature supports the idea, not our numbers; Meta's
+  paper reports no false-activation rate; the best published blink switch is 0.10 false positives a
+  minute), falsifiable acceptance criteria that a real-hardware field test must meet before the status
+  moves from Proposed, and kill criteria. The new spec `design/specs/biosignal-validation-protocol.md`
+  defines the phases, how results aggregate, the minimum evidence for a claim, how to report back without
+  raw signal, and a stress-test list (cable pull, electrode pop, DC step, mains burst, dropped packets, USB
+  unplug mid-squeeze, daemon restart mid-hold). The threat model gains a "Biosignal switches" section.
+  The status stays Proposed: the switch is still unmeasured on any real person.
 - Docs: how-to `docs/how-to/biosignal-switch.md` (Use a muscle, blink or jaw-clench switch), the
   decision records `design/adr/adr-v2-152-biosignal-artifact-switches.md` and
   `design/adr/adr-v2-153-biosignal-false-positive-governor.md`, the spec
-  `design/specs/biosignal-pipeline.md`, and an architecture row in `design/architecture.md`.
+  `design/specs/biosignal-pipeline.md`, `design/specs/biosignal-validation-protocol.md`, and an
+  architecture row in `design/architecture.md`.
 
 ### Changed — the Swedish page was reviewed by a native speaker
 

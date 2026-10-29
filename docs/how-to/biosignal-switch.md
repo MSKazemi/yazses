@@ -1,6 +1,6 @@
 ---
 title: Use a muscle, blink or jaw-clench switch
-description: Drive hold-to-talk or a command from an EMG electrode or an EEG headband, check the signal with yazses biosignal doctor, calibrate it to you, and keep its false-positive budget under control.
+description: Drive hold-to-talk or a command from an EMG electrode or an EEG headband, check the signal with yazses biosignal doctor, calibrate it to you, measure how often it fires by mistake with yazses biosignal field-test, and keep its false-positive budget under control.
 ---
 
 # Use a muscle, blink or jaw-clench switch
@@ -69,6 +69,9 @@ max_cancelled_per_hour = 6.0  # the false-positive budget; 0 means never suspend
 calibration_file = ""         # empty = the default file in the data directory
 speech_guard = true           # suppress a jaw clench while you dictate
 ledger_autosave_seconds = 60  # seconds between saves of the activation counters (5 to 3600)
+calibration_max_age_days = 30 # a calibration older than this is not used (1 to 365)
+watchdog_seconds = 1.5        # release a held squeeze if no samples arrive for this long (0.5 to 30)
+min_event_confidence = 0.0    # drop detections below this confidence (0 to 1); 0 keeps them all
 
 # What a squeeze does, by strength (light, hard, or on for a detector that reports none).
 # A light squeeze types what you say; a hard one speaks a command.
@@ -90,7 +93,8 @@ source is `brainflow:<board_id>` with an optional serial port, where the board i
 id for your board, for example `brainflow:0:/dev/ttyUSB0` for an OpenBCI Cyton. `yazses biosignal doctor`
 shows what it can see, and `yazses biosignal boards` lists the boards. An event
 left out of `mode_map` or `intent_map` does nothing. The values in the example are the shipped defaults
-except `source` and `enabled`; they are starting points, not tuned recommendations.
+except `source` and `enabled`; they are starting points, not tuned recommendations. Nobody has measured
+any of them on a real person yet, which is why the next sections show you how to measure your own.
 
 ## The commands
 
@@ -99,8 +103,11 @@ Run `yazses biosignal --help` for exact options. The ones you will use first, in
 1. **`yazses biosignal doctor`** checks the chain end to end before you trust it: the extra is
    installed, the source opens, samples arrive at the expected rate, `mains_hz` matches the interference
    it sees, the signal is not flat or clipped, and a calibration profile exists and matches your
-   channels. Each problem comes with the reason and the fix. Start here, and again after you move the
-   electrode.
+   channels. Each problem comes with the reason and the fix, and the output ends with one **`Verdict:`**
+   line: either that you are ready, or the single most important next step (pick a source, install a
+   library, calibrate). Read that line first. When it says you are ready, the next thing it points you to
+   is `yazses biosignal field-test`. Start here, and again after you move the electrode. The system-wide
+   `yazses doctor` also has a "Biosignal switch" row that stays quiet while the feature is off.
 2. **`yazses biosignal calibrate`** runs a short guided session: you **relax**, squeeze **lightly**,
    squeeze **hard**, **blink** three times, and **clench your jaw** three times. It skips a step your
    source has no channel for, and the blink and clench steps only run when those switches are enabled (or
@@ -112,6 +119,8 @@ Run `yazses biosignal --help` for exact options. The ones you will use first, in
    hardware, so you can try a threshold change on yesterday's data or check a bug report.
 5. **`yazses biosignal report`** summarises how often each event fired and how often you cancelled it,
    with a confidence interval, so you can judge the switch on evidence.
+6. **`yazses biosignal field-test`** is the in-situ measurement of how often the switch fires when you did
+   *not* mean it. See [Measure your own rate](#measure-your-own-rate).
 
 Further commands, for working with recordings, your profile and the budget guard:
 
@@ -134,8 +143,55 @@ A first-time sequence:
 yazses biosignal doctor
 yazses biosignal calibrate
 yazses biosignal monitor      # squeeze, blink and talk; watch what it reports
+yazses biosignal field-test   # how often does it fire by mistake, by activity?
 yazses restart
 ```
+
+## Measure your own rate
+
+Whether a switch is livable depends on one number: how often it fires when you did not mean it. Nobody
+has published that number for the muscle, blink and jaw switches in daily use, and the detectors here have
+been tested only on generated signals. **Your own measurement is currently the best evidence there is, and
+it is only evidence about you, your board and your electrode placement.**
+
+```bash
+yazses biosignal field-test                      # the standard guided session, about ten minutes
+yazses biosignal field-test --minutes 20         # stretch it: the bounds tighten with more signal
+yazses biosignal field-test --json --out ft.json # machine-readable, and keep the counts
+```
+
+The session prompts you on screen to sit still, talk, chew, type and use the mouse, and look around, one
+activity at a time, with your real detectors running on your real signal. Then it asks you for each
+gesture on cue (squeeze, double blink and jaw clench, whether or not you have that switch turned on; a
+switch that is off cannot fire, so ignore the rows for the ones you are not using). **Nothing is typed or acted on, and no signal is saved.** Whatever a switch fires on
+while you were not trying to trigger it is a *phantom activation*; the report gives those per hour of
+usable signal for each activity, so you can see whether the trouble is the chewing, the talking or the
+desk. A single natural blink is not counted as a phantom (it is not mapped to an action). Time the quality
+gate rejected is left out of the denominator, so a bad contact cannot make the switch look quieter than it
+is, and a phase with too little usable signal is marked inconclusive.
+
+Read the **upper 95%** column, not the estimate. A few minutes of data bound a rate only loosely: *zero*
+phantoms in N minutes still allows a rate of about 180 divided by N per hour (the "rule of three"), so a
+single short session cannot show that a switch is quiet, only that it is not obviously loud. The report ends
+with a verdict (`usable`, `promising`, `needs_tuning`, `do_not_enable` or `inconclusive`) and the reasons
+for it. If you left a switch off, its gesture row will show no hits and can pull the verdict down: read the
+rows of the switches you actually use. Those rungs and every number behind them are design choices that have not been validated on real
+recordings, and the weighted "workday estimate" uses an assumed mix of activities that is illustrative, not
+data. To tighten a result, repeat the test on different days and with the electrode re-seated, and compare
+the sessions.
+
+If you choose to share your result (for example in an
+[issue](https://github.com/MSKazemi/yazses/issues)), share the JSON from `--json` or `--out` and add, in
+words, your board, where the electrode was, and the YazSes version; the file carries none of those. The
+file holds aggregate counts, whole-second durations, activity labels and cue-to-response times; it holds no
+signal, no amplitudes, no thresholds and no timestamps of events. It is written readable only by you and
+never over an existing file, and nothing sends it anywhere. Please do not attach a recording or a
+screenshot of the live signal.
+
+The field test cannot see the one failure that matters most in daily use, because it drives nothing: it
+cannot tell you whether a stuck microphone is possible. The release watchdog and the stress cases in
+[the validation protocol](https://github.com/MSKazemi/yazses/blob/main/design/specs/biosignal-validation-protocol.md)
+address that, and so does watching `yazses biosignal report` after some days of real use.
 
 ## Calibration is per person
 
@@ -144,7 +200,15 @@ from a population average: your relaxed baseline, how big your blink is on your 
 clench, and how a light squeeze differs from a hard one. Without a profile the muscle-squeeze switch stays
 off and `doctor` says so. Re-run `calibrate` whenever you move or replace an electrode or change board or
 channel; `yazses biosignal profile` tells you which board and channels the current profile was made
-for and how old it is.
+for and how old it is (in words, such as "3 days ago").
+
+YazSes also checks the profile for you while it runs. A profile made for a different board, a different set
+of channels or a different sampling rate is **not used**, and neither is one older than
+`calibration_max_age_days` (30 by default). The switches that depend on it are held off, a held squeeze is
+released, and `doctor` and the status say why in plain words. The muscle-squeeze switch has no built-in
+defaults, so it stays off until you calibrate again; the blink and jaw-clench switches fall back to
+conservative built-in values. Failing closed is deliberate: a calibration for a different electrode is a
+guess, and a guess here opens the microphone.
 
 ## The speech guard
 
@@ -204,7 +268,14 @@ A switch that fires when you did not mean it is worse than no switch, so YazSes 
   which, and `doctor` names the cause.
 
 There is no recommended setting yet. The community has not measured these rates over real workdays, and
-your own `report` is currently the best evidence available.
+your own `field-test` and `report` are currently the best evidence available. The guard is not a
+substitute for either: it can only react to activations you notice and cancel.
+
+Three further settings shape what reaches the microphone. `watchdog_seconds` releases a held squeeze when
+no samples arrive for that long (a cable pulled, a Bluetooth stall), so a vanished device cannot leave the
+microphone open. `min_event_confidence` drops weak detections before they act (raising it trades missed
+presses for fewer false ones; releasing a held squeeze is never blocked by it). While the budget guard has
+desensitized the switch, it raises its own effective floor on top of this.
 
 ## Honest limitations
 
@@ -223,7 +294,8 @@ your own `report` is currently the best evidence available.
   drifting baseline or dropped samples all make YazSes ignore the channel and say why. That is the quality
   gate working, not a bug.
 - **Unmeasured.** The detectors have been tested on synthetic and replayed signals. They have not been
-  shown to work for any particular person, electrode or board, and their defaults are provisional.
+  shown to work for any particular person, electrode or board, and their defaults are provisional. No
+  real-hardware result has been collected yet; `field-test` is how that changes.
 - **A squeeze is the recommended trigger.** A muscle electrode on a muscle you choose gives the cleanest
   signal. Blink and jaw clench are artifacts, and the jaw clench is off by default for that reason.
 - **Not thought control.** Decoding motor imagery, SSVEP or P300 is not in this feature, and EEG headbands
@@ -248,6 +320,7 @@ you should not paste one into a public issue. For a bug report, share the output
 | It fires when you chew or yawn | Expected to a degree on a jaw clench. Re-run `calibrate`, or use a squeeze on another muscle. The speech guard covers dictation, not chewing. |
 | It fires constantly, then gets harder to trigger, then stops | The budget guard first desensitized the detectors and then suspended them. Check `report`, fix the cause (usually contact or placement), re-run `calibrate`, then run `yazses handsfree resume`. |
 | It stopped responding after `yazses handsfree pause`, or does not act after a restart | The global pause covers it when `[handsfree_safety]` is on, and it starts paused. Run `yazses handsfree resume`. |
+| `doctor` or the status says the calibration "is not used" | It was made for a different board, channels or rate, or it is older than `calibration_max_age_days`. Run `yazses biosignal calibrate`. The squeeze stays off until then. |
 | It worked yesterday, not today | The electrode moved. Re-run `calibrate`. |
 | Squeeze opens the mic but it will not close | The signal never fell below the release threshold; a watchdog ends such a hold on its own. Re-run `calibrate` and check contact. |
 | Nothing is typed after a squeeze | That is the normal dictation path now; see [silent audio](silent-audio-discarding.md) and run `yazses doctor`. |

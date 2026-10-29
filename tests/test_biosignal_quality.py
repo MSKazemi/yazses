@@ -959,7 +959,7 @@ def test_reset_forgets_everything():
 def test_final_verdict_is_independent_of_block_size(make):
     data = make()
     finals = set()
-    for block in (7, 62, 125, 250):   # at most one evaluation per call: keep blocks <= 1 s
+    for block in (7, 62, 125, 250, 1000, 3000):   # every hop a block spans is evaluated
         rep = _feed(SignalQualityMonitor(), data, FS, EEG1, block=block)[-1]
         finals.add((rep.overall, rep.channels[0].status, rep.channels[0].reasons))
     assert len(finals) == 1

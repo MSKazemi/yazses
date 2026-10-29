@@ -417,7 +417,9 @@ def test_blink_locks_its_channels_and_resets_when_one_vanishes() -> None:
     # same stream but the locked electrode is gone
     gone = _block(np.zeros(100), BLINK_FS, ("AF8",))
     assert det.process(gone) == []
-    assert det.stats["blinks"] == 0  # state was reset
+    assert det.stats["blinks"] == 1  # the counters are an audit trail and survive a loss
+    assert det.stats["channel_lost"] == 1
+    assert not det.health()["warmed_up"]  # ... but the baseline was reset
     # a blink 1 s after the restart falls inside the new warm-up: nothing
     again = _bumps(6, [(1.0, 0.3, 100.0)], seed=5)
     again = SampleBlock(again.data, BLINK_FS, again.channels, 8.0)
@@ -706,7 +708,9 @@ def test_jaw_locks_its_channels_and_resets_when_one_vanishes() -> None:
     blk = _jaw_stream(0, 12.0, [(6.0, 0.7)])
     assert len(_feed(det, blk, 500)) == 1
     assert det.process(_block(np.zeros(100), JAW_FS, ("Fp9",))) == []
-    assert det.stats["clenches"] == 0  # reset
+    assert det.stats["clenches"] == 1  # the counters are an audit trail and survive a loss
+    assert det.stats["channel_lost"] == 1
+    assert not det.health()["warmed_up"]  # ... but the baseline was reset
     again = _jaw_stream(0, 6.0, [(1.0, 0.7)])
     again = SampleBlock(again.data, JAW_FS, again.channels, 12.0)
     assert _feed(det, again, 500) == []  # inside the fresh warm-up

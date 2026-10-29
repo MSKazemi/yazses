@@ -59,7 +59,7 @@ posix_only = pytest.mark.skipif(os.name != "posix", reason="POSIX file modes")
 
 SUBCOMMANDS = [
     ["doctor"], ["calibrate"], ["monitor"], ["replay"], ["report"], ["record"], ["evaluate"],
-    ["profile"], ["profile-clear"], ["boards"],
+    ["profile"], ["profile-clear"], ["boards"], ["field-test"],
 ]
 
 

@@ -7,7 +7,7 @@ names the budget, this ADR records the mechanism), [[adr-021-invest-in-error-cos
 is judged on how rarely it fires), [[adr-v2-148-hands-free-composition]] (one global safety state;
 the governor is a per-source guard beneath it, not a replacement), [[adr-v2-129-killer-features-10x]]
 (the activation seam), research: `docs/research/muscle-brain-control.md`, spec:
-`design/specs/biosignal-pipeline.md`
+`design/specs/biosignal-pipeline.md`, field protocol: `design/specs/biosignal-validation-protocol.md`
 
 ## Context
 
@@ -98,6 +98,16 @@ the release is one word). A suspended switch whose release needs a settings visi
 The release path must not depend on the suspended source itself, because the source is the thing
 that is off.
 
+A release also arms a one-shot hold: the next evaluation only refreshes the rate numbers and applies no
+transition. The recent rate is an exponentially weighted average that still contains the cancellations
+the user just dismissed, so without the hold a release followed by one more cancel could be judged on the
+old evidence and suspend the switch again at once. After that one evaluation the fresh evidence window
+and the existing hysteresis do the rest. A stream gap, reconnect or recalibration does **not** release
+the governor (`pipeline.reset(keep_governor_state=True)`, the default): a dropout is not evidence that the
+false-positive problem went away. Only an explicit release, or `keep_governor_state=False`, does. Paused
+time (the global hands-free pause) does not accrue as exposure, because the daemon calls the runner's
+`pause_accounting()` while the gate refuses.
+
 ### 6. The governor is conservative about when it fires, because the cost of firing is borne by the user
 
 - It fires only on a specific, checkable signal (a credibly high cancelled *rate* with enough
@@ -144,6 +154,76 @@ that is off.
   positives the user never notices. Both are accepted and documented; neither is solvable without
   ground truth.
 - No new data leaves the machine. The ledger holds counts, not signals (ADR-011, ADR-019).
+
+## Evidence and what it does not show
+
+- **The published reference point.** The budget default of 6 cancelled activations an hour is the best
+  published blink switch (0.10 false positives per minute; Li et al., *Neurocomputing* 2018, as
+  recorded on the research page) expressed per hour. That figure comes from a different detector and
+  setup, and counts false positives by the study's own definition. It is a yardstick for "no worse than
+  the best published artifact switch", not an estimate of what this package will do and not a
+  statement that 6 an hour is acceptable to a user.
+- **Nothing published validates a cancelled-activation proxy.** Using "the user undid it within a
+  grace window" as a stand-in for a false positive is a design choice made here because it is the only
+  observable a running daemon has. The repository has never compared it with labelled phantom
+  activations on a real person. Its two known failure directions (cancels unrelated to the switch;
+  false positives never noticed) are argued, not measured.
+- **The statistics are textbook; their fit is untested.** A Wilson interval for a proportion and a lower
+  confidence bound on a Poisson rate are standard tools and are tested against known values. Whether
+  cancellations behave like a Poisson process (they will cluster: a bad electrode contact produces
+  bursts) is an assumption. Clustering makes the lower bound less conservative than it looks.
+- **Every governor number is a design choice with no field validation:** the factor, the multiples, the
+  dwell, the timer, the backoff, the confidence level, the grace window, the evidence floor. The unit
+  tests show the state machine moves as written; they say nothing about whether those values suit any
+  person.
+- **Our results are synthetic.** That the governor stays quiet on a clean synthetic stream and escalates
+  on a scripted noisy one shows the machine works, not that it fires at the right times in a room.
+
+## Falsifiable acceptance criteria
+
+The governor is part of the Tier 1 gates of [[adr-v2-152-biosignal-artifact-switches]] (A5) and is
+judged against `design/specs/biosignal-validation-protocol.md`. Note what the field test can and cannot
+show here: `yazses biosignal field-test` acts on nothing and reports no cancels, so the governor cannot
+move during it. The governor is therefore judged in **live use** (a participant's own days with the daemon
+running and the ledger on, read through `yazses biosignal report` and the status block) plus one
+deliberately noisy live session, with thresholds frozen before the round:
+
+1. **It stays out of the way when nothing is wrong.** Over the live-use days of participants whose
+   field-test phantom bounds meet the A1 bound of ADR-v2-152, the governor entered `DESENSITIZE` or
+   `SUSPEND` **zero** times. (A firing rate on a clean stream is the first measurement of a guard,
+   ADR-021; a governor that fires there is broken, not cautious.) A participant who meets A1 but whose
+   governor fires anyway is the proxy-versus-phantom disagreement of criterion 5, not a pass.
+2. **It acts when it should.** In a deliberately noisy live session (electrode loosened or a source of
+   interference added on purpose, with the participant cancelling the resulting mistakes), the governor
+   reached `DESENSITIZE` and, if the noise persisted, `SUSPEND`, and the user-facing text said why and how
+   to resume. The time to act, in active minutes, is recorded and reported; no latency bound is set
+   before data exists.
+3. **Release is one action, every time it is tried.** In every state (`DESENSITIZE`, `SUSPEND`) a
+   single release returned the switch to normal and it did not re-suspend without fresh evidence.
+4. **Recovery works.** A suspension ended by its own timer into `DESENSITIZE`, never straight to `OK`,
+   and a switch that suspended repeatedly stayed off longer each time up to the cap.
+5. **The proxy is checked.** The live ledger's cancelled counts and the field test's labelled phantom
+   counts are reported side by side for the same sessions. There is no numeric gate on their
+   agreement before data exists (inventing one would be a guess); a recorded finding that they
+   disagree strongly triggers kill criterion 2 below.
+
+## Kill criteria
+
+1. **Unusable fire rate.** If, after two tuning rounds, the governor still fires in the clean `rest`
+   and `hands_busy` rounds on a configuration whose labelled phantom rate is within budget, its evidence
+   floor and bound are wrong; the shipped default of `max_cancelled_per_hour` becomes `0` (count,
+   never act) until a new ADR replaces the mechanism.
+2. **The proxy does not track phantoms.** If the field test shows the cancelled-activation proxy is
+   uninformative (quiet when labelled phantoms are frequent, loud when there are none), the
+   proxy-driven governor is retired: the ledger and the report stay as a measurement, and the
+   enforcement is replaced by something that does not depend on a proxy (for example a fixed
+   conservative threshold set from the field-test phantom rate) in a new ADR.
+3. **Release cannot be made one action.** If the integrator cannot offer a release that does not
+   depend on the suspended source, a suspended switch is a lock-out, and the suspend step is removed
+   (desensitize only) until it can.
+4. **Nobody reports cancels.** If integrators never wire the cancel signal in practice, the budget is
+   a no-op everywhere. The governor is then documented as measure-only and the budget key is removed
+   rather than left to imply protection.
 
 ## Not decided here
 

@@ -207,7 +207,8 @@ def test_status_as_dict_is_plain_and_complete():
     """The IPC snapshot is a plain dict carrying every documented field."""
     d = make().process(blk(0)).status.as_dict()
     assert set(d) == {"quality", "rate_per_hour", "suspended", "reason", "desensitized",
-                      "squeeze_active", "blocks", "accepted", "dropped", "detectors"}
+                      "squeeze_active", "blocks", "accepted", "dropped", "detectors",
+                      "dropped_by_reason", "calibration"}
     assert d["desensitized"] == 1.0 and d["suspended"] is False
 
 
@@ -953,9 +954,19 @@ def test_build_parts_uses_from_calibration_when_the_profile_has_the_amplitudes(m
 
     monkeypatch.setattr(BlinkDetector, "from_calibration", staticmethod(blink_cal))
     monkeypatch.setattr(JawClenchDetector, "from_calibration", staticmethod(jaw_cal))
-    monkeypatch.setattr(pl, "_load_profile",
-                        lambda request: SimpleNamespace(blink_amplitude=150.0, clench_power=40.0))
-    parts = build_parts(PartsRequest(fs=FS, double_blink=True, jaw_clench=True, channels=CH))
+    from datetime import UTC, datetime
+
+    from yazses.biosignal.calibration import CalibrationProfile
+
+    # With the channels known the profile is judged first, so it must be a real one that
+    # matches the montage (a profile that cannot be verified is not used).
+    profile = CalibrationProfile(
+        created_at=datetime.now(UTC).isoformat(), board_id="synthetic", channels=("emg0",),
+        channel_kinds=("emg",), fs=FS, baseline_rms=1.0, noise_floor=0.5,
+        blink_amplitude=150.0, clench_power=40.0)
+    monkeypatch.setattr(pl, "_load_profile", lambda request: profile)
+    parts = build_parts(PartsRequest(fs=FS, double_blink=True, jaw_clench=True, channels=CH,
+                                     source_spec="synthetic"))
     assert len(parts.detectors) == 2
     blink_call = next(c for c in calls if c[0] == "blink")
     jaw_call = next(c for c in calls if c[0] == "jaw")

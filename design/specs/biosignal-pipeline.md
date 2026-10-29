@@ -4,10 +4,11 @@
 |---|---|
 | **ID** | spec-biosignal-pipeline |
 | **Status** | Proposed |
-| **Date** | 2026-10-29 |
+| **Date** | 2026-10-30 |
 | **Modules** | `yazses.biosignal` (new); reuses `yazses.platform.emg` (serial + BrainFlow sources, `pressure.py`), `yazses.activation` (`intent.py`) and the hands-free global pause (`yazses.handsfree`) |
 | **Related** | ADR-v2-152, ADR-v2-153 (governor), ADR-v2-129, ADR-v2-135, ADR-v2-147, ADR-v2-148, ADR-v04-003, ADR-005, ADR-011, ADR-019, ADR-021 |
 | **Research** | `docs/research/muscle-brain-control.md`; serial protocol `design/emg-protocol.md` |
+| **Validation** | `design/specs/biosignal-validation-protocol.md` (how the numbers in this spec get measured on real hardware; the ADR-v2-152 gates) |
 
 ## Goal
 
@@ -94,6 +95,7 @@ activation sources receive.
 | `calibration.py` | RELAX / SQUEEZE_LIGHT / SQUEEZE_HARD (+ optional BLINK_X3 / CLENCH_X3) session; derives thresholds; reads and writes the local profile. | pure maths + one file write |
 | `fprate.py` | Activation ledger (per active exposure time), cancelled-fraction proxy with Wilson confidence interval, budget governor: desensitize, then suspend, auto-recover with backoff, one-action `release()` (ADR-v2-153). Persists aggregate counters only. | pure |
 | `evaluate.py` | Evaluation harness: scores detectors or a pipeline against a recording with scripted events (recall, precision, latency; per-kind one-to-one matching inside a tolerance) and counts phantom activations per hour on an idle stream, with Wilson and Poisson intervals. Prints a synthetic-data caveat on every report. | pure |
+| `fieldtest.py` | In-situ field test: a guided session (rest, speech, chew, typing and mouse, movement, then a deliberate gesture per switch) that counts phantom activations per usable hour by activity and the hit rate on cue, with one-sided Poisson upper bounds and Wilson intervals; `FieldTestAggregate` merges reports; reports hold counts and whole-second durations only. Clock-injected and deterministic. See the validation protocol. | pure |
 | `boards.py` | Table of known boards with their BrainFlow ids and electrode hints; advice only, never opens a device or imports `brainflow`. | pure |
 | `sources.py` | `SyntheticSource`, `FileReplaySource`, `BrainFlowBlockSource`, and `open_source('synthetic' \| 'file:<path>' \| 'brainflow:<id>')`. | backend; BrainFlow imported lazily |
 | `pipeline.py` | `BiosignalPipeline`: wires filters, gate, detectors; blocks in, events out. No I/O, no threads. | pure |
@@ -102,9 +104,11 @@ activation sources receive.
 
 Config lives in `[biosignal]` (`enabled = false`; `source`, `mains_hz`, `emg`, `double_blink`,
 `jaw_clench`, `mode_map`, `intent_map`, `max_cancelled_per_hour`, `ledger_autosave_seconds`,
-`speech_guard`, `calibration_file`). CLI:
-`yazses biosignal doctor | calibrate | monitor | replay | report | record | evaluate | boards | resume`
-and `yazses biosignal profile | profile-clear`. The generated reference docs
+`speech_guard`, `calibration_file`, `calibration_max_age_days`, `watchdog_seconds`,
+`min_event_confidence`). CLI:
+`yazses biosignal doctor | calibrate | monitor | replay | report | record | evaluate | field-test | boards`
+and `yazses biosignal profile | profile-clear`. There is no `yazses biosignal resume`: a suspended
+switch is released by `yazses handsfree resume` (the global Resume). The generated reference docs
 (`docs/configuration.md`, `docs/command-index.md`) are the authority for what exists.
 
 ## Event semantics
@@ -164,11 +168,45 @@ These are the properties the package exists to guarantee. Each has a test in the
 11. **Global pause wins.** While the hands-free global state (ADR-v2-148) is not ACTIVE the daemon
     ignores the source's squeezes and intents, and a squeeze held when a pause arrives is released
     at once and latched off until the signal relaxes. This is enforced in the daemon-side adapter,
-    not inside the package. The pipeline and ledger keep running while paused (a known limit: the
-    exposure clock does not stop).
+    not inside the package. The pipeline keeps running while paused, but the daemon calls the runner's
+    `pause_accounting()` / `resume_accounting()` on the gate's transitions, so paused time does not accrue
+    as ledger exposure and cannot dilute the measured rate.
 12. **The measurement survives a crash.** The activation ledger is persisted periodically
     (`ledger_autosave_seconds`) and on stop, as aggregate counters, by an atomic, owner-only write
     that adds only the change since the previous save.
+13. **Calibration provenance is enforced, fail closed.** The pipeline checks the loaded profile against
+    the live board, channel set, signal kinds and sampling rate on the first block, again if they change,
+    and hourly for age (`calibration_max_age_days`). A profile that is stale, mismatched or that cannot be
+    examined is **not used**: the switches built from it are held off, a held squeeze is released, the
+    status says why in plain words, and the squeeze (which has no built-in defaults) stays off until
+    `calibrate` is run again. Blink and clench, which have built-in conservative defaults, are built
+    without the profile when the mismatch is already known at build time.
+14. **A stream gap does not erase the governor's verdict.** `pipeline.reset(keep_governor_state=True)`
+    (the default, and what a gap, reconnect or recalibration uses) clears filters, detector and quality
+    state and the held-squeeze bookkeeping but leaves desensitization and suspension in force; only
+    `keep_governor_state=False` (or `full_reset()`) releases them. A user's explicit release arms a one-shot
+    hold: the next governor evaluation only refreshes the numbers, so the cancellations the user just
+    dismissed, still in the recent-rate average, cannot re-suspend the switch at once.
+15. **The quality monitor judges every hop.** Evaluations sit on a fixed grid of `hop_s` of signal, and a
+    large block is judged hop by hop exactly as many small blocks would be, so a long block cannot hide a
+    bad stretch inside one verdict. Beyond the earlier checks it recognises lead-off (an abrupt step
+    followed by a flat tail) and common-mode motion (all judgeable channels excursing together), and
+    reports a per-channel `contact_score` that is a derived display number, not an impedance.
+16. **Artifacts blank the squeeze detector; channels must agree.** A large DC step, a pop or (when the
+    amplifier range is configured) a saturation blanks the onset detector for a settle time, and while
+    blanked a hold already open is released and no new one starts. `min_channel_fraction` (design
+    default 0.5) requires that share of channels to agree before the mean envelope can cross a
+    threshold, so one loose electrode cannot trigger a squeeze alone. Every blanking is counted.
+17. **Jaw-clench timing does not depend on how the stream was cut.** Event time is a property of the
+    signal, not of the chunking. An optional chew hold-off (`chew_holdoff_s`, fixed or
+    `confirm_holdoff_policy='adaptive'`) can only *remove* events, never add or advance them; it is a
+    detector constructor option, not a `[biosignal]` key, and is off by default.
+18. **A dead stream cannot hold the microphone.** `watchdog_seconds` (default 1.5 s) releases a held
+    squeeze when no block has arrived for that long (cable pulled, Bluetooth stall, board crash). The
+    daemon's shutdown is ordered: stop the gate watcher, then release the squeeze and save the ledger
+    synchronously, then join the threads with a bounded wait; a failure in one step never skips the next.
+    `min_event_confidence` (default 0, no filtering) drops low-confidence events before they become a
+    switch press and never gates a release.
 
 ## Calibration protocol
 
@@ -186,9 +224,10 @@ recommended. `yazses biosignal calibrate` runs a guided session of timed phases:
 The profile also carries a plain `thresholds` mapping (`light`, `hard`, `onset`, `offset` for the
 squeeze family; `blink`; `clench`; only the keys for phases that ran) so a detector can be built
 from it without the calibration module importing the detector modules. These are the **calibration
-hooks**: the EMG detectors are built from the baseline and maximum-contraction values today
-(`from_calibration`); a `from_calibration` constructor on the blink and jaw-clench detectors, and a
-runtime `set_sensitivity_scale` that the governor drives, are planned (see "Round-2 status"). A
+hooks**: the EMG detectors are built from the baseline and maximum-contraction values
+(`from_calibration`), and the blink and jaw-clench detectors have a `from_calibration` constructor and a
+runtime `set_sensitivity_scale` that the governor drives (see "Round-2 status"; all validated on
+synthetic signal only). A
 speech sample to tune the speech guard is not part of the session; the guard reads audio-side
 state instead.
 
@@ -202,11 +241,13 @@ Rules:
   visible rather than hidden.
 - The result is a **profile**: derived values, the session date, the schema version, the channel
   list and sampling rate it was made for. It does not contain raw samples.
-- A profile is valid only for the board, channel set and sampling rate it was made for
-  (`profile_matches`; amplitudes do not transfer between placements), and is stale after a reuse
-  limit of age (`profile_is_stale`), which `doctor` reports. A re-seated electrode needs a new
-  session. Warning when the live baseline has drifted far from the profile's is planned, not
-  built.
+- A profile is valid only for the board, channel set, signal kinds and sampling rate it was made for
+  (`profile_matches`, with `check_kinds` on in `check_profile`; amplitudes do not transfer between
+  placements), and is stale after `calibration_max_age_days` (design default 30 days; the module
+  constant and the config default agree). `check_profile` returns a plain-language reason; `doctor`
+  reports it, and the running pipeline enforces it (invariant 13). The age shown to a user is human
+  ("3 days ago"), never an amplitude. A re-seated electrode needs a new session. Warning when the
+  live baseline has drifted far from the profile's is planned, not built.
 - Calibration is repeatable and resettable. Re-running replaces the profile atomically.
 
 ## Privacy and data classification
@@ -264,9 +305,10 @@ log line or report overstates what exists:
 - **The speech guard reads audio-side state** (dictation recording, VAD, TTS playback), not the
   jaw electrode. If those are absent or late a clench during speech can still pass. Chewing and
   yawning are not covered except by the detector's own rhythm checks.
-- **Not every detector takes calibration values yet** (see "Round-2 status"), and the pipeline does
-  not yet call the profile-matches check, so a profile for a different montage is not refused at
-  load.
+- **Per-person adaptation is only as good as the calibration the person could produce.** Blink and
+  clench take calibration values and a sensitivity scale, and the pipeline refuses a profile for a
+  different montage or one past `calibration_max_age_days` (invariant 13), but none of it has been
+  tried on a real person; whether intended users can perform the calibration gestures is unmeasured.
 - **Only the synthetic source runs without hardware.** BrainFlow boards are reached through
   BrainFlow's own support and are not individually verified.
 - **Electrode drift, fatigue and time of day** are not modelled.
@@ -288,7 +330,32 @@ mean tuned or field-tested.
 | Governor release bound to a user action | present: an explicit hands-free Resume (`yazses handsfree resume`) releases it |
 | `[activation]` confirm / reject thresholds read by the biosignal intent path | present in the daemon (`_biosignal_policy`); falls back to built-in defaults when `[activation]` is off |
 | `BlinkDetector` warm-up fix, `from_calibration` and `set_sensitivity_scale` on blink/clench detectors | present: the missed pair was band-pass ringing merging two blinks into one excursion, fixed by splitting excursions at deep valleys; `from_calibration` and `set_sensitivity_scale` exist on both detectors (still validated on synthetic signal only) |
-| Commands `record`, `evaluate`, `boards`, `resume`, `profile` / `profile-clear`; board table (`boards.py`) | present |
+| Commands `record`, `evaluate`, `boards`, `profile` / `profile-clear`; board table (`boards.py`) | present (the release of a suspension is the global `yazses handsfree resume`, not a `biosignal` subcommand) |
+
+## Round-3 status
+
+Hardening round, checked against the tree when this spec was last updated. "Present" means the behaviour
+exists in the source and a test names it; it does not mean tuned or field-tested. **Nothing in this
+table has been exercised on a real person.**
+
+| Item | State |
+|---|---|
+| Squeeze detector artifact blanking (DC step, pop, opt-in saturation) and multi-channel agreement (`min_channel_fraction`) | present (`emg_onset.py`; counted in `stats`) |
+| Jaw-clench event timing independent of block size; optional chew hold-off (`chew_holdoff_s`, `confirm_holdoff_policy`); detector `health()` snapshots | present (`artifacts.py`; the hold-off is a constructor option, off by default, not a config key) |
+| Quality monitor evaluating every hop inside large blocks; lead-off and common-mode checks; per-channel `contact_score` | present (`quality.py`) |
+| Calibration provenance enforcement in the pipeline (stale or mismatched profile held off, reason in `status`); `check_profile`; human-readable profile ages | present (`pipeline.py`, `calibration.py`; config `calibration_max_age_days`, default 30) |
+| `pipeline.reset(keep_governor_state=...)` and `full_reset()`; governor release survives one evaluation | present (`pipeline.py`, `fprate.py`) |
+| Runner `pause_accounting()` / `resume_accounting()` (called by the daemon on the global gate); `recent_events()`; richer `status()` (detectors, calibration, governor, ledger, event journal) | present (`runner.py`, `pipeline.py`) |
+| Config `watchdog_seconds` (1.5), `calibration_max_age_days` (30), `min_event_confidence` (0) | present (`config.py`; generated reference docs are the authority) |
+| Daemon `biosignal` block in the status payload; ordered shutdown of the guarded source | present (`core/daemon.py`) |
+| `SyntheticSource.ground_truth(pairs=True)`, `schedule_motion_artifact`, `schedule_dc_step` | present (`sources.py`) |
+| `fieldtest.py` and `yazses biosignal field-test [--source] [--minutes] [--json] [--out]`; `FieldTestAggregate` | present; the protocol is `design/specs/biosignal-validation-protocol.md`; no result has been collected |
+| `yazses biosignal doctor` closing `Verdict:` line; the system `yazses doctor` row for the switch | present (`cli_impl.py`, `system/doctor.py`) |
+
+**Planned, not built:** a participant and configuration key on the field-test report (so merging and
+de-duplication stop being the merger's job); a protocol-file option on `field-test`; an
+instrumented-dictation phase that could observe a stuck microphone; a warning when the live baseline has
+drifted far from the profile's; a re-baseline shorter than the full calibration.
 
 ## Acceptance criteria
 
@@ -303,133 +370,129 @@ mean tuned or field-tested.
   release action returns the switch to normal at any state.
 - No test needs hardware, a network or a model download.
 
-## Tests to write later (checklist)
+## Test checklist: what the suite pins, and what remains
 
-The tests come with the code, in the same change (AGENTS.md rule 7). Properties each module needs:
+The tests came with the code (AGENTS.md rule 7), in `tests/test_biosignal_*.py` (one file per module,
+plus `_cli`, `_config`, `_daemon_wiring` and `_doctor_features`). This section was re-read against the
+test **names** when it was last updated; it says which properties are pinned by a test whose name states
+the property, and which are not. A name is a pointer, not a proof: read the test before relying on it.
+`[x]` means a test names the property; `[ ]` means none was found. Everything the suite pins is pinned
+on **synthetic or replayed signal and fakes**; none of it is evidence about a person (see "Open
+questions / known limits" and `design/specs/biosignal-validation-protocol.md`).
 
 **All modules**
 - [ ] `yazses.biosignal` imports with only numpy and the standard library; no module imports
-      `brainflow`, `serial`, `torch` or a daemon module at top level.
-- [ ] No module opens a socket; `tests/test_egress_inventory.py` stays green with no new entry.
+      `brainflow`, `serial`, `torch` or a daemon module at top level. *Partly pinned:* the default
+      daemon never imports the package, parsing a BrainFlow source spec does not import `brainflow`,
+      and `speechguard` imports no audio, daemon or hardware module (each has its own test). There is
+      no single test that walks every module's imports.
+- [x] No module opens a socket; `tests/test_egress_inventory.py` stays green with no new entry. *Pinned
+      repository-wide* by the egress inventory test; there is no biosignal-specific socket test.
 
 **`filters.py`**
-- [ ] **Block-size independence:** one block of N samples equals the same samples fed as 1-sample
-      blocks, as prime-sized blocks, and as random-sized blocks (outputs match within a stated
-      tolerance).
-- [ ] State survives across blocks (no edge transient at a block boundary); `reset()` clears it.
-- [ ] Notch attenuates `mains_hz` and passes a nearby in-band tone; band-pass rejects DC.
-- [ ] Multichannel rows stay independent; an empty block is a no-op.
+- [x] Block-size independence (`random_block_splits_equal_one_block`,
+      `one_sample_prime_and_empty_blocks_equal_one_block`, `chain_is_block_size_independent`, and the
+      TKEO, envelope and detrend equivalents).
+- [x] State survives across blocks (`no_edge_transient_at_block_boundaries`); `reset` clears it
+      (`reset_matches_fresh_filter`).
+- [x] Notch attenuates `mains_hz` and passes a nearby tone (`notch_kills_mains_and_passes_a_nearby_tone`);
+      band-pass rejects DC.
+- [x] Multichannel rows stay independent; an empty block is a no-op.
+- [x] Non-finite input is repaired and counted, independent of block size.
 
 **`quality.py`**
-- [ ] Constant (flatline) input is flagged as such, not as "quiet but fine".
-- [ ] Clipped/saturated input, strong mains tone, slow drift and gaps each raise their own reason.
-- [ ] Clean synthetic signal is trusted; verdict is per channel; verdict does not flicker on one
-      borderline window (hysteresis or hold, as designed).
-- [ ] Block-size independence of verdicts.
+- [x] Flatline is flagged as such, not as "quiet but fine" (`constant_input_is_flagged_flatline_not_quiet_but_fine`).
+- [x] Saturation, mains, drift and gaps each raise their own reason.
+- [x] Clean noise is trusted; the verdict does not flap on one borderline window
+      (`good_channel_does_not_flap_on_a_borderline_window_when_enter_windows_is_two`,
+      `leaving_bad_needs_recover_windows_extra_clean_evaluations`).
+- [ ] Block-size independence of the **monitor's** verdicts (the metrics are tested directly; a
+      whole-monitor split test was not found by name).
 
 **`emg_onset.py`**
-- [ ] **No phantom trigger on flatline, on pure noise at the calibrated floor, or on a constant
-      offset.**
-- [ ] A calibrated burst gives exactly one paired ON/OFF; a burst shorter than the minimum hold
-      gives none; a threshold-hugging signal does not chatter (hysteresis).
-- [ ] Baseline is frozen during activity: a long squeeze does not end itself.
-- [ ] Max-hold watchdog ends a never-releasing hold and then requires release before re-arming.
-- [ ] Light versus hard classification on synthetic bursts at the calibrated levels.
-- [ ] Event times are within tolerance of the true onset at several fs values; block-size
-      independence of events.
+- [x] No phantom trigger on flatline, on pure noise at the calibrated floor, or on a constant offset.
+- [x] A calibrated burst gives exactly one paired ON/OFF; a too-short burst gives none; a
+      threshold-hugging signal does not chatter.
+- [x] Baseline frozen during activity (`baseline_is_frozen_during_a_hold_so_a_long_squeeze_does_not_end_itself`).
+- [x] Max-hold watchdog ends a never-releasing hold and requires release before re-arming.
+- [x] Light versus hard classification; event times independent of block size at several `fs`.
 
 **`artifacts.py`**
-- [ ] Single blink gives `BLINK`; two inside the gap give `DOUBLE_BLINK`; two outside it give two
-      `BLINK`s; a too-slow or too-large deflection (e.g. a head movement) gives none.
-- [ ] No phantom blink on flatline or on EEG-like background.
-- [ ] Jaw clench is detected on a synthetic burst and **suppressed on speech-like activity**;
-      the guard may miss a clench but a speech fixture must never produce one.
-- [ ] **Speech guard suppresses jaw clench:** a burst that begins before the guard rises, during
-      it, or within the hangover after it produces no event; a raising guard suppresses too.
-- [ ] **Blink detected after any warm-up delay:** a blink that occurs after the detector's warm-up
-      period is reported whatever the block size and whatever delay precedes it (no blink is lost
-      because the baseline window had not filled), and nothing is reported inside the warm-up.
-- [ ] `from_calibration` and `set_sensitivity_scale` (when present) change thresholds
-      monotonically, and a scale of 1.0 restores the original behaviour exactly.
-- [ ] Refractory and release-before-rearm; block-size independence.
+- [x] Blink, double blink and the gap/width rules; no phantom blink on flatline or EEG background.
+- [x] Jaw clench detected and suppressed on speech-like activity; the speech guard suppresses before,
+      during and after (hangover); a raising guard suppresses.
+- [x] Blink and clench found after the warm-up for any block size and delay.
+- [x] `from_calibration` and `set_sensitivity_scale` change thresholds monotonically; the scale is
+      clamped, not cumulative, and survives reset.
+- [x] Refractory, release-before-rearm, block-size independence.
 
 **`speechguard.py`**
-- [ ] The guard is true while any source is true and for the hangover after the last true reading;
-      it is false when all are false and the hangover has passed.
-- [ ] A source that raises counts as speaking; a source stuck at true past the watchdog is ignored
-      until it reports false once; both are visible in `snapshot()`.
-- [ ] `was_speaking(t0, t1)` back-dates a rising edge by the pre-roll.
-- [ ] Runs on an injected clock with no audio, no daemon import and no hardware.
+- [x] True while any source is true and for the hangover; a raising source counts as speaking; a stuck
+      source is ignored by the watchdog and visible in the snapshot; `was_speaking` back-dates; runs on
+      an injected clock with no audio, daemon or hardware.
 
 **`evaluate.py`**
-- [ ] Matching is one-to-one per event kind inside the tolerance; a second detection of one truth
-      event is a false positive.
-- [ ] The same source and seed give the same numbers; the idle evaluation of a clean synthetic
-      stream reports zero phantom activations for a correctly quiet detector.
-- [ ] Every report text carries the synthetic-data caveat; a source that reports scripted truth is
-      refused by the idle evaluation.
+- [x] One-to-one matching per kind inside the tolerance (`match_events_one_detection_matches_only_once`,
+      `match_events_one_truth_is_claimed_once`); seeded determinism; the idle evaluation of a clean
+      stream reports no phantom activations (`idle_real_emg_detector_has_no_phantom_activations`) and a
+      non-zero upper bound near the rule of three; a source with scripted truth is refused for idle use.
+- [ ] That **every** report text (text and JSON) carries the synthetic-data caveat is pinned for some
+      surfaces (the CLI tests check the hint) but not for all formatters by name.
 
 **`calibration.py`**
-- [ ] Synthetic phased session yields a profile that, fed back to the detectors, detects the
-      calibration gestures and ignores the RELAX phase.
-- [ ] Session aborts and writes nothing on a bad RELAX window or an inseparable phase.
-- [ ] Profile round-trips; file mode is `0600`; the write is atomic; a profile for a different
-      channel set or fs is refused with a reason; no raw samples are stored.
+- [x] Profile round-trips; the write is atomic and leaves no temp file; a profile for a different
+      channel set or `fs` is refused; a corrupt, wrong-schema, implausible or oversized file loads as none;
+      staleness by age (including future-dated and unparsable timestamps).
+- [x] A noisy RELAX is rejected and the phase restarts; an abort drops the data.
+- [ ] File mode `0600` is pinned for the ledger and the recording tap; for the profile it is stated in
+      the module and exercised by the save path, but a test that stats the profile file's mode on its own
+      was not found by name.
 
 **`fprate.py`**
-- [ ] Ledger counts activations and cancellations; the Wilson interval is correct on known
-      counts (including zero and all) and widens for small n.
-- [ ] Governor: under budget does nothing; over budget desensitizes first, then suspends; the
-      budget window slides; suspend is reported; a reset restores it.
-- [ ] **Desensitize scale resets when OK:** after recovery the factor in force is exactly 1.0 and
-      every detector that took a scale is told so.
-- [ ] **Governor release is one action:** from OK, DESENSITIZE and SUSPEND a single `release()`
-      call returns to OK, resets the backoff, and starts a fresh evidence window (no immediate
-      re-fire).
-- [ ] Auto-recovery: a suspension ends after its timer into DESENSITIZE, lengthens on repeats,
-      and is capped.
-- [ ] The governor acts on the lower bound of the rate with a minimum evidence floor: three quick
-      cancels in a minute do not suspend; a disabled budget only reports.
-- [ ] **Ledger autosave survives kill:** killing the process mid-session (no clean shutdown)
-      leaves a readable counters file that contains the activations recorded up to the last
-      autosave; the write is atomic, mode `0600`, and merging with earlier totals never
-      double-counts a session.
+- [x] Ledger counting, Wilson interval on known values (including 0 and all), cancellation inside the
+      grace window only, pause and resume exclude time, aggregate-only serialisation, tolerant loading.
+- [x] Governor: under budget does nothing; escalates in order; auto-recovery into `DESENSITIZE`;
+      one-call release from every state; the scale returns to exactly 1.0 (`factor_resets_to_exactly_one_when_governor_returns_ok`).
+- [x] Poisson lower bound is conservative with little evidence and matches the exact quantile for
+      large counts.
 
 **`sources.py`**
-- [ ] `open_source` parses `synthetic`, `file:<path>` and `brainflow:<id>` and rejects anything
-      else with a message listing the valid forms.
-- [ ] `FileReplaySource` ends with `EOFError`; a missing/short/corrupt file gives a clear error.
-- [ ] `BrainFlowBlockSource` with a fake board: blocks are contiguous with correct `t0`; a missing
-      `brainflow` module is a logged no-op with the install hint.
+- [x] `open_source` parses `synthetic`, `file:<path>` (colons allowed) and `brainflow:<id>[:<port>]`
+      without opening hardware, and rejects anything else with a message listing the valid forms.
+- [x] `FileReplaySource` ends with `EOFError`; missing, malformed and pickled files give clear errors.
+- [x] BrainFlow source with a fake board: contiguous `t0`; a missing `brainflow` is a logged no-op with an
+      install hint; an unplugged device is a logged no-op.
+- [x] The recording tap writes mode `0600`.
 
 **`pipeline.py` / `runner.py`**
-- [ ] End to end on synthetic input: squeeze produces `on_mode_start` then `on_mode_end` exactly
-      once each; an unmapped event does nothing.
-- [ ] Untrusted window suppresses an event that would otherwise fire.
-- [ ] Stop, suspend or source error while a hold is open closes the hold.
-- [ ] Labels-only intents reach `activation/intent.py` and an out-of-vocabulary label is refused.
-- [ ] Runner survives a source that raises, returns `None` forever, or ends with `EOFError`.
-- [ ] **Global pause releases a held mode:** with a squeeze held, a global pause ends the
-      dictation turn exactly once, squeezes and intents arriving while paused do nothing, and
-      after resume nothing restarts until the signal has relaxed (no stale hold, no orphan end).
-- [ ] The source's heartbeat registers with the global gate only once blocks have arrived, and a
-      source that stops delivering ages out like any other (no permanent "not ready").
-- [ ] The governor's suspend, the quality gate and the global pause each release a held squeeze
-      exactly once.
-- [ ] The public runner API (`note_cancelled`, `governor_release`, `save_ledger`, `status`) works
-      without touching private attributes and from a thread other than the runner's.
-- [ ] `enabled = false` constructs nothing.
+- [x] End to end on a fake source (`built_runner_runs_end_to_end_on_a_fake_source`); unmapped events do
+      nothing; squeezes never become intents.
+- [x] An untrusted window suppresses events (`flatline_source_makes_no_phantom_trigger_with_the_real_monitor`);
+      a gate closing, a governor suspension, a source error, a finite source end and a stop each release a
+      held squeeze exactly once.
+- [x] Intents are labels drawn only from the declared vocabulary.
+- [x] A raising monitor, ledger, governor, chain factory or `on_mode_end` is contained.
+- [x] Global pause: a held squeeze is released the moment a pause lands, squeezes while paused are
+      refused and latched, a squeeze refused while paused is not started by the resume, a stale runner
+      does not feed the gate (daemon wiring tests).
+- [ ] A source that returns `None` forever: no test by that name (a stalled source is covered through the
+      stale-runner and watchdog tests, not by a "nothing ever arrives" case).
+- [x] `enabled = false` constructs nothing; enabled without a source builds nothing and imports nothing.
 
 **Config and CLI**
-- [ ] `[biosignal]` defaults to disabled; unknown keys and malformed values are rejected with a
-      message; the generated docs are in sync (`scripts/gen-docs.py`).
-- [ ] `yazses biosignal doctor | calibrate | monitor | replay | report` each have `--help`, run
-      against the synthetic source with no hardware, and exit non-zero on a real failure. Once
-      they exist, the same holds for `record | evaluate | profile | boards | resume`.
-- [ ] `ledger_autosave_seconds` and `speech_guard` (when added) have safe defaults, appear in the
-      generated configuration reference, and reject malformed values.
-- [ ] Run the CLI through `script -qec` as well as `CliRunner` (the `[section]` help escape lives in
-      `cli.main()`, which `CliRunner` skips).
+- [x] `[biosignal]` defaults to off with no source; unknown keys, bad maps, out-of-range values and
+      hostile values are reported or replaced by defaults; the problem check does not import the package.
+- [x] Every `yazses biosignal` subcommand has `--help` that exits zero; `doctor`, `monitor`, `evaluate`,
+      `record` and `replay` run against the synthetic source with no hardware; unusable requests exit 2.
+- [ ] The CLI through a real terminal (`script -qec`), as well as `CliRunner`: the `[section]` help escape
+      lives in `cli.main()`, which `CliRunner` skips. No such test was found in the biosignal files.
+
+**Not covered by any test, by nature** (these need the protocol, not more unit tests)
+- [ ] Any behaviour on real electrodes or a real board: phantom rate, hit rate, latency, calibration
+      time, stuck-mic on a real USB unplug, a real daemon `SIGKILL` mid-hold, laptop sleep and wake.
+- [ ] The cancelled-activation proxy against labelled phantom activations.
+- [ ] Day-to-day and re-seat variation of thresholds; fatigue; the intended users' ability to perform
+      the calibration gestures.
 
 ## Measurement
 

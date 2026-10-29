@@ -660,7 +660,12 @@ class BudgetGovernor:
         """The user says "carry on": back to normal sensitivity immediately.
 
         Starts a fresh evidence window, so it cannot re-fire until enough new
-        cancellations have been seen.
+        cancellations have been seen. It also arms a one-shot hold: the very next
+        `update()` only refreshes the rate numbers and applies no transition. The recent
+        rate is an exponentially weighted average that still contains the cancellations
+        the user just dismissed, so without the hold a release followed by one more
+        cancel could be re-judged on the old evidence and re-suspend at once. The
+        existing hysteresis and the fresh epoch do the rest after that one evaluation.
         """
         self._state = GovernorKind.OK
         self._suspend_len_s = self.budget.suspend_s
@@ -682,6 +687,11 @@ class BudgetGovernor:
         self._rate = canc / exposure_h if exposure_h > 0 else 0.0
         self._lower = poisson_rate_lower_bound(canc, exposure_h, b.confidence_z)
 
+        # A user release survives exactly one evaluation (see `release`).
+        if self._released_by_user:
+            self._released_by_user = False
+            return self.action
+
         # Auto-recovery: a suspension ends by itself, into the gentle state (not OK),
         # with fresh evidence required before it can suspend again.
         if self._state is GovernorKind.SUSPEND:
@@ -698,7 +708,6 @@ class BudgetGovernor:
         if self._state is GovernorKind.OK:
             if enough and self._lower > b.max_cancelled_per_hour:
                 self._state = GovernorKind.DESENSITIZE
-                self._released_by_user = False
                 self._last_reason = (
                     f"you cancelled {epoch_cancelled} activations in "
                     f"{epoch_minutes:.0f} min, over your limit of "

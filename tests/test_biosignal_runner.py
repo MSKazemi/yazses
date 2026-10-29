@@ -864,7 +864,7 @@ def test_built_runner_runs_end_to_end_on_a_fake_source(opened, tmp_path):
 def test_status_before_the_runner_has_run():
     status = Rig().runner.status()
     assert status["running"] is False and status["squeeze_active"] is False
-    assert status["mode"] == "" and status["blocks"] == 0 and status["events"] == 0
+    assert status["mode"] == "" and status["blocks"] == 0 and status["events"]["accepted"] == 0
     assert status["last_block_age_s"] is None and status["last_error"] == ""
     assert status["governor"] == {"state": "off", "explain": ""}
     assert status["ledger"] == "" and status["ledger_persisted"] is False
@@ -878,7 +878,7 @@ def test_status_after_blocks_reports_counts_mode_and_block_age():
     rig.advance(0.25)
     status = rig.runner.status()
     assert status["squeeze_active"] is True and status["mode"] == "command"
-    assert status["blocks"] == 1 and status["events"] == 2 and status["intents"] == 1
+    assert status["blocks"] == 1 and status["events"]["accepted"] == 2 and status["intents"] == 1
     assert status["last_block_age_s"] == 0.25
     assert status["pipeline"]["accepted"] == 2 and status["pipeline"]["squeeze_active"] is True
     assert isinstance(status["ledger"], str) and status["ledger"]

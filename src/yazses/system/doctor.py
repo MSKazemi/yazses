@@ -1168,23 +1168,15 @@ def _biosignal_check(
     if scheme and scheme != "synthetic":
         from datetime import UTC, datetime
 
-        from yazses.biosignal.calibration import (
-            default_profile_path,
-            load_profile,
-            profile_is_stale,
-        )
+        from yazses.biosignal.calibration import default_profile_path, load_profile
+        from yazses.biosignal.cli_impl import calibration_problems, squeeze_expected
 
         named = str(getattr(bio, "calibration_file", "") or "").strip()
         path = Path(named).expanduser() if named else default_profile_path(data_dir)
         profile = load_profile(path)
-        wants_squeeze = bool(getattr(bio, "emg", True))
-        if scheme == "brainflow":
-            from yazses.biosignal.boards import preset_for
-
-            known = preset_for(spec)
-            # A listed EEG-only headset (Muse) has no muscle channel to calibrate.
-            if known is not None and "emg" not in known.kind_hint:
-                wants_squeeze = False
+        # Only a board known to be EEG-only (a Muse) has no muscle channel to calibrate; a
+        # 'mixed' or unlisted board (e.g. brainflow:-1) may well have one, so reason about it.
+        wants_squeeze = bool(getattr(bio, "emg", True)) and squeeze_expected(spec)
         if profile is None:
             if wants_squeeze:
                 warns.append((
@@ -1192,16 +1184,8 @@ def _biosignal_check(
                     "(it never guesses a threshold)",
                     "run `yazses biosignal calibrate`"))
         else:
-            board = ":".join(spec.split(":")[:2]) if scheme == "brainflow" else scheme
-            if profile.board_id != board:
-                warns.append((
-                    f"the calibration was made for {profile.board_id!r}, not {board!r}; "
-                    "amplitudes do not carry over to another board or placement",
-                    "run `yazses biosignal calibrate` again"))
-            elif profile_is_stale(profile, now or datetime.now(UTC)):
-                warns.append((f"the calibration is old ({profile.created_at or 'unknown date'}): "
-                              "skin and electrode contact drift",
-                              "run `yazses biosignal calibrate` again"))
+            for reason in calibration_problems(profile, spec, now or datetime.now(UTC)):
+                warns.append((reason, "run `yazses biosignal calibrate` again"))
 
     if not fails and not warns:
         return ("Biosignal switch", "OK",

@@ -126,6 +126,23 @@ Include the jaw-clench switch (default on).
 Print one JSON object instead of a table.
 .RE
 .TP
+\fByazses biosignal field-test\fR
+Guided test of how often the switches fire by mistake during ordinary activity.
+.RS
+.TP
+\fB\-\-source\fR
+Test this source instead of [biosignal] source (synthetic | file:<path> | brainflow:<id>[:<port>]).
+.TP
+\fB\-\-minutes\fR
+Stretch or shrink the test to about this long (0 = the standard length).
+.TP
+\fB\-\-json\fR
+Print one JSON object instead of text.
+.TP
+\fB\-\-out, \-o\fR
+Also write the counts to this JSON file (owner-only; never overwrites).
+.RE
+.TP
 \fByazses biosignal monitor\fR
 Watch signal quality and detections live. Nothing is typed or acted on.
 .RS

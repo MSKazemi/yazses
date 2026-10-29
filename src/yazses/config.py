@@ -1118,6 +1118,24 @@ class BiosignalConfig:
     # default file in the data directory. Thresholds come from your own signal, never a
     # population average, which is why a switch without a profile stays conservative.
     calibration_file: str = ""
+    # How old a saved calibration profile may be before the switches that depend on it
+    # (double blink, jaw clench) fall back to their conservative built-ins and say so. 30 days
+    # because skin impedance, electrode placement and fatigue drift over weeks, not hours: a
+    # month-old profile is usually still close, a quarter-old one is a guess. Recalibrating
+    # takes a minute (`yazses biosignal calibrate`). Bounds 1..365 days.
+    calibration_max_age_days: float = field(default=30.0, metadata={"min": 1.0, "max": 365.0})
+    # Stuck-key watchdog: if no sample block arrives for this long while a squeeze is held
+    # (cable pulled, Bluetooth stall, board crash) the held dictation turn is released. 1.5 s
+    # because a healthy board delivers a block every few tens to ~250 ms, so a gap of six
+    # times the slowest is a dead stream rather than jitter, yet a microphone left open by a
+    # vanished device never stays open for long. Bounds 0.5..30 seconds.
+    watchdog_seconds: float = field(default=1.5, metadata={"min": 0.5, "max": 30.0})
+    # Events whose confidence is below this are dropped before they become a switch press.
+    # 0.0 = accept whatever the detector reports (the detectors already apply the thresholds
+    # from your calibration); raise it to trade missed presses for fewer false ones. The
+    # false-positive guard (`max_cancelled_per_hour`) lifts the effective floor on its own
+    # when it desensitizes. Releasing a held squeeze is never gated by this. Bounds 0..1.
+    min_event_confidence: float = field(default=0.0, metadata={"min": 0.0, "max": 1.0})
 
 
 @dataclass
@@ -2711,6 +2729,17 @@ def _biosignal_problems(config: Config) -> list[ConfigProblem]:
             problems.append(ConfigProblem(
                 "biosignal", "max_cancelled_per_hour",
                 f"{bio.max_cancelled_per_hour} is negative; use 0 for no budget", False))
+        # The metadata bounds reject these at load; this names a value that is out of range
+        # (or NaN, which a plain comparison misses) in the same place as the map problems.
+        for key, low_b, high_b in (("calibration_max_age_days", 1.0, 365.0),
+                                   ("watchdog_seconds", 0.5, 30.0),
+                                   ("min_event_confidence", 0.0, 1.0)):
+            value = float(getattr(bio, key))
+            if not (low_b <= value <= high_b):
+                problems.append(ConfigProblem(
+                    "biosignal", key,
+                    f"{value} is outside {low_b:g}..{high_b:g}; the default is used instead",
+                    False))
         if not (bio.emg or bio.double_blink or bio.jaw_clench):
             problems.append(ConfigProblem(
                 "biosignal", "emg",

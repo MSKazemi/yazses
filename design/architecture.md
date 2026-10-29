@@ -808,9 +808,10 @@ clench), held to a measured false-positive budget. A fourth activation source be
 EMG/BrainFlow sources and the face-gesture switch: events feed the same `on_mode_start` /
 `on_mode_end` callbacks and, as labels only, `activation/intent.py`. Full design in
 [`specs/biosignal-pipeline.md`](specs/biosignal-pipeline.md); the governor's mechanism is
-[ADR-v2-153](adr/adr-v2-153-biosignal-false-positive-governor.md). Thought, motor-imagery, SSVEP and
-P300 decoding stays rejected (ADR-v2-129); blink and jaw clench are artifacts, and the thresholds are
-unmeasured. Validation is synthetic only.
+[ADR-v2-153](adr/adr-v2-153-biosignal-false-positive-governor.md); how the numbers get measured on real
+hardware is [`specs/biosignal-validation-protocol.md`](specs/biosignal-validation-protocol.md). Thought,
+motor-imagery, SSVEP and P300 decoding stays rejected (ADR-v2-129); blink and jaw clench are artifacts,
+and the thresholds are unmeasured. Validation is synthetic only; no field-test result exists yet.
 
 | File | Role |
 |---|---|
@@ -823,22 +824,28 @@ unmeasured. Validation is synthetic only.
 | `speechguard.py` | `SpeechGuard`: combines dictation-recording, VAD and TTS flags into the `speech_guard` callable the jaw-clench detector takes (hangover, stuck-source watchdog, fails closed). Audio-side state only. |
 | `fprate.py` | Activation ledger (per active exposure time), cancelled-fraction proxy with Wilson interval, budget governor: desensitize, then suspend, auto-recover with backoff, one-action `release()`; persists aggregate counters only ([ADR-v2-153](adr/adr-v2-153-biosignal-false-positive-governor.md)). |
 | `evaluate.py` | Evaluation harness: recall, precision and latency against scripted events, and phantom activations per hour on an idle stream, with intervals and a synthetic-data caveat. |
+| `fieldtest.py` | In-situ field test: a guided session of ordinary activity (rest, speech, chew, typing, movement, then a cued gesture per switch) that counts phantom activations per usable hour by activity and the hit rate, with Poisson upper bounds and Wilson intervals; `FieldTestAggregate` merges reports. Counts and whole-second durations only; clock-injected, no I/O. |
 | `boards.py` | A small table of known boards and their BrainFlow ids (advice for choosing `[biosignal] source`; stdlib only, opens nothing). |
 | `sources.py` | `SyntheticSource`, `FileReplaySource`, `BrainFlowBlockSource`, `open_source('synthetic' \| 'file:…' \| 'brainflow:<id>')`; `brainflow` imported lazily (the `emg-band` extra). |
 | `pipeline.py`, `runner.py` | `BiosignalPipeline` (pure: blocks in, events out) and `BiosignalRunner` (the thread, `mode_map` / `intent_map`, stuck-hold watchdog, status). |
 | `cli_impl.py` | The `yazses biosignal` command bodies, the `BiosignalActivationSource` adapter the daemon starts, and the ledger counters file. |
 
 **Invariant: an untrusted signal never produces an event, and a hold can never stay open.** The quality
-gate suppresses events from a flat, clipped, mains-dominated, drifting or gappy channel; the max-hold
-watchdog and the runner's stop/suspend path close any open hold. **The governor escalates in one
-order, desensitize then suspend, and a suspension heals itself or ends on one user action.**
-The ledger counters are autosaved periodically so a killed daemon keeps its measurement, and the daemon
-adapter enforces the global hands-free pause (ADR-v2-148) by releasing and latching a held squeeze.
-Not confirmed present at the last update (the spec's "Round-2 status" table is the authority):
-calibrated blink/clench detectors with a runtime sensitivity scale, and the blink warm-up fix.
-**No new egress path:** the package
-opens no socket and adds nothing to ADR-019's inventory; recordings and profiles are local-only
-biometric-adjacent data.
+gate (judging every hop, with lead-off and common-mode checks) suppresses events from a flat, clipped,
+mains-dominated, drifting, gappy or lifted channel; the squeeze detector blanks itself on a DC step, pop
+or saturation; the max-hold watchdog, the runner's no-blocks watchdog (`watchdog_seconds`) and the
+stop/suspend/error path close any open hold. **A calibration profile for another board, channel set,
+rate or age is not used** (fail closed; the squeeze stays off until recalibrated). **The governor
+escalates in one order, desensitize then suspend, and a suspension heals itself or ends on one user
+action**; a stream gap does not erase its verdict. The ledger counters are autosaved periodically so a
+killed daemon keeps its measurement, and the daemon adapter enforces the global hands-free pause
+(ADR-v2-148) by releasing and latching a held squeeze and by pausing exposure accounting. The daemon
+status payload carries an aggregate `biosignal` block, and shutdown is ordered (release, save, then
+join). Every number is a design choice validated on synthetic signal; the spec's "Round-3 status" table
+is the authority for what is present.
+**No new egress path:** the package opens no socket and adds nothing to ADR-019's inventory;
+recordings, profiles and field-test reports are local-only, and the biometric-adjacent ones are never
+transmitted (threat model section 9).
 
 ### `src/yazses/overlay/` (voice-activity overlay, `yazses-overlay`)
 

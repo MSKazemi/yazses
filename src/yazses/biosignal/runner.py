@@ -25,8 +25,16 @@ What it adds on top of the BrainFlow source:
   kill loses at most one interval. Each save adds only what changed since the previous
   save to whatever the file holds *now*, so it neither double counts nor overwrites the
   totals another process (``yazses biosignal report``) wrote meanwhile.
-* **A status snapshot** for IPC and the CLI, including the governor state and the ledger
-  summary.
+* **A status snapshot** for IPC and the CLI, including the governor state, the ledger
+  summary, the calibration verdict (``ok`` / ``stale`` / ``mismatch`` / ``missing`` with a
+  plain-language reason), per-reason event drop tallies, per-detector health, the last
+  accepted event and the block rate.
+* **A bounded event journal** (:meth:`recent_events`): the last few accepted and refused
+  events, kind, age and reason only -- no signal -- cleared on stop. It exists for the
+  ``monitor`` command.
+* **Accounting pause** (:meth:`pause_accounting` / :meth:`resume_accounting`): a global
+  hands-free pause stops the ledger accruing exposure, so a long pause does not dilute the
+  measured false-activation rate. Safe to call before the runner has started.
 
 **The stuck-key invariant.** A squeeze the runner forwarded is always released, by one of:
 the source's own ``SQUEEZE_OFF``; the pipeline's synthetic OFF (bad signal, suspension, a
@@ -53,6 +61,7 @@ import os
 import tempfile
 import threading
 import time
+from collections import deque
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -62,6 +71,7 @@ from yazses.activation.intent import ActivationIntent
 from yazses.biosignal.pipeline import (
     DEFAULT_INTENT_MAP,
     BiosignalPipeline,
+    DroppedEvent,
     PartsRequest,
     PipelineStatus,
     build_parts,
@@ -93,6 +103,11 @@ DEFAULT_AUTOSAVE_SECONDS = 60.0
 _LEDGER_FILENAME = "biosignal_ledger.json"   # must match cli_impl.LEDGER_FILENAME
 _MAX_LEDGER_BYTES = 1 << 20
 _RELEASE_ATTEMPTS = 2        # a raising on_mode_end is retried once; a stuck key is worse
+
+# Event journal size and the window the block rate is read over. Design choices: enough
+# history to see a burst of false activations on a live monitor, small enough to be free.
+JOURNAL_SIZE = 100
+_BLOCK_RATE_WINDOW_S = 5.0
 
 
 def _noop(*_args: Any) -> None:
@@ -165,6 +180,15 @@ class BiosignalRunner:
         self._watchdog_trips = 0
         self._last_error = ""
         self._pipeline_status = PipelineStatus()
+        # (clock time, kind, accepted?, reason); ring buffer, no signal data. Under _lock.
+        self._journal: deque[tuple[float, str, bool, str]] = deque(maxlen=JOURNAL_SIZE)
+        self._last_event: tuple[float, str] | None = None
+        self._block_times: deque[float] = deque(maxlen=256)
+        # Pause/resume of ledger exposure may arrive before the pipeline exists; one lock
+        # serializes "set the flag" with "apply it to the pipeline" so a pause and a
+        # resume racing the pipeline's creation cannot leave the wrong state.
+        self._acct_lock = threading.Lock()
+        self._acct_paused = False
 
     # ---- public surface for the daemon -----------------------------------
 
@@ -214,6 +238,40 @@ class BiosignalRunner:
             return GovernorAction.ok()
         return pipeline.governor_release()
 
+    def pause_accounting(self) -> None:
+        """Stop the ledger accruing exposure time (a global hands-free pause). Idempotent.
+
+        Thread-safe, and safe before ``run()``: the request is remembered and applied when
+        the pipeline is built.
+        """
+        with self._acct_lock:
+            self._acct_paused = True
+            pipeline = self._pipeline
+            if pipeline is not None:
+                pipeline.pause_accounting()
+
+    def resume_accounting(self) -> None:
+        """Let the ledger accrue exposure again (from the next block). Idempotent."""
+        with self._acct_lock:
+            self._acct_paused = False
+            pipeline = self._pipeline
+            if pipeline is not None:
+                pipeline.resume_accounting()
+
+    def recent_events(self, n: int = 20) -> list[dict[str, Any]]:
+        """The last ``n`` accepted or refused events, oldest first. Kind, age, outcome only.
+
+        Each row: ``{"kind", "age_s", "accepted", "reason"}``. ``reason`` says why an event
+        was refused (``quality`` / ``governor`` / ``confidence``) or, for a release the
+        pipeline made itself, why. Empty after ``stop()``; never carries signal data.
+        """
+        now = self._clock()
+        limit = max(int(n), 0)
+        with self._lock:
+            rows = list(self._journal)[-limit:] if limit else []
+        return [{"kind": kind, "age_s": round(max(now - t, 0.0), 3), "accepted": ok,
+                 "reason": reason} for t, kind, ok, reason in rows]
+
     def save_ledger(self) -> bool:
         """Write the aggregate counters now. True if the file changed; never raises.
 
@@ -256,7 +314,11 @@ class BiosignalRunner:
             if source is None:
                 return
             self._source = source
-            self._pipeline = self._pipeline_factory(source)
+            pipeline = self._pipeline_factory(source)
+            with self._acct_lock:
+                self._pipeline = pipeline
+                if self._acct_paused:
+                    pipeline.pause_accounting()
             with self._lock:
                 self._last_block = self._clock()
             if self._watchdog_s > 0:
@@ -284,6 +346,7 @@ class BiosignalRunner:
                 watchdog.join(timeout=1.0)
             with self._lock:
                 self._running = False
+                self._clear_journal_locked()
 
     def stop(self) -> None:
         """Ask ``run()`` to finish. Safe from any thread, idempotent.
@@ -296,6 +359,8 @@ class BiosignalRunner:
         self._stop.set()
         self._release_squeeze("stop requested")
         self.save_ledger()
+        with self._lock:
+            self._clear_journal_locked()
 
     # ---- one iteration (also the unit-test seam) --------------------------
 
@@ -312,17 +377,21 @@ class BiosignalRunner:
             gap = now - self._last_block if self._last_block else 0.0
             self._last_block = now
             self._blocks += 1
+            self._block_times.append(now)
         if self._watchdog_s > 0 and gap > self._watchdog_s:
             # Detector and filter state is stale across a gap this long.
             log.info("Biosignal stream resumed after %.1f s; resetting detectors.", gap)
             # Before the reset: resetting makes the pipeline forget a held squeeze, so if
             # the watchdog has not got to it yet nothing would ever send its OFF.
             self._release_squeeze("stream gap")
-            pipeline.reset()
+            # A gap is not evidence the false-positive problem went away: keep the
+            # governor's desensitization / suspension in force (explicit, not by accident).
+            pipeline.reset(keep_governor_state=True)
         result = pipeline.process(block)
         with self._lock:
             self._pipeline_status = result.status
             self._events += len(result.events)
+            self._journal_locked(now, result.events, result.dropped)
         self._handle_events(result.events)
         return True
 
@@ -365,12 +434,60 @@ class BiosignalRunner:
                 "last_error": self._last_error,
                 "vocabulary": list(self.vocabulary),
                 "pipeline": snap.as_dict(),
+                "last_event": ({"kind": "", "age_s": None} if self._last_event is None else
+                               {"kind": self._last_event[1],
+                                "age_s": round(max(now - self._last_event[0], 0.0), 3)}),
+                "blocks_per_second": self._block_rate(now),
             }
+            accepted, dropped = self._events, snap.dropped
+            gate_drops = dict(snap.dropped_by_reason)
+        pipeline = self._pipeline
+        # ``events`` was a bare accepted count; it is now a dict (``accepted`` is that count).
+        suppressed = pipeline.detector_suppressed() if pipeline is not None else {}
+        out["events"] = {
+            "accepted": accepted,
+            "dropped": dropped + sum(suppressed.values()),
+            "dropped_by_reason": {**gate_drops, **suppressed},
+        }
+        out["detectors"] = pipeline.detector_health() if pipeline is not None else {}
+        if pipeline is not None:
+            live = pipeline.status
+            out["calibration"] = {"state": live.calibration_state,
+                                  "reason": live.calibration_reason}
+            out["accounting_paused"] = pipeline.accounting_paused
+        else:
+            out["calibration"] = {"state": "unchecked",
+                                  "reason": "the biosignal runner has not started"}
+            out["accounting_paused"] = self._acct_paused
         # The governor and ledger have locks of their own; read them outside ours.
         out["governor"] = self._governor_status()
         out["ledger"] = self._ledger_summary()
         out["ledger_persisted"] = self.persists_ledger
         return out
+
+    def _block_rate(self, now: float) -> float:
+        """Blocks per second over the last few seconds (caller holds ``_lock``)."""
+        recent = [t for t in self._block_times if now - t <= _BLOCK_RATE_WINDOW_S]
+        if len(recent) < 2 or recent[-1] <= recent[0]:
+            return 0.0
+        return round((len(recent) - 1) / (recent[-1] - recent[0]), 2)
+
+    def _journal_locked(self, now: float, events: tuple[BioEvent, ...],
+                        dropped: tuple[DroppedEvent, ...]) -> None:
+        """Record one block's outcomes (caller holds ``_lock``). No signal, no detail beyond
+        the pipeline's own plain reason for a release it made itself."""
+        for event in events:
+            detail = event.detail or {}
+            reason = str(detail.get("reason", "")) if detail.get("synthetic") else ""
+            self._journal.append((now, event.kind.value, True, reason))
+            self._last_event = (now, event.kind.value)
+        for drop in dropped:
+            self._journal.append((now, drop.kind.value, False, drop.reason))
+
+    def _clear_journal_locked(self) -> None:
+        self._journal.clear()
+        self._last_event = None
+        self._block_times.clear()
 
     def _governor_status(self) -> dict[str, str]:
         pipeline = self._pipeline
@@ -662,8 +779,15 @@ def build_runner_from_config(
     ledger_path: str | Path | None = None,
     data_dir: str | Path | None = None,
     autosave_seconds: float = DEFAULT_AUTOSAVE_SECONDS,
+    watchdog_seconds: float | None = None,
+    min_event_confidence: float | None = None,
+    calibration_max_age_days: float | None = None,
 ) -> BiosignalRunner | None:
     """Build a runner from ``cfg.biosignal``, or None when it is off or unusable.
+
+    ``watchdog_seconds``, ``min_event_confidence`` and ``calibration_max_age_days`` override
+    the ``[biosignal]`` values of the same name; left as None they are read from the config
+    section (and fall back to their defaults on an older config object).
 
     Reads every field with ``getattr`` and a default, so this works whether or not the
     ``BiosignalConfig`` dataclass has landed in ``config.py`` and for any older config
@@ -698,6 +822,19 @@ def build_runner_from_config(
     emg = bool(_cfg(section, "emg", False))
     max_cancelled = float(_cfg(section, "max_cancelled_per_hour", 0.0))
     calibration_file = str(_cfg(section, "calibration_file", "") or "")
+    def _number(override: float | None, name: str, default: float) -> float:
+        # An explicit argument wins; else the config key; a junk value falls back to the
+        # default rather than failing the daemon's start-up.
+        raw = override if override is not None else _cfg(section, name, default)
+        try:
+            value = float(raw)
+        except (TypeError, ValueError):
+            return default
+        return value if value == value else default      # NaN is not a number to keep
+
+    max_age_days = _number(calibration_max_age_days, "calibration_max_age_days", 30.0)
+    watchdog_s = _number(watchdog_seconds, "watchdog_seconds", DEFAULT_WATCHDOG_SECONDS)
+    min_confidence = _number(min_event_confidence, "min_event_confidence", 0.0)
     mode_map = dict(_cfg(section, "mode_map", {}) or {}) or None
     intent_map = dict(_cfg(section, "intent_map", {}) or {})
     # Defaults apply only when the user left the map empty; an explicit map is theirs.
@@ -725,6 +862,9 @@ def build_runner_from_config(
             graded_emg=graded or mode_map is None,
             max_cancelled_per_hour=max_cancelled,
             calibration_file=calibration_file,
+            source_spec=source_spec,
+            calibration_max_age_days=max_age_days,
+            min_event_confidence=min_confidence,
             speech_guard=cbs.speech_active,
             channels=tuple(source.channels),
             with_ledger=True,
@@ -739,4 +879,5 @@ def build_runner_from_config(
         intent_map=effective_intents,
         ledger_path=resolved,
         autosave_seconds=autosave_seconds,
+        watchdog_seconds=watchdog_s,
     )

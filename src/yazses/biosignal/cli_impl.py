@@ -105,6 +105,99 @@ def _scheme(spec: str) -> str:
     return spec.partition(":")[0].strip().lower()
 
 
+def squeeze_expected(spec: str) -> bool:
+    """Whether the muscle-squeeze switch could apply to this source (so it needs a profile).
+
+    False only for a board known to be EEG-only (a Muse has no muscle channel). A 'mixed'
+    board such as ``brainflow:-1``, a board the table does not list, a recording and a
+    plain ``emg`` band all return True, so a missing calibration is still reasoned about.
+    """
+    if _scheme(spec) != "brainflow":
+        return True
+    try:
+        from yazses.biosignal.boards import preset_for
+
+        preset = preset_for(spec)
+    except Exception:
+        return True
+    return preset is None or str(preset.kind_hint).strip().lower() != "eeg"
+
+
+def _reasons_from(result: Any) -> list[str] | None:
+    """Plain-language problems out of whatever ``calibration.check_profile`` returned.
+
+    ``[]`` means "no problem found"; ``None`` means the result could not be understood and
+    the caller should use its own checks instead.
+    """
+    if result is None or result is True:
+        return []
+    if result is False:
+        return ["the saved calibration does not fit this setup"]
+    if isinstance(result, str):
+        return [result.strip()] if result.strip() else []
+    if isinstance(result, dict):
+        ok = result.get("ok", result.get("usable"))
+        items: Any = result.get("problems") or result.get("reasons") or result.get("issues")
+        if items is None:
+            text = str(result.get("reason") or result.get("message") or "").strip()
+            return [] if ok or not text else [text]
+        return _reasons_from(items)
+    if isinstance(result, (list, tuple, set, frozenset)):
+        out: list[str] = []
+        for item in result:
+            sub = _reasons_from(item)
+            if sub is None:
+                return None
+            out.extend(sub)
+        return out
+    for flag in ("ok", "usable", "valid"):
+        if getattr(result, flag, None) is True:
+            return []
+    for name in ("problems", "reasons", "issues"):
+        items = getattr(result, name, None)
+        if items:
+            return _reasons_from(list(items))
+    for name in ("reason", "message", "detail"):
+        text = str(getattr(result, name, "") or "").strip()
+        if text:
+            return [text]
+    return None
+
+
+def calibration_problems(profile: Any, spec: str, now: datetime | None = None) -> list[str]:
+    """What is wrong with a saved calibration for this source, in plain words (``[]`` if fine).
+
+    Uses ``calibration.check_profile`` when this build has it, and otherwise (or if its
+    answer cannot be read) the wrong-board and too-old checks. Never an amplitude.
+    """
+    from yazses.biosignal import calibration
+
+    when = now or datetime.now(UTC)
+    board = ":".join(spec.split(":")[:2]) if _scheme(spec) == "brainflow" else _scheme(spec)
+    check = getattr(calibration, "check_profile", None)
+    if callable(check):
+        try:
+            import inspect
+
+            params = inspect.signature(check).parameters
+            offered = {"board_id": board, "board": board, "spec": spec, "source": spec,
+                       "now": when}
+            found = _reasons_from(check(profile, **{k: v for k, v in offered.items()
+                                                    if k in params}))
+        except Exception:
+            log.debug("calibration.check_profile failed", exc_info=True)
+            found = None
+        if found is not None:
+            return found
+    if profile.board_id != board:
+        return [f"the calibration was made for {profile.board_id!r}, not {board!r}; "
+                "amplitudes do not carry over to another board or placement"]
+    if calibration.profile_is_stale(profile, when):
+        return [f"the calibration is old ({profile.created_at or 'unknown date'}): "
+                "skin and electrode contact drift"]
+    return []
+
+
 def _open(spec: str, *, realtime: bool = False) -> Any:
     """``open_source`` with pacing asked of the sources that support it (never BrainFlow)."""
     from yazses.biosignal.sources import open_source
@@ -140,6 +233,9 @@ def _build_pipeline(
         max_cancelled_per_hour=0.0,
         calibration_file=str(profile_path(bio, data_dir)),
         channels=tuple(source.channels),
+        source_spec=str(getattr(bio, "source", "") or ""),
+        calibration_max_age_days=float(getattr(bio, "calibration_max_age_days", 30.0)),
+        min_event_confidence=float(getattr(bio, "min_event_confidence", 0.0)),
     ))
     ledger = ActivationLedger(clock) if clock is not None else ActivationLedger()
     parts.ledger = ledger
@@ -281,25 +377,39 @@ def _self_check() -> tuple[bool, list[str]]:
 
 
 def run_doctor(cfg: Any, data_dir: Path, *, boards: bool = False, source: str = "") -> int:
-    """What this machine can do for a biosignal switch, and whether the code path is sound."""
+    """What this machine can do for a biosignal switch, and whether the code path is sound.
+
+    Ends with one ``Verdict:`` line: ``ready``, or the single most important next step.
+    """
     bio = cfg.biosignal
     spec = source_spec(bio, source)
+    scheme = _scheme(spec)
     _say("YazSes biosignal doctor")
     _say(f"  [biosignal] enabled = {bio.enabled}   source = {spec or '(none)'}   "
          f"mains = {bio.mains_hz} Hz")
     sw = switches_from(bio)
     _say(f"  detectors: {sw.names()}")
+    steps: list[str] = []           # next steps, most important first
 
     path = profile_path(bio, data_dir)
     from yazses.biosignal.calibration import load_profile, profile_is_stale
 
     profile = load_profile(path)
+    needs_squeeze = sw.emg and scheme not in ("", "synthetic") and squeeze_expected(spec)
     if profile is None:
         _say(f"  calibration: none at {path}  ->  run `yazses biosignal calibrate`"
              + ("  (the muscle-squeeze switch stays off without it)" if sw.emg else ""))
+        if needs_squeeze:
+            steps.append("run `yazses biosignal calibrate` (the muscle-squeeze switch stays "
+                         "off without it)")
     else:
+        problems = calibration_problems(profile, spec) if scheme else []
         stale = profile_is_stale(profile, datetime.now(UTC))
         _say(f"  calibration: {profile.summary()}" + ("  [STALE: recalibrate]" if stale else ""))
+        for problem in problems:
+            _say(f"  [--]   {problem}")
+        if problems and scheme not in ("", "synthetic"):
+            steps.append("run `yazses biosignal calibrate` again, because " + problems[0])
 
     _say()
     present, version = _brainflow_state()
@@ -314,6 +424,8 @@ def run_doctor(cfg: Any, data_dir: Path, *, boards: bool = False, source: str = 
             hint = ""
         _say("  [--]   brainflow is not installed (only `synthetic` and `file:` sources work)"
              + (f". {hint}" if hint else ""))
+        if scheme == "brainflow":
+            steps.insert(0, "install BrainFlow, which the source needs" + (f": {hint}" if hint else ""))
     ports = _serial_ports()
     _say(f"  serial ports: {', '.join(ports) if ports else 'none visible'}")
 
@@ -321,11 +433,13 @@ def run_doctor(cfg: Any, data_dir: Path, *, boards: bool = False, source: str = 
         from yazses.biosignal.sources import SYNTHETIC_BOARD_ID, describe_board
 
         ids: list[int] = [SYNTHETIC_BOARD_ID]
-        if _scheme(spec) == "brainflow":
+        if scheme == "brainflow":
             try:
                 ids.append(int(spec.split(":")[1]))
             except (IndexError, ValueError):
                 _warn(f"  [FAIL] source {spec!r} needs an integer board id")
+                steps.insert(0, "write the source as brainflow:<board id>[:<port>] "
+                                "(`yazses biosignal boards` lists the ids)")
         if boards:
             from brainflow.board_shim import BoardIds
 
@@ -336,9 +450,10 @@ def run_doctor(cfg: Any, data_dir: Path, *, boards: bool = False, source: str = 
         if not boards:
             _say("  (`yazses biosignal doctor --boards` lists every board BrainFlow knows)")
 
-    if spec and _scheme(spec) not in ("synthetic", "file", "brainflow"):
+    if spec and scheme not in ("synthetic", "file", "brainflow"):
         _warn(f"  [FAIL] unknown source {spec!r}; expected synthetic, file:<path> "
               "or brainflow:<board_id>[:<port>]")
+        steps.insert(0, "fix the source: synthetic, file:<path> or brainflow:<board id>[:<port>]")
 
     _say()
     _say("Self-check (synthetic signal through the real pipeline):")
@@ -346,10 +461,31 @@ def run_doctor(cfg: Any, data_dir: Path, *, boards: bool = False, source: str = 
         ok, lines = _self_check()
     except Exception as exc:
         _say(f"  [FAIL] {type(exc).__name__}: {exc}")
+        _say(_doctor_verdict(bio, spec, ["the built-in self-check could not run on this "
+                                         "machine; the error above is what to report"]))
         return FAILED
     for line in lines:
         _say(line)
+    if not ok:
+        steps.insert(0, "the built-in self-check failed on this machine; the lines above "
+                        "say which part, and that is what to report")
+    _say()
+    _say(_doctor_verdict(bio, spec, steps))
     return OK if ok else FAILED
+
+
+def _doctor_verdict(bio: Any, spec: str, steps: list[str]) -> str:
+    """The last line of ``doctor``: ready, or the one thing to do next."""
+    if steps:
+        return f"Verdict: not ready yet. Next step: {steps[0]}."
+    if not spec:
+        return ("Verdict: pick a source first. Try `yazses biosignal monitor --source "
+                "synthetic` with no hardware, or see `yazses biosignal boards` for a board.")
+    if not bio.enabled:
+        return ("Verdict: ready. Nothing is switched on yet; to use it, set "
+                "[biosignal] enabled = true and run `yazses restart`.")
+    return ("Verdict: ready. To see how often it fires by mistake in your own day, run "
+            "`yazses biosignal field-test`.")
 
 
 # ---------------------------------------------------------------------------
@@ -485,6 +621,47 @@ def _script_demo(source: Any) -> None:
         t += _DEMO_PERIOD_S
 
 
+#: How many recent events ``monitor`` lists.
+_RECENT_N = 5
+
+
+def recent_events_of(owner: Any, n: int = _RECENT_N) -> list[Any] | None:
+    """``owner.recent_events(n)`` as a list, or ``None`` when it has none (or it fails)."""
+    fn = getattr(owner, "recent_events", None)
+    if not callable(fn):
+        return None
+    try:
+        return list(fn(n))
+    except Exception:
+        log.debug("recent_events failed", exc_info=True)
+        return None
+
+
+def describe_recent(entry: Any, now: float | None = None) -> str:
+    """One recent event in words: its kind, how long ago, accepted or dropped, and why."""
+    def get(*names: str) -> Any:
+        for name in names:
+            value = entry.get(name) if isinstance(entry, dict) else getattr(entry, name, None)
+            if value is not None:
+                return value
+        return None
+
+    kind = get("kind")
+    kind = getattr(kind, "value", kind) or "event"
+    age = get("age_s", "age")
+    if age is None and get("t") is not None and now is not None:
+        age = now - float(get("t"))
+    outcome = get("accepted", "outcome", "verdict", "status")
+    if isinstance(outcome, str):
+        accepted = outcome.strip().lower() in ("accepted", "ok", "passed", "fired")
+    else:
+        accepted = bool(outcome) if outcome is not None else True
+    reason = str(get("reason", "why") or "").strip()
+    text = f"{kind}, " + (f"{float(age):.0f} s ago, " if age is not None else "") + (
+        "accepted" if accepted else "dropped")
+    return text + (f" ({reason})" if reason and not accepted else "")
+
+
 def run_monitor(
     cfg: Any, data_dir: Path, *, source: str = "", seconds: float = 0.0,
     interval: float = DEFAULT_MONITOR_INTERVAL_S, emg: bool | None = None,
@@ -526,13 +703,34 @@ def run_monitor(
 
     counts: dict[Any, int] = {}
     started = time.monotonic()
-    state: dict[str, Any] = {"next": started + max(interval, 0.1), "overall": "", "blocks": 0}
+    state: dict[str, Any] = {"next": started + max(interval, 0.1), "overall": "", "blocks": 0,
+                             "dropped": 0, "shown": ""}
+    # What the pipeline did with each event, newest last. Used unless the pipeline can list
+    # its own recent events itself.
+    local_recent: list[tuple[float, str, bool, str]] = []
+
+    def recent_lines() -> list[str]:
+        own = recent_events_of(pipeline)
+        if own is not None:
+            return [describe_recent(e, time.monotonic()) for e in own]
+        now = time.monotonic()
+        return [describe_recent({"kind": k, "age_s": now - t, "accepted": ok, "reason": why_},
+                                now) for t, k, ok, why_ in local_recent[-_RECENT_N:]][::-1]
 
     def on_result(block: Any, result: Any) -> None:
         state["blocks"] += 1
         for event in result.events:
             counts[event.kind] = counts.get(event.kind, 0) + 1
             _say("  " + format_event(event))
+            local_recent.append((time.monotonic(), event.kind.value, True, ""))
+        dropped = int(getattr(result.status, "dropped", 0) or 0)
+        if dropped > state["dropped"]:
+            why_ = str(getattr(result.status, "reason", "") or
+                       "the signal was not clean enough to trust it")
+            local_recent.extend([(time.monotonic(), "an event", False, why_)]
+                                * min(dropped - state["dropped"], _RECENT_N))
+        state["dropped"] = dropped
+        del local_recent[:-50]
         report = parts.quality.report if parts.quality is not None else None
         now = time.monotonic()
         if report is not None and report.overall.value != state["overall"]:
@@ -550,6 +748,10 @@ def run_monitor(
                  f"dropped {st.dropped:>3}  rate {st.rate_per_hour:6.1f}/h"
                  + ("  SUSPENDED: " + st.reason if st.suspended else "")
                  + ("  [squeeze held]" if st.squeeze_active else ""))
+            lines = recent_lines()
+            if lines and "|".join(lines) != state["shown"]:
+                state["shown"] = "|".join(lines)
+                _say("  recent: " + "; ".join(lines[:_RECENT_N]))
 
     try:
         why = _pump(src, pipeline, on_result, max_seconds=seconds)
@@ -559,6 +761,11 @@ def run_monitor(
     _say("Detections:")
     for row in _counts_table(counts):
         _say(row)
+    tail = recent_lines()
+    if tail:
+        _say("Most recent events (newest first):")
+        for line in tail[:_RECENT_N]:
+            _say(f"  {line}")
     _say("Measured: " + summary(ledger, with_note=True))
     return FAILED if why not in ("stopped", "time limit reached", "end of recording") else OK
 
@@ -968,6 +1175,7 @@ def run_record(
     tap = RecordingTap(src, path)
     recorded = 0.0
     blocks = 0
+    last_len = 0.0
     why = "time reached"
     wall_deadline = time.monotonic() + seconds * 2.0 + 15.0
     tap.start()
@@ -978,14 +1186,18 @@ def run_record(
             return UNUSABLE
         if not as_json:
             _say(f"Recording {spec} for {seconds:g} s to {path}  (Ctrl-C stops early, keeps the file)")
-        while recorded < seconds:
+        # Blocks do not divide the length evenly (and floats add up inexactly), so reaching
+        # the end of a source within half a block of the asked length is "time reached".
+        slack = 1e-6
+        while recorded < seconds - slack:
             if time.monotonic() > wall_deadline:
                 why = "the source delivered too little data"
                 break
             try:
                 block = tap.read()
             except EOFError:
-                why = "end of source"
+                why = "time reached" if recorded >= seconds - max(slack, last_len / 2) \
+                    else "end of source"
                 break
             if block is None:
                 if getattr(src, "available", True) is False:
@@ -994,7 +1206,8 @@ def run_record(
                 time.sleep(0.005)
                 continue
             blocks += 1
-            recorded += float(block.duration)
+            last_len = float(block.duration)
+            recorded += last_len
     except KeyboardInterrupt:
         why = "stopped early"
     finally:
@@ -1284,6 +1497,175 @@ def run_boards(*, as_json: bool = False) -> int:
 
 
 # ---------------------------------------------------------------------------
+# field-test
+
+
+_DURATION_FIELDS = ("duration_s", "seconds", "duration")
+
+
+def _scaled_protocol(fieldtest: Any, minutes: float,
+                     switches: Any = None) -> tuple[Any, float, str]:
+    """The default protocol stretched or shrunk to ``minutes`` (0 = as designed).
+
+    Returns ``(protocol or None, total_seconds, note)``. ``None`` means "use the module's
+    own default"; ``note`` is non-empty when the length could not be changed.
+
+    ``switches`` limits the deliberate-gesture phases to the detectors that are on: a switch
+    that is off can never fire, and cueing it would count misses against a feature the user
+    did not enable (dragging the verdict toward "do not enable" for no reason).
+    """
+    kwargs: dict[str, Any] = {}
+    if switches is not None:
+        kwargs["switches"] = tuple(
+            name for name, on in (("squeeze", switches.emg),
+                                  ("double_blink", switches.double_blink),
+                                  ("jaw_clench", switches.jaw_clench)) if on)
+    try:
+        phases = list(fieldtest.default_protocol(**kwargs))
+    except TypeError:
+        kwargs = {}                       # an older fieldtest without the `switches` argument
+        phases = list(fieldtest.default_protocol())
+    except Exception:
+        return None, 0.0, ""
+
+    def length(phase: Any) -> float:
+        for name in _DURATION_FIELDS:
+            value = getattr(phase, name, None)
+            if isinstance(value, (int, float)) and value > 0:
+                return float(value)
+        return 0.0
+
+    total = sum(length(p) for p in phases)
+    if minutes <= 0 or total <= 0:
+        # Hand the session the protocol built for these switches, not its own default.
+        return (phases if kwargs else None), total, ""
+    factor = minutes * 60.0 / total
+    try:
+        scaled = []
+        for phase in phases:
+            name = next(n for n in _DURATION_FIELDS if isinstance(getattr(phase, n, None),
+                                                                   (int, float)))
+            scaled.append(dataclasses.replace(phase, **{name: getattr(phase, name) * factor}))
+        return scaled, total * factor, ""
+    except Exception:
+        return None, total, ("This build cannot change the length of the test; running the "
+                             "standard one.")
+
+
+def run_field_test(
+    cfg: Any, data_dir: Path, *, source: str = "", minutes: float = 0.0,
+    as_json: bool = False, out: str = "",
+) -> int:
+    """A guided session of ordinary activity, then the phantom activations per hour for each.
+
+    The prompts tell you what to do (sit still, talk, chew, type, look around). Whatever a
+    switch fires on while you do nothing meant for it is a false activation; the report
+    gives those as a rate per hour of each activity. Only those counts are reported or
+    saved -- never the signal, never an amplitude. Nothing is typed or acted on.
+    """
+    from yazses.biosignal import fieldtest
+    bio = cfg.biosignal
+    spec = source_spec(bio, source)
+    if not spec:
+        _warn("No source. Set [biosignal] source, or try `yazses biosignal field-test "
+              "--source synthetic`.")
+        return UNUSABLE
+    out_path = Path(out).expanduser() if out.strip() else None
+    if out_path is not None and os.path.lexists(out_path):
+        _warn(f"{out_path} already exists; not overwriting. Choose another --out.")
+        return UNUSABLE
+    narrate = _warn if as_json else _say          # keep stdout pure JSON when asked
+    try:
+        src = _open(spec, realtime=True)
+    except (ValueError, FileNotFoundError) as exc:
+        _warn(f"Cannot open source {spec!r}: {exc}")
+        return UNUSABLE
+    sw = switches_from(bio)
+    src.start()
+    try:
+        if getattr(src, "available", True) is False or not src.fs:
+            _warn(f"Source {spec!r} is not available: "
+                  f"{getattr(src, 'last_error', '') or 'no data'}")
+            return UNUSABLE
+
+        def make_pipeline(_source: Any = None) -> Any:
+            return _build_pipeline(bio, src, sw, data_dir)[0]
+
+        protocol, total, note = _scaled_protocol(fieldtest, minutes, sw)
+        session_kwargs: dict[str, Any] = {}
+        if protocol is not None:
+            session_kwargs["protocol"] = protocol
+        budget = float(getattr(bio, "max_cancelled_per_hour", 0.0) or 0.0)
+        if budget > 0:
+            session_kwargs["max_cancelled_per_hour"] = budget   # judge against YOUR budget
+        try:
+            session = fieldtest.FieldTestSession(src, make_pipeline, **session_kwargs)
+        except (ValueError, TypeError) as exc:
+            _warn(f"Cannot start the field test on this source: {exc}")
+            return UNUSABLE
+        narrate(f"Field test on {spec} (detectors: {sw.names()}). Follow each prompt; keep "
+                "the electrodes on the whole time. Nothing is typed or acted on, and no "
+                "signal is saved: only counts of false activations are reported.")
+        if note:
+            narrate(note)
+        if total > 0:
+            narrate(f"It takes about {total / 60:.0f} min.  Ctrl-C ends it early.")
+        deadline = time.monotonic() + max(total, 60.0) * 1.5 + 60.0
+        shown = ""
+        why = "finished"
+        try:
+            while not session.finished:
+                prompt = str(session.prompt())
+                if prompt != shown:
+                    shown = prompt
+                    narrate(f"\n  >> {prompt}")
+                if time.monotonic() > deadline:
+                    why = "the source delivered too little data"
+                    break
+                try:
+                    block = src.read()
+                except EOFError:
+                    why = "the recording ended"
+                    break
+                if block is None:
+                    if getattr(src, "available", True) is False:
+                        why = str(getattr(src, "last_error", "") or "the source went away")
+                        break
+                    time.sleep(0.005)
+                    continue
+                session.feed(block)
+        except KeyboardInterrupt:
+            why = "stopped early"
+    finally:
+        src.stop()
+
+    try:
+        report = session.result()
+    except Exception as exc:
+        _warn(f"No report ({why}): {exc}. Run it to the end for a result.")
+        return FAILED
+    payload = fieldtest.report_to_dict(report)
+    if out_path is not None:
+        try:
+            fd = os.open(out_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                handle.write(json.dumps(payload, indent=2) + "\n")
+        except OSError as exc:
+            _warn(f"Could not write {out_path}: {exc}")
+            return FAILED
+    if as_json:
+        _say(json.dumps(payload, indent=2))
+    else:
+        _say("")
+        _say(str(fieldtest.format_report(report)))
+        if why != "finished":
+            _say(f"(The test ended early: {why}. Rates from a short test are rough.)")
+        if out_path is not None:
+            _say(f"Saved the counts to {out_path} [mode 0600].")
+    return OK if why in ("finished", "stopped early") else FAILED
+
+
+# ---------------------------------------------------------------------------
 # daemon adapter
 
 
@@ -1334,6 +1716,10 @@ class BiosignalActivationSource:
     def status(self) -> dict[str, Any]:
         status: dict[str, Any] = dict(self._runner.status())
         return status
+
+    def recent_events(self, n: int = _RECENT_N) -> list[Any]:
+        """The runner's last ``n`` events (kind, age, accepted or dropped, why); ``[]`` if it has none."""
+        return recent_events_of(self._runner, n) or []
 
     def note_cancelled(self) -> bool:
         """A non-switch undo just ran: count the latest switch activation as a mistake."""

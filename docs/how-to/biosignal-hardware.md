@@ -100,13 +100,36 @@ check `mains_hz` first. Keep leads away from power cables and power supplies.
 ## Check it before you rely on it
 
 ```bash
-yazses biosignal doctor     # chain, sample rate, mains, flat or clipped channels, profile
-yazses biosignal calibrate  # your own thresholds
-yazses biosignal monitor    # what makes it fire
+yazses biosignal doctor      # chain, sample rate, mains, flat or clipped channels, profile
+yazses biosignal calibrate   # your own thresholds
+yazses biosignal monitor     # what makes it fire
+yazses biosignal field-test  # how often it fires by mistake, by activity
 ```
 
-Then judge the switch on your own numbers with `yazses biosignal report`. A recording of your signal is
-sensitive data; see [Privacy](biosignal-switch.md#privacy).
+Start with `doctor` and read its last line, the **`Verdict:`**: it says either that you are ready or the one
+thing to fix next (a missing library, a source that will not open, no calibration). It is the quickest way
+to tell a hardware problem from a configuration one. The quality gate behind it also recognises an electrode
+that has lifted off (an abrupt step followed by a flat line) and movement shared by every channel at once,
+which usually points at the cable or your posture rather than one badly seated electrode.
+
+### Measure your own rate
+
+No board, electrode or placement has been shown to give a low false-activation rate for any particular
+person. That is the honest state of the evidence, and it is why the last command above exists:
+`yazses biosignal field-test` walks you through sitting still, talking, chewing, typing and looking around
+with your real hardware connected, counts what fires when you did not mean it, and reports it per hour for
+each activity, with an upper bound. Nothing is typed or acted on and no signal is saved. A short session
+bounds a rate only loosely, so repeat it on different days and after re-seating the electrode before you
+believe either a good or a bad result, and treat what you get as true of **your** board, **your** placement
+and **your** day. Details, and what the numbers do and do not mean, are in
+[Measure your own rate](biosignal-switch.md#measure-your-own-rate).
+
+If you would like your result to count towards a wider picture, you may share the JSON the test writes
+(`--out`) together with a sentence on your board and where the electrode sat. It holds counts and durations,
+no signal. Do not share a recording.
+
+Then keep judging the switch on your own numbers with `yazses biosignal report`. A recording of your signal
+is sensitive data; see [Privacy](biosignal-switch.md#privacy).
 
 ## See also
 

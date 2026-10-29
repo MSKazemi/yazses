@@ -40,7 +40,12 @@ Both classes implement ``StreamDetector``. They are block-size independent: all 
 state advances on a fixed grid of *absolute sample counts* (a 100 ms hop), never on block
 boundaries, so feeding the same signal in blocks of 7 or 7000 samples yields the same
 events. An excursion or burst that straddles a block boundary is carried in state.
-``reset()`` returns a detector to its just-constructed state.
+That includes the jaw detector's speech-guard polls and its verdict on a confirmed burst,
+which happen on the hop grid too, so a clench's ``t`` and whether it is suppressed do not
+depend on the chunking. ``reset()`` returns a detector to its just-constructed state.
+
+Both detectors expose ``stats`` (a counter per outcome and per rejection reason) and
+``health()`` (a small plain-types snapshot for a runner or CLI).
 
 Everything is numpy + stdlib. Filters are FIR (``np.convolve`` with carried history)
 because scipy is not a base dependency.
@@ -106,14 +111,39 @@ _SCALE_MAX = 4.0
 # make the detector hair-trigger. The floor only ever RAISES the threshold: the robust
 # z-score test (``amplitude_k``) still applies on top of it.
 _CAL_BLINK_FRACTION = 0.5
-# A candidate within the double-blink window whose peak is below this fraction of the
-# previous blink's peak is treated as that blink's filter rebound (design choice).
-_RINGING_RATIO = 0.35
-# The speech guard is read at most once per this much signal time (a design choice).
-_SPEECH_POLL_S = 0.1
-# An opposite-polarity hump closer than this to a blink is its overshoot (design choice).
-_OVERSHOOT_S = 0.3
 _CAL_BLINK_FLOOR_UV = 10.0
+# The speech guard is read at most once per this much signal time (a design choice). It is
+# polled on the hop grid, so it is the hop: the poll instants depend on the sample count only.
+_SPEECH_POLL_S = _HOP_S
+
+# --- Ringing and polarity: one set of rules for both detectors (all design choices) ---------
+#
+# Both detectors sit behind a band-pass, and a band-pass answers every large event with a
+# rebound: a slow tail and, for a signed signal, an opposite-polarity overshoot lobe a
+# fraction of a second later. A switch that opens a microphone must not read its own
+# detector's ringing as a second gesture, so each detector has a guard, matched to what its
+# signal can express:
+#
+# * BlinkDetector works on a SIGNED series, so it has two guards, both tunable on the
+#   constructor and both applied only to a candidate that follows an accepted blink:
+#     - ``ringing_ratio`` (default _RINGING_RATIO): inside ``double_window_s``, a candidate
+#       whose peak is below this fraction of the previous blink's peak is its rebound.
+#       Counted in ``stats['rejected_ringing']``.
+#     - ``overshoot_s`` (default _OVERSHOOT_S): inside this interval, a candidate of the
+#       OPPOSITE polarity is the overshoot lobe (a 60 uV blink split into +39/-39 lobes
+#       0.23 s apart and read as a pair). Only the short interval is judged by polarity:
+#       through the same filter a real pair's reported peaks can be either lobe, so a longer
+#       interval stays accepted whatever the signs. Counted in ``stats['rejected_overshoot']``.
+#   Setting either to 0 turns that guard off (the other is unaffected).
+# * JawClenchDetector works on band POWER, which has no sign, so there is no polarity guard
+#   and no ratio guard: its rebound analogue is a burst re-opening straight after one, and
+#   that is already the job of the off-hysteresis (``off_db`` / ``off_z`` below ``on_*``)
+#   plus ``refractory_s`` (``stats['suppressed_refractory']``). The two detectors therefore
+#   apply the same principle -- "an echo of an accepted event is not a new event" -- through
+#   the mechanism their signal supports, and each counts what it rejected.
+_RINGING_RATIO = 0.35
+_OVERSHOOT_S = 0.3
+
 # Jaw calibration: the burst-power floor is this fraction of the in-band power estimated
 # from the user's calibrated ``clench_power`` (0.25 = about -6 dB, the same size as the
 # default ``on_db``). Like the blink floor it can only raise the threshold.
@@ -341,8 +371,15 @@ class BlinkDetector:
     lobe) is merged into it rather than counted as a second blink.
 
     A candidate that comes within ``double_window_s`` of a blink more than ~3x larger and
-    barely clears the threshold is that blink's filter rebound and is rejected
-    (``stats['rejected_ringing']``); otherwise one blink could pose as a pair.
+    barely clears the threshold (``ringing_ratio``) is that blink's filter rebound, and an
+    opposite-polarity candidate within ``overshoot_s`` is its overshoot lobe; both are
+    rejected (``stats['rejected_ringing']`` / ``stats['rejected_overshoot']``), otherwise
+    one blink could pose as a pair. The reasoning for both, and how the jaw detector's
+    equivalent differs, is in the "Ringing and polarity" comment above the constants.
+
+    ``stats`` counts every outcome and every rejection reason (see ``_new_stats``);
+    ``health()`` returns a small JSON-friendly snapshot for a runner or CLI so nothing has
+    to reach into the detector's private state.
 
     ``min_amplitude_uv`` is an optional absolute floor (µV above baseline) on top of the
     ``amplitude_k`` test; ``BlinkDetector.from_calibration`` sets it from the user's own
@@ -366,9 +403,15 @@ class BlinkDetector:
         min_scale_uv: float = 1.0,
         min_edge_s: float = 0.02,
         min_amplitude_uv: float = 0.0,
+        overshoot_s: float = _OVERSHOOT_S,
+        ringing_ratio: float = _RINGING_RATIO,
     ) -> None:
         if not min_amplitude_uv >= 0.0:
             raise ValueError(f"min_amplitude_uv must be >= 0, got {min_amplitude_uv!r}")
+        if not overshoot_s >= 0.0:
+            raise ValueError(f"overshoot_s must be >= 0, got {overshoot_s!r}")
+        if not 0.0 <= ringing_ratio <= 1.0:
+            raise ValueError(f"ringing_ratio must be in [0, 1], got {ringing_ratio!r}")
         _check_positive(
             fs=fs, amplitude_k=amplitude_k, min_width_s=min_width_s,
             max_width_s=max_width_s, refractory_s=refractory_s,
@@ -394,6 +437,8 @@ class BlinkDetector:
         self.double_window_s = float(double_window_s)
         self.min_scale_uv = float(min_scale_uv)
         self.min_edge_s = float(min_edge_s)
+        self.overshoot_s = float(overshoot_s)
+        self.ringing_ratio = float(ringing_ratio)
 
         self._selector = _ChannelSelector(
             channels,
@@ -478,7 +523,24 @@ class BlinkDetector:
 
     # -- state ------------------------------------------------------------------
 
-    def _reset_state(self) -> None:
+    @staticmethod
+    def _new_stats() -> dict[str, int]:
+        """Every counter, zeroed. One key per outcome and per rejection reason."""
+        return {
+            "blinks": 0,
+            "double_blinks": 0,
+            "lone_blinks_dropped": 0,
+            "rejected_width": 0,
+            "rejected_edges": 0,
+            "rejected_amplitude": 0,
+            "rejected_refractory": 0,
+            "rejected_too_long": 0,
+            "rejected_ringing": 0,
+            "rejected_overshoot": 0,
+            "channel_lost": 0,
+        }
+
+    def _reset_state(self, *, keep_stats: bool = False) -> None:
         self._selector.reset()
         self._ring = np.zeros(self._win_n, dtype=np.float64)
         self._ring_pos = 0
@@ -499,21 +561,31 @@ class BlinkDetector:
         self._last_blink_z = 0.0
         self._last_blink_sign = 0.0
         self._pending: _Blink | None = None
-        self.stats: dict[str, int] = {
-            "blinks": 0,
-            "double_blinks": 0,
-            "lone_blinks_dropped": 0,
-            "rejected_width": 0,
-            "rejected_edges": 0,
-            "rejected_amplitude": 0,
-            "rejected_refractory": 0,
-            "rejected_too_long": 0,
-            "rejected_ringing": 0,
-        }
+        self._last_emitted_t: float | None = None
+        if not keep_stats:
+            self.stats: dict[str, int] = self._new_stats()
 
     def reset(self) -> None:
-        """Forget the baseline, any open excursion and any pending blink."""
+        """Forget the baseline, any open excursion and any pending blink (and the counters)."""
         self._reset_state()
+
+    def health(self) -> dict[str, Any]:
+        """A small snapshot a runner or CLI can show without touching internals.
+
+        Keys: ``warmed_up`` (a baseline exists, so events are possible), ``baseline_scale``
+        (the robust noise scale in microvolts, or None before warm-up), ``locked_channels``
+        (the electrodes being read, empty until the first matching block),
+        ``last_event_t`` (stream time of the last event emitted, or None) and ``rejected``
+        (a copy of every ``rejected_*`` counter). Plain types only, so it can be logged or
+        serialised as is.
+        """
+        return {
+            "warmed_up": self._base is not None,
+            "baseline_scale": self._scale if self._base is not None else None,
+            "locked_channels": list(self._selector.names),
+            "last_event_t": self._last_emitted_t,
+            "rejected": {k: v for k, v in self.stats.items() if k.startswith("rejected_")},
+        }
 
     # -- public ------------------------------------------------------------------
 
@@ -523,7 +595,8 @@ class BlinkDetector:
         rows, lost = self._selector.select(block)
         if lost:
             log.warning("blink: a locked channel vanished from the stream; resetting")
-            self._reset_state()
+            self._reset_state(keep_stats=True)  # the counters are an audit trail: keep them
+            self.stats["channel_lost"] += 1
             return []
         if rows is None or rows.shape[1] == 0:
             return []
@@ -705,7 +778,7 @@ class BlinkDetector:
         if (
             self._last_blink_t is not None
             and t_peak - self._last_blink_t <= self.double_window_s
-            and peak_z < _RINGING_RATIO * self._last_blink_z
+            and peak_z < self.ringing_ratio * self._last_blink_z
         ):
             # A hump that barely clears the threshold right after a much larger blink is
             # the band-pass filter's slow rebound, not a second blink: counting it made
@@ -715,15 +788,12 @@ class BlinkDetector:
         sign = 1.0 if float(d[pk_raw]) >= 0.0 else -1.0
         if (
             self._last_blink_t is not None
-            and t_peak - self._last_blink_t < _OVERSHOOT_S
+            and t_peak - self._last_blink_t < self.overshoot_s
             and sign != self._last_blink_sign
         ):
-            # A hump of the OPPOSITE polarity within ~0.3 s of a blink is the band-pass
-            # filter's overshoot lobe, not a second blink (a 60 uV blink split into +39/-39
-            # lobes 0.23 s apart and read as a pair). Only the short interval is judged by
-            # polarity: through the same filter a real pair's reported peaks can be either
-            # lobe, so a longer interval must stay accepted whatever the signs.
-            self.stats["rejected_ringing"] += 1
+            # The band-pass filter's overshoot lobe, not a second blink (see "Ringing and
+            # polarity" above the constants for the reasoning and the 0.3 s default).
+            self.stats["rejected_overshoot"] += 1
             return []
         self._last_blink_t = t_peak
         self._last_blink_z = peak_z
@@ -772,6 +842,8 @@ class BlinkDetector:
             if prev is not None:
                 self.stats["lone_blinks_dropped"] += 1
             self._pending = blink
+        if out:
+            self._last_emitted_t = t_peak
         return out
 
 
@@ -796,7 +868,7 @@ def chewing_rhythm_suppressed(
 
     Trade-off, stated plainly: three deliberate clenches at one per second are also
     suppressed, and the first ``repeats - 1`` bursts of a chewing sequence cannot be
-    known to be chewing when they happen (see ``JawClenchDetector(chew_holdoff_s=...)``).
+    known to be chewing when they happen (see ``JawClenchDetector(chew_holdoff_s=..., confirm_holdoff_policy=...)``).
     """
     if repeats < 2:
         raise ValueError("repeats must be >= 2")
@@ -816,6 +888,23 @@ def chewing_rhythm_suppressed(
 class _PendingJaw:
     event: BioEvent
     release_t: float
+
+
+@dataclass
+class _JawCandidate:
+    """A burst that lasted ``min_duration_s``, awaiting its verdict at the next hop boundary.
+
+    Everything the verdict needs is copied here when the burst is seen, because the live
+    burst state is overwritten if another burst opens before the hop ends.
+    """
+
+    t_conf: float            # stream time of the confirming sample (before delay compensation)
+    onset_ts: float          # stream time of the onset sample (before delay compensation)
+    sustained_s: float
+    peak_db: float
+    base: float
+    scale: float
+    prev_onset_t: float | None   # compensated onset of the burst before this one, if any
 
 
 class JawClenchDetector:
@@ -849,10 +938,33 @@ class JawClenchDetector:
     docstring above is the warning.
 
     Chewing leak: the cadence is only recognisable on the ``chew_repeats``-th burst, so
-    the earlier ones have already fired. ``chew_holdoff_s > 0`` holds each event for that
-    long and drops it if the cadence materialises -- at the cost of that much latency.
-    The default is 0 (no hold). The honest figure for how often either mechanism helps
-    must come from recordings of the actual user.
+    the earlier ones have already fired. Two opt-in ways to close that leak, both at the
+    cost of latency (the default is no hold, so clean-signal behaviour is unchanged):
+
+    * ``confirm_holdoff_policy='fixed'`` (default): ``chew_holdoff_s > 0`` holds each event
+      for that long and drops it if the ``chew_repeats``-burst cadence materialises.
+    * ``confirm_holdoff_policy='adaptive'``: a candidate is held only as long as is needed
+      to tell chewing from a deliberate single clench -- until no second burst can any
+      longer arrive at a chewing interval (the slowest interval the ``chew_hz`` band and
+      ``chew_tolerance`` allow, plus the time to confirm that burst). A second burst that
+      onsets inside the chewing band drops the held one and is itself suppressed, and so is
+      every later burst of the run. Two onsets, not ``chew_repeats``, are enough evidence
+      here; the price is that a deliberate double clench with 0.4-1.4 s between onsets (the
+      default band) is read as chewing, and every single clench is reported about
+      ``1 / (min_hz * (1 - tolerance)) + min_duration_s`` (about 1.6 s) after it started.
+      ``chew_holdoff_s`` is ignored in this mode. These intervals are design choices, not
+      measurements.
+
+    The honest figure for how often either mechanism helps must come from recordings of
+    the actual user.
+
+    **Event time is a property of the signal, not the chunking.** All adaptive state, the
+    speech-guard poll and the verdict on a confirmed burst advance on the absolute 100 ms
+    hop grid (a burst confirmed mid-hop is judged at the end of that hop, after the guard
+    was polled for it), so the same signal fed in blocks of 7 or 7000 samples gives the same
+    ``t``, the same ``confirmed_t`` and the same suppression decisions. A guard that is a
+    pure function of signal time is therefore deterministic; a guard that reads a live clock
+    can only be sampled once per hop, however many hops one big block spans.
 
     ``confidence`` in [0, 1] averages how far the peak clears the threshold and how long
     the burst has been sustained; like the blink's, it is a ranking aid, not a
@@ -892,9 +1004,15 @@ class JawClenchDetector:
         chew_tolerance: float = 0.3,
         chew_holdoff_s: float = 0.0,
         min_burst_power_uv2: float = 0.0,
+        confirm_holdoff_policy: str = "fixed",
     ) -> None:
         if not min_burst_power_uv2 >= 0.0:
             raise ValueError(f"min_burst_power_uv2 must be >= 0, got {min_burst_power_uv2!r}")
+        if confirm_holdoff_policy not in ("fixed", "adaptive"):
+            raise ValueError(
+                f"confirm_holdoff_policy must be 'fixed' or 'adaptive', "
+                f"got {confirm_holdoff_policy!r}"
+            )
         _check_positive(
             fs=fs, smooth_s=smooth_s, on_db=on_db, off_db=off_db, on_z=on_z, off_z=off_z,
             min_duration_s=min_duration_s, max_duration_s=max_duration_s,
@@ -939,6 +1057,11 @@ class JawClenchDetector:
         self.chew_repeats = int(chew_repeats)
         self.chew_tolerance = float(chew_tolerance)
         self.chew_holdoff_s = float(chew_holdoff_s)
+        self.confirm_holdoff_policy = confirm_holdoff_policy
+        # The chewing band in onset-interval terms, widened by the tolerance exactly as
+        # ``chewing_rhythm_suppressed`` does it.
+        self._chew_lo_s = 1.0 / (self.chew_hz[1] * (1.0 + self.chew_tolerance))
+        self._chew_hi_s = 1.0 / (self.chew_hz[0] * (1.0 - self.chew_tolerance))
 
         self._selector = _ChannelSelector(
             channels, always_kinds=frozenset(), any_kinds=frozenset({SignalKind.EEG}),
@@ -1019,7 +1142,21 @@ class JawClenchDetector:
 
     # -- state ------------------------------------------------------------------
 
-    def _reset_state(self) -> None:
+    @staticmethod
+    def _new_stats() -> dict[str, int]:
+        """Every counter, zeroed. One key per outcome and per suppression reason."""
+        return {
+            "clenches": 0,
+            "suppressed_speech": 0,
+            "suppressed_chewing": 0,
+            "suppressed_refractory": 0,
+            "short_bursts": 0,
+            "dropped_held": 0,
+            "speech_guard_errors": 0,
+            "channel_lost": 0,
+        }
+
+    def _reset_state(self, *, keep_stats: bool = False) -> None:
         self._selector.reset()
         self._bp = _StreamFIR(self._bp_taps)
         self._ma = _StreamFIR(self._ma_taps)
@@ -1036,22 +1173,41 @@ class JawClenchDetector:
         self._onset_n = 0
         self._onset_ts = 0.0
         self._peak_db = 0.0
+        self._burst_prev_onset: float | None = None
+        self._candidates: list[_JawCandidate] = []
+        self._last_emitted_t: float | None = None
         self._onsets: deque[float] = deque(maxlen=max(8, 2 * self.chew_repeats))
         self._last_event_t: float | None = None
         self._pending: _PendingJaw | None = None
         self._speech_until = float("-inf")
-        self._last_speech_poll_t: float | None = None
-        self.stats: dict[str, int] = {
-            "clenches": 0,
-            "suppressed_speech": 0,
-            "suppressed_chewing": 0,
-            "suppressed_refractory": 0,
-            "short_bursts": 0,
-        }
+        if not keep_stats:
+            self.stats: dict[str, int] = self._new_stats()
 
     def reset(self) -> None:
-        """Forget the baseline, any burst in progress and the chewing history."""
+        """Forget the baseline, any burst in progress, the chewing history and the counters."""
         self._reset_state()
+
+    def health(self) -> dict[str, Any]:
+        """A small snapshot a runner or CLI can show without touching internals.
+
+        Keys: ``warmed_up`` (a baseline exists, so events are possible), ``baseline_scale``
+        (the robust spread of the resting power in dB, or None before warm-up),
+        ``locked_channels`` (the electrodes being read), ``last_event_t`` (onset time of the
+        last event actually emitted, or None), ``held`` (a candidate is waiting out a
+        hold-off) and ``rejected`` (a copy of every ``suppressed_*`` counter plus
+        ``short_bursts`` and ``dropped_held``). Plain types only.
+        """
+        return {
+            "warmed_up": self._base is not None,
+            "baseline_scale": self._scale if self._base is not None else None,
+            "locked_channels": list(self._selector.names),
+            "last_event_t": self._last_emitted_t,
+            "held": self._pending is not None,
+            "rejected": {
+                k: v for k, v in self.stats.items()
+                if k.startswith("suppressed_") or k in ("short_bursts", "dropped_held")
+            },
+        }
 
     def chewing_rhythm_suppressed(self) -> bool:
         """Whether the most recent burst onsets form a chewing cadence right now."""
@@ -1068,7 +1224,8 @@ class JawClenchDetector:
         rows, lost = self._selector.select(block)
         if lost:
             log.warning("jaw: a locked channel vanished from the stream; resetting")
-            self._reset_state()
+            self._reset_state(keep_stats=True)  # the counters are an audit trail: keep them
+            self.stats["channel_lost"] += 1
             return []
         if rows is None or rows.shape[1] == 0:
             return []
@@ -1084,17 +1241,20 @@ class JawClenchDetector:
             seg_len = min(total - i, self._hop - (self._n % self._hop))
             t_seg0 = block.t0 + i / self.fs
             t_seg_end = t_seg0 + seg_len / self.fs
-            self._poll_speech(t_seg_end)
             seg = db[i:i + seg_len]
             if self._base is not None:
-                events.extend(self._scan(seg, t_seg0))
-            if self._pending is not None and t_seg_end >= self._pending.release_t:
-                events.append(self._pending.event)
-                self._pending = None
+                self._scan(seg, t_seg0)
             self._acc_sum += float(seg.sum())
             self._acc_cnt += seg_len
             self._n += seg_len
             if self._n % self._hop == 0:
+                # Everything that could depend on the chunking happens here, on the
+                # absolute hop grid and in this order: poll the guard, then judge the
+                # bursts confirmed in this hop (so the poll that covers them has been
+                # taken), then release held events, then advance the baseline.
+                self._poll_speech(t_seg_end)
+                events.extend(self._judge_candidates())
+                events.extend(self._release_pending(t_seg_end))
                 self._end_of_hop(t_seg_end)
             i += seg_len
         return events
@@ -1104,16 +1264,15 @@ class JawClenchDetector:
     def _poll_speech(self, t_now: float) -> None:
         if self.speech_guard is None:
             return
-        # At most once per 100 ms of signal, however the source chops its blocks: the guard
-        # is a daemon callback, and 7-sample blocks must not turn into 480 calls in 6 s.
-        last = self._last_speech_poll_t
-        if last is not None and 0.0 <= t_now - last < _SPEECH_POLL_S:
-            return
-        self._last_speech_poll_t = t_now
+        # Called only from the hop boundary, so at most once per ``_SPEECH_POLL_S`` (~100 ms)
+        # of signal however the source chops its blocks: the guard is a daemon callback, and
+        # 7-sample blocks must not turn into 480 calls in 6 s. The poll instants are a
+        # function of the sample count alone, never of where a block happens to end.
         try:
             speaking = bool(self.speech_guard())
         except Exception:  # fail closed: an unreadable guard means "assume talking"
             log.warning("jaw: speech_guard raised; treating as speaking", exc_info=True)
+            self.stats["speech_guard_errors"] += 1
             speaking = True
         if speaking:
             self._speech_until = t_now + self.speech_hangover_s
@@ -1140,7 +1299,12 @@ class JawClenchDetector:
 
     # -- burst state machine -------------------------------------------------------
 
-    def _scan(self, seg: FloatArray, t_seg0: float) -> list[BioEvent]:
+    def _scan(self, seg: FloatArray, t_seg0: float) -> None:
+        """Run the burst state machine over one hop-aligned segment.
+
+        A burst that reaches ``min_duration_s`` is queued as a ``_JawCandidate``; its
+        verdict is given at the end of the hop by ``_judge_candidates``.
+        """
         assert self._base is not None
         delta = seg - self._base
         on_th = max(self.on_db, self.on_z * self._scale)
@@ -1149,8 +1313,7 @@ class JawClenchDetector:
             # Absolute floor, in the same dB-above-baseline units as ``delta``.
             on_th = max(on_th, 10.0 * math.log10(self.min_burst_power_uv2) - self._base)
         if not self._active and float(delta.max()) < on_th:
-            return []
-        out: list[BioEvent] = []
+            return
         for j in range(seg.size):
             v = float(delta[j])
             gn = self._n + j
@@ -1163,6 +1326,7 @@ class JawClenchDetector:
                     self._onset_n = gn
                     self._onset_ts = ts
                     self._peak_db = v
+                    self._burst_prev_onset = self._onsets[-1] if self._onsets else None
                     self._onsets.append(ts - self._delay_s)
                 continue
             self._peak_db = max(self._peak_db, v)
@@ -1176,40 +1340,75 @@ class JawClenchDetector:
             self._below = 0
             if not self._decided and gn - self._onset_n + 1 >= self._min_dur_n:
                 self._decided = True
-                out.extend(self._confirm(ts, gn))
+                self._candidates.append(_JawCandidate(
+                    t_conf=ts,
+                    onset_ts=self._onset_ts,
+                    sustained_s=(gn - self._onset_n + 1) / self.fs,
+                    peak_db=self._peak_db,
+                    base=self._base,
+                    scale=self._scale,
+                    prev_onset_t=self._burst_prev_onset,
+                ))
+
+    def _judge_candidates(self) -> list[BioEvent]:
+        out: list[BioEvent] = []
+        candidates, self._candidates = self._candidates, []
+        for cand in candidates:
+            out.extend(self._confirm(cand))
         return out
 
-    def _confirm(self, t_conf: float, gn: int) -> list[BioEvent]:
-        onset_t = self._onset_ts - self._delay_s
+    def _release_pending(self, t_now: float) -> list[BioEvent]:
+        """Emit the held event once its hold-off has run out (checked on the hop grid)."""
+        if self._pending is None or t_now < self._pending.release_t:
+            return []
+        event = self._pending.event
+        self._pending = None
+        self._last_emitted_t = event.t
+        return [event]
+
+    def _drop_held(self) -> None:
+        if self._pending is not None:
+            self._pending = None
+            self.stats["dropped_held"] += 1
+
+    def _prev_onset_in_chew_band(self, cand: _JawCandidate) -> bool:
+        """Adaptive policy: did this burst onset one chewing interval after the previous?"""
+        if cand.prev_onset_t is None:
+            return False
+        interval = (cand.onset_ts - self._delay_s) - cand.prev_onset_t
+        return self._chew_lo_s <= interval <= self._chew_hi_s
+
+    def _confirm(self, cand: _JawCandidate) -> list[BioEvent]:
+        onset_t = cand.onset_ts - self._delay_s
         if self._speech_until >= onset_t:
             self.stats["suppressed_speech"] += 1
             return []
-        if self.chewing_rhythm_suppressed():
+        adaptive = self.confirm_holdoff_policy == "adaptive"
+        if (adaptive and self._prev_onset_in_chew_band(cand)) or self.chewing_rhythm_suppressed():
             self.stats["suppressed_chewing"] += 1
-            self._pending = None  # earlier bursts of the same chewing run, still held
+            self._drop_held()  # earlier bursts of the same chewing run, still held
             return []
         if self._last_event_t is not None and onset_t - self._last_event_t < self.refractory_s:
             self.stats["suppressed_refractory"] += 1
             return []
         self._last_event_t = onset_t
 
-        sustained = (gn - self._onset_n + 1) / self.fs
-        z = self._peak_db / self._scale
-        amp = float(np.clip(self._peak_db / (2.0 * max(self.on_db, self.on_z * self._scale)),
+        z = cand.peak_db / cand.scale
+        amp = float(np.clip(cand.peak_db / (2.0 * max(self.on_db, self.on_z * cand.scale)),
                             0.0, 1.0))
-        dur = float(np.clip(sustained / (2.0 * self.min_duration_s), 0.0, 1.0))
+        dur = float(np.clip(cand.sustained_s / (2.0 * self.min_duration_s), 0.0, 1.0))
         event = BioEvent(
             EventKind.JAW_CLENCH,
             onset_t,
             float(np.clip(0.5 * (amp + dur), 0.0, 1.0)),
             ",".join(self._selector.names),
             {
-                "peak_db": self._peak_db,
+                "peak_db": cand.peak_db,
                 "z_score": z,
-                "sustained_s": sustained,
-                "baseline_db": self._base,
-                "scale_db": self._scale,
-                "confirmed_t": t_conf - self._delay_s,
+                "sustained_s": cand.sustained_s,
+                "baseline_db": cand.base,
+                "scale_db": cand.scale,
+                "confirmed_t": cand.t_conf - self._delay_s,
             },
         )
         self.stats["clenches"] += 1
@@ -1217,11 +1416,18 @@ class JawClenchDetector:
         if self._pending is not None:
             # Not a chewing cadence after all (checked above): the held one stands.
             out.append(self._pending.event)
+            self._last_emitted_t = self._pending.event.t
             self._pending = None
-        if self.chew_holdoff_s > 0.0:
-            self._pending = _PendingJaw(event, t_conf + self.chew_holdoff_s)
+        if adaptive:
+            # Hold until no second burst can still arrive at a chewing interval AND be
+            # confirmed: slowest interval after this onset, plus the time to confirm it.
+            release_t = cand.onset_ts + self._chew_hi_s + self.min_duration_s
+            self._pending = _PendingJaw(event, release_t)
+        elif self.chew_holdoff_s > 0.0:
+            self._pending = _PendingJaw(event, cand.t_conf + self.chew_holdoff_s)
         else:
             out.append(event)
+            self._last_emitted_t = event.t
         return out
 
 

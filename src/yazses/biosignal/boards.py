@@ -20,7 +20,7 @@ Boards whose connection needs an IP address (the OpenBCI WiFi shields) are not l
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 #: BrainFlow's synthetic board id (``BoardIds.SYNTHETIC_BOARD``), the same constant the
 #: ``brainflow:`` source scheme documents.
@@ -188,7 +188,9 @@ _BOARDS: tuple[BoardPreset, ...] = (
 
 
 def known_boards() -> tuple[BoardPreset, ...]:
-    """Every preset, in a stable order: no-hardware options first, then boards by id."""
+    """Every preset, in a stable order: no-hardware options first, then boards grouped by
+    vendor (OpenBCI, g.tec, Neurotech, Muse). Within a group the order is the table's, not
+    sorted by BrainFlow id."""
     return _BOARDS
 
 
@@ -204,6 +206,11 @@ def preset_for(name_or_id: str | int) -> BoardPreset | None:
     whole ``[biosignal] source`` spec (``"brainflow:0:/dev/ttyUSB0"``, ``"synthetic"``).
     A BrainFlow id that is not in the table returns ``None`` -- the table is advice, and
     an id it does not list may still be a valid board.
+
+    ``"synthetic:emg"`` and ``"synthetic:eeg"`` (the built-in generator restricted to one
+    signal kind) resolve to the ``synthetic`` preset with ``kind_hint`` overridden to
+    that kind, so the doctor reasons about the stream the source will actually produce
+    rather than the ``"mixed"`` default. Any other ``synthetic:<x>`` returns ``None``.
     """
     if isinstance(name_or_id, bool):
         return None
@@ -215,6 +222,12 @@ def preset_for(name_or_id: str | int) -> BoardPreset | None:
     if not text:
         return None
     scheme, _, rest = text.partition(":")
+    if scheme.strip().lower() == "synthetic":
+        kind = rest.strip().lower()
+        base = next(b for b in _BOARDS if b.name == "synthetic")
+        if kind in ("emg", "eeg"):
+            return replace(base, kind_hint=kind)
+        return base if not kind else None
     if scheme.strip().lower() == "brainflow":
         board = rest.partition(":")[0].strip()
         try:

@@ -51,9 +51,14 @@ attention, and this feature does not try to.
    equipment.
 2. **Try it without hardware.** Set `source = "synthetic"` and run `yazses biosignal monitor` to see
    scripted gestures go through the real detectors.
-3. **Check the real signal.** `yazses biosignal doctor` checks the chain, then `yazses biosignal calibrate`
-   learns your relaxed level, a light and a hard squeeze, a blink and a clench. `yazses biosignal evaluate` scores the detectors on a scripted session or on a recording you labelled.
-4. **Use it, and read your own numbers.** `yazses biosignal report` shows how often each gesture fired and
+3. **Check the real signal.** `yazses biosignal doctor` checks the chain and ends with a `Verdict:` line
+   telling you whether you are ready or what to fix first. Then `yazses biosignal calibrate` learns your
+   relaxed level, a light and a hard squeeze, a blink and a clench. `yazses biosignal evaluate` scores the
+   detectors on a scripted session or on a recording you labelled.
+4. **Measure how often it fires by mistake.** `yazses biosignal field-test` takes about ten minutes: you sit,
+   talk, chew, type and look around with the switch live (nothing is typed), then make each gesture on cue.
+   You get the phantom activations per hour for each activity, with an upper bound. Repeat it on another day.
+5. **Use it, and read your own numbers.** `yazses biosignal report` shows how often each gesture fired and
    how often you cancelled it. That is the evidence that decides whether you keep it on.
 
 The step-by-step configuration is in
@@ -61,11 +66,15 @@ The step-by-step configuration is in
 
 ## A switch that watches itself
 
-A trigger that fires when you did not mean it is worse than none. Two guards keep that in check:
+A trigger that fires when you did not mean it is worse than none. Three guards keep that in check:
 
 - **The false-positive budget.** YazSes counts the activations you cancel. If the rate goes over the budget
   you set, it first **desensitizes** the detectors, and if the cancelled rate stays over the budget it then
-  **suspends** them, and you release it with one action. You are never locked out.
+  **suspends** them, and you release it with one action (`yazses handsfree resume`). A suspension also lifts by itself after a
+  timer, so it is never permanent.
+- **A calibration that has to fit.** A saved calibration made for a different board, different channels or a
+  different sampling rate, or one older than a month by default, is not used. The muscle-squeeze switch
+  stays off until you recalibrate, rather than guessing.
 - **A global pause.** With the hands-free global stop on, `yazses handsfree pause` stops the switch with the
   other hands-free inputs, so you can stop it from a terminal or the settings window.
 
@@ -73,7 +82,10 @@ A trigger that fires when you did not mean it is worse than none. Two guards kee
 
 - **Unmeasured.** The detectors have been tested on synthetic and replayed signals. They have not been
   shown to work for any particular person, electrode or board, and every default is a provisional starting
-  point.
+  point. No false-activation rate has been measured on a real person yet, by this project, and the
+  [research page](../research/muscle-brain-control.md) records that the best-known wristband paper reports
+  none either: the field test above is how you get the number for
+  yourself, and it is only a number about you.
 - **It is personal.** Skin, electrode placement and muscle differ between people. Calibrate to yourself, and
   again whenever an electrode moves.
 - **A bad signal means no events.** A flat, clipped or hum-filled channel is ignored on purpose, and the tools

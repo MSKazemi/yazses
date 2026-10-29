@@ -115,6 +115,15 @@ Score the detectors against known events: precision, recall, latency, false alar
 - `--clench`, `--no-clench` — Include the jaw-clench switch (default on).
 - `--json` — Print one JSON object instead of a table.
 
+### `yazses biosignal field-test`
+
+Guided test of how often the switches fire by mistake during ordinary activity.
+
+- `--source` — Test this source instead of [biosignal] source (synthetic | file:<path> | brainflow:<id>[:<port>]).
+- `--minutes` — Stretch or shrink the test to about this long (0 = the standard length).
+- `--json` — Print one JSON object instead of text.
+- `--out`, `-o` — Also write the counts to this JSON file (owner-only; never overwrites).
+
 ### `yazses biosignal monitor`
 
 Watch signal quality and detections live. Nothing is typed or acted on.

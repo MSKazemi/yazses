@@ -62,6 +62,7 @@ from typing import Any
 
 import numpy as np
 
+from yazses.biosignal.boards import preset_for
 from yazses.biosignal.types import (
     BioEvent,
     BlockSource,
@@ -223,15 +224,21 @@ _EDGE_RAMP_S = 0.02          # raised-cosine on/off ramp of a burst, so it has n
 _ALPHA_HZ = 10.0
 _ALPHA_UV = 8.0              # background EEG rhythm, only on EEG-kind channels
 _POP_TAU_S = 0.15            # electrode-pop decay time constant (design choice)
+# Two scheduled blinks whose peaks are closer than this are a DOUBLE_BLINK in
+# `ground_truth(pairs=True)`. Design choice, matched to the pipeline's double-blink window.
+_DOUBLE_BLINK_GAP_S = 0.6
+_MOTION_HZ = (2.0, 3.5, 6.0, 9.0)  # low-frequency components of a movement artifact (design choice)
+_DC_STEP_RAMP_S = 0.005      # a DC step is a 5 ms raised-cosine edge, so it has no click
 
 
 @dataclass
 class _Event:
-    kind: str                # squeeze | blink | clench | dropout | pop
+    kind: str                # squeeze | blink | clench | motion | dcstep | dropout | pop
     t: float                 # onset, seconds on the source clock
     dur: float = 0.0
     amp: float = 0.0
     ch: int = 0              # only used by dropout / pop
+    phases: tuple[float, ...] = ()   # only used by motion (seed-derived, shared by all channels)
 
 
 def _smooth(x: np.ndarray) -> np.ndarray:
@@ -268,6 +275,12 @@ class SyntheticSource:
     *dropout* flat-lines one channel for 50-300 ms (a lead losing contact), a *pop* is a
     large step on one channel that decays over ~150 ms (an electrode shifting). The same
     faults can be placed exactly with ``schedule_dropout`` / ``schedule_pop``.
+
+    ``schedule_motion_artifact`` and ``schedule_dc_step`` add the two *common-mode*
+    disturbances that robustness checks need: a burst and a baseline jump that hit every
+    channel identically (a cable tug, a head movement, a re-referenced amplifier). They
+    are artifacts, not events, so ``ground_truth`` never reports them. Everything is
+    deterministic in ``seed``.
     """
 
     def __init__(
@@ -365,6 +378,30 @@ class SyntheticSource:
         self._events.append(_Event("clench", float(t), float(dur), float(amp)))
         return self
 
+    def schedule_motion_artifact(self, t: float, dur: float, amp: float = 300.0) -> SyntheticSource:
+        """A common-mode movement burst from ``t`` for ``dur`` s on ALL channels at once.
+
+        The same slow, wandering waveform (a few sinusoids between 2 and 9 Hz with
+        seed-derived phases, shaped by the burst envelope) is added to every channel, so a
+        detector that wants a channel-specific signal should reject it. ``amp`` is the
+        burst's rms in µV. A design-choice waveform, not a recording of real movement.
+        """
+        self._check_burst(t, dur, amp)
+        rng = np.random.default_rng([self._seed, 3, len(self._events)])
+        phases = tuple(float(p) for p in rng.uniform(0.0, 2 * np.pi, len(_MOTION_HZ)))
+        self._events.append(_Event("motion", float(t), float(dur), float(amp), phases=phases))
+        return self
+
+    def schedule_dc_step(self, t: float, amp: float) -> SyntheticSource:
+        """A permanent baseline jump of ``amp`` µV (signed) on ALL channels from ``t``.
+
+        Models an amplifier re-reference or a contact that settles at a new offset; unlike
+        :meth:`schedule_pop` it never decays. The edge is a 5 ms raised cosine.
+        """
+        self._check_burst(t, 0.0, amp, allow_zero_dur=True)
+        self._events.append(_Event("dcstep", float(t), 0.0, float(amp)))
+        return self
+
     def schedule_dropout(
         self, t: float, dur: float, channel: str | int = 0,
     ) -> SyntheticSource:
@@ -381,13 +418,19 @@ class SyntheticSource:
         self._faults.append(_Event("pop", float(t), 0.0, float(amp), self._channel_index(channel)))
         return self
 
-    def ground_truth(self) -> list[BioEvent]:
+    def ground_truth(self, *, pairs: bool = False) -> list[BioEvent]:
         """What the generator was told to do, as the events a perfect detector would report.
 
         Squeezes give ``SQUEEZE_ON`` at onset and ``SQUEEZE_OFF`` at the end; a blink is
-        reported at its peak (mid-bump); a clench at its onset. Dropouts and pops are
-        faults, not events, and a ``DOUBLE_BLINK`` is the detector's job to infer from
-        two ``BLINK`` truths, so neither appears here.
+        reported at its peak (mid-bump); a clench at its onset. Dropouts, pops, motion
+        artifacts and DC steps are faults, not events, so none appears here.
+
+        By default a ``DOUBLE_BLINK`` is not listed: it is the detector's job to infer it
+        from two ``BLINK`` truths. With ``pairs=True`` the list also holds a
+        ``DOUBLE_BLINK``, stamped at the second blink's peak, for every two consecutive
+        scheduled blinks whose peaks are closer than 0.6 s (the underlying ``BLINK``
+        truths stay in the list). In a run of three close blinks, each later blink
+        pairs with the one before it. Use it to score a double-blink switch.
         """
         truth: list[BioEvent] = []
         for ev in self._events:
@@ -399,6 +442,14 @@ class SyntheticSource:
                 truth.append(BioEvent(EventKind.BLINK, ev.t + ev.dur / 2, detail=dict(detail)))
             elif ev.kind == "clench":
                 truth.append(BioEvent(EventKind.JAW_CLENCH, ev.t, detail=dict(detail)))
+        if pairs:
+            peaks = sorted((e for e in self._events if e.kind == "blink"), key=lambda e: e.t)
+            for first, second in zip(peaks, peaks[1:]):
+                gap = second.t - first.t
+                if gap < _DOUBLE_BLINK_GAP_S:
+                    truth.append(BioEvent(
+                        EventKind.DOUBLE_BLINK, second.t + second.dur / 2,
+                        detail={"synthetic": True, "amp": second.amp, "gap_s": gap}))
         return sorted(truth, key=lambda e: e.t)
 
     # ---- BlockSource -----------------------------------------------------
@@ -492,9 +543,20 @@ class SyntheticSource:
             x += self._drift_uv * drift
 
         for ev in self._events:
-            if ev.t > t_hi or ev.t + ev.dur + _EDGE_RAMP_S < t_lo:
+            if ev.t > t_hi:
                 continue
-            if ev.kind == "squeeze":
+            if ev.kind == "dcstep":
+                # permanent: still present long after its edge
+                x += ev.amp * _smooth(np.clip((t - ev.t) / _DC_STEP_RAMP_S, 0.0, 1.0))[None, :]
+                continue
+            if ev.t + ev.dur + _EDGE_RAMP_S < t_lo:
+                continue
+            if ev.kind == "motion":
+                wave = sum(np.sin(2 * np.pi * f * (t - ev.t) + ph)
+                           for f, ph in zip(_MOTION_HZ, ev.phases))
+                # n unit sinusoids have rms sqrt(n/2); normalise so `amp` is the burst rms
+                x += ev.amp / np.sqrt(len(_MOTION_HZ) / 2.0) * (wave * _window(t, ev.t, ev.dur))[None, :]
+            elif ev.kind == "squeeze":
                 x += (self._sq * ev.amp)[:, None] * _window(t, ev.t, ev.dur)[None, :] * hf
             elif ev.kind == "clench":
                 x += (self._cl * ev.amp)[:, None] * _window(t, ev.t, ev.dur)[None, :] * hf
@@ -872,6 +934,7 @@ class BoardDescription:
     rows: tuple[int, ...] = ()
     timestamp_row: int | None = None
     note: str = ""                         # why unavailable, or the install hint
+    kind_hint: str = ""                    # recommended signal kind(s): see `_kind_hint`
 
     def format(self) -> str:
         """Human-readable multi-line summary for ``yazses doctor``."""
@@ -881,9 +944,31 @@ class BoardDescription:
         return "\n".join([
             f"BrainFlow board {self.board_id}: {self.name or 'unnamed'}",
             f"  sampling rate: {self.fs:g} Hz",
+            *([f"  signal kinds: {self.kind_hint}"] if self.kind_hint else []),
             f"  channels: {chans or 'none'}",
             f"  timestamp row: {self.timestamp_row if self.timestamp_row is not None else 'n/a'}",
         ])
+
+
+def _kind_hint(
+    board_id: int, channels: tuple[ChannelInfo, ...], *, overridden: bool,
+) -> str:
+    """The board's recommended ``kind_hint`` (``"emg"``, ``"eeg"``, ``"emg+eeg"``, ``"mixed"``).
+
+    The board table's advice (:mod:`yazses.biosignal.boards`) when the board is listed and
+    the caller has not re-labelled its channels; otherwise read off the channels that will
+    actually be streamed (one kind -> that kind, several -> ``"mixed"``). ``""`` when
+    there is neither. This is what lets ``doctor`` tell a mixed board (BrainFlow's
+    synthetic board -1) from a pure EEG headset.
+    """
+    if not overridden:
+        preset = preset_for(board_id)
+        if preset is not None:
+            return preset.kind_hint
+    kinds = {c.kind for c in channels}
+    if not kinds:
+        return ""
+    return next(iter(kinds)).value if len(kinds) == 1 else "mixed"
 
 
 def _import_shim() -> Any | None:
@@ -966,18 +1051,23 @@ def describe_board(
     """Describe a BrainFlow board without opening it, for ``yazses doctor``.
 
     Never raises: a missing brainflow package or an unknown board id comes back as
-    ``available=False`` with the reason (and the install hint) in ``note``.
+    ``available=False`` with the reason (and the install hint) in ``note``. ``kind_hint``
+    is the board's recommended signal kind(s) from the board table (also filled when the
+    board is unavailable), or read off the streamed channels for an unlisted board or a
+    ``channel_kinds`` override.
     """
     shim = _import_shim()
     if shim is None:
         from yazses.system.remedy import install_hint
 
         return BoardDescription(int(board_id), False,
-                                note=install_hint("emg-band") or "brainflow is not importable")
+                                note=install_hint("emg-band") or "brainflow is not importable",
+                                kind_hint=_kind_hint(int(board_id), (), overridden=bool(channel_kinds)))
     try:
         layout = _resolve_layout(shim, int(board_id), channel_kinds)
     except Exception as exc:
-        return BoardDescription(int(board_id), False, note=f"unknown board or no description ({exc})")
+        return BoardDescription(int(board_id), False, note=f"unknown board or no description ({exc})",
+                                kind_hint=_kind_hint(int(board_id), (), overridden=bool(channel_kinds)))
     name = ""
     try:
         name = str(shim.get_device_name(int(board_id)))
@@ -986,8 +1076,10 @@ def describe_board(
             name = str(shim.get_board_descr(int(board_id)).get("name", ""))
         except Exception:
             log.debug("no device name for board %s", board_id, exc_info=True)
-    return BoardDescription(int(board_id), True, name, layout.fs, layout.channels,
-                            layout.rows, layout.timestamp_row)
+    return BoardDescription(
+        int(board_id), True, name, layout.fs, layout.channels, layout.rows,
+        layout.timestamp_row,
+        kind_hint=_kind_hint(int(board_id), layout.channels, overridden=bool(channel_kinds)))
 
 
 class BrainFlowBlockSource:
@@ -1000,6 +1092,11 @@ class BrainFlowBlockSource:
     ``uv_scale`` multiplies the raw rows into microvolts; BrainFlow reports ExG rows in
     µV, so the default is 1.0 and the knob exists for a board that does not.
     ``board_factory`` is injected by tests (a fake board); production passes ``None``.
+
+    ``kind_hint`` is the board's recommended signal kind(s) (see :func:`describe_board`):
+    known from the board table before ``start()`` (``""`` for an unlisted board with a
+    ``channel_kinds`` override) and refined from the real channels after it, so the doctor
+    can treat a ``"mixed"`` board such as the synthetic board -1 differently.
 
     ``fs`` and ``channels`` are only known once the board is open: they are ``0.0`` and
     ``()`` until ``start()`` succeeds. Check ``available`` after ``start()``; when it is
@@ -1029,6 +1126,8 @@ class BrainFlowBlockSource:
         self._expected_t: float | None = None
         self.fs: float = 0.0
         self.channels: tuple[ChannelInfo, ...] = ()
+        self.kind_hint: str = "" if channel_kinds else _kind_hint(
+            self._board_id, (), overridden=False)
         self.available = False
         self.last_error = ""
         self.gap_samples = 0
@@ -1053,6 +1152,8 @@ class BrainFlowBlockSource:
             return
         self._board, self._layout = board, layout
         self.fs, self.channels = layout.fs, layout.channels
+        self.kind_hint = _kind_hint(
+            self._board_id, layout.channels, overridden=self._channel_kinds is not None)
         self._origin = self._expected_t = None
         self.gap_samples = 0
         self.available = True

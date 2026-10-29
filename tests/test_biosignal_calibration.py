@@ -746,12 +746,12 @@ def test_load_never_raises_on_unreadable_path(tmp_path) -> None:
 
 def test_profile_is_stale_by_age() -> None:
     """Older than max_age_days is stale; younger is not; the limit is configurable."""
-    old = make_profile(created_at=(NOW - timedelta(days=8)).isoformat())
-    recent = make_profile(created_at=(NOW - timedelta(days=6)).isoformat())
+    old = make_profile(created_at=(NOW - timedelta(days=31)).isoformat())
+    recent = make_profile(created_at=(NOW - timedelta(days=29)).isoformat())
     assert profile_is_stale(old, NOW)
     assert not profile_is_stale(recent, NOW)
     assert profile_is_stale(recent, NOW, max_age_days=5)
-    assert not profile_is_stale(old, NOW, max_age_days=10)
+    assert not profile_is_stale(old, NOW, max_age_days=40)
     assert not profile_is_stale(make_profile(created_at=NOW.isoformat()), NOW)
 
 
@@ -773,16 +773,16 @@ def test_profile_is_stale_with_naive_now_assumes_utc() -> None:
     """A naive ``now`` is read as UTC, giving the same answer as the aware one."""
     naive_now = NOW.replace(tzinfo=None)
     fresh = make_profile(created_at=(NOW - timedelta(days=1)).isoformat())
-    old = make_profile(created_at=(NOW - timedelta(days=9)).isoformat())
+    old = make_profile(created_at=(NOW - timedelta(days=31)).isoformat())
     assert not profile_is_stale(fresh, naive_now)
     assert profile_is_stale(old, naive_now)
 
 
 def test_profile_is_stale_with_non_utc_offsets() -> None:
     """Timestamps with an offset are compared as instants, not as wall-clock strings."""
-    plus5 = timezone_stamp(NOW - timedelta(days=6), hours=5)
+    plus5 = timezone_stamp(NOW - timedelta(days=29), hours=5)
     assert not profile_is_stale(make_profile(created_at=plus5), NOW)
-    plus5_old = timezone_stamp(NOW - timedelta(days=8), hours=5)
+    plus5_old = timezone_stamp(NOW - timedelta(days=31), hours=5)
     assert profile_is_stale(make_profile(created_at=plus5_old), NOW)
 
 

@@ -268,7 +268,7 @@ def test_a_named_calibration_file_that_is_missing_names_that_path(tmp_path):
 
 
 def test_a_stale_profile_is_a_warning(tmp_path):
-    _save(tmp_path, _profile("brainflow:0", created=NOW - timedelta(days=30)))
+    _save(tmp_path, _profile("brainflow:0", created=NOW - timedelta(days=31)))
     row = _check(_cfg(enabled=True, source="brainflow:0:/dev"), tmp_path)
     assert row[1] == "WARN"
     assert "calibration is old" in row[2] and "drift" in row[2]
@@ -276,7 +276,7 @@ def test_a_stale_profile_is_a_warning(tmp_path):
 
 
 def test_a_profile_from_just_inside_the_limit_is_not_stale(tmp_path):
-    _save(tmp_path, _profile("brainflow:0", created=NOW - timedelta(days=6)))
+    _save(tmp_path, _profile("brainflow:0", created=NOW - timedelta(days=29)))
     assert _check(_cfg(enabled=True, source="brainflow:0:/dev"), tmp_path)[1] == "OK"
 
 

@@ -94,10 +94,14 @@ SCHEMA_VERSION = 1
 #: File name of the profile under the data directory.
 PROFILE_FILENAME = "biosignal_calibration.json"
 
-#: Profiles older than this are reported stale. Design choice: electrode placement and skin
-#: condition drift between days, so a week is already generous; ``pressure.py`` calls
-#: calibration "per person and per session".
-DEFAULT_MAX_AGE_DAYS = 7.0
+#: Profiles older than this are reported stale. Design choice, and the same number as the
+#: ``[biosignal] calibration_max_age_days`` default so the doctor, the CLI and the running
+#: pipeline agree. Electrode placement and skin condition do drift between days
+#: (``pressure.py`` calls calibration "per person and per session"), but the checks that
+#: catch a *different* board, channel set or rate are the load-bearing ones; age is a backstop
+#: and a stale profile switches the squeeze off, so it must not trip every week for someone
+#: who relies on it. Tighten it in the config if your placement varies.
+DEFAULT_MAX_AGE_DAYS = 30.0
 
 #: A profile larger than this is not ours (a real one is well under 2 KiB).
 _MAX_PROFILE_BYTES = 1 << 20
@@ -223,8 +227,39 @@ class CalibrationConfig:
 # --------------------------------------------------------------------------- the profile
 
 
-def _fmt_age(created_at: str) -> str:
-    return created_at or "unknown time"
+def _wall_now() -> datetime:
+    """The current time for age display; module level so a test can replace it."""
+    return datetime.now(UTC)
+
+
+def _plural(n: int, unit: str) -> str:
+    return f"{n} {unit}{'' if n == 1 else 's'} ago"
+
+
+def _fmt_age(created_at: str, now: datetime | None = None) -> str:
+    """A human age for an ISO ``created_at`` ("3 days ago"); never an amplitude.
+
+    ``now`` is injectable (a naive value is taken as UTC); omitted, the module clock is
+    used. A timestamp that cannot be parsed reads "unknown age", and one in the future
+    beyond the clock-skew allowance reads "in the future (clock error)" -- the same two
+    cases ``profile_is_stale`` refuses to trust.
+    """
+    created = _parse_time(created_at)
+    if created is None:
+        return "unknown age"
+    current = now if now is not None else _wall_now()
+    current = current if current.tzinfo else current.replace(tzinfo=UTC)
+    delta = current - created
+    if delta < -_FUTURE_TOLERANCE:
+        return "in the future (clock error)"
+    seconds = max(0.0, delta.total_seconds())
+    if seconds < 60:
+        return "just now"
+    if seconds < 3600:
+        return _plural(int(seconds // 60), "minute")
+    if seconds < 86400:
+        return _plural(int(seconds // 3600), "hour")
+    return _plural(int(seconds // 86400), "day")
 
 
 @dataclass(frozen=True, repr=False)
@@ -258,7 +293,7 @@ class CalibrationProfile:
     def __repr__(self) -> str:
         return (
             f"CalibrationProfile(board_id={self.board_id!r}, channels={len(self.channels)}, "
-            f"fs={self.fs:g}, created_at={_fmt_age(self.created_at)!r}, <values redacted>)"
+            f"fs={self.fs:g}, made={_fmt_age(self.created_at)!r}, <values redacted>)"
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -320,11 +355,14 @@ class CalibrationProfile:
             schema_version=SCHEMA_VERSION,
         )
 
-    def summary(self) -> str:
-        """One log-safe line: identity and age only, never an amplitude."""
+    def summary(self, now: datetime | None = None) -> str:
+        """One log-safe line: identity and age ("3 days ago") only, never an amplitude.
+
+        ``now`` is the clock for the age (default: the current UTC time).
+        """
         return (
             f"board={self.board_id!r} channels={len(self.channels)} fs={self.fs:g} "
-            f"created_at={_fmt_age(self.created_at)} phases={','.join(self.phases) or '-'}"
+            f"made={_fmt_age(self.created_at, now)} phases={','.join(self.phases) or '-'}"
         )
 
 
@@ -1049,21 +1087,99 @@ def profile_matches(
     board_id: str,
     channels: Sequence[str | ChannelInfo],
     fs: float,
+    *,
+    check_kinds: bool = False,
 ) -> bool:
     """True when the profile was made for this board, these channels and this sampling rate.
 
     Channel order is ignored (it is a naming question, not a placement one); names, the
     board id and ``fs`` (within 1 %) must agree. A profile for a different band, headset or
     montage must not be silently reused — amplitudes do not transfer between placements.
+
+    ``check_kinds=True`` also requires each channel's signal kind to equal the one the
+    profile recorded (an EMG thresholds profile must not be applied to a channel that is
+    now labelled EEG). It only has an effect for ``ChannelInfo`` entries, since a bare
+    name carries no kind. Off by default for compatibility; :func:`check_profile` turns
+    it on.
     """
+    return _mismatch_reason(profile, board_id, channels, fs, check_kinds) is None
+
+
+def _mismatch_reason(
+    profile: CalibrationProfile,
+    board_id: str,
+    channels: Sequence[str | ChannelInfo],
+    fs: float,
+    check_kinds: bool,
+) -> str | None:
+    """Why the profile does not belong to this setup, in plain words; None when it does."""
     names = tuple(c.name if isinstance(c, ChannelInfo) else str(c) for c in channels)
     if profile.board_id != board_id:
-        return False
+        return f"it was made for a different board ({profile.board_id!r}, not {board_id!r})"
     if sorted(profile.channels) != sorted(names):
-        return False
+        return "it was made for a different set of channels"
+    if check_kinds:
+        recorded = dict(zip(profile.channels, profile.channel_kinds))
+        for c in channels:
+            if isinstance(c, ChannelInfo) and recorded.get(c.name) != c.kind.value:
+                return (f"channel {c.name!r} was calibrated as {recorded.get(c.name)!r} "
+                        f"but is now {c.kind.value!r}")
     if fs <= 0 or not math.isfinite(fs):
-        return False
-    return abs(profile.fs - fs) <= _FS_REL_TOL * profile.fs
+        return "the current sampling rate is not usable"
+    if abs(profile.fs - fs) > _FS_REL_TOL * profile.fs:
+        return f"it was made at {profile.fs:g} Hz, not {fs:g} Hz"
+    return None
+
+
+class ProfileStatus(Enum):
+    OK = "ok"
+    STALE = "stale"
+    MISMATCH = "mismatch"
+
+
+@dataclass(frozen=True)
+class ProfileCheck:
+    """Whether a stored profile may be reused, and why not in plain words.
+
+    ``reason`` is empty for ``OK``. It names identities and ages, never an amplitude, so it
+    is safe to show or log.
+    """
+
+    status: ProfileStatus
+    reason: str = ""
+
+    @property
+    def ok(self) -> bool:
+        return self.status is ProfileStatus.OK
+
+
+def check_profile(
+    profile: CalibrationProfile,
+    board_id: str,
+    channels: Sequence[str | ChannelInfo],
+    fs: float,
+    now: datetime,
+    max_age_days: float = DEFAULT_MAX_AGE_DAYS,
+) -> ProfileCheck:
+    """One verdict for "may this stored profile be used for this setup right now?". Pure.
+
+    ``MISMATCH`` (different board, channels, channel kinds or sampling rate) is decided
+    before ``STALE``: a profile for another headset is wrong, not merely old, and the advice
+    differs. Both call for recalibrating; ``OK`` allows reuse. Kinds are compared strictly
+    for ``ChannelInfo`` entries. ``profile_matches`` / ``profile_is_stale`` keep their own
+    (looser) contracts for existing callers.
+    """
+    why = _mismatch_reason(profile, board_id, channels, fs, True)
+    if why is not None:
+        return ProfileCheck(ProfileStatus.MISMATCH, f"The saved calibration cannot be used: {why}.")
+    if profile_is_stale(profile, now, max_age_days):
+        age = _fmt_age(profile.created_at, now)
+        if age in ("unknown age", "in the future (clock error)"):
+            detail = "its timestamp cannot be trusted"
+        else:
+            detail = f"it was made {age}, older than the {max_age_days:g}-day limit"
+        return ProfileCheck(ProfileStatus.STALE, f"The saved calibration is out of date: {detail}.")
+    return ProfileCheck(ProfileStatus.OK)
 
 
 #: Phases at which a session has stopped (handy for ``while session.phase not in TERMINAL``).
@@ -1084,6 +1200,9 @@ __all__ = [
     "CalibrationProgress",
     "CalibrationSession",
     "IssueCode",
+    "ProfileCheck",
+    "ProfileStatus",
+    "check_profile",
     "default_profile_path",
     "load_profile",
     "profile_is_stale",
