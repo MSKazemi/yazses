@@ -53,7 +53,8 @@ To bring a destination live (owner steps):
 
 1. Create the Hub organisation and the empty repository named in the manifest.
 2. On the repository's Settings, Trusted Publishers, add a GitHub Actions publisher:
-   repository `MSKazemi/yazses`, branch `main`, workflow `huggingface-publish.yml`.
+   repository equals `MSKazemi/yazses`, ref equals `refs/heads/main`, workflow_ref starts with
+   `MSKazemi/yazses/.github/workflows/huggingface-publish.yml@` (the claims as the Hub's form shows them).
 3. In GitHub, put a required reviewer on the `huggingface-publish` environment.
 4. In `manifest.json`, set that destination to `"status": "live"` and
    `"owner_approved": true`, record its verified `url`, and merge the change.

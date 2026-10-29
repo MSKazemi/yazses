@@ -39,9 +39,11 @@ name: Publish to Hugging Face
 #      fine). A token scoped to one repository cannot create repositories, so
 #      `hf upload` to a missing repo fails by design.
 #   3. On each repository's Settings -> Trusted Publishers, add a GitHub Actions publisher
-#      with claims  repository = MSKazemi/yazses , branch = main ,
-#      workflow = huggingface-publish.yml  (the manifest's `oidc_publisher` block).
-#      Claims are matched exactly. Do this for every destination you will approve.
+#      with claims  repository equals MSKazemi/yazses , ref equals refs/heads/main ,
+#      workflow_ref starts with MSKazemi/yazses/.github/workflows/huggingface-publish.yml@
+#      (the manifest's `oidc_publisher` block; this is how the Hub's form lists them, and
+#      it is what is set on mskazemi/showcase and mskazemi/yazses-benchmark-results).
+#      Do this for every destination you will approve.
 #   4. In GitHub: Settings -> Environments -> huggingface-publish, add a required
 #      reviewer, and restrict deployment to the main branch.
 #   5. In the manifest, set status "live" and owner_approved true for that destination,
