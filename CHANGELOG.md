@@ -8,9 +8,9 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added — a Hugging Face presence, kept in `huggingface/` and published from it
 
-The `yazses` organization, a showcase Space, a benchmark-results dataset and a research
-collection are live on the Hub, and the hosted demo Space was updated. Everything is sourced
-from `huggingface/` in this repository.
+A showcase Space, a benchmark-results dataset and the hosted demo Space are live under the
+maintainer's Hub account (`mskazemi`), and the `yazses` organization carries a short card and
+a research collection. Everything is sourced from `huggingface/` in this repository.
 
 - **Source for the Hub pages**: an organization card, a static showcase Space, and the
   hardened hosted-demo Space (`huggingface/space-demo/`: upload size and duration limits,
