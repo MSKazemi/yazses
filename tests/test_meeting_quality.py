@@ -227,6 +227,47 @@ def test_longest_repeat_run_ignores_scattered_repetition():
     assert res.verdict == q.QUALITY_OK
 
 
+@pytest.mark.parametrize("phrase", ["red blue green", "so we need to go", "okay thank you"])
+def test_a_late_multiword_loop_trips_the_run_check(phrase):
+    """A healthy 250-word start followed by a *multi-word* phrase said 16 times.
+
+    Whole-transcript ratios stay inside their thresholds here (the loop is a few percent
+    of the trigrams), so only the run check can catch it. It used to compare each trigram
+    with its immediate neighbour, which for a three-word phrase rotates through three
+    different values, so the run never exceeded 1 and this transcript passed as "ok".
+    """
+    text = _healthy_text(250) + " " + " ".join([phrase] * 16)
+    res = q.assess(text, duration_s=180.0)
+
+    assert res.longest_repeat_run >= q.MAX_REPEAT_RUN
+    assert res.top_ngram_share < q.MAX_TOP_NGRAM_SHARE
+    assert res.distinct_ngram_ratio > q.MIN_DISTINCT_NGRAM_RATIO
+    assert res.verdict == q.QUALITY_DEGENERATE
+
+
+def test_the_repeat_run_is_not_fooled_by_a_long_phrase_said_a_few_times():
+    """Ten repetitions of a six-word sentence in a healthy meeting is not a loop."""
+    text = _healthy_text(250) + " " + " ".join(["we should ship it on friday"] * 10)
+    res = q.assess(text, duration_s=180.0)
+
+    assert res.longest_repeat_run < q.MAX_REPEAT_RUN
+    assert res.verdict == q.QUALITY_OK
+
+
+def test_the_repeat_run_has_a_stated_period_limit():
+    """A looping unit longer than MAX_REPEAT_PERIOD is out of this check's reach."""
+    unit = [_word(i, "z") for i in range(q.MAX_REPEAT_PERIOD + 1)]
+    grams = q._ngrams(unit * 16)
+    assert q.longest_repeat_run(grams) < q.MAX_REPEAT_RUN
+    assert q.longest_repeat_run(grams, max_period=q.MAX_REPEAT_PERIOD + 1) >= q.MAX_REPEAT_RUN
+
+
+def test_the_repeat_run_of_a_single_word_loop_is_unchanged():
+    """Period 1 must reproduce the original neighbour-only count."""
+    grams = q._ngrams(("hello " * 20).split())
+    assert q.longest_repeat_run(grams) == len(grams)
+
+
 def test_tokenize_normalises_unicode_forms():
     """Composed and decomposed forms are one word, so distinctness is not inflated."""
     assert q.tokenize("café") == q.tokenize("café")

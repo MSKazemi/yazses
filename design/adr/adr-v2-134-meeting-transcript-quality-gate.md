@@ -133,6 +133,13 @@ broken one among them — are judged rather than reported blank.
   plausible sentences at a normal rate passes every signal here. This gate catches *collapse*
   and *silence*, not *inaccuracy*, and must not be described as a correctness check.
 
+- **Amended after an outside review: the run check now sees multi-word loops.** As first shipped
+  it compared each trigram with its immediate neighbour, so it fired only on single-word loops
+  (`hello hello hello …`, the one observed collapse) and was blind to `red blue green red blue
+  green …`. It now tries every period up to `MAX_REPEAT_PERIOD` = 8 words; period 1 is the
+  original count. The threshold of 12 and the single observed collapse are unchanged, and no
+  multi-word collapse has been observed, so the extension is covered by synthetic tests only.
+
 ## Alternatives considered
 
 - **Keep the recording always** (flip `retain_audio` to true). Simplest, and rejected: it makes
