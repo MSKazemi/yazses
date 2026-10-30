@@ -13,14 +13,14 @@ from __future__ import annotations
 from typing import Any
 
 from yazses.settingsui.pages import PAGES, PageSpec, page_label
-from yazses.settingsui.theme import muted_style_for
+from yazses.settingsui.theme import mute_label
 
 #: Sidebar width. Wide enough for "Hands-free •" at a large system font, narrow enough
 #: that the content area keeps most of a 760 px window.
 SIDEBAR_WIDTH = 168
 
 _SIDEBAR_STYLE = (
-    "QListWidget { border: 0; background: transparent; outline: 0; }"
+    "QListWidget { border: 0; background: transparent; outline: 0; padding-top: 8px; }"
     "QListWidget::item { padding: 9px 12px; border-radius: 6px; margin: 1px 4px; }"
     "QListWidget::item:selected { background: palette(highlight);"
     " color: palette(highlighted-text); }"
@@ -29,6 +29,26 @@ _SIDEBAR_STYLE = (
 
 #: Text shown as the tooltip on a sidebar entry that holds unapplied changes.
 DIRTY_TOOLTIP = "This page has changes you have not applied yet — click Apply."
+
+
+def hairline(*, vertical: bool) -> Any:
+    """A 1 px divider in the theme's own ``midlight``, not a drawn ``QFrame`` line.
+
+    A ``Sunken`` ``VLine``/``HLine`` paints a dark and a light line side by side, which on
+    the Windows 11 style reads as one heavy 2 px bar. The feature list's row dividers
+    already use ``palette(midlight)`` (``app.py``'s ``_ROW_STYLE``), so the frame's own
+    edges now match them, in light and in dark.
+    """
+    from PySide6.QtWidgets import QFrame
+
+    line = QFrame()
+    line.setFrameShape(QFrame.Shape.NoFrame)
+    line.setStyleSheet("background: palette(midlight);")
+    if vertical:
+        line.setFixedWidth(1)
+    else:
+        line.setFixedHeight(1)
+    return line
 
 
 def build_page(spec: PageSpec, content: Any, *, scrollable: bool) -> Any:
@@ -51,7 +71,7 @@ def build_page(spec: PageSpec, content: Any, *, scrollable: bool) -> Any:
 
     blurb = QLabel(spec.blurb)
     blurb.setWordWrap(True)
-    blurb.setStyleSheet(muted_style_for(blurb, "margin-bottom: 6px;"))
+    mute_label(blurb, "margin-bottom: 6px;")
     layout.addWidget(blurb)
 
     if scrollable:
@@ -114,19 +134,15 @@ class SettingsShell:
             self.sidebar.addItem(item)
         body.addWidget(self.sidebar)
 
-        rule = QFrame()
-        rule.setFrameShape(QFrame.Shape.VLine)
-        rule.setFrameShadow(QFrame.Shadow.Sunken)
-        body.addWidget(rule)
+        self.sidebar_rule = hairline(vertical=True)
+        body.addWidget(self.sidebar_rule)
 
         self.stack = QStackedWidget()
         body.addWidget(self.stack, 1)
         self.sidebar.currentRowChanged.connect(self.stack.setCurrentIndex)
 
-        footer_rule = QFrame()
-        footer_rule.setFrameShape(QFrame.Shape.HLine)
-        footer_rule.setFrameShadow(QFrame.Shadow.Sunken)
-        outer.addWidget(footer_rule)
+        self.footer_rule = hairline(vertical=False)
+        outer.addWidget(self.footer_rule)
         self.footer_layout = QVBoxLayout()
         self.footer_layout.setContentsMargins(12, 8, 12, 10)
         outer.addLayout(self.footer_layout)
@@ -145,6 +161,10 @@ class SettingsShell:
 
     def finish(self) -> None:
         """Open on the first page. Call after every page has been added."""
+        if self.banner_layout.count() == 0:
+            # No banner: the strip reserved for one would be an 8 px gap above the sidebar
+            # and the divider, which then start below the top of the window.
+            self.banner_layout.setContentsMargins(0, 0, 0, 0)
         self.sidebar.setCurrentRow(0)
 
     def select(self, key: str) -> None:

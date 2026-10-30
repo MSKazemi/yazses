@@ -45,6 +45,26 @@ the tree. The measurement archive in `paper/benchmark/` and `paper/results/` sta
 reproducibility evidence the docs pages rely on. Earlier CHANGELOG entries and release notes describe
 the draft as it was and are left as written. The commits that added the draft remain in git history.
 
+### Changed — the settings window looks finished on Windows 11
+
+Rendering the real window and looking at every page showed three things that read as
+unfinished. None changes what any setting does.
+
+- **Lighter dividers.** The lines between the sidebar, the page and the Apply bar were drawn
+  as a dark and a light line side by side, which the Windows 11 style shows as one heavy bar.
+  They are now 1 px in the theme's own `midlight`, the colour the feature list's row
+  dividers already used, in light and in dark. The divider also runs the full height of the
+  window: an empty strip reserved for the snap-permission banner had left an 8 px gap above
+  it. The strip keeps its margins whenever a banner is in it.
+- **Aligned page edges.** Every page's description, the General page's note and the
+  Hands-free text started about 6 px to the right of the heading and the labels above them.
+  A stylesheet `margin-*` makes Qt treat a `QLabel` as framed, and a framed label indents its
+  text by half an "x". `theme.mute_label()` sets the same colour as before and `setIndent(0)`.
+- **No repeated sentence.** The Hands-free page said "Pause, resume … the camera-driven
+  hands-free inputs" in its description and again, almost word for word, in the line below.
+  The second line now adds only what the first does not, including that opening the controls
+  does not open the camera.
+
 ### Fixed — on Windows the Speech page no longer offers settings that do nothing
 
 The settings window's **Text injection** box listed eight values on every OS: `auto`,
