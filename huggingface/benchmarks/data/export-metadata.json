@@ -3,7 +3,7 @@
     {
       "path": "paper/results/MANIFEST.md",
       "reason": "documentation about the archive, not a result",
-      "sha256": "0bf70d89f3e97b068d5d788d3ece7ce3170eb8bf56ff98f0a7e9fc079e10b414"
+      "sha256": "12584c696bff10430089f4ce31b3db05e871954825c00a730233b603c2e65bf9"
     },
     {
       "path": "paper/results/README.md",
@@ -217,8 +217,8 @@
     },
     {
       "path": "paper/results/plausibility-ami16-1.2.json",
-      "reason": "argv records a path inside a private working tree, which the sensitivity scan rejects; also a different family (attribution-warning firing rate), not normalised in schema version 1",
-      "sha256": "7c16c56cdd82ccfef7e3c1722846511e14ec2ef3654a0fe2eefc28d435302551"
+      "reason": "attribution-warning firing-rate study with nested per-recording label-second maps; different family, not normalised in schema version 1",
+      "sha256": "7116f975c941809b5e4af71d808c2ac1874f2f7a8d596257adadb48d8e508e98"
     },
     {
       "path": "paper/results/plausibility-voxconverse-0.9.json",

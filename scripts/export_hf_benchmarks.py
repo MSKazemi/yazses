@@ -256,9 +256,6 @@ _EXCLUSION_RULES: tuple[tuple[Callable[[str], bool], str], ...] = (
     (lambda p: p == "platform-resolution.json",
      "install-target resolution per OS and instruction set; not an accuracy, latency or "
      "diarization evaluation"),
-    (lambda p: p == "plausibility-ami16-1.2.json",
-     "argv records a path inside a private working tree, which the sensitivity scan rejects; "
-     "also a different family (attribution-warning firing rate), not normalised in schema version 1"),
     (lambda p: p.startswith("plausibility-"),
      "attribution-warning firing-rate study with nested per-recording label-second maps; "
      "different family, not normalised in schema version 1"),
