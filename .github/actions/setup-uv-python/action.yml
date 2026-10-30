@@ -5,8 +5,11 @@
 # Deliberately absent, so the boundary stays obvious:
 #   * no secrets and no permission block -- a caller's job keeps whatever token scope it
 #     already has, and this action neither reads nor widens it;
-#   * no cache step -- cache keys stay where they are, in the calling job, so a reviewer
-#     sees every key that can cross an OS or interpreter boundary;
+#   * no cache step of its own -- any `actions/cache` key stays in the calling job, so a
+#     reviewer sees it there. setup-uv's built-in uv cache is a different thing and IS on
+#     (its `enable-cache` input defaults to `auto`). Its key is exact, with no restore-key
+#     fallback, and names the architecture, OS image, interpreter and a hash of
+#     pyproject.toml and uv.lock (CI_POLICY.md §8, "Caches");
 #   * no system packages -- the apt lists differ per job and stay explicit there;
 #   * no release, signing or publishing work -- those jobs keep their own explicit steps.
 name: Set up uv, Python and dependencies
