@@ -53,6 +53,27 @@ running, with only an orphaned daemon running, and brought the tray back after a
 The test that kept `Exec` out of the installer's code now allows exactly the three programs this
 step starts.
 
+### Added — Android: a property test that the hold-to-talk session cannot wedge
+
+`:core:session`'s `HoldSession` had example tests for a lost key-up and a decode that never
+reports back, which cover only the sequences someone thought of. `HoldSessionPropertyTest` drives
+the session directly with 3,000 seeded random sequences of 80 steps each (press, release, tick,
+decoded, decode-failed, delivered, cancel, undo invalidation, undo and field reports, with the
+secure-field flag flipping at random and a debounce of 0, 1 or 500 ms). After every step it checks
+that the key-event queue never holds more than `MAX_QUEUED_EVENTS`; that after `cancel()` the
+session is idle with an empty queue and a later normal-field press starts capture; that no
+secure-field press emits `StartCapture` and the session is never holding or capturing while the
+last field report was secure; and that `undo()` returns a given insert at most once, and only the
+insert that is still undoable. The seed is fixed, so a failure reproduces exactly. The test also
+fails if the generator reaches any situation those checks depend on (a full queue, a cancel while
+decoding, an undo after a clipboard delivery, and so on) fewer than 50 times. No sequence found a
+defect. Nine of ten hand-made mutations of the session turn the test red. The tenth removes the
+debounce-time secure check, which no current path can reach because every way into the debounce
+already refuses a secure field. `HoldSession` gains a module-internal `queuedEventCount` so the
+test can read the queue bound directly. The test takes about 4 s in
+`./gradlew --offline :core:session:test` and adds no dependency
+([#676](https://github.com/MSKazemi/yazses/issues/676)).
+
 ### Changed — the German page was reviewed by a native speaker
 
 `docs/de/index.md` was a machine-assisted draft. A native German reader reworded it so it reads
