@@ -9,9 +9,16 @@ The repository now uses ADR-023’s agent-first contribution pipeline. This chan
 - L3 architecture/dependency/privacy/default-state work is **not** advertised as an open first task.
 - Hardware, model measurements, and native-language judgment are never marked cloud-agent-ready.
 
+> **Current task catalog (2026-10-29):** A first batch landed through
+> [campaign PR #533](https://github.com/MSKazemi/yazses/pull/533).
+> The separate [as-built community backlog](2026-10-29-community-task-catalog.md)
+> identifies remaining, evidence-dependent work and explicitly distinguishes
+> already-implemented APIs from new tasks. Do not publish the older sample rows
+> without checking the live campaign inventory.
+
 ## 1. Umbrella issues only
 
-After PR #378’s ADRs are accepted, create at most these umbrella issues:
+These umbrella issues already exist. PR #378 is closed; the current ADRs on main are v2-140..144, still Proposed. Use these issues to coordinate review:
 
 | Umbrella | Scope | Contains work packages |
 |---|---|---|
@@ -287,7 +294,7 @@ Contributors can use ADR-023’s repository-wide agent prompt unchanged. Chinese
 
 After the ADR PR is accepted:
 
-1. Create the small umbrella issues.
+1. Reuse the existing five umbrella issues (#497, #499, #501, #503, #505); do not create duplicates.
 2. Choose the first 5–10 lowest-coupling tasks.
 3. Complete ADR-023’s internal two-agent ambiguity test.
 4. Add only verified tasks to `campaign/tasks.json`.

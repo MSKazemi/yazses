@@ -115,3 +115,13 @@ Rejected as the default. It causes unnecessary downloads and destroys deliberate
 - Existing English default behavior remains unchanged.
 - Failed Chinese setup leaves previous config intact.
 - CLI/Settings/doctor use shared compatibility functions.
+
+---
+## Implementation reconciliation (2026-10-29; proposal still subject to review)
+
+The current implementation now exists: `src/yazses/language/profiles.py` defines the three profile identities; `plan.py` computes pure canonical STT mutations; `service.py` prepares prerequisites and invokes the shared `set_config_keys_atomic` writer; `status.py` derives profile match from the current config. The CLI implements `language list`, `status --json` and `set`, with dry-run, no-install, no-download, no-restart, recommended-model and explicit override options. Settings uses the shared service and a Qt-free preview model. See [as-built audit](../chinese/2026-10-29-as-built-audit.md) and [switch contract](../chinese/2026-10-29-language-switch-architecture.md).
+
+**Clarification requiring explicit acceptance:** atomicity protects *config replacement*, not optional Python installation, model downloads or daemon restart. A failed late step can leave provisioned prerequisites cached, while the original config stays intact. A committed config and a running daemon's effective profile are separate states, especially after `--no-restart`. Do not claim a fully transactional runtime switchover until observed IPC/runtime evidence exists.
+
+**Regression acceptance:** `tests/test_language_profiles.py`, `test_language_service.py`, `test_configedit_atomic.py`, `test_cli_language_set.py` and `test_settings_language_profiles.py`. Real package/daemon recovery remains a separate validation gate. No existing English/default config behavior is changed merely by this documentation.
+

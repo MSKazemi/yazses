@@ -118,3 +118,13 @@ A superseding ADR must include:
 - package impact on each supported OS;
 - streaming and meeting behavior;
 - comparison against the currently supported Chinese baseline.
+
+---
+## Implementation reconciliation and permissive-weight policy (2026-10-29)
+
+The P1 baseline policy remains multilingual Whisper `small` via the existing faster-whisper engine. This is a *baseline candidate subject to real-device validation*, not a universal accuracy claim. The `paper/benchmark/bench_mandarin.py` + `mandarin_metrics.py` scorer now exists and emits `yazses.bench.mandarin/1` with `zh-eval-v1` CER views, manifest/license provenance, runtime/machine data, and synthetic smoke coverage. **The existence of that harness is not a real Mandarin benchmark result.** See [model selection protocol](../chinese/2026-10-29-model-selection-protocol.md) and [validation gates](../chinese/2026-10-29-validation-and-release-gates.md).
+
+**Production weight-license gate:** require an exact checkpoint, immutable revision, license source and redistributed artifact obligations. Whisper code and weights are MIT; the Qwen3-ASR-0.6B model card declares Apache-2.0; selected Paraformer checkpoints may be Apache-2.0 when their exact revision's license is verified. SenseVoiceSmall's custom FunASR model-weight license is **not automatically a permissive-production candidate**; keep it research-only absent explicit maintainer/legal review. An Apache-2.0 toolkit repository does not prove every checkpoint's license.
+
+Before any alternative model is recommended: compare the same corpus/split/decoder/host with CER + RTF/p50/p95 + RSS/core-seconds + startup + timestamps + streaming + long-form + offline-after-cache; use an optional/lazy adapter with zero English base-install impact; document the superseding decision. Do not silently choose a new model by hardware guesses.
+

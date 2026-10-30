@@ -6,6 +6,13 @@ cell was produced by running synthetic text through the real pipeline, not infer
 (`tests/test_cjk_pipeline_vectors.py`). This is the filled-in matrix that
 [surface-support-matrix.md](surface-support-matrix.md) leaves as a template.
 
+> **Current follow-up (2026-10-29):** The fixed findings below describe
+> landed model-free code, but no real ASR/desktop evidence was performed as
+> part of this audit. The open F6 MCP configuration propagation, optional-transform
+> risk and notes token-budget concerns are broken down in
+> [community tasks](2026-10-29-community-task-catalog.md) and
+> [release gates](2026-10-29-validation-and-release-gates.md).
+
 **Classes.** *CJK-safe* — leaves Han text and full-width punctuation alone. *ASCII/space-dependent* — assumes
 whitespace-delimited words or ASCII punctuation. *Language-specific* — an English (or other) lexical rule that is
 inert or wrong for Mandarin.
