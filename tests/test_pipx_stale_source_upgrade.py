@@ -62,6 +62,15 @@ def test_a_file_url_to_a_deleted_folder_is_stale_too(tmp_path):
     assert out.command == ["pipx", "install", "--force", "yazses[desktop]"]
 
 
+def test_extras_that_are_not_extra_names_leave_the_command_alone(tmp_path):
+    """The extras are copied into the pipx command. A damaged record whose bracket holds
+    more than extra names (here a stray `]` and a URL) must not reach it."""
+    prefix = _venv(tmp_path, str(tmp_path / "gone") + "[desktop]@https://example.invalid/x.whl]")
+
+    out = resolve_upgrade_command(_status(), pipx_prefix=str(prefix))
+
+    assert out.command == updater.upgrade_command("pipx")
+
 def test_a_pypi_install_keeps_the_plain_upgrade(tmp_path):
     for spec in ("yazses", "yazses[desktop]", "Yazses[gaze,desktop]"):
         prefix = _venv(tmp_path / spec.replace("[", "_").replace("]", "_"), spec)

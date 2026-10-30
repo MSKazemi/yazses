@@ -6,6 +6,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — "Install now" on a pipx install did nothing, and said so in a balloon that vanished
+
+`pipx install /path/to/checkout` makes pipx remember that *folder* as where the package comes
+from. Delete the folder (a git worktree, a build directory) and `pipx upgrade yazses` prints
+`Unable to parse package spec: <path>` and changes nothing — on the install this was reported
+from it even exits 0. The tray offered an update it could never apply, and the result was a
+two-second balloon, so the user came back to the same version with no explanation.
+
+The upgrade command for a pipx install is now resolved against pipx's own record
+(`pipx_metadata.json`). When the recorded source is a local path that no longer exists, the
+command becomes `pipx install --force yazses[<your extras>]`, which reinstalls into the same
+environment from PyPI, keeps the extras, and leaves a `pipx upgrade` that works from then on.
+A PyPI source, a git/https URL, a checkout that still exists, and a record whose extras are not
+plain extra names are untouched. The tray, the Settings window and `yazses update` all run the
+same resolved command. Checked against pipx 1.4.3 in a throwaway `PIPX_HOME`: 2.43.1 → 2.45.0
+through the real checked-upgrade path.
+
+An update that fails or does not move the version now opens a dialog in the Linux tray instead
+of a balloon, and the hint for a pipx install names the reinstall command rather than "reinstall
+the way you first installed it".
+
 ### Fixed — installing a new YazSes over a running one no longer stops at "unable to automatically close all applications"
 
 Run the installer while YazSes was in the tray and Setup listed `YazSesApp.exe` twice, then

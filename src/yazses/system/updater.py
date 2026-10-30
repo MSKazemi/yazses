@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import urllib.request
@@ -1016,6 +1017,10 @@ def _pipx_source(prefix: str | None) -> str | None:
     return spec.strip() if isinstance(spec, str) and spec.strip() else None
 
 
+# Comma-separated extra names (PEP 685 normalises them to letters, digits, `-`, `_`, `.`).
+_EXTRAS = re.compile(r"[A-Za-z0-9._-]+(?:,[A-Za-z0-9._-]+)*")
+
+
 def _split_extras(spec: str) -> tuple[str, str]:
     """``"path[a,b]"`` -> ``("path", "a,b")``; no trailing extras -> ``(spec, "")``."""
     if spec.endswith("]") and "[" in spec:
@@ -1077,6 +1082,10 @@ def repair_pipx_source(
     except Exception:  # noqa: BLE001 - must never break an update
         return status
     if extras is None:
+        return status
+    if extras and not _EXTRAS.fullmatch(extras):
+        # The extras are copied into the command, so anything that is not a list of
+        # extra names (a damaged record, a stray `]` or `@`) leaves the command alone.
         return status
     import dataclasses
 
