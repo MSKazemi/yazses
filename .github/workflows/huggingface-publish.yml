@@ -90,11 +90,15 @@ jobs:
         with:
           persist-credentials: false
 
+      # The project IS installed here: tests/conftest.py imports `yazses` at load time,
+      # and pytest has no `pythonpath = src`, so the contract tests below cannot even
+      # start without it (ModuleNotFoundError, exit 4). This job holds no secret and no
+      # OIDC token, so installing the project widens nothing.
       - name: Install uv and dependencies
         uses: ./.github/actions/setup-uv-python
         with:
           python-version: "3.12"
-          sync-args: --frozen --no-install-project
+          sync-args: --frozen
 
       - name: Preflight (offline, read-only)
         env:
@@ -133,7 +137,9 @@ jobs:
 
       # huggingface-hub (the `hf` CLI, >= 1.19.0 for OIDC) arrives through faster-whisper
       # and is pinned by uv.lock. Installing from the lock keeps the code that holds the
-      # OIDC token hash-locked. The project itself is not installed.
+      # OIDC token hash-locked. The project itself is not installed, and neither is the
+      # dev group (pytest, ruff, mypy, ...): this job runs only scripts/hf_preflight.py,
+      # which needs PyYAML (a dependency of huggingface-hub), and `hf`.
       #
       # uv itself is pinned here, unlike the repository's other jobs (which follow `latest`,
       # CI_POLICY.md section 8): this is the one job that can obtain the OIDC token, so the
@@ -144,7 +150,7 @@ jobs:
         with:
           python-version: "3.12"
           uv-version: "0.13.6"
-          sync-args: --frozen --no-install-project
+          sync-args: --frozen --no-install-project --no-dev
 
       - name: Re-validate and stage exactly the allowlisted files
         id: stage

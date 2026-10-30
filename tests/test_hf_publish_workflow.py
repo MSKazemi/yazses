@@ -254,6 +254,35 @@ def test_checkouts_do_not_persist_credentials() -> None:
                 assert step["with"]["persist-credentials"] is False
 
 
+def _setup_args(job: str) -> list[str]:
+    setup = next(s for s in JOBS[job]["steps"] if s.get("uses") == "./.github/actions/setup-uv-python")
+    return str(setup["with"]["sync-args"]).split()
+
+
+def test_the_validate_job_can_import_the_package_its_tests_load() -> None:
+    """`validate` runs pytest, and tests/conftest.py imports `yazses` while it loads. pytest has
+    no `pythonpath = src`, so a `--no-install-project` sync with no PYTHONPATH stops every test
+    at collection (ModuleNotFoundError, exit 4), and `publish` (needs: validate) never runs."""
+    conftest = (ROOT / "tests" / "conftest.py").read_text(encoding="utf-8")
+    if not re.search(r"^(?:from|import) yazses\b", conftest, re.M):
+        return  # the premise is gone; nothing to require
+    pytest_steps = [s for s in JOBS["validate"]["steps"] if "pytest" in s.get("run", "")]
+    assert pytest_steps, "validate is expected to run the Hugging Face contract tests"
+    installed = "--no-install-project" not in _setup_args("validate")
+    for step in pytest_steps:
+        on_path = "src" in str(step.get("env", {}).get("PYTHONPATH", "")).split(":")
+        assert installed or on_path, f"{step.get('name')}: `yazses` is not importable there"
+
+
+def test_the_job_that_holds_the_oidc_token_installs_neither_the_project_nor_the_dev_group() -> None:
+    """The publish job runs hf_preflight.py and `hf`, nothing else; pytest, ruff and mypy have no
+    business in the one environment that can obtain a Hub token."""
+    args = _setup_args("publish")
+    assert "--no-install-project" in args and "--no-dev" in args, args
+    assert not any(a.startswith(("--group", "--all-groups", "--extra", "--all-extras")) for a in args), args
+    assert not any("pytest" in s.get("run", "") for s in _publish_steps())
+
+
 def test_python_setup_uses_the_repository_composite_with_a_pinned_interpreter() -> None:
     for job in JOBS.values():
         setups = [s for s in job["steps"] if s.get("uses") == "./.github/actions/setup-uv-python"]
