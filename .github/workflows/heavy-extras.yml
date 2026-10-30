@@ -66,11 +66,12 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-
-      - name: Install dependencies (with the two heavy extras)
-        run: uv sync --extra diarization-pyannote --extra voiceprint-resemblyzer
+      # Repository-owned composite: uv, the interpreter and `uv sync` (CI_POLICY.md §8).
+      - name: Install uv and dependencies (with the two heavy extras)
+        uses: ./.github/actions/setup-uv-python
+        with:
+          python-version: "3.12"
+          sync-args: --extra diarization-pyannote --extra voiceprint-resemblyzer
 
       # `resemblyzer` -> `webrtcvad` -> `import pkg_resources`, which setuptools
       # removed (80.10.2 has it; 83.0.0 and 84.0.0 do not). `pyproject.toml` used to

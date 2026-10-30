@@ -405,6 +405,51 @@ boundaries.
 A cache miss is a performance event, not a correctness failure. A poisoned or incompatible
 cache is a correctness risk.
 
+**The uv cache.** Every job that installs uv through `astral-sh/setup-uv`, directly or
+through the composite below, also gets setup-uv's built-in cache: its `enable-cache` input
+defaults to `auto`, which is on for GitHub-hosted runners. Read from setup-uv's source at
+the pinned commit (`c18668ad`, v10.2.0, `src/cache/restore-cache.ts`), the key is
+`setup-uv-2-<arch>-<platform>-<OS image>-<interpreter>-<hash of pyproject.toml, uv.lock
+and requirements files>`, and it is restored by exact match only. There is no restore-key
+prefix, so no entry can cross an architecture, OS image or interpreter. The uv version is
+not in the key. This repository accepts that because uv keeps one versioned bucket per
+cache format, and a different uv reads only its own buckets. A local cache read on
+2026-10-30 held `wheels-v6` and `wheels-v7` side by side. Two jobs that sync different
+extras share a key when they share an OS image and an interpreter. The first to save wins,
+and a job that hits does not save, so the other job downloads its extra wheels again. That
+costs time, not correctness. `tests/test_ci_composite_actions.py` fails if the composite
+passes setup-uv any input besides `version` and `python-version`. Whoever changes that
+also updates this paragraph and the test together.
+
+**`actions/cache` steps** (3 on 2026-10-30, counted with `git grep`): the LibriSpeech
+corpus and the Whisper checkpoints in `benchmark.yml`, and the docs' mirrored web fonts
+in `docs.yml`. All three hold data, not built code. The corpus key has no OS because the
+corpus is immutable. The checkpoints key names `runner.os` and `runner.arch`. The font
+mirror runs on Linux only, and its restore-key prefix can only match that one family.
+
+### Artifact retention
+
+An `actions/upload-artifact` step states `retention-days`. Without it the artifact lives
+for the repository's setting, which was 90 days (the maximum) when read on 2026-10-30
+with `gh api repos/MSKazemi/yazses/actions/permissions/artifact-and-log-retention`.
+Nobody chose that number for any particular artifact. Pick the value by what the
+artifact is for:
+
+| Artifact | Retention | Examples today |
+|---|---|---|
+| A copy of a report that the same run also sends somewhere durable | 5 days | Scorecard SARIF, which also goes to code scanning |
+| Build output a person downloads to try, or a periodic report | 14 days | macOS and Windows bundles, snaps, CI telemetry |
+| Evidence someone may compare against weeks later | 30 days | eye-eval records, packs spike, traceability |
+
+On 2026-10-30, 9 of the 15 upload steps stated a value, and 6 inherited the default. Those
+6 are listed in `INHERITS_DEFAULT` in `tests/test_ci_artifact_retention.py`. The list
+compares both ways, so a new upload without `retention-days` fails the suite. It also
+fails when one of the 6 gains a value but keeps its entry. The test requires a literal
+integer from 1 to 90.
+The six are not changed here. One is the release `.deb`, and a lifetime is a storage and
+release decision for its owner. `actions/upload-pages-artifact` is not covered by this
+rule, because the Pages deploy consumes it in the same run.
+
 ### Reuse
 
 Extract stable, non-secret setup first. Keep signing, publishing, and permission-sensitive
@@ -416,39 +461,63 @@ The purpose of reuse is preventing policy drift, not minimizing line count.
 repository-owned composite action `.github/actions/setup-uv-python`. It installs uv, pins
 the interpreter with `python-version` (required, never left to the runner image), and runs
 `uv sync` with extra arguments in `sync-args`. The action holds no secret, no permission
-block and no cache, so the calling job keeps every decision about tokens and caches. A job
-that cannot use it says why in a comment beside its setup step.
+block and no `actions/cache` step, so the calling job keeps every decision about tokens and
+its own caches. setup-uv's built-in uv cache does apply ("Caches" above). A job that
+cannot use the composite is listed, with the reason, in `DIRECT_SETUP_UV` in
+`tests/test_ci_composite_actions.py`. A new direct call fails the suite until it is listed.
 
-**The rule for caches and timeouts.** A cache decision has one rule: the key includes every
-property listed under "Caches" above, and it lives in the job that uses it. A timeout
-decision has one rule: the numbered rule under "Timeouts" above. A job that deviates from
-either states which property it changes in a comment beside the key or the limit.
+**The rule for caches, timeouts and retention.** A cache decision has one rule: the key
+includes every property listed under "Caches" above, and it lives in the job that uses it.
+A timeout decision has one rule: the numbered rule under "Timeouts" above. An artifact's
+lifetime has one rule: the table under "Artifact retention" above. A job that deviates
+from any of them states which property it changes in a comment beside the key, the limit
+or the `retention-days`.
 
 ### Repeated setup
 
-Counted on `origin/main` (759f1fbc) with `git grep`. Each count is the number of matching
-lines across `.github/workflows/*.yml`, and the file count is how many files contain at
-least one:
+This is a measurement, not a standing fact: the counts are from 2026-10-30, on the tree
+that migrated the second batch of jobs (base `origin/main` 4fda3403). Each count is the
+number of matching lines across `.github/workflows/*.yml`. The file count is how many
+files contain at least one. To repeat it:
 
 ```sh
-git grep -h "uses: astral-sh/setup-uv@" origin/main -- .github/workflows | wc -l
-git grep -l "uses: astral-sh/setup-uv@" origin/main -- .github/workflows | wc -l
+git grep -h "uses: astral-sh/setup-uv@" -- .github/workflows | wc -l
+git grep -l "uses: astral-sh/setup-uv@" -- .github/workflows | wc -l
+git grep -hE '^\s*(- )?(run: )?uv sync' -- .github/workflows | wc -l   # commands, not comments
 ```
 
-| Setup step | Lines | Files | Status |
+| Setup step | Before (4fda3403) | After | Status |
 |---|---:|---:|---|
-| `uses: actions/checkout@` | 49 | 33 | Not extracted. `fetch-depth` and `filter` differ per job, and the comments beside them explain why. |
-| `uses: astral-sh/setup-uv@` | 19 | 10 | 3 migrated to the composite: `test-linux`, `test` and the `docs` build. The rest are macOS, Windows, release and publish legs, or have no `version` input (see below). |
-| `uv sync` in a command | 15 | 8 | The same 3 migrated. The others carry different extras, or sit in a release, build or Windows leg. |
-| `sudo apt-get update` | 8 | 5 | Not extracted. Each job's package list differs. |
-| `sudo apt-get install` | 10 | 6 | Not extracted, for the same reason. |
-| `uses: actions/setup-python@` | 4 | 4 | Not extracted in this pass. Those four jobs were not read in depth. |
-| `uses: actions/cache@` | 3 | 2 | Not extracted. Keys are job-specific and stay beside the job that uses them. |
+| `uses: ./.github/actions/setup-uv-python` | 3 lines, 2 files | 9 lines, 3 files | `test-linux`, `test`, the `docs` build, and now `repo-hygiene`, `gui`, `extras`, `benchmark-harness`, `windows-update-handoff` and `heavy-extras`. |
+| `uses: astral-sh/setup-uv@` | 16 lines, 9 files | 10 lines, 7 files | `test.yml` has none left. Each remaining job is listed with its reason in `DIRECT_SETUP_UV` in `tests/test_ci_composite_actions.py`: release and build lanes, `benchmark.yml` (its sync is conditional per leg), `macos-smoke.yml` (no sync step of its own), and `eye-eval-ci.yml` (its own test pins the setup step's shape; next to migrate). |
+| `uv sync` as a command | 12 lines, 6 files | 6 lines, 4 files | The rest are in `benchmark.yml`, `eye-eval-ci.yml`, `packs-spike.yml` and `release.yml`. |
+| `uses: actions/checkout@` | 49 lines, 33 files | unchanged | Not extracted. `fetch-depth` and `filter` differ per job, and the comments beside them explain why. |
+| `sudo apt-get update` | 8 lines, 5 files | unchanged | Not extracted. Each job's package list differs. |
+| `sudo apt-get install` | 10 lines, 6 files | unchanged | Not extracted, for the same reason. |
+| `uses: actions/setup-python@` | 4 lines, 4 files | unchanged | Not extracted. These jobs (`fuzz`, `link-check`, `traceability`, `dependabot-sbom`) use pip or only the standard library, not uv. Moving them to uv would change behaviour, so it is not a setup extraction. |
+| `uses: actions/cache@` | 3 lines, 2 files | unchanged | Not extracted. Keys are job-specific and stay beside the job that uses them ("Caches" above). |
 
-The composite's `uv-version` input defaults to `latest`, which matches the `version: "latest"`
-that the three migrated jobs set. The jobs with no `version` input, such as `benchmark-harness`,
-`extras` and `gui`, are not migrated: whether `astral-sh/setup-uv` with no `version` resolves
-to the same uv was not verified here. Migrate them after that is checked, not before.
+**Why the second batch is the same uv and the same interpreter.** Those six jobs passed no
+`version` to setup-uv, and five of them passed no `python-version` either. The composite
+passes `latest` and, here, `"3.12"`. Their logs on `main` before the change show what they
+resolved to. On run 40964872494 (4fda3403, 2026-10-29), `repo-hygiene`, `gui` (both OSes),
+`extras`, `benchmark-harness` and `windows-update-handoff` each logged "Could not determine
+uv version from uv.toml or pyproject.toml. Falling back to latest." and installed uv
+0.13.6. `test-linux`, which passes `latest`, installed the same 0.13.6. `heavy-extras` (run
+40312521603, 2026-10-26) logged the same fallback. setup-uv's resolver at the pinned commit
+(`src/version/version-request-resolver.ts`) falls back to `latest` only when there is no
+`version` input and neither `uv.toml` nor `pyproject.toml` names a uv version. Neither does.
+The unpinned Linux jobs ran CPython 3.12.3 from `/usr/bin/python3`, the same interpreter
+`test-linux` gets with `3.12`. The unpinned Windows `gui` leg ran CPython 3.12.10 from the
+tool cache, the same as the pinned `windows-update-handoff`. One thing does change: the uv
+cache key now names `3.12` instead of `3.12.3`, so these jobs share a cache entry with
+`test-linux` ("Caches" above).
+
+**Runtime evidence.** #537 asks for before/after timings. This change removes repeated
+lines and resolves the same uv and interpreter as before, so no runtime change is
+expected. That is a prediction, not a measurement, and it stays one until CI runs on the
+change. Compare the setup steps of the six jobs on the first `main` run after it merges
+against run 40964872494.
 
 ---
 

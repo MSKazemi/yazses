@@ -180,6 +180,12 @@ permission that does not exist on Windows.
 
 The repeated uv, interpreter and `uv sync` sequence now lives in `.github/actions/setup-uv-python`, a repository-owned composite action with no secrets, no permission block and no cache of its own. Three jobs use it: `test-linux`, `test` and the docs build. Their uv version, interpreter and sync are unchanged. The inventory of repeated setup, and the rule for new Python jobs and for caches and timeouts, are in `.github/CI_POLICY.md` section 8. `tests/test_ci_composite_actions.py` checks the action's contract statically. Timeouts were already handled by #632.
 
+### Changed — CI: six more jobs use the setup composite; cache and artifact-lifetime rules are written down (#537)
+
+`repo-hygiene`, `gui`, `extras`, `benchmark-harness` and `windows-update-handoff` in `test.yml`, and the weekly `heavy-extras` job, now install uv, the interpreter and their dependencies through `.github/actions/setup-uv-python`. No job in `test.yml` calls `astral-sh/setup-uv` directly any more. Their logs on `main` before the change show they already resolved the same uv (0.13.6) and the same CPython 3.12 that the composite now pins, so neither should change. The jobs that still call setup-uv directly are release, build and benchmark legs, plus `eye-eval-ci.yml`. Each is listed with its reason in `tests/test_ci_composite_actions.py`, and a new unlisted direct call fails the suite.
+
+`.github/CI_POLICY.md` section 8 now records what setup-uv's built-in uv cache keys on. The key covers architecture, OS image, interpreter and the dependency files, matched exactly. The section also gives a rule for artifact lifetimes. A new `actions/upload-artifact` step must state `retention-days`, and `tests/test_ci_artifact_retention.py` enforces that. The six existing uploads that inherit the repository's 90-day default are listed there and left unchanged. The repeated-setup counts were re-measured on 2026-10-30.
+
 ### Changed — Telugu page: the opening says the key is released
 
 The Telugu page's opening paragraph now says that the key is pressed, held and then released, and
