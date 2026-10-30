@@ -261,9 +261,23 @@ after `ci-gate` has reported on at least one ordinary PR **and** on `main` (Part
 the aggregate check is proven"). PRs opened before the gate merged have no `ci-gate`
 check, so their head must be updated before they can merge.
 
-The live ruleset as read on 2026-10-20 (`gh api repos/MSKazemi/yazses/rulesets/20550886`):
-`main: no force-push, no delete`, target `~DEFAULT_BRANCH`, rules `deletion` and
-`non_fast_forward`, **`bypass_actors: []`**.
+**That precondition is met (read on 2026-10-30).** `ci-gate` has reported from the GitHub
+Actions app (`app.id` 15368) on `main` and on ordinary PRs. Every path the gate decides
+has occurred live:
+
+| Case | Run | Result |
+|---|---|---|
+| `main` push (4fda3403) | [40964872494](https://github.com/MSKazemi/yazses/actions/runs/40964872494) | `ci-gate` success |
+| Blocking jobs red (PR #730) | [40965213978](https://github.com/MSKazemi/yazses/actions/runs/40965213978) | ten `test` legs failed, so `ci-gate` failed |
+| Only an advisory job red (PR #732) | [40995314982](https://github.com/MSKazemi/yazses/actions/runs/40995314982) | `freebsd` failed and `ci-gate` succeeded |
+| Fast lane (PR #731) | [40966653407](https://github.com/MSKazemi/yazses/actions/runs/40966653407) | `changes`, `repo-hygiene` and `test-linux` succeeded; the full-lane jobs were skipped; `ci-gate` succeeded |
+
+The arm64 question in §6.1 is still open. In run 40965213978 every `test` leg failed, so
+that run does not show how an arm64-only failure appears in `needs.test.result`.
+
+The live ruleset as read on 2026-10-20 and again, unchanged, on 2026-10-30
+(`gh api repos/MSKazemi/yazses/rulesets/20550886`): `main: no force-push, no delete`,
+target `~DEFAULT_BRANCH`, rules `deletion` and `non_fast_forward`, **`bypass_actors: []`**.
 
 The change keeps both existing rules and adds `pull_request` and `required_status_checks`.
 `PUT` replaces the whole rule list, so the payload repeats the two existing rules:
