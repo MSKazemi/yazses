@@ -68,7 +68,10 @@ offline ([#639](https://github.com/MSKazemi/yazses/issues/639), ADR-032 §2).
 description. It is an HTML comment, so it does not show on GitHub or PyPI. The first
 release with this line is the first one that can be listed.
 
-`release.yml` has a new `publish-mcp-registry` job. It is **skipped on every release**
+`release.yml` has a new `publish-mcp-registry` job. It is `continue-on-error`, and its
+environment must not get a required reviewer, because `apt-repo.yml` and `checksums.yml`
+wait on the `Release` run and a failed or pending job in it would stop them
+(`CI_POLICY.md` §11.2). It is **skipped on every release**
 until the maintainer sets the repository variable `MCP_REGISTRY_PUBLISH` to `true`.
 Once it is on, it runs after the PyPI upload and checks that the tag matches the
 version and that the README carries the marker. It then waits for PyPI to serve the

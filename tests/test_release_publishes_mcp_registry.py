@@ -92,8 +92,29 @@ def test_the_job_has_no_write_permission_and_no_secret() -> None:
     )[0]
 
 
-def test_the_job_has_an_environment_the_owner_can_protect() -> None:
+def test_the_job_has_an_environment_that_names_the_oidc_claim() -> None:
     assert _job()["environment"] == "mcp-registry"
+
+
+def test_a_registry_failure_cannot_fail_the_release_run() -> None:
+    """Other workflows chain on the `Release` run, so this job must not decide its outcome.
+
+    `apt-repo.yml` acts only when the run concludes `success`, and `checksums.yml` waits
+    while it is queued, in progress or `waiting`. A failure here would stop the APT
+    repository from updating; a required reviewer on the environment would hold both.
+    The coupling is derived from the workflow files, not restated, so the test stops
+    asking for `continue-on-error` only when nothing chains on `Release` any more.
+    """
+    chained = []
+    for path in sorted((ROOT / ".github" / "workflows").glob("*.y*ml")):
+        doc = yaml.safe_load(path.read_text(encoding="utf-8"))
+        # PyYAML reads the bare key `on` as the boolean True.
+        trigger = doc.get("on", doc.get(True)) or {}
+        run = trigger.get("workflow_run") if isinstance(trigger, dict) else None
+        if run and "Release" in (run.get("workflows") or []):
+            chained.append(path.name)
+    assert "apt-repo.yml" in chained, f"expected apt-repo.yml to chain on Release, got {chained}"
+    assert _job().get("continue-on-error") is True
 
 
 # --- the steps, in order -----------------------------------------------------------

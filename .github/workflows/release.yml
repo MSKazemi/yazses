@@ -87,8 +87,13 @@ jobs:
     # OFF BY DEFAULT, because publishing to the registry is outward-facing. The job
     # runs only after the owner sets the repository variable MCP_REGISTRY_PUBLISH to
     # `true` (Settings -> Secrets and variables -> Actions -> Variables). While it is
-    # unset the job is skipped and a release does exactly what it did before. The
-    # `mcp-registry` environment is where the owner can add a required reviewer too.
+    # unset the job is skipped and a release does exactly what it did before.
+    #
+    # It must never decide whether the RELEASE succeeded. apt-repo.yml runs only when
+    # this workflow run concludes `success`, and checksums.yml waits while this run is
+    # queued, in progress or `waiting`. So the job is `continue-on-error`, and the
+    # `mcp-registry` environment must NOT get a required reviewer: a pending approval
+    # would hold the run, and with it the APT repository and SHA256SUMS.txt.
     #
     # It needs no secret: `mcp-publisher login github-oidc` trades this job's OIDC
     # token for the namespace of the token's `repository_owner`, io.github.MSKazemi/*.
@@ -101,6 +106,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30   # waits up to 15 min for PyPI (SECONDS + 900) + 15; no measured run yet (CI_POLICY §8 rules 1, 3)
     needs: publish-pypi
+    # REMOVE WHEN: nothing waits on the Release run any more (apt-repo.yml and checksums.yml
+    # both chain on it today), or the registry publish has moved to its own workflow.
+    continue-on-error: true
     environment: mcp-registry
     permissions:
       contents: read

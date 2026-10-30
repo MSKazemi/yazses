@@ -534,8 +534,11 @@ There are two ways to do it.
 **In the release workflow (preferred).** `release.yml` has a `publish-mcp-registry`
 job that is skipped on every release until the owner turns it on. To turn it on, set
 the repository variable `MCP_REGISTRY_PUBLISH` to `true` (Settings → Secrets and
-variables → Actions → Variables). To add a reviewer gate on top, give the
-`mcp-registry` environment a required reviewer. From the next tag on, the job runs
+variables → Actions → Variables). **Do not add a required reviewer to the
+`mcp-registry` environment**: a pending approval would hold the whole `Release` run, and
+the APT repository (`apt-repo.yml`) and `SHA256SUMS.txt` (`checksums.yml`) wait on that
+run. The job is `continue-on-error`, so a failure in it does not fail the release either.
+From the next tag on, the job runs
 after `publish-pypi`. It renders `server.json` from the tag (`--expect-tag`,
 `--check-readme`), and waits up to 15 minutes for
 `https://pypi.org/pypi/yazses/<version>/json` to show the version with the marker,
@@ -561,7 +564,9 @@ describes, or use the pinned release and SHA-256 in `release.yml`.
 **Afterwards, and when the job fails.** Search for `io.github.MSKazemi/yazses` at
 `https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.MSKazemi/yazses`,
 then update the registry section of `docs/how-to/connect-mcp-client.md`, which says the
-entry is not listed yet. A failed job leaves the GitHub Release and PyPI as they were.
+entry is not listed yet. A failed job leaves the GitHub Release, PyPI, the APT repository
+and `SHA256SUMS.txt` as they were: it shows as a failed job inside a successful run, so
+look for it in the run's job list, and publish by hand (above) if it did not list.
 If the error says the version was not found on PyPI, re-run the failed job. For any
 other error, publish by hand as above. The registry is in preview, so a breaking
 change on its side shows up as a failed job and not as a broken release.

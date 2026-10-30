@@ -668,9 +668,16 @@ if: github.ref_type == 'tag' && vars.<CHANNEL>_PUBLISH == 'true'
 An unset variable reads as the empty string, so a release made before the owner decides
 publishes nothing, and the skipped job says why. A secret-presence check cannot do this
 for a channel that authenticates with OIDC, because there is no secret to be missing.
-Give the job its own `environment:` so the owner can add a required reviewer as well.
-Name the variable, where to set it and how to turn it off in the job's comment and in
-`packaging/README.md`, and add a test that pins the exact `if:` expression.
+Give the job its own `environment:` so the OIDC claim names it. Name the variable, where
+to set it and how to turn it off in the job's comment and in `packaging/README.md`, and
+add a test that pins the exact `if:` expression.
+
+A new channel's job must not decide whether the release succeeded. Other workflows chain
+on the `Release` run: `apt-repo.yml` acts only when it concludes `success`, and
+`checksums.yml` waits while it is queued, in progress or `waiting`. So the job sets
+`continue-on-error: true`, and its environment gets **no required reviewer**, because a
+pending approval holds the run and everything chained on it. A channel that needs a human
+approval belongs in its own workflow, not in `release.yml`.
 
 The first job of this kind is `release.yml`'s `publish-mcp-registry` (ADR-032 §2, #639),
 gated on `MCP_REGISTRY_PUBLISH` and tested by
