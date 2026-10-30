@@ -262,6 +262,33 @@ def test_the_repeat_run_has_a_stated_period_limit():
     assert q.longest_repeat_run(grams, max_period=q.MAX_REPEAT_PERIOD + 1) >= q.MAX_REPEAT_RUN
 
 
+def test_a_gram_that_recurs_but_not_back_to_back_is_not_a_loop():
+    """The match counter must reset when the periodic pattern breaks.
+
+    Each unit here shares its first and fifth words with the one before it, so two grams
+    recur at distance 8, but the grams between them differ every time (`x<i>`, `s<i>`).
+    That is scattered repetition, not a loop: the run must stay at 1. Without the reset
+    the matches accumulate across the gaps and this scores ~20, a false "degenerate".
+    """
+    words: list[str] = []
+    for i in range(80):
+        words += ["a", "b", "c", f"x{i}", "p", "q", "r", f"s{i}"]
+    assert q.longest_repeat_run(q._ngrams(words)) == 1
+
+
+def test_the_period_limit_is_eight_words_exactly():
+    """Pinned by value, not through the constant, so a changed limit shows up here.
+
+    The CHANGELOG and ADR-v2-134 both promise a looping unit of up to 8 words is seen
+    and a 9-word one is not.
+    """
+    assert q.MAX_REPEAT_PERIOD == 8
+    eight = [_word(i, "z") for i in range(8)] * 16
+    nine = [_word(i, "z") for i in range(9)] * 16
+    assert q.longest_repeat_run(q._ngrams(eight)) >= q.MAX_REPEAT_RUN
+    assert q.longest_repeat_run(q._ngrams(nine)) < q.MAX_REPEAT_RUN
+
+
 def test_the_repeat_run_of_a_single_word_loop_is_unchanged():
     """Period 1 must reproduce the original neighbour-only count."""
     grams = q._ngrams(("hello " * 20).split())
