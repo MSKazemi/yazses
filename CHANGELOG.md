@@ -66,7 +66,9 @@ ceiling is dropped while faster-whisper still passes the removed argument.
 
 A showcase Space, a benchmark-results dataset and the hosted demo Space are live under the
 maintainer's Hub account (`mskazemi`), and the `yazses` organization carries a short card and
-a research collection. Everything is sourced from `huggingface/` in this repository.
+a research collection. `huggingface/` in this repository is now the source of truth for
+those pages; they were first put up by hand, and from now on changes go through the publish
+workflow.
 
 - **Source for the Hub pages**: an organization card, a static showcase Space, and the
   hardened hosted-demo Space (`huggingface/space-demo/`: upload size and duration limits,
@@ -74,11 +76,13 @@ a research collection. Everything is sourced from `huggingface/` in this reposit
   audio widget, the arXiv link that lets Hugging Face Papers index the paper, and a table of
   how the demo differs from the desktop pipeline).
 - **A benchmark dataset of results**, not audio: `scripts/export_hf_benchmarks.py` turns an
-  allowlist of `paper/results/` files into 14 CSV tables with provenance (source hash and
-  commit, machine, versions, corpus). Significance analyses stay in their own tables, a
+  allowlist of `paper/results/` files into 14 CSV tables with provenance (source path and
+  SHA-256, machine, versions, corpus; no git commit, so the committed export does not go
+  stale when a branch is squash-merged). Significance analyses stay in their own tables, a
   value the source does not record stays empty, and `--check` fails on drift.
 - **`scripts/hf_preflight.py`** validates exactly what may be uploaded (no private trees,
-  secrets, audio, PDFs or broken links) and cannot publish. **`scripts/hf_collection.py`**
+  secrets, audio, PDFs, broken links, or a live collection note still saying "Planned") and
+  cannot publish. **`scripts/hf_collection.py`**
   maintains a Hub Collection idempotently, dry-run by default.
 - **`huggingface-publish.yml`**: manual-only, read-only validation first, then an upload from
   `main` through Hugging Face Trusted Publishers (short-lived OIDC credentials, no stored
