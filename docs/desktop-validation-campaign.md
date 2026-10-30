@@ -9,7 +9,7 @@ description: Evidence-led plan for validating YazSes desktop releases before bro
 
 ## Scope and freeze
 
-Prioritize a reliable desktop hold-to-talk path (Linux first, Windows/macOS preview) and independently observed first use. Freeze *new* desktop capability waves, not defect fixes, release tooling, security maintenance, already-planned integrations, or Android's separately managed M1 work. The opt-in camera, eye, EMG and HCI/Hugging Face research tracks are not implied to be production-ready by this campaign.
+Prioritize a reliable desktop hold-to-talk path (Linux first, Windows/macOS preview) and independently observed first use. Freeze *new* desktop capability waves, not defect fixes, release tooling, security maintenance, the two ADR-030 Pillar 2 bridges ("Send to" prefill, [#637](https://github.com/MSKazemi/yazses/issues/637); the discoverable MCP server, [#638](https://github.com/MSKazemi/yazses/issues/638) and [#639](https://github.com/MSKazemi/yazses/issues/639)), or Android's separately managed M1 work. The opt-in camera, eye, EMG and HCI/Hugging Face research tracks are not implied to be production-ready by this campaign.
 
 **CI success is not human hardware validation.** The matrix retains the precise result wording and version-specific citations; failures stay visible until a later hardware retest. Do not promote preview claims, cross-platform support, or hands-free defaults from a green test suite.
 
