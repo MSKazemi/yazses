@@ -488,7 +488,7 @@ workflow.
 
 Two ways for an MCP client to find `yazses mcp-server`. Neither ships a second copy of
 YazSes. The bundle is attached to releases from the first one after v2.44.0; the
-registry entry is not published yet. The user-facing page is
+registry entry is ready but not published yet. The user-facing page is
 [`../docs/how-to/connect-mcp-client.md`](../docs/how-to/connect-mcp-client.md).
 
 **The `.mcpb` bundle.** `python3 scripts/build-mcpb.py` writes
@@ -503,28 +503,65 @@ compare `sha256sum /tmp/mcpb/*.mcpb` with the published line. Not yet installed 
 real client.
 
 **The MCP registry entry.** `python3 scripts/render-mcp-server-json.py` writes
-`dist/server.json` from `mcp-registry/server.template.json`. It points at PyPI's
-`yazses` at the project version, over stdio, with the argument `mcp-server`. Publishing
-is an outward-facing step the owner runs by hand:
+`dist/server.json` from `mcp-registry/server.template.json`. It names the server
+`io.github.MSKazemi/yazses` and points at PyPI's `yazses` at the project version, over
+stdio, with the argument `mcp-server`.
 
-1. **Ownership marker.** The registry accepts a PyPI package only if its PyPI
-   description (our `README.md`) contains the line `mcp-name: io.github.MSKazemi/yazses`,
-   for example as an HTML comment, `<!-- mcp-name: io.github.MSKazemi/yazses -->`. Add
-   it, and cut a release so a version on PyPI carries it.
-2. **Check out that release tag** and run `python3 scripts/render-mcp-server-json.py`.
-   `server.json` takes its version from `pyproject.toml`, and the registry rejects a
-   version that is not on PyPI.
-3. **Check the fields against the registry's current schema.** Install `mcp-publisher`
-   as the [registry's publishing guide](https://github.com/modelcontextprotocol/registry)
-   describes, run `mcp-publisher init` in an empty scratch directory, and compare the
-   file it writes with `dist/server.json`. Copy its `$schema` line in, and fix any
-   field name that has changed in `mcp-registry/server.template.json` too. The template
-   has no `$schema` line because the schema version could not be confirmed offline.
-4. **Log in** from `dist/` with `mcp-publisher login github`, as the `MSKazemi` account.
-   The `io.github.MSKazemi/` namespace is tied to that GitHub account.
-5. **Publish** with `mcp-publisher publish`, still in `dist/`.
-6. **Verify** by searching for `io.github.MSKazemi/yazses` in the registry. Then update
-   the docs page, which still says the entry is not listed.
+*What it was checked against (2026-10-30).* The fields follow the server.json schema
+[`2025-12-11`](https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json),
+the current released one; everything newer in the registry's
+[schema CHANGELOG](https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/server-json/CHANGELOG.md)
+is still "Draft (Unreleased)". The PyPI rules come from the registry's
+[package types](https://github.com/modelcontextprotocol/registry/blob/main/docs/modelcontextprotocol-io/package-types.mdx)
+page (PyPI section),
+[official registry requirements](https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/server-json/official-registry-requirements.md)
+and [GitHub Actions guide](https://github.com/modelcontextprotocol/registry/blob/main/docs/modelcontextprotocol-io/github-actions.mdx),
+read at registry commit `72042e51` (release `v1.8.6`). `mcp-publisher validate` from
+that release accepted the rendered file. A copy of the schema is vendored in
+`tests/fixtures/mcp_registry/`, and `tests/test_mcp_registry_server_json.py` checks the
+rendered file against it offline. When the registry releases a newer schema, vendor it
+and move the template's `$schema` line in the same change.
 
-Each later release needs steps 2, 4 and 5 again with the new version. That can join the
-release workflow only after the owner approves it, under `.github/CI_POLICY.md`.
+*The ownership marker.* The registry accepts a PyPI package only if the PyPI
+description of that version (our `README.md`) contains `mcp-name: io.github.MSKazemi/yazses`
+followed by a space, a newline, `<` or `-->`. `README.md` carries it as an HTML comment
+under the title, so it does not show on GitHub or PyPI. A version released before this
+line was added cannot be listed. **Do not edit or remove the comment.**
+
+Publishing is an outward-facing step, so nothing publishes until the owner decides to.
+There are two ways to do it.
+
+**In the release workflow (preferred).** `release.yml` has a `publish-mcp-registry`
+job that is skipped on every release until the owner turns it on. To turn it on, set
+the repository variable `MCP_REGISTRY_PUBLISH` to `true` (Settings → Secrets and
+variables → Actions → Variables). To add a reviewer gate on top, give the
+`mcp-registry` environment a required reviewer. From the next tag on, the job runs
+after `publish-pypi`. It renders `server.json` from the tag (`--expect-tag`,
+`--check-readme`), and waits up to 15 minutes for
+`https://pypi.org/pypi/yazses/<version>/json` to show the version with the marker,
+because that is the URL the registry reads. It then downloads `mcp-publisher` at a
+pinned version and checks its SHA-256, logs in with `mcp-publisher login github-oidc`,
+which needs no secret, and runs `mcp-publisher publish`. To turn it off again, delete
+the variable.
+
+**By hand,** from a checkout of a release tag whose PyPI page carries the marker:
+
+```bash
+python3 scripts/render-mcp-server-json.py --out-dir dist \
+  --expect-tag "$(git describe --tags --exact-match)" --check-readme
+mcp-publisher validate dist/server.json   # sends the file to the registry's /v0/validate; publishes nothing
+mcp-publisher login github                # as the MSKazemi account: grants io.github.MSKazemi/*
+mcp-publisher publish dist/server.json
+```
+
+Install `mcp-publisher` as the registry's
+[publishing quickstart](https://github.com/modelcontextprotocol/registry/blob/main/docs/modelcontextprotocol-io/quickstart.mdx)
+describes, or use the pinned release and SHA-256 in `release.yml`.
+
+**Afterwards, and when the job fails.** Search for `io.github.MSKazemi/yazses` at
+`https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.MSKazemi/yazses`,
+then update the registry section of `docs/how-to/connect-mcp-client.md`, which says the
+entry is not listed yet. A failed job leaves the GitHub Release and PyPI as they were.
+If the error says the version was not found on PyPI, re-run the failed job. For any
+other error, publish by hand as above. The registry is in preview, so a breaking
+change on its side shows up as a failed job and not as a broken release.

@@ -1,5 +1,7 @@
 # YazSes
 
+<!-- mcp-name: io.github.MSKazemi/yazses -->
+
 **Offline voice typing for Linux, macOS and Windows.** Hold a key, speak, release, and your
 words are typed into whatever app you are using.
 

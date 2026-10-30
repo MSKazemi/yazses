@@ -53,6 +53,30 @@ running, with only an orphaned daemon running, and brought the tray back after a
 The test that kept `Exec` out of the installer's code now allows exactly the three programs this
 step starts.
 
+### Added — the MCP registry entry is checked against the registry's schema, and publishing is ready but off
+
+`server.json` for the official MCP registry (`io.github.MSKazemi/yazses`, PyPI's
+`yazses` over stdio with the argument `mcp-server`) now names its schema,
+[`2025-12-11`](https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json).
+It also gains a `title` and a `websiteUrl`. Every field was checked against that schema
+and against the registry's PyPI publishing rules, and `mcp-publisher validate` 1.8.6
+accepts the file. A vendored copy of the schema lets the tests check the rendered file
+offline ([#639](https://github.com/MSKazemi/yazses/issues/639), ADR-032 §2).
+
+`README.md` now carries the registry's ownership line,
+`<!-- mcp-name: io.github.MSKazemi/yazses -->`, which the registry looks for in the PyPI
+description. It is an HTML comment, so it does not show on GitHub or PyPI. The first
+release with this line is the first one that can be listed.
+
+`release.yml` has a new `publish-mcp-registry` job. It is **skipped on every release**
+until the maintainer sets the repository variable `MCP_REGISTRY_PUBLISH` to `true`.
+Once it is on, it runs after the PyPI upload and checks that the tag matches the
+version and that the README carries the marker. It then waits for PyPI to serve the
+release, and publishes with a pinned, checksum-verified `mcp-publisher` over GitHub
+OIDC, so no secret is stored. `scripts/render-mcp-server-json.py` gains
+`--expect-tag`, `--check-readme` and `--check-pypi-json` for those checks. YazSes is
+**not listed in the registry yet**. The steps are in `packaging/README.md`.
+
 ### Changed — the German page was reviewed by a native speaker
 
 `docs/de/index.md` was a machine-assisted draft. A native German reader reworded it so it reads

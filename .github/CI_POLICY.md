@@ -655,6 +655,27 @@ Its policy surface is `huggingface/manifest.json`, enforced by `scripts/hf_prefl
 until a real run exists (§8, rule 3). Nothing in the repository can create a Hub repository,
 configure a Trusted Publisher, or approve a destination; those are owner actions.
 
+### 11.2 A new publishing channel starts off
+
+A job that publishes to a channel the project has never published to is outward-facing.
+It lands **off**, and only the owner turns it on. Gate the job on a repository variable,
+not on a missing secret:
+
+```yaml
+if: github.ref_type == 'tag' && vars.<CHANNEL>_PUBLISH == 'true'
+```
+
+An unset variable reads as the empty string, so a release made before the owner decides
+publishes nothing, and the skipped job says why. A secret-presence check cannot do this
+for a channel that authenticates with OIDC, because there is no secret to be missing.
+Give the job its own `environment:` so the owner can add a required reviewer as well.
+Name the variable, where to set it and how to turn it off in the job's comment and in
+`packaging/README.md`, and add a test that pins the exact `if:` expression.
+
+The first job of this kind is `release.yml`'s `publish-mcp-registry` (ADR-032 §2, #639),
+gated on `MCP_REGISTRY_PUBLISH` and tested by
+`tests/test_release_publishes_mcp_registry.py`.
+
 ---
 
 ## 12. CI service-level objectives

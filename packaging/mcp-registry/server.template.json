@@ -1,6 +1,9 @@
 {
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.MSKazemi/yazses",
+  "title": "YazSes",
   "description": "Offline speech-to-text: transcribe files locally, or (opt-in) ask the user a question aloud.",
+  "websiteUrl": "https://mskazemi.com/yazses/",
   "repository": {
     "url": "https://github.com/MSKazemi/yazses",
     "source": "github"
