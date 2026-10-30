@@ -53,6 +53,11 @@ The XR code has no OpenXR, Unity or network dependency of its own.
 | Coordinate-convention conversion | `yazses.xr.conventions` | Library; two conventions are assumptions |
 | Mapping a ray hit onto a grounding target | `yazses.xr.grounded` | Library, synthetic tests |
 | Synthetic data generator | `yazses.xr.synth` | Test support |
+| Which route reaches which device | `yazses.xr.routes` | Static table |
+| OpenXR data mapping ([guide](xr-openxr.md)) | `yazses.xr.openxr` | Library, synthetic tests |
+| WebXR data mapping ([guide](xr-webxr.md)) | `yazses.xr.webxr` | Library, synthetic tests |
+| Apple visionOS / ARKit mapping ([guide](xr-visionos.md)) | `yazses.xr.visionos` | Library, synthetic tests |
+| Unity / Unreal / Godot axis conversion ([guide](xr-engines.md)) | `yazses.xr.engines` | Library, synthetic tests |
 
 See [what is not built yet](#what-is-not-built-yet) at the end.
 
@@ -364,6 +369,23 @@ are **unconfirmed against vendor documentation**, and **unknown means unknown**,
 `hands-free`; Android XR and Vision Pro suggest `balanced`, and the rest `voice-only`. A device appearing in this table says nothing about whether a companion
 app exists for it. None does today.
 
+## Choosing a route
+
+A headset app reaches the adapter by one of three routes, each with its own guide. They differ
+in what they can give the "this / here" binder, which needs a stream of pointing rays around
+the moment you speak, not a single ray.
+
+| Route | Guide | Pointing between gestures | Caveat |
+|---|---|---|---|
+| OpenXR runtime (native app) | [OpenXR](xr-openxr.md) | Yes (eye gaze if the runtime grants the extension, hands, controllers) | Eye gaze is optional and may not be granted |
+| WebXR page in the headset browser | [WebXR](xr-webxr.md) | Depends on the input mode | `gaze` is a head ray; Safari on visionOS lists no input until you pinch |
+| visionOS native app | [Apple Vision Pro](xr-visionos.md) | No continuous gaze; one ray at the pinch | "This" binds only from hands or the head; otherwise YazSes asks |
+
+If your app is built in Unity, Unreal or Godot, [the engine guide](xr-engines.md) shows how to
+convert its axes and units first; it applies on top of any route. `yazses.xr.routes` holds this
+table in code. Nothing here is wired into YazSes yet, and every route is tested on synthetic
+data only.
+
 ## Panels and the dictation target
 
 The companion reports panels; the registry keeps at most 64 of them and evicts the
@@ -434,7 +456,9 @@ still unwired.
 - No companion app for any headset, glasses or phone.
 - No real-device data. Every test input is synthetic, so latency, jitter, the binding
   window, the confirm thresholds and the gesture timings are unvalidated.
-- Android XR and visionOS coordinate handling are unconfirmed assumptions.
+- Android XR and visionOS coordinate handling are unconfirmed assumptions. On visionOS the
+  platform gives an app no continuous eye gaze, so "this" cannot be bound from gaze there
+  (see the [visionOS guide](xr-visionos.md)).
 - Per-device capabilities beyond the table above are unknown.
 - No documentation of config keys or commands, because there are none to document.
 

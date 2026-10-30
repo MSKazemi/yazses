@@ -63,6 +63,8 @@ Pure standard-library Python; the only imports from outside the package are from
 | Static device capability table (unknown is `None`, never `False`) | `devices.py` |
 | `XrSession`: the pure composition of all of the above (wire → clock map → filters → retention / registry / PTT → binding → confirm → snapshot); no thread, no socket, no clock; the host calls `feed_frame` and `tick`, and `reset()`s after `COMPANION_MISBEHAVING` | `session.py` |
 | Seeded synthetic trajectories and scenarios | `synth.py` |
+| Platform mapping layers, each pure data-in/data-out with no SDK import: OpenXR poses, action states and hand joints; WebXR input-source modes, events and timestamps; visionOS/ARKit transforms, pinch detection and a capability table (apps receive no continuous gaze); Unity/Unreal/Godot axis, unit and handedness conversion, composed from `conventions.py` | `openxr.py`, `webxr.py`, `visionos.py`, `engines.py` |
+| Static table of companion routes (OpenXR, WebXR, visionOS), the device profiles each reaches and whether it gives the binder a continuous ray | `routes.py` |
 
 **Not built, and the ADR does not pretend otherwise [M]:** nothing outside `xr/` imports it;
 there is no `[xr]` config section (`grep -n -i xr src/yazses/config.py` finds only an unrelated

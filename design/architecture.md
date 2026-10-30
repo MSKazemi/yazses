@@ -488,6 +488,9 @@ its frames (`bridge/` holds the pairing state machine and audio framing only). I
 | `privacy.py` | `SampleRetention` (bounded, log-safe; defaults 2.0 s / 240 samples; refuses future-stamped samples, pickling and copying), `redact_for_log`, `may_persist`, and `EGRESS = frozenset()` |
 | `devices.py` | Static capability table; unknown is `None`, never `False`. Eye tracking is unknown for every profile; hand tracking is `True` for Android XR and Vision Pro on OS-level quotes from the repo's research note, unconfirmed against vendor documentation |
 | `synth.py` | Seeded synthetic trajectories for tests and offline evaluation |
+| `routes.py` | Static table of companion routes (OpenXR, WebXR, visionOS) with the device profiles each reaches and whether the route gives the binder a continuous ray. The root through which `devices.py` reaches the route modules |
+| `openxr.py`, `webxr.py`, `visionos.py` | Pure mappings of one platform's data (OpenXR poses and action states, WebXR input sources and events, ARKit transforms and system pinch events) into `XrSample`/`GestureEvent`. No SDK import. visionOS exposes no continuous gaze, so the binder abstains there rather than guesses; the pinch-time ray is tagged `EYE` though it is a single sample |
+| `engines.py` | Unity (left-handed, +Z forward), Unreal (left-handed, +Z up, cm) and Godot axis/unit conversion for positions, directions, quaternions, rays and panels, composed from `conventions.py`; tested by identical ray hits before and after conversion |
 
 **Invariants.**
 1. *The kernel knows nothing about XR.* The only kernel-side trace is the enum member

@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from yazses.xr import routes
+
 # Names of the modality presets in modality/router.py PRESETS. Hard-coded so this module
 # stays dependency-free; tests/test_xr_devices.py checks them against the real table.
 PRESET_BALANCED = "balanced"
@@ -126,7 +128,12 @@ _PROFILES: tuple[DeviceProfile, ...] = (
         has_hand_tracking=True,
         has_microphone_stream=None,
         companion="on-device companion app",
-        notes="Gaze-target + pinch is the shipped spatial default; text entry is slow.",
+        notes=(
+            "Gaze-target + pinch is the shipped spatial default; text entry is slow. "
+            "Eye tracking is unknown here because the headset tracks eyes but the platform "
+            "does not hand an app a gaze ray (docs/xr-visionos.md); hand tracking needs a "
+            "Full Space and the user's permission."
+        ),
         evidence=(
             f"{_RESEARCH}: 'Vision Pro gaze-target + pinch' is the shipped spatial "
             "default - an OS-level interaction statement. It does not say an app "
@@ -151,6 +158,11 @@ def get(key: str) -> DeviceProfile:
         return _BY_KEY[key]
     except (KeyError, TypeError):
         raise KeyError(f"unknown XR device {key!r}; known devices: {', '.join(keys())}") from None
+
+
+def companion_routes(key: str) -> tuple[routes.Route, ...]:
+    """Companion-app routes (OpenXR, WebXR, visionOS) that can reach this device."""
+    return routes.routes_for_device(get(key).key)
 
 
 def suggest_preset(profile: DeviceProfile) -> str:

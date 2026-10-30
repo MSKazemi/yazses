@@ -14,7 +14,10 @@ wire format for a companion device, and a confirm rule. It is **not wired into t
 no `[xr]` setting and no command — and it opens no network path. It is tested on synthetic data only;
 `design/research/2026-10-30-xr-synthetic-evaluation.md` records where the defaults fall short
 (a high prompt rate, and silent wrong binds when the eyes have moved on before the word).
-The confirm rule now holds on specific signals (a rival panel within the angular
+The mapping layers for the technologies on the market — [OpenXR](docs/xr-openxr.md),
+[WebXR](docs/xr-webxr.md), [Apple visionOS](docs/xr-visionos.md) and the
+[Unity, Unreal and Godot axes](docs/xr-engines.md) — are pure libraries too: no SDK is imported and
+nothing is sent. The confirm rule now holds on specific signals (a rival panel within the angular
 error budget, a recent switch, a rested look elsewhere) instead of any instantaneous change, which
 cuts the synthetic prompt rate on the eyes-on-target case from about 40% to about 1%; a rise in
 silent wrong binds when the eyes are still leaving the previous panel is documented, not fixed.
