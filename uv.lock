@@ -6835,7 +6835,7 @@ docs = [
 
 [package.metadata]
 requires-dist = [
-    { name = "av", specifier = "<19" },
+    { name = "av", specifier = ">=18,<19" },
     { name = "bleak", marker = "extra == 'all'", specifier = ">=3.0.2" },
     { name = "bleak", marker = "extra == 'ble'", specifier = ">=3.0.2" },
     { name = "brainflow", marker = "extra == 'all'", specifier = ">=5.22.2" },

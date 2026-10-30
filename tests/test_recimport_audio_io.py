@@ -50,6 +50,28 @@ def test_pyav_alone_decodes_a_wav_with_the_ffmpeg_fallback_removed(tmp_path, mon
     assert abs(len(audio) - 8000) < 400
 
 
+def test_the_pyav_ceiling_stays_while_faster_whisper_still_passes_metadata_errors():
+    """The test above decodes with the lockfile's PyAV 18, so it stays green if the
+    `av` ceiling in pyproject.toml is dropped, and a fresh `pip install` breaks again.
+    The ceiling stays for as long as faster-whisper passes the argument PyAV 19 removed.
+    """
+    import inspect
+    import re
+    import tomllib
+    from pathlib import Path
+
+    import faster_whisper.audio
+
+    if "metadata_errors" not in inspect.getsource(faster_whisper.audio.decode_audio):
+        pytest.skip("faster-whisper no longer passes metadata_errors: the av ceiling can go")
+    pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
+    deps = tomllib.loads(pyproject.read_text(encoding="utf-8"))["project"]["dependencies"]
+    av = [d for d in deps if re.match(r"av\s*(?:[<>=!~;]|$)", d)]
+    assert av, "pyproject.toml no longer caps `av`"
+    ceiling = re.search(r"<\s*(\d+)", av[0])
+    assert ceiling and int(ceiling.group(1)) <= 19, f"`{av[0]}` lets PyAV 19 back in"
+
+
 # ---- the documented contract when nothing can decode the file ---------------
 
 

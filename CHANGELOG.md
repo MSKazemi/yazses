@@ -49,7 +49,8 @@ naturally, and it is marked reviewed instead of draft. Thank you,
 
 `yazses transcribe <file>` and the MCP server's transcribe tool decode the file with
 faster-whisper's `decode_audio`, which uses PyAV. faster-whisper 1.2.1 requires `av>=11`
-with no ceiling, so a fresh `pip install yazses` resolved PyAV 19.0.2, and 19 removed an
+with no ceiling, so a fresh `pip install yazses` resolved PyAV 19.0.2 (so did pipx and
+`uv tool` installs, which do not read the lockfile either), and 19 removed an
 argument faster-whisper still passes (`av.open(..., metadata_errors=...)`). The result
 was `TypeError: open() got an unexpected keyword argument 'metadata_errors'` for every
 file, even a plain WAV, on any machine without a system `ffmpeg` to fall back on.
@@ -58,7 +59,8 @@ live dictation or meeting capture, which hand the model arrays.
 
 `av` is now capped below 19 in `pyproject.toml`, with the reason beside it. The ceiling
 comes off once a faster-whisper release works with PyAV 19. A new test decodes a WAV with
-the ffmpeg fallback removed, so the PyAV path is tested on its own.
+the ffmpeg fallback removed, so the PyAV path is tested on its own, and another fails if the
+ceiling is dropped while faster-whisper still passes the removed argument.
 
 ### Added — a Hugging Face presence, kept in `huggingface/` and published from it
 
@@ -90,8 +92,9 @@ a research collection. Everything is sourced from `huggingface/` in this reposit
 a Space rebuild that resolved `av` fresh turned every file decode into a `TypeError`. The
 demo's requirements now cap `av` below 19 (`faster-whisper` itself only declares `av>=11`), and
 the visitor-facing error names the exception class so a server fault is distinguishable from a
-bad file. The desktop app is unaffected as far as checked: it hands `faster-whisper` audio
-arrays, not file paths.
+bad file. The same break reached the desktop app's `yazses transcribe <file>` on a fresh
+install; that is the PyAV entry above. Live dictation and meeting capture hand `faster-whisper`
+audio arrays and were never affected.
 
 ### Fixed — the docs said the hosted demo gives "the accuracy you get"
 
