@@ -204,6 +204,42 @@ def test_a_live_item_needs_the_exact_url_and_evidence() -> None:
     assert "needs evidence" in text
 
 
+def _live_item_errors(note: str, status: str = "live") -> str:
+    manifest = _manifest()
+    item = manifest["collection"]["items"][0]
+    item.update(status=status, note=note)
+    if status == "live":
+        item.update(url="https://huggingface.co/papers/1234.56789", evidence="e")
+    report = pf.Report()
+    pf.validate_schema(manifest, report)
+    return "\n".join(report.errors)
+
+
+@pytest.mark.parametrize("note", [
+    "Static showcase. Planned: not published yet.",
+    "A paper. planned - the Hub returned 404.",
+    "Results as CSV (not yet published).",
+    "The paper page is not indexed yet.",
+    "Demo, not live yet.",
+])
+def test_a_live_items_note_cannot_still_say_it_is_planned(note) -> None:
+    """hf_collection.py --apply sends the note verbatim to the public collection."""
+    assert "is live but its note still says" in _live_item_errors(note)
+
+
+@pytest.mark.parametrize("note", [
+    "Static showcase of the YazSes offline dictation project.",
+    "Word error rate results, as published in the paper.",
+    "Measured on a planned-out corpus split of 200 utterances.",
+])
+def test_an_ordinary_live_note_passes(note) -> None:
+    assert "note still says" not in _live_item_errors(note)
+
+
+def test_a_planned_items_note_may_say_planned() -> None:
+    assert "note still says" not in _live_item_errors("Planned: not published yet.", status="planned")
+
+
 def test_a_live_item_cannot_point_at_a_planned_destination() -> None:
     dest = _dest()
     manifest = _manifest(showcase=dest)

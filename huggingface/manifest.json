@@ -79,7 +79,7 @@
         "status": "live",
         "url": "https://huggingface.co/papers/2607.28878",
         "destination": null,
-        "note": "YazSes: An Offline, Privacy-First, Cross-Platform Hold-to-Talk Voice-Dictation System (arXiv, 2026-07-30). Planned: the Hub returned 404 for hf.co/papers/2607.28878 on 2026-10-27, i.e. the paper page is not indexed yet.",
+        "note": "YazSes: An Offline, Privacy-First, Cross-Platform Hold-to-Talk Voice-Dictation System (arXiv, 2026-07-30).",
         "evidence": "arxiv.org/abs/2607.28878 HTTP 200 on 2026-10-27; huggingface.co/api/papers/2607.28878 HTTP 200 on 2026-10-28 (indexed after the dataset card cited the arXiv URL)"
       },
       {
@@ -97,7 +97,7 @@
         "status": "live",
         "url": "https://huggingface.co/spaces/mskazemi/yazses-showcase",
         "destination": "showcase",
-        "note": "Static showcase of the YazSes offline dictation project. Planned: not published yet.",
+        "note": "Static showcase of the YazSes offline dictation project.",
         "evidence": "huggingface.co/api/spaces/mskazemi/yazses-showcase RUNNING, static, public on 2026-10-29 (renamed from showcase)"
       },
       {
@@ -106,7 +106,7 @@
         "status": "live",
         "url": "https://huggingface.co/datasets/mskazemi/yazses-benchmark-results",
         "destination": "benchmarks",
-        "note": "Word error rate and speed results behind the YazSes paper, as CSV with export metadata. Planned: not published yet.",
+        "note": "Word error rate and speed results behind the YazSes paper, as CSV with export metadata.",
         "evidence": "huggingface.co/api/datasets/mskazemi/yazses-benchmark-results public, 14 configs, 18 files on 2026-10-28"
       },
       {

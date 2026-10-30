@@ -139,6 +139,13 @@ ITEM_TYPES = ("model", "dataset", "space", "paper")
 _REPO_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$")
 _PUBLISHER = re.compile(r"^[a-z0-9][a-z0-9-]{2,63}$")
 _OWNER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+#: A note written while an item was planned ("Planned: not published yet."). hf_collection.py
+#: sends a live item's note verbatim to the public collection, so a leftover would tell every
+#: visitor that a live page does not exist. Only these specific phrases: a looser match would
+#: fire on an ordinary sentence.
+_PLANNED_NOTE = re.compile(
+    r"\bplanned\b(?:\s*[:\u2014]|\s+-)|\bnot\s+(?:yet\s+)?(?:published|indexed|live)\b", re.I
+)
 
 TOP_KEYS = {"schema_version", "_comment", "oidc_publisher", "destinations", "collection"}
 DEST_REQUIRED = {
@@ -513,6 +520,12 @@ def _validate_collection(collection: object, dests: dict, report: Report) -> Non
                 report.error(iw, f"a live item's url must be {expected!r}, got {url!r}")
             if not _is_str(item.get("evidence")):
                 report.error(iw, "a live item needs evidence (how its existence was verified)")
+            stale = _PLANNED_NOTE.search(note) if _is_str(note) else None
+            if stale:
+                report.error(
+                    iw, f"is live but its note still says {stale.group(0)!r}; the note is shown "
+                    "on the public collection, so rewrite it for the live item"
+                )
         dest_name = item.get("destination")
         if dest_name is not None:
             dest = dests.get(dest_name)
