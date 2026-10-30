@@ -55,8 +55,10 @@ in section 9.
 ## 4. Metrics
 
 Every rate is reported with its numerator and denominator, and an hourly rate only when the scored
-exposure time exceeds a minimum frozen before the run (the same rule as the camera protocol).
-Below the minimum, report the count and the exposure.
+exposure time reaches a minimum frozen before the run (the same rule as the camera protocol, with the
+repository's provisional `DEFAULT_MIN_EXPOSURE_S` in `yazses.eyeeval.analysis` as the starting point).
+Below the minimum, report the count and the exposure. The P0/P1 replay script never prints an hourly
+rate at all: its bursts are injected at a fixed pace, so any rate would be invented.
 
 | Metric | Definition |
 |---|---|
@@ -104,7 +106,7 @@ outcomes, not as inferences from the signal.
 |---|---|
 | Protocol | This document |
 | Synthetic schema | Not defined here; reuse the canonical schema from #699 |
-| Evaluation scripts and tests | **Not built in this change.** Specified in sections 3 and 4 so the implementation can be reviewed against it; P0 and P1 scripts need #699 first |
+| Evaluation scripts and tests | P0 and P1 are implemented in `scripts/hci_eegeog_replay.py` with tests in `tests/test_hci_eegeog_replay.py`: seeded synthetic signals, a naive and an artifact-aware detector, scoring against injected ground truth with denominators. All output is synthetic and says so; P2 has no code |
 | Documented non-goals | Sections 1, 5, 6 and 7 |
 | Device-independent baseline | P0 |
 
@@ -118,11 +120,12 @@ outcomes, not as inferences from the signal.
 
 ## 10. Open questions for the maintainer
 
-1. The minimum exposure for reporting an hourly rate.
+1. Whether to keep the repository's provisional minimum exposure for an hourly rate (600 s,
+   `yazses.eyeeval.analysis`) for the pilot; it must be frozen before P2.
 2. The "comparable to existing switches" thresholds to freeze before P2 (none are proposed here
    because any number chosen now would be arbitrary).
-3. Whether the research scripts live in a separate repository or under a research directory outside
-   `src/`.
+3. Where the research scripts live. They are outside `src/` (`scripts/hci_eegeog_replay.py`) and
+   nothing in the daemon imports them; whether they should move to a separate repository is open.
 4. Which ethics body would review a P2 pilot.
 
 Cross-references: epic #692; #699 (synthetic fixtures); #103 and #137 and #139 (existing activation
