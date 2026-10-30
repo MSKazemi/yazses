@@ -123,7 +123,9 @@ fails), and report-schema checks. These tests use no camera, no image and no mod
 
 **Implemented** in `scripts/hci_gaze_compare.py`, tested in `tests/test_hci_gaze_compare.py`:
 angular error (and its refusal without the display geometry), nearest-rank median and p95 with `n`,
-a participant/session leakage guard, a calibration/validation disjointness check, and a report-shape
+a participant/session leakage guard (which also requires session ids to be unique across participants,
+in one split or across both, so that sessions are counted as separate units), a calibration/validation
+disjointness check, and a report-shape
 check that requires limitations and non-claims, refuses a moving ref as a revision, and rejects any raw
 or identifying field (frames, images, landmarks, video, audio, embeddings). Exposure-based rate
 suppression is **not** reimplemented: `yazses.eyeeval.analysis` already refuses an hourly rate below a

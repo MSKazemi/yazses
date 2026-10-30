@@ -170,9 +170,18 @@ def test_ids_are_compared_after_trimming_and_case_folding(other: str) -> None:
     assert any("session" in p and "both splits" in p for p in G.check_split(sessions))
 
 
-def test_a_session_id_reused_by_two_participants_is_reported_as_documented() -> None:
-    records = [_rec("A", "s1", "dev"), _rec("B", "s1", "eval")]
-    assert any("session 's1' appears in both splits" in p for p in G.check_split(records))
+@pytest.mark.parametrize(("split_a", "split_b"), [("dev", "dev"), ("eval", "eval"), ("dev", "eval")])
+def test_a_session_id_reused_by_two_participants_is_reported_as_documented(split_a: str, split_b: str) -> None:
+    # The docstring promises this whatever the splits; the same-split case has no cross-split leak to hide behind.
+    records = [_rec("A", "s1", split_a), _rec("B", " S1", split_b)]
+    problems = G.check_split(records)
+    assert any("session 's1' is used by participants ['a', 'b']" in p for p in problems), problems
+    assert ("appears in both splits" in " ".join(problems)) == (split_a != split_b)
+
+
+def test_one_participant_reusing_their_own_session_id_is_not_a_reuse() -> None:
+    records = [_rec("A", "s1", "dev"), _rec("a ", "s1", "dev"), _rec("B", "s2", "dev")]
+    assert G.check_split(records) == []
 
 
 def test_a_record_that_is_not_a_mapping_is_reported_not_a_crash() -> None:

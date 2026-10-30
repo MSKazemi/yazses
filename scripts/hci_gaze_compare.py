@@ -148,11 +148,14 @@ def check_split(records: Iterable[Mapping[str, Any]]) -> list[str]:
     Each record names its `participant`, `session` and `split` (`dev` or `eval`). Adjacent frames
     and trials are not independent, so no participant and no session may appear in both splits. Ids are
     compared after trimming and case-folding, so `P01` and `p01 ` are the same participant. Session ids
-    must be unique across participants: a session id reused by two participants is reported, because it
-    cannot be told apart from leakage. Returns a list of problems; empty means no leakage.
+    must be unique across participants: a session id reused by two participants is reported, in the
+    same split or across splits, because it cannot be told apart from leakage and it would merge two
+    sessions into one when units are counted (protocol section 7). Returns a list of problems; empty
+    means no leakage.
     """
     problems: list[str] = []
     seen: dict[str, dict[str, set[str]]] = {"participant": {}, "session": {}}
+    owners: dict[str, set[str]] = {}
     for i, record in enumerate(records):
         if not isinstance(record, Mapping):
             problems.append(f"record {i}: not a mapping")
@@ -161,16 +164,26 @@ def check_split(records: Iterable[Mapping[str, Any]]) -> list[str]:
         if split not in SPLITS:
             problems.append(f"record {i}: split {split!r} is not one of {SPLITS}")
             continue
+        ids: dict[str, str] = {}
         for unit in seen:
             ident = record.get(unit)
             if not isinstance(ident, str) or not ident.strip():
                 problems.append(f"record {i}: missing {unit}")
                 continue
-            seen[unit].setdefault(ident.strip().casefold(), set()).add(split)
+            ids[unit] = ident.strip().casefold()
+            seen[unit].setdefault(ids[unit], set()).add(split)
+        if len(ids) == len(seen):
+            owners.setdefault(ids["session"], set()).add(ids["participant"])
     for unit, by_id in seen.items():
         for ident, splits in sorted(by_id.items()):
             if len(splits) > 1:
                 problems.append(f"{unit} {ident!r} appears in both splits")
+    for session, participants in sorted(owners.items()):
+        if len(participants) > 1:
+            problems.append(
+                f"session {session!r} is used by participants {sorted(participants)}; session ids must be "
+                "unique across participants"
+            )
     return problems
 
 
