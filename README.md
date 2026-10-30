@@ -13,6 +13,7 @@ account, no subscription and no API key. YazSes is free and open source under Ap
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21856271.svg)](https://doi.org/10.5281/zenodo.21856271)
 [![Documentation](https://img.shields.io/badge/docs-mskazemi.com%2Fyazses-5e35b1)](https://mskazemi.com/yazses/)
+[![Hosted demo on Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-hosted%20demo-yellow)](https://huggingface.co/spaces/mskazemi/yazses-offline-transcription-demo)
 [![Open Source Helpers](https://www.codetriage.com/mskazemi/yazses/badges/users.svg)](https://www.codetriage.com/mskazemi/yazses)
 [![All Contributors](https://img.shields.io/badge/all_contributors-47-orange.svg?style=flat-square)](#contributors)
 
@@ -110,6 +111,14 @@ your microphone, hotkey and typing, and tells you what to fix.
 in Docker or your browser, or read [what installing actually costs](https://mskazemi.com/yazses/install-cost.html)
 first. APT, Snap, pipx, `.dmg` and `.exe` are covered under
 [all install options](#all-install-options).
+
+> **Hugging Face, in one paragraph.** The speech models YazSes downloads once are hosted on
+> the Hugging Face Hub; after that, recognition runs on your own computer. The
+> [hosted demo](https://huggingface.co/spaces/mskazemi/yazses-offline-transcription-demo) is
+> a separate page that processes audio **on Hugging Face's servers**, so it is for judging
+> accuracy, not for private use. GitHub stays the home of the code and of contributions.
+> The project's Hugging Face organization is [huggingface.co/yazses](https://huggingface.co/yazses).
+> Details: [YazSes and Hugging Face](docs/hugging-face.md).
 
 ## 🙌 Help build YazSes
 
@@ -703,6 +712,7 @@ architecture and troubleshooting.
 | [Install on Windows](docs/windows-install.md) | SmartScreen, antivirus exceptions, privacy settings |
 | [CLI reference](docs/cli-reference.md) | Every command and flag, including macros and vocabulary |
 | [Privacy statement](docs/privacy-statement.md) | What stays on-device and what is never collected |
+| [YazSes and Hugging Face](docs/hugging-face.md) | Where the models come from, what the hosted demo does with audio, how the paper and benchmarks relate |
 | [Research: the science of post-keyboard input](docs/research/index.md) | Cited surveys of eye, voice and muscle/brain input, with every design decision traced to a measurement |
 | [Students, researchers and industry](docs/research/get-involved.md) | Thesis-sized projects with open issues, the research platform, how to cite |
 | [Record your own demo GIF](docs/demo-guide.md) | How to capture a short hold-to-talk demo |

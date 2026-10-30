@@ -311,6 +311,7 @@ nav:
       - Quick start (five minutes): get-started.md
       - Watch the CLI: watch-the-cli.md
       - Try it without installing: try-without-installing.md
+      - YazSes and Hugging Face: hugging-face.md
       - Platform support (OS + CPU): platform-support.md
       - Validation matrix (what is proven on hardware): validation-matrix.md
       - Install on Linux: install-linux.md

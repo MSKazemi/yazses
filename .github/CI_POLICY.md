@@ -640,6 +640,21 @@ Requirements:
 Release failures should be treated as user-facing incidents because the output may already
 be partially visible across package channels.
 
+### 11.1 Hugging Face publishing
+
+`huggingface-publish.yml` is a release/publish-lane workflow. It is `workflow_dispatch` only
+and never runs on a pull request. The `validate` job is read-only and holds no secrets and no
+OIDC token. The `publish` job needs `validate`, runs only from `main` with `dry_run` false,
+uses the `huggingface-publish` environment (where the owner can require an approval), and is
+the only job that requests `id-token: write`, for a Hugging Face Trusted Publisher exchange.
+There is no stored token, and no `--delete`.
+
+Its policy surface is `huggingface/manifest.json`, enforced by `scripts/hf_preflight.py` and
+`tests/test_hf_publish_workflow.py`: a destination is published only when it is both
+`owner_approved` and `status: live`, set in a reviewed commit. Its timeouts are 30 minutes
+until a real run exists (§8, rule 3). Nothing in the repository can create a Hub repository,
+configure a Trusted Publisher, or approve a destination; those are owner actions.
+
 ---
 
 ## 12. CI service-level objectives

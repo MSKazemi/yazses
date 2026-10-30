@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>YazSes: offline voice typing for Linux, macOS and Windows</title>
+  <meta name="description" content="Free, open-source, offline voice typing for Linux, macOS and Windows. Hold a key, speak, release. Speech is recognised on your own computer.">
+  <link rel="canonical" href="https://mskazemi.com/yazses/">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="wrap bar">
+      <a class="brand" href="#top" aria-label="YazSes home">
+        <img src="assets/logo.svg" width="32" height="32" alt="" class="brand-mark" loading="lazy">
+        <span>YazSes</span>
+      </a>
+      <nav aria-label="Primary">
+        <ul class="nav-list">
+          <li><a href="#how-it-works">How it works</a></li>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#privacy">Privacy</a></li>
+          <li><a href="#install">Install</a></li>
+          <li><a href="#research">Research</a></li>
+          <li><a href="#community">Community</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top" aria-labelledby="hero-title">
+      <div class="wrap hero-grid">
+        <div class="hero-copy">
+          <h1 id="hero-title">YazSes — Type with your voice. Keep your voice on your device.</h1>
+          <p class="lead">Free, open-source, offline voice typing for Linux, macOS and Windows.</p>
+          <p class="actions">
+            <a class="btn btn-primary" href="#install">Install YazSes</a>
+            <a class="btn btn-secondary" href="https://huggingface.co/spaces/mskazemi/yazses-offline-transcription-demo" target="_blank" rel="noopener noreferrer">Try Hosted Demo</a>
+            <a class="btn btn-secondary" href="https://github.com/MSKazemi/yazses" target="_blank" rel="noopener noreferrer">View Source on GitHub</a>
+          </p>
+          <p class="note">The hosted demo runs on Hugging Face servers, so audio you send to it leaves your computer. See <a href="#privacy">Privacy</a>.</p>
+        </div>
+        <figure class="shot">
+          <img src="assets/settings-window.png" width="900" height="640" loading="lazy"
+               alt="YazSes settings window on the Features tab. Dictation core and voice commands are switched on, and optional features such as voice punctuation are switched off.">
+          <figcaption>The Features tab: what is on by default, and what you choose to turn on.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="band" id="how-it-works" aria-labelledby="how-title">
+      <div class="wrap">
+        <h2 id="how-title">How it works</h2>
+        <ol class="steps">
+          <li>
+            <h3>Hold a key</h3>
+            <p>Hold your hotkey: Right Alt on Linux, Right Option on macOS, Right Ctrl on Windows. You can change it with <code>yazses hotkey set</code>.</p>
+          </li>
+          <li>
+            <h3>Speak</h3>
+            <p>By default, audio is recorded only while you hold the key. Speech is recognised on your CPU with faster-whisper.</p>
+          </li>
+          <li>
+            <h3>Release</h3>
+            <p>The text is typed into the focused app. Commands such as "undo that" or "go to line 42" run as editor or terminal actions instead.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="wrap section" id="features" aria-labelledby="features-title">
+      <h2 id="features-title">Features</h2>
+      <p>Each feature below is either on from the start or waiting for you to turn it on. Experimental and planned features are not listed.</p>
+
+      <div class="two-col">
+        <div class="card">
+          <h3>On by default</h3>
+          <ul class="list">
+            <li><strong>Hold-to-talk dictation.</strong> Always on. Hold, speak, release.</li>
+            <li><strong>Voice commands.</strong> "Undo that", "save file", "go to line 42", "run the tests".</li>
+            <li><strong>Mid-thought undo.</strong> Say "scratch that" to drop the last phrase.</li>
+            <li><strong>System-tray icon.</strong> Pick a microphone, re-calibrate, or start and stop the daemon.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Optional, off until you enable them</h3>
+          <ul class="list">
+            <li><strong>Transcribe recordings.</strong> <code>yazses transcribe</code> turns audio or video into text. Enable with <code>yazses features enable recimport</code>.</li>
+            <li><strong>Meeting capture.</strong> <code>yazses meeting start</code> and <code>stop</code>. Speaker labels need the diarization extra.</li>
+            <li><strong>Dysfluency-friendly mode.</strong> Collapses stutters and repeats, for example "b-b-because" becomes "because".</li>
+            <li><strong>Voice punctuation.</strong> Say "comma" or "new line" to insert marks.</li>
+            <li><strong>Other speech engines.</strong> NVIDIA Parakeet and Moonshine, both English, as alternatives to Whisper.</li>
+          </ul>
+        </div>
+      </div>
+
+      <p class="small">Every switch is listed with <code>yazses features</code>. Each optional feature is turned on with <code>yazses features enable &lt;name&gt;</code>, then applied with <code>yazses restart</code>.</p>
+    </section>
+
+    <section class="band" id="privacy" aria-labelledby="privacy-title">
+      <div class="wrap">
+        <h2 id="privacy-title">Privacy</h2>
+        <p>There are two ways to use speech recognition from YazSes. They have different privacy properties, so keep them apart.</p>
+        <div class="table-wrap">
+          <table>
+            <caption class="visually-hidden">Local YazSes compared with the hosted demo</caption>
+            <thead>
+              <tr>
+                <th scope="col">Option</th>
+                <th scope="col">Where speech is processed</th>
+                <th scope="col">Does audio leave your computer?</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">YazSes installed on your computer</th>
+                <td>Your own CPU, with faster-whisper. The speech model is downloaded once, on first use.</td>
+                <td>No. By default, no audio, transcripts, editor context or usage data leave the machine. Dictation works without a network connection after the model is downloaded.</td>
+              </tr>
+              <tr>
+                <th scope="row">Hosted demo on Hugging Face</th>
+                <td>Hugging Face infrastructure.</td>
+                <td>Yes. Audio you submit to the demo is processed on Hugging Face servers.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>The hosted demo lets you judge accuracy before you install. For private, offline voice typing, install YazSes on your own computer. The full statement, with every network connection listed and its trigger, is on the <a href="https://mskazemi.com/yazses/privacy-statement.html" target="_blank" rel="noopener noreferrer">privacy statement page</a>.</p>
+      </div>
+    </section>
+
+    <section class="wrap section" id="install" aria-labelledby="install-title">
+      <h2 id="install-title">Install</h2>
+      <p>Choose your operating system. Each guide gives the commands and the first-run steps.</p>
+      <div class="cards-3">
+        <article class="card">
+          <h3>Linux</h3>
+          <p class="tag">The most tested platform</p>
+          <p><a href="https://mskazemi.com/yazses/install-linux.html" target="_blank" rel="noopener noreferrer">Linux install guide</a></p>
+        </article>
+        <article class="card">
+          <h3>macOS</h3>
+          <p class="tag">Preview, Apple silicon</p>
+          <p><a href="https://mskazemi.com/yazses/macos-install.html" target="_blank" rel="noopener noreferrer">macOS install guide</a></p>
+        </article>
+        <article class="card">
+          <h3>Windows</h3>
+          <p class="tag">Preview</p>
+          <p><a href="https://mskazemi.com/yazses/windows-install.html" target="_blank" rel="noopener noreferrer">Windows install guide</a></p>
+        </article>
+      </div>
+      <p class="small">
+        Linux has the most reports from real machines. The macOS and Windows builds are newer, and the
+        <a href="https://mskazemi.com/yazses/validation-matrix.html" target="_blank" rel="noopener noreferrer">validation matrix</a> lists exactly what
+        has been confirmed on real hardware. Not ready to install? You can
+        <a href="https://mskazemi.com/yazses/try-without-installing.html" target="_blank" rel="noopener noreferrer">try it without installing</a>,
+        or read <a href="https://mskazemi.com/yazses/install-cost.html" target="_blank" rel="noopener noreferrer">what installing actually costs</a> first.
+      </p>
+    </section>
+
+    <section class="band" id="research" aria-labelledby="research-title">
+      <div class="wrap">
+        <h2 id="research-title">Research</h2>
+        <div class="two-col">
+          <div class="card">
+            <h3>The paper</h3>
+            <p><em>YazSes: An Offline, Privacy-First, Cross-Platform Hold-to-Talk Voice-Dictation System</em>, by Mohsen Seyedkazemi Ardebili.</p>
+            <p>arXiv:2607.28878. <a href="https://arxiv.org/abs/2607.28878" target="_blank" rel="noopener noreferrer">https://arxiv.org/abs/2607.28878</a></p>
+          </div>
+          <div class="card">
+            <h3>Benchmarks and reproduction</h3>
+            <p>With the default <code>base.en</code> model, the paper reports a word error rate of 4.07 % on a 200-utterance LibriSpeech <code>test-clean</code> subset, with a median decode of 1.56 s on a laptop CPU. Dictation on your own microphone will differ.</p>
+            <p><a href="https://mskazemi.com/yazses/benchmarks.html" target="_blank" rel="noopener noreferrer">Benchmarks and method</a> ·
+               <a href="https://github.com/MSKazemi/yazses/blob/main/paper/results/MANIFEST.md" target="_blank" rel="noopener noreferrer">Results manifest on GitHub</a></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="wrap section" id="community" aria-labelledby="community-title">
+      <h2 id="community-title">Community</h2>
+      <p>YazSes is open source. You do not need a speech or AI background to help.</p>
+      <ul class="list">
+        <li><a href="https://mskazemi.com/yazses/contribute/start.html" target="_blank" rel="noopener noreferrer">Test it on your computer and report what happened</a></li>
+        <li><a href="https://github.com/MSKazemi/yazses/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22" target="_blank" rel="noopener noreferrer">Good first issues on GitHub</a></li>
+        <li><a href="https://github.com/MSKazemi/yazses/issues" target="_blank" rel="noopener noreferrer">Open issues and bug reports</a></li>
+        <li><a href="https://github.com/MSKazemi/yazses" target="_blank" rel="noopener noreferrer">Source code on GitHub</a>. A star helps other people find the project.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-grid">
+      <p>YazSes is released under the <a href="https://github.com/MSKazemi/yazses/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">Apache License 2.0</a>. See the <a href="https://github.com/MSKazemi/yazses/blob/main/NOTICE" target="_blank" rel="noopener noreferrer">NOTICE file</a>.</p>
+      <ul class="footer-links">
+        <li><a href="https://mskazemi.com/yazses/" target="_blank" rel="noopener noreferrer">Documentation</a></li>
+        <li><a href="https://github.com/MSKazemi/yazses" target="_blank" rel="noopener noreferrer">GitHub repository</a></li>
+        <li><a href="https://mskazemi.com/yazses/privacy-statement.html" target="_blank" rel="noopener noreferrer">Privacy statement</a></li>
+      </ul>
+    </div>
+  </footer>
+</body>
+</html>

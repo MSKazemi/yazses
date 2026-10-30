@@ -35,6 +35,45 @@ live dictation or meeting capture, which hand the model arrays.
 comes off once a faster-whisper release works with PyAV 19. A new test decodes a WAV with
 the ffmpeg fallback removed, so the PyAV path is tested on its own.
 
+### Added — a Hugging Face presence, kept in `huggingface/` and published from it
+
+A showcase Space, a benchmark-results dataset and the hosted demo Space are live under the
+maintainer's Hub account (`mskazemi`), and the `yazses` organization carries a short card and
+a research collection. Everything is sourced from `huggingface/` in this repository.
+
+- **Source for the Hub pages**: an organization card, a static showcase Space, and the
+  hardened hosted-demo Space (`huggingface/space-demo/`: upload size and duration limits,
+  clear errors, the "audio is processed on Hugging Face infrastructure" notice above the
+  audio widget, the arXiv link that lets Hugging Face Papers index the paper, and a table of
+  how the demo differs from the desktop pipeline).
+- **A benchmark dataset of results**, not audio: `scripts/export_hf_benchmarks.py` turns an
+  allowlist of `paper/results/` files into 14 CSV tables with provenance (source hash and
+  commit, machine, versions, corpus). Significance analyses stay in their own tables, a
+  value the source does not record stays empty, and `--check` fails on drift.
+- **`scripts/hf_preflight.py`** validates exactly what may be uploaded (no private trees,
+  secrets, audio, PDFs or broken links) and cannot publish. **`scripts/hf_collection.py`**
+  maintains a Hub Collection idempotently, dry-run by default.
+- **`huggingface-publish.yml`**: manual-only, read-only validation first, then an upload from
+  `main` through Hugging Face Trusted Publishers (short-lived OIDC credentials, no stored
+  token). Every destination needs `owner_approved` in a reviewed commit.
+- **Docs**: [YazSes and Hugging Face](docs/hugging-face.md), which separates the installed
+  app (local), the hosted demo (remote) and the Hub (model host).
+
+### Fixed — the hosted demo could not decode any audio after a rebuild
+
+`faster-whisper` 1.2.1 passes `metadata_errors=` to `av.open`, which PyAV 19.0.2 rejects, so
+a Space rebuild that resolved `av` fresh turned every file decode into a `TypeError`. The
+demo's requirements now cap `av` below 19 (`faster-whisper` itself only declares `av>=11`), and
+the visitor-facing error names the exception class so a server fault is distinguishable from a
+bad file. The desktop app is unaffected as far as checked: it hands `faster-whisper` audio
+arrays, not file paths.
+
+### Fixed — the docs said the hosted demo gives "the accuracy you get"
+
+The hosted demo filters silence with the decoder's voice-activity filter and applies none of
+the desktop app's text post-processing, so the app can type slightly different text. The page
+now says it is an indication of accuracy, not the identical pipeline.
+
 ### Removed — the public paper-v2 working draft and its planning package
 
 All of the author's manuscripts are private. `design/publication/` (the paper-v2 LaTeX draft, its

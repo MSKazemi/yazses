@@ -1,0 +1,230 @@
+name: Publish to Hugging Face
+
+# Lane: release/publish (CI_POLICY.md section 1). Manual only, never cancelled.
+#
+# What this does
+# --------------
+# Uploads the files that huggingface/manifest.json lists for ONE destination (or for
+# every destination the owner has approved) to the matching Hugging Face repository.
+# Nothing else is ever uploaded: scripts/hf_preflight.py copies exactly the allowlisted
+# files into a staging directory and `hf upload` is pointed at that directory, so a stray
+# file next to the sources cannot ride along. Remote files are never deleted (there is no
+# --delete anywhere in this file, and the manifest requires delete_remote_files=false).
+#
+# How it is made safe
+# -------------------
+#   * workflow_dispatch ONLY. No push, pull_request or schedule trigger exists, so
+#     contributor code can never reach the publish job.
+#   * `validate` runs first, with read-only permissions, no secrets and no OIDC. It runs
+#     the same preflight a developer runs locally. dry_run defaults to true, and a dry run
+#     stops there and prints the plan.
+#   * `publish` runs only when dry_run is false AND the ref is main, and only inside the
+#     `huggingface-publish` GitHub environment, where the owner can require a manual
+#     approval before the job starts.
+#   * Every destination must be `owner_approved: true` and `status: live` in the manifest.
+#     The preflight refuses to select one that is not, so approval is a reviewed commit.
+#
+# Credentials: Hugging Face Trusted Publishers (OIDC). NO SECRET.
+# ---------------------------------------------------------------
+# https://huggingface.co/docs/hub/trusted-publishers : the job asks GitHub for an OIDC
+# token (permissions: id-token: write), the `hf` CLI (huggingface_hub >= 1.19.0) detects
+# GitHub Actions, exchanges it at https://huggingface.co/oauth/token for a token that is
+# valid for one hour and scoped to ONE Hub repository, and uses that token automatically.
+# The only input is HF_OIDC_RESOURCE, set per upload step below so each destination gets
+# its own repository-scoped token. Pushes show on the Hub as an "[OIDC]" system user.
+#
+# OWNER PREREQUISITES (none of this can be done from the repository):
+#   1. Create the Hub organisation `yazses` (it does not exist yet).
+#   2. Create each Hub repository listed in huggingface/manifest.json (an empty one is
+#      fine). A token scoped to one repository cannot create repositories, so
+#      `hf upload` to a missing repo fails by design.
+#   3. On each repository's Settings -> Trusted Publishers, add a GitHub Actions publisher
+#      with claims  repository equals MSKazemi/yazses , ref equals refs/heads/main ,
+#      workflow_ref starts with MSKazemi/yazses/.github/workflows/huggingface-publish.yml@
+#      (the manifest's `oidc_publisher` block; this is how the Hub's form lists them, and
+#      it is what is set on mskazemi/yazses-showcase and mskazemi/yazses-benchmark-results).
+#      Do this for every destination you will approve.
+#   4. In GitHub: Settings -> Environments -> huggingface-publish, add a required
+#      reviewer, and restrict deployment to the main branch.
+#   5. In the manifest, set status "live" and owner_approved true for that destination,
+#      in a reviewed commit. Then run this workflow with dry_run=false.
+# If step 3 is missing, the upload step fails with the Hub's own `invalid_grant` error and
+# a pointer back to this list. Nothing is published.
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Destination from huggingface/manifest.json, or all-approved (every destination that is owner_approved and live)"
+        required: true
+        type: choice
+        default: demo-space
+        options:
+          - org-card
+          - showcase
+          - benchmarks
+          - demo-space
+          - all-approved
+      dry_run:
+        description: "Validate and print the plan only. Untick to publish (main branch only)."
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+# Release/publish lane: one at a time, and a run in flight is never cancelled.
+concurrency:
+  group: huggingface-publish
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    # No measured run of this job's real work yet: 30 minutes, revisited once it has
+    # runs (CI_POLICY.md section 8, rule 3).
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Install uv and dependencies
+        uses: ./.github/actions/setup-uv-python
+        with:
+          python-version: "3.12"
+          sync-args: --frozen --no-install-project
+
+      - name: Preflight (offline, read-only)
+        env:
+          TARGET: ${{ inputs.target }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          args=(--select "$TARGET" --print-plan)
+          # A real publish also refuses destinations that are not approved and live.
+          if [ "$DRY_RUN" != "true" ]; then args+=(--require-approved); fi
+          uv run --no-sync python scripts/hf_preflight.py "${args[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Collection plan (offline; calls no API)
+        run: uv run --no-sync python scripts/hf_collection.py --offline
+
+      - name: Hugging Face contract tests
+        run: uv run --no-sync python -m pytest tests/test_hf_preflight.py tests/test_hf_collection.py tests/test_hf_publish_workflow.py -q
+
+  publish:
+    needs: validate
+    # Never on a pull request or a feature branch, never on a dry run, never on a fork.
+    if: ${{ inputs.dry_run == false && github.ref == 'refs/heads/main' && github.repository == 'MSKazemi/yazses' }}
+    runs-on: ubuntu-latest
+    # No measured run of this job's real work yet: 30 minutes (CI_POLICY.md section 8, rule 3).
+    timeout-minutes: 30
+    # The owner can require a manual approval on this environment before the job starts.
+    environment:
+      name: huggingface-publish
+    permissions:
+      contents: read
+      id-token: write   # GitHub OIDC token for the Hugging Face Trusted Publisher exchange
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      # huggingface-hub (the `hf` CLI, >= 1.19.0 for OIDC) arrives through faster-whisper
+      # and is pinned by uv.lock. Installing from the lock keeps the code that holds the
+      # OIDC token hash-locked. The project itself is not installed.
+      #
+      # uv itself is pinned here, unlike the repository's other jobs (which follow `latest`,
+      # CI_POLICY.md section 8): this is the one job that can obtain the OIDC token, so the
+      # binary that installs its dependencies must not change underneath it. 0.13.6 is the
+      # version `latest` resolved to in CI when this was written. Bump it on purpose.
+      - name: Install uv and dependencies
+        uses: ./.github/actions/setup-uv-python
+        with:
+          python-version: "3.12"
+          uv-version: "0.13.6"
+          sync-args: --frozen --no-install-project
+
+      - name: Re-validate and stage exactly the allowlisted files
+        id: stage
+        env:
+          TARGET: ${{ inputs.target }}
+        run: |
+          set -euo pipefail
+          uv run --no-sync python scripts/hf_preflight.py \
+            --select "$TARGET" --require-approved --print-plan \
+            --stage-dir "$RUNNER_TEMP/hf-stage" --github-output
+
+      # One step per destination, each with its own HF_OIDC_RESOURCE, so each token is
+      # scoped to the single repository that step pushes to. The resource string is
+      # `spaces/<id>` for a Space and `datasets/<id>` for a dataset, per the
+      # Trusted Publishers docs; tests/test_hf_publish_workflow.py checks every one of
+      # them against the manifest.
+      #
+      # `hf auth token` performs the exchange and prints the token; its stdout goes to
+      # /dev/null so the token is never written to a log. A failure prints the Hub's
+      # error code and Request ID (no secret) and explains what to configure.
+      - name: Publish org-card
+        if: ${{ contains(fromJSON(steps.stage.outputs.selected), 'org-card') }}
+        env:
+          HF_OIDC_RESOURCE: spaces/yazses/README
+          DEST: org-card
+        run: |
+          set -euo pipefail
+          if ! uv run --no-sync hf auth token >/dev/null 2>"$RUNNER_TEMP/oidc-$DEST.err"; then
+            echo "::error title=Hugging Face credential exchange failed for $DEST::No Trusted Publisher accepted this workflow for $HF_OIDC_RESOURCE. See the OWNER PREREQUISITES at the top of huggingface-publish.yml."
+            tail -n 5 "$RUNNER_TEMP/oidc-$DEST.err" >&2
+            exit 1
+          fi
+          uv run --no-sync hf upload "yazses/README" "$RUNNER_TEMP/hf-stage/$DEST" . \
+            --repo-type space --commit-message "Publish $DEST from MSKazemi/yazses@${GITHUB_SHA::7}"
+          echo "Published $DEST: https://huggingface.co/spaces/yazses/README" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish showcase
+        if: ${{ contains(fromJSON(steps.stage.outputs.selected), 'showcase') }}
+        env:
+          HF_OIDC_RESOURCE: spaces/mskazemi/yazses-showcase
+          DEST: showcase
+        run: |
+          set -euo pipefail
+          if ! uv run --no-sync hf auth token >/dev/null 2>"$RUNNER_TEMP/oidc-$DEST.err"; then
+            echo "::error title=Hugging Face credential exchange failed for $DEST::No Trusted Publisher accepted this workflow for $HF_OIDC_RESOURCE. See the OWNER PREREQUISITES at the top of huggingface-publish.yml."
+            tail -n 5 "$RUNNER_TEMP/oidc-$DEST.err" >&2
+            exit 1
+          fi
+          uv run --no-sync hf upload "mskazemi/yazses-showcase" "$RUNNER_TEMP/hf-stage/$DEST" . \
+            --repo-type space --commit-message "Publish $DEST from MSKazemi/yazses@${GITHUB_SHA::7}"
+          echo "Published $DEST: https://huggingface.co/spaces/mskazemi/yazses-showcase" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish benchmarks
+        if: ${{ contains(fromJSON(steps.stage.outputs.selected), 'benchmarks') }}
+        env:
+          HF_OIDC_RESOURCE: datasets/mskazemi/yazses-benchmark-results
+          DEST: benchmarks
+        run: |
+          set -euo pipefail
+          if ! uv run --no-sync hf auth token >/dev/null 2>"$RUNNER_TEMP/oidc-$DEST.err"; then
+            echo "::error title=Hugging Face credential exchange failed for $DEST::No Trusted Publisher accepted this workflow for $HF_OIDC_RESOURCE. See the OWNER PREREQUISITES at the top of huggingface-publish.yml."
+            tail -n 5 "$RUNNER_TEMP/oidc-$DEST.err" >&2
+            exit 1
+          fi
+          uv run --no-sync hf upload "mskazemi/yazses-benchmark-results" "$RUNNER_TEMP/hf-stage/$DEST" . \
+            --repo-type dataset --commit-message "Publish $DEST from MSKazemi/yazses@${GITHUB_SHA::7}"
+          echo "Published $DEST: https://huggingface.co/datasets/mskazemi/yazses-benchmark-results" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish demo-space
+        if: ${{ contains(fromJSON(steps.stage.outputs.selected), 'demo-space') }}
+        env:
+          HF_OIDC_RESOURCE: spaces/mskazemi/yazses-offline-transcription-demo
+          DEST: demo-space
+        run: |
+          set -euo pipefail
+          if ! uv run --no-sync hf auth token >/dev/null 2>"$RUNNER_TEMP/oidc-$DEST.err"; then
+            echo "::error title=Hugging Face credential exchange failed for $DEST::No Trusted Publisher accepted this workflow for $HF_OIDC_RESOURCE. See the OWNER PREREQUISITES at the top of huggingface-publish.yml."
+            tail -n 5 "$RUNNER_TEMP/oidc-$DEST.err" >&2
+            exit 1
+          fi
+          uv run --no-sync hf upload "mskazemi/yazses-offline-transcription-demo" "$RUNNER_TEMP/hf-stage/$DEST" . \
+            --repo-type space --commit-message "Publish $DEST from MSKazemi/yazses@${GITHUB_SHA::7}"
+          echo "Published $DEST: https://huggingface.co/spaces/mskazemi/yazses-offline-transcription-demo" | tee -a "$GITHUB_STEP_SUMMARY"
