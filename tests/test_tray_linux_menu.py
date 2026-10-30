@@ -27,6 +27,7 @@ class _Bridge:
     def __init__(self):
         self.update_ready = _Sig()
         self.notified = _Sig()
+        self.reported = _Sig()
 
 
 def _tray(controller):
@@ -94,6 +95,30 @@ def _capture_dialog(tray, accept: bool = False):
     tray._dialog = _fake  # type: ignore[method-assign]
     return seen
 
+
+def test_a_failed_update_opens_a_dialog_not_a_balloon():
+    """A balloon is gone in seconds, and a failed update is the one result the user has
+    to read and act on, so it goes to the dialog signal and never to a balloon."""
+
+    class _Ctrl:
+        def install_update(self, status):
+            from yazses.system.updater import UpgradeOutcome
+
+            return UpgradeOutcome(code=1, before="1.0", after="1.0", expected="2.0",
+                                  method="pipx", command=status.command)
+
+    tray = _tray(_Ctrl())
+    _capture_dialog(tray, accept=True)
+    status = UpdateStatus("pipx", "1.0", "2.0", True, ["pipx", "upgrade", "yazses"])
+
+    tray._show_update_result(status)
+
+    for _ in range(50):
+        if tray._bridge.reported.emitted:
+            break
+        threading.Event().wait(0.02)
+    assert tray._bridge.reported.emitted, "a failed update must open a dialog"
+    assert tray._bridge.notified.emitted == []
 
 def test_an_available_update_offers_to_install_it():
     installed = []

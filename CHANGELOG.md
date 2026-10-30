@@ -10,8 +10,7 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 `pipx install /path/to/checkout` makes pipx remember that *folder* as where the package comes
 from. Delete the folder (a git worktree, a build directory) and `pipx upgrade yazses` prints
-`Unable to parse package spec: <path>` and changes nothing — on the install this was reported
-from it even exits 0. The tray offered an update it could never apply, and the result was a
+`Unable to parse package spec: <path>` and changes nothing. The tray offered an update it could never apply, and the result was a
 two-second balloon, so the user came back to the same version with no explanation.
 
 The upgrade command for a pipx install is now resolved against pipx's own record
@@ -19,7 +18,9 @@ The upgrade command for a pipx install is now resolved against pipx's own record
 command becomes `pipx install --force yazses[<your extras>]`, which reinstalls into the same
 environment from PyPI, keeps the extras, and leaves a `pipx upgrade` that works from then on.
 A PyPI source, a git/https URL, a checkout that still exists, and a record whose extras are not
-plain extra names are untouched. The tray, the Settings window and `yazses update` all run the
+plain extra names are untouched, and so is a `--suffix` install or a venv outside the PIPX_HOME
+pipx reports, where the reinstall would add a second copy instead of repairing this one. After a
+failure, `yazses update` prints the command that ran, not `pipx upgrade`. The tray, the Settings window and `yazses update` all run the
 same resolved command. Checked against pipx 1.4.3 in a throwaway `PIPX_HOME`: 2.43.1 → 2.45.0
 through the real checked-upgrade path.
 

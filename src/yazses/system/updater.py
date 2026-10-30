@@ -573,8 +573,8 @@ def pinned_install_hint(method: str, command: list[str] | None) -> str:
         ),
         "pipx": (
             "pipx upgrades from the source it recorded when you installed. If that was a "
-            "folder that has since been deleted, or a version pin, the upgrade finds "
-            "nothing to do. Reinstall from PyPI, keeping your extras:\n"
+            "folder that has since been deleted, the upgrade cannot find it and nothing "
+            "changes. Reinstall from PyPI, keeping your extras:\n"
             "    pipx install --force 'yazses[desktop]'"
         ),
         "pip": (
@@ -999,26 +999,53 @@ def keep_cv2_whole(status: UpdateStatus, *, opencv: OpenCVProbe | None = None) -
 # `pipx install /path/to/checkout` records that *path* as the package source in the
 # venv's `pipx_metadata.json`, and `pipx upgrade` re-reads it every time. Delete the
 # checkout (a git worktree, a build directory) and `pipx upgrade yazses` prints
-# "Unable to parse package spec: <path>" and moves nothing -- with exit 0 on the
-# install this was reported from, so the tray's "Install now" looked like it worked.
+# "Unable to parse package spec: <path>" and moves nothing, so the tray's "Install now"
+# never changed the version (the exit status it reports varies between pipx versions).
 # Checked against pipx 1.4.3 in a throwaway PIPX_HOME: `pipx install --force yazses`
-# reinstalls into the same venv, rewrites the source to the PyPI name, and leaves a
-# `pipx upgrade` that works.
+# reinstalls into the same venv, keeps injected packages, rewrites the source to the
+# PyPI name, and leaves a `pipx upgrade` that works. It only finds the same venv when
+# the install has no `--suffix` and pipx is looking at the PIPX_HOME that holds it;
+# otherwise it would install a second copy, so the command is left alone.
+
+def _pipx_main_package(root: str) -> dict | None:
+    """The `main_package` record pipx keeps for the venv at *root*, or None when it
+    cannot be read -- not a pipx venv, or damaged."""
+    try:
+        with open(os.path.join(root, "pipx_metadata.json"), encoding="utf-8") as fh:
+            record = json.load(fh)["main_package"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    return record if isinstance(record, dict) else None
+
 
 def _pipx_source(prefix: str | None) -> str | None:
     """The package source pipx recorded for the environment at *prefix* (default: the
-    running one), or None when it cannot be read -- not a pipx venv, or damaged."""
-    root = prefix if prefix is not None else sys.prefix
-    try:
-        with open(os.path.join(root, "pipx_metadata.json"), encoding="utf-8") as fh:
-            spec = json.load(fh)["main_package"]["package_or_url"]
-    except (OSError, ValueError, KeyError, TypeError):
-        return None
+    running one), or None when it cannot be read."""
+    record = _pipx_main_package(prefix if prefix is not None else sys.prefix)
+    spec = record.get("package_or_url") if record else None
     return spec.strip() if isinstance(spec, str) and spec.strip() else None
+
+
+def _pipx_home() -> str | None:
+    """The PIPX_HOME that `pipx` itself would use from this process, or None."""
+    try:
+        out = subprocess.run(
+            ["pipx", "environment", "--value", "PIPX_HOME"],
+            capture_output=True, text=True, timeout=5, check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    home = out.stdout.strip()
+    return home if out.returncode == 0 and home else None
 
 
 # Comma-separated extra names (PEP 685 normalises them to letters, digits, `-`, `_`, `.`).
 _EXTRAS = re.compile(r"[A-Za-z0-9._-]+(?:,[A-Za-z0-9._-]+)*")
+
+
+# `name[extras] @ location`, spaces around the `@` optional. The name cannot hold a
+# slash, so a local path that happens to contain an `@` is not mistaken for one.
+_DIRECT_REFERENCE = re.compile(r"([A-Za-z0-9][A-Za-z0-9._-]*(?:\[[^\]]*\])?)\s*@\s*(.+)")
 
 
 def _split_extras(spec: str) -> tuple[str, str]:
@@ -1038,11 +1065,13 @@ def stale_pipx_source(spec: str) -> str | None:
     path that still exists is a developer's own checkout -- none of those is touched.
     """
     head, extras = _split_extras(spec)
-    name, _, direct = head.partition(" @ ")
+    direct = _DIRECT_REFERENCE.fullmatch(head.strip())
     if direct:
-        # A PEP 508 direct reference: `yazses[desktop] @ file:///path`. The extras sit
-        # on the name, the location after the `@`.
-        location, extras = direct.strip(), _split_extras(name.strip())[1] or extras
+        # A PEP 508 direct reference. pipx records it as `str(Requirement)`, which is
+        # `yazses[desktop]@ file:///path` (no space before the `@`). The extras sit on
+        # the name, the location after the `@`.
+        name, location = direct.group(1), direct.group(2).strip()
+        extras = _split_extras(name)[1] or extras
     else:
         location = head.strip()
     if location.startswith("file://"):
@@ -1065,32 +1094,52 @@ def stale_pipx_source(spec: str) -> str | None:
 
 
 def repair_pipx_source(
-    status: UpdateStatus, *, prefix: str | None = None, package: str = "yazses"
+    status: UpdateStatus,
+    *,
+    prefix: str | None = None,
+    package: str = "yazses",
+    pipx_home: Callable[[], str | None] = _pipx_home,
 ) -> UpdateStatus:
     """*status* whose pipx upgrade becomes a reinstall from PyPI when the install's
     recorded source is gone (see above), keeping the extras it was installed with.
 
     Unchanged for every other method, for any command it did not itself recognise
     (so it is idempotent), for a readable source that is fine, and whenever anything
-    here fails -- an update must never be broken by the look-ahead.
+    here fails -- an update must never be broken by the look-ahead. Also unchanged
+    when the reinstall would not land in this venv: a `--suffix` install, or a venv
+    that is not `<PIPX_HOME>/venvs/<package>` for the PIPX_HOME pipx reports here.
+    *pipx_home* is injectable for tests; it runs only once the source is known stale.
     """
     if status.method != "pipx" or status.command != upgrade_command("pipx", package):
         return status
+    root = prefix if prefix is not None else sys.prefix
     try:
-        spec = _pipx_source(prefix)
+        record = _pipx_main_package(root)
+        spec = _pipx_source(root)
         extras = stale_pipx_source(spec) if spec else None
+        if extras is None or record is None or record.get("suffix"):
+            return status
+        if extras and not _EXTRAS.fullmatch(extras):
+            # The extras are copied into the command, so anything that is not a list of
+            # extra names (a damaged record, a stray `]` or `@`) leaves the command alone.
+            return status
+        home = pipx_home()
+        if not home or os.path.realpath(os.path.join(home, "venvs", package)) != (
+            os.path.realpath(root)
+        ):
+            return status
     except Exception:  # noqa: BLE001 - must never break an update
-        return status
-    if extras is None:
-        return status
-    if extras and not _EXTRAS.fullmatch(extras):
-        # The extras are copied into the command, so anything that is not a list of
-        # extra names (a damaged record, a stray `]` or `@`) leaves the command alone.
         return status
     import dataclasses
 
     target = f"{package}[{extras}]" if extras else package
-    return dataclasses.replace(status, command=["pipx", "install", "--force", target])
+    command = ["pipx", "install", "--force", target]
+    # `yazses update` prints the steps after a failure: they must name the command
+    # that was run, not the `pipx upgrade` that cannot work.
+    old_step = f"Run:  {' '.join(status.command or ())}"
+    new_step = f"Run:  {' '.join(command)}"
+    steps = [new_step if step == old_step else step for step in status.steps]
+    return dataclasses.replace(status, command=command, steps=steps)
 
 
 def resolve_upgrade_command(
@@ -1098,6 +1147,7 @@ def resolve_upgrade_command(
     *,
     opencv: OpenCVProbe | None = None,
     pipx_prefix: str | None = None,
+    pipx_home: Callable[[], str | None] | None = None,
 ) -> UpdateStatus:
     """The one upgrade command every surface shows and runs. Idempotent.
 
@@ -1108,7 +1158,7 @@ def resolve_upgrade_command(
     yazses``, so it runs first, and the ``cv2`` step adds its flag to whatever that
     produced (either uv shape).
     """
-    status = repair_pipx_source(status, prefix=pipx_prefix)
+    status = repair_pipx_source(status, prefix=pipx_prefix, pipx_home=pipx_home or _pipx_home)
     status = preserve_enabled_features(status)
     return keep_cv2_whole(status, opencv=opencv)
 
