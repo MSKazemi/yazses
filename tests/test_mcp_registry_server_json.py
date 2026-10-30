@@ -11,14 +11,17 @@ that owns it rather than against a copy:
   release ever had;
 * the namespace against the GitHub owner of the repository, which is what the
   registry's GitHub login proves;
-* the ownership marker the owner is told to add to the README against the name in
-  the file, so the instructions cannot name a server that is not the one published.
+* the ownership marker against the name in the file, and its presence in README.md
+  (the PyPI description) under the registry's own boundary rule;
+* the whole file against a vendored copy of the registry's published JSON schema.
 
-Nothing here contacts the registry or PyPI. Whether the registry accepts the file is
-checked by the owner with `mcp-publisher`, by hand (packaging/README.md).
+Nothing here contacts the registry or PyPI. What only the registry can check — that
+the version is on PyPI with the marker in its description, and that the publisher's
+login owns `io.github.MSKazemi/` — happens at publish time (packaging/README.md).
 """
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import re
@@ -26,6 +29,7 @@ import shutil
 import sys
 import tomllib
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import pytest
 import typer.main as tm
@@ -164,3 +168,260 @@ def test_main_prints_the_path_and_the_marker(tmp_path: Path, capsys) -> None:
     captured = capsys.readouterr()
     assert Path(captured.out.strip()) == tmp_path / "server.json"
     assert "mcp-name: io.github.MSKazemi/yazses" in captured.err
+
+
+# --- the file against the registry's own schema, offline -----------------------
+#
+# The registry publishes one JSON schema per dated release. The template's `$schema`
+# names the current one, and a verbatim copy of it is vendored under
+# tests/fixtures/mcp_registry/ so the check runs offline and without `jsonschema`
+# (a dependency of the optional `mcp` SDK only, not of a base or dev install).
+#
+# Source:   https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json
+# Fetched:  2026-10-30. The registry's docs at modelcontextprotocol/registry commit
+#           72042e51 still name 2025-12-11 as the released schema (everything newer
+#           is the CHANGELOG's "Draft (Unreleased)" section).
+# Licence:  Apache-2.0 / MIT (the MCP project's LICENSE), compatible with ours.
+#
+# To move to a newer schema: vendor the new file verbatim, update SCHEMA_FILE and
+# SCHEMA_CANONICAL_SHA256, and the template's `$schema`. The hash is over the parsed
+# JSON, so a CRLF checkout on Windows does not change it, and an edit made to let a
+# field through does.
+
+SCHEMA_FILE = ROOT / "tests" / "fixtures" / "mcp_registry" / "server.schema.2025-12-11.json"
+SCHEMA_CANONICAL_SHA256 = "64cff5eeae54d30932207dfb38324e12eeaeb4abaa09f73dc42c9a9ca319f76e"
+
+#: Keywords that annotate and never reject. Anything else the walk meets that it does
+#: not implement fails the test rather than passing silently.
+_ANNOTATIONS = frozenset({
+    "$comment", "$id", "$schema", "definitions", "description", "example", "examples",
+    "default", "title",
+})
+_JSON_TYPES = {
+    "object": lambda v: isinstance(v, dict),
+    "array": lambda v: isinstance(v, list),
+    "string": lambda v: isinstance(v, str),
+    "boolean": lambda v: isinstance(v, bool),
+    "integer": lambda v: isinstance(v, int) and not isinstance(v, bool),
+    "number": lambda v: isinstance(v, (int, float)) and not isinstance(v, bool),
+    "null": lambda v: v is None,
+}
+
+
+@pytest.fixture(scope="module")
+def schema() -> dict:
+    return json.loads(SCHEMA_FILE.read_text(encoding="utf-8"))
+
+
+def _is_uri(value: str) -> bool:
+    parts = urlsplit(value)
+    return bool(parts.scheme) and bool(parts.netloc or parts.path)
+
+
+def _errors(node: dict, value, root: dict, at: str = "$") -> list[str]:
+    """Draft-07 validation of the keywords the registry's schema uses. Small on purpose."""
+    errors: list[str] = []
+    for key, rule in node.items():
+        if key in _ANNOTATIONS:
+            continue
+        if key == "$ref":
+            assert rule.startswith("#/definitions/"), rule
+            errors += _errors(root["definitions"][rule.rsplit("/", 1)[1]], value, root, at)
+        elif key == "type":
+            types = [rule] if isinstance(rule, str) else rule
+            if not any(_JSON_TYPES[t](value) for t in types):
+                errors.append(f"{at}: not of type {rule}")
+        elif key == "required":
+            if isinstance(value, dict):
+                errors += [f"{at}: missing {name!r}" for name in rule if name not in value]
+        elif key == "properties":
+            if isinstance(value, dict):
+                for name, sub in rule.items():
+                    if name in value:
+                        errors += _errors(sub, value[name], root, f"{at}.{name}")
+        elif key == "additionalProperties":
+            if isinstance(value, dict):
+                for name in (k for k in value if k not in node.get("properties", {})):
+                    if rule is False:
+                        errors.append(f"{at}: unexpected {name!r}")
+                    elif isinstance(rule, dict):
+                        errors += _errors(rule, value[name], root, f"{at}.{name}")
+        elif key == "items":
+            if isinstance(value, list):
+                for i, item in enumerate(value):
+                    errors += _errors(rule, item, root, f"{at}[{i}]")
+        elif key == "pattern":
+            if isinstance(value, str) and not re.search(rule, value):
+                errors.append(f"{at}: {value!r} does not match {rule}")
+        elif key == "minLength":
+            if isinstance(value, str) and len(value) < rule:
+                errors.append(f"{at}: shorter than {rule}")
+        elif key == "maxLength":
+            if isinstance(value, str) and len(value) > rule:
+                errors.append(f"{at}: longer than {rule}")
+        elif key == "enum":
+            if value not in rule:
+                errors.append(f"{at}: {value!r} not in {rule}")
+        elif key == "const":
+            if value != rule:
+                errors.append(f"{at}: {value!r} is not {rule!r}")
+        elif key == "not":
+            if not _errors(rule, value, root, at):
+                errors.append(f"{at}: matches a forbidden schema {rule}")
+        elif key == "anyOf":
+            branches = [_errors(sub, value, root, at) for sub in rule]
+            if all(branches):
+                errors.append(f"{at}: matches none of anyOf: {branches}")
+        elif key == "allOf":
+            for sub in rule:
+                errors += _errors(sub, value, root, at)
+        elif key == "format":
+            if rule != "uri":
+                raise AssertionError(f"{at}: format {rule!r} is not implemented here")
+            if isinstance(value, str) and not _is_uri(value):
+                errors.append(f"{at}: {value!r} is not a uri")
+        else:
+            raise AssertionError(f"{at}: schema keyword {key!r} is not implemented here")
+    return errors
+
+
+def test_the_vendored_schema_is_the_published_one(schema: dict) -> None:
+    canonical = json.dumps(schema, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    assert hashlib.sha256(canonical.encode("utf-8")).hexdigest() == SCHEMA_CANONICAL_SHA256
+    assert schema["$id"] == (
+        "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json"
+    )
+
+
+def test_the_template_names_the_vendored_schema(server: dict, schema: dict) -> None:
+    """`mcp-publisher` rejects a file without `$schema`, and warns on a deprecated one."""
+    assert server["$schema"] == schema["$id"]
+
+
+def test_the_rendered_file_satisfies_the_registry_schema(server: dict, schema: dict) -> None:
+    assert _errors(schema, server, schema) == []
+
+
+@pytest.mark.parametrize(
+    ("mutate", "expected"),
+    [
+        (lambda s: s.pop("name"), "missing 'name'"),
+        (lambda s: s.__setitem__("name", "yazses"), "does not match"),
+        (lambda s: s.__setitem__("description", "x" * 101), "longer than 100"),
+        (lambda s: s.__setitem__("websiteUrl", "not a url"), "is not a uri"),
+        (lambda s: s["packages"][0].__setitem__("version", "latest"), "forbidden"),
+        (lambda s: s["packages"][0].pop("transport"), "missing 'transport'"),
+        (lambda s: s["packages"][0]["transport"].__setitem__("type", "carrier-pigeon"),
+         "none of anyOf"),
+        (lambda s: s["packages"][0]["packageArguments"][0].__setitem__("type", "flag"),
+         "none of anyOf"),
+    ],
+)
+def test_the_schema_check_rejects_what_the_registry_rejects(
+    server: dict, schema: dict, mutate, expected: str
+) -> None:
+    """The offline check is not vacuous: each of these breaks one rule of the schema."""
+    broken = json.loads(json.dumps(server))
+    mutate(broken)
+    errors = _errors(schema, broken, schema)
+    assert any(expected in e for e in errors), errors
+
+
+def test_the_package_is_on_a_registry_the_official_registry_accepts(server: dict) -> None:
+    """official-registry-requirements.md: a PyPI package must use `https://pypi.org`
+    exactly. The schema alone allows any URI there."""
+    package = _package(server)
+    assert (package["registryType"], package["registryBaseUrl"]) == ("pypi", "https://pypi.org")
+
+
+# --- the ownership marker the registry reads from the PyPI description ----------
+
+
+def test_the_pypi_description_is_the_readme() -> None:
+    """The registry reads PyPI's `info.description`, which is `[project] readme`."""
+    assert _pyproject()["readme"] == registry.README_REL == "README.md"
+
+
+def test_the_readme_carries_the_ownership_marker(server: dict) -> None:
+    text = (ROOT / registry.README_REL).read_text(encoding="utf-8")
+    assert registry.contains_mcp_name_token(text, server["name"])
+    registry.check_readme(server)  # the release job's guard agrees
+
+
+@pytest.mark.parametrize(
+    ("text", "accepted"),
+    [
+        # The forms the registry's mcpname.go documents as accepted.
+        ("<!-- mcp-name: io.github.MSKazemi/yazses -->", True),
+        ("<!-- mcp-name: io.github.MSKazemi/yazses-->", True),
+        ("mcp-name: io.github.MSKazemi/yazses", True),
+        ("mcp-name: io.github.MSKazemi/yazses\nmore", True),
+        ("<p>mcp-name: io.github.MSKazemi/yazses</p>", True),
+        # A prefix of a longer name, or a name glued to a full stop, is not the token.
+        ("mcp-name: io.github.MSKazemi/yazses-pro", False),
+        ("Listed as mcp-name: io.github.MSKazemi/yazses.", False),
+        ("mcp-name:io.github.MSKazemi/yazses", False),
+        # ... unless a proper occurrence appears later.
+        ("mcp-name: io.github.MSKazemi/yazses-pro\nmcp-name: io.github.MSKazemi/yazses", True),
+    ],
+)
+def test_the_marker_boundary_matches_the_registrys(text: str, accepted: bool) -> None:
+    assert registry.contains_mcp_name_token(text, "io.github.MSKazemi/yazses") is accepted
+
+
+# --- the release-time guards ------------------------------------------------------
+
+
+def test_a_tag_that_is_not_the_version_is_refused(tmp_path: Path) -> None:
+    root = _fake_tree(tmp_path, "97.5.3")
+    assert registry.render(root, expect_tag="v97.5.3")["version"] == "97.5.3"
+    with pytest.raises(ValueError, match="does not match"):
+        registry.render(root, expect_tag="v97.5.2")
+
+
+def test_a_readme_without_the_marker_writes_nothing(tmp_path: Path) -> None:
+    root = _fake_tree(tmp_path, "97.5.3")
+    (root / "README.md").write_text(
+        "# YazSes\n\nmcp-name: io.github.MSKazemi/yazses.\n", encoding="utf-8"
+    )
+    out = tmp_path / "out"
+    with pytest.raises(ValueError, match="ownership marker"):
+        registry.write(out, root, require_marker=True)
+    assert not (out / "server.json").exists()
+
+
+def test_main_refuses_a_wrong_tag_with_exit_1(tmp_path: Path, capsys) -> None:
+    assert registry.main(["--out-dir", str(tmp_path), "--expect-tag", "v0.0.1"]) == 1
+    assert "does not match" in capsys.readouterr().err
+    assert not (tmp_path / "server.json").exists()
+
+
+@pytest.mark.parametrize(
+    ("info", "why"),
+    [
+        ({"name": "yazses", "version": "0.0.1"}, "not 'yazses'"),
+        ({"name": "yazses-fork"}, "not 'yazses'"),
+        ({"name": "yazses", "description": "mcp-name: io.github.MSKazemi/yazses-pro"},
+         "does not carry"),
+        ({"name": "yazses", "description": None}, "does not carry"),
+    ],
+)
+def test_a_pypi_answer_the_registry_would_reject_is_refused(
+    server: dict, info: dict, why: str
+) -> None:
+    info = {"version": server["version"], **info}
+    with pytest.raises(ValueError, match=why):
+        registry.check_pypi_release(server, {"info": info})
+
+
+def test_the_pypi_answer_for_this_release_is_accepted(server: dict) -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    registry.check_pypi_release(
+        server, {"info": {"name": "yazses", "version": server["version"], "description": readme}}
+    )
+
+
+def test_main_with_the_release_flags_renders_this_tree(tmp_path: Path) -> None:
+    tag = f"v{_pyproject()['version']}"
+    assert registry.main(["--out-dir", str(tmp_path), "--expect-tag", tag, "--check-readme"]) == 0
+    assert json.loads((tmp_path / "server.json").read_text(encoding="utf-8")) == registry.render()

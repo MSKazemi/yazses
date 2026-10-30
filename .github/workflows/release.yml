@@ -10,7 +10,8 @@ on:
   workflow_dispatch: {}  # allow a manual re-publish from main (e.g. after a CI fix)
 
 # Least privilege: read-only by default. The only job that needs write is
-# release-linux (it creates the GitHub Release); publish-pypi uses OIDC.
+# release-linux (it creates the GitHub Release); publish-pypi and the owner-gated
+# publish-mcp-registry use OIDC.
 permissions:
   contents: read
 
@@ -77,6 +78,88 @@ jobs:
           # Make manual re-publishes idempotent: skip a version already on PyPI
           # rather than failing the job with "file already exists".
           skip-existing: true
+
+  publish-mcp-registry:
+    # ADR-032 §2 (#639): list `yazses mcp-server` in the official MCP registry
+    # (registry.modelcontextprotocol.io) as io.github.MSKazemi/yazses, pointing at
+    # this release's PyPI package. The registry stores metadata only.
+    #
+    # OFF BY DEFAULT, because publishing to the registry is outward-facing. The job
+    # runs only after the owner sets the repository variable MCP_REGISTRY_PUBLISH to
+    # `true` (Settings -> Secrets and variables -> Actions -> Variables). While it is
+    # unset the job is skipped and a release does exactly what it did before.
+    #
+    # It must never decide whether the RELEASE succeeded. apt-repo.yml runs only when
+    # this workflow run concludes `success`, and checksums.yml waits while this run is
+    # queued, in progress or `waiting`. So the job is `continue-on-error`, and the
+    # `mcp-registry` environment must NOT get a required reviewer: a pending approval
+    # would hold the run, and with it the APT repository and SHA256SUMS.txt.
+    #
+    # It needs no secret: `mcp-publisher login github-oidc` trades this job's OIDC
+    # token for the namespace of the token's `repository_owner`, io.github.MSKazemi/*.
+    # It runs after publish-pypi because the registry fetches
+    # https://pypi.org/pypi/yazses/<version>/json and rejects the publish unless that
+    # version exists and its description (README.md) carries
+    # `mcp-name: io.github.MSKazemi/yazses`. The steps by hand, and the recovery
+    # when this job fails, are in packaging/README.md ("MCP bundle and MCP registry").
+    if: github.ref_type == 'tag' && vars.MCP_REGISTRY_PUBLISH == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30   # waits up to 15 min for PyPI (SECONDS + 900) + 15; no measured run yet (CI_POLICY §8 rules 1, 3)
+    needs: publish-pypi
+    # REMOVE WHEN: nothing waits on the Release run any more (apt-repo.yml and checksums.yml
+    # both chain on it today), or the registry publish has moved to its own workflow.
+    continue-on-error: true
+    environment: mcp-registry
+    permissions:
+      contents: read
+      id-token: write  # mcp-publisher login github-oidc
+    env:
+      # Pinned and content-checked, never `releases/latest`. To upgrade, take the
+      # new linux_amd64 line from that release's registry_<version>_checksums.txt.
+      MCP_PUBLISHER_VERSION: v1.8.6
+      MCP_PUBLISHER_SHA256: 1fbe93fc0783c2394d8012c8d6e50a59e98cb2cc2d216264cc69f405d0e21340
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # Refuses a tag that is not v<pyproject version>, and a README without the
+      # marker, before anything is downloaded or published.
+      - name: Render server.json from the tagged source
+        run: |
+          set -euo pipefail
+          python3 scripts/render-mcp-server-json.py --out-dir mcp-registry \
+            --expect-tag "$GITHUB_REF_NAME" --check-readme
+          cat mcp-registry/server.json
+
+      - name: Wait until PyPI serves this version with the ownership marker
+        run: |
+          set -euo pipefail
+          url="https://pypi.org/pypi/yazses/${GITHUB_REF_NAME#v}/json"
+          deadline=$(( SECONDS + 900 ))
+          until curl -fsSL "$url" -o pypi.json \
+              && python3 scripts/render-mcp-server-json.py --expect-tag "$GITHUB_REF_NAME" \
+                   --check-pypi-json pypi.json; do
+            if (( SECONDS >= deadline )); then
+              echo "::error::$url did not show this version with the mcp-name marker within 15 minutes"
+              exit 1
+            fi
+            sleep 30
+          done
+
+      - name: Install mcp-publisher (pinned, checksum-verified)
+        run: |
+          set -euo pipefail
+          archive=mcp-publisher_linux_amd64.tar.gz
+          curl -fsSL -o "$archive" \
+            "https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}/${archive}"
+          echo "${MCP_PUBLISHER_SHA256}  ${archive}" | sha256sum -c -
+          tar xzf "$archive" mcp-publisher
+          ./mcp-publisher --version
+
+      - name: Publish to the MCP registry
+        run: |
+          set -euo pipefail
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish mcp-registry/server.json
 
   build-deb:
     # One .deb per architecture. This used to be a single amd64 job fused with
