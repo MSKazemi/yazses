@@ -103,6 +103,59 @@ def test_a_noise_only_stream_has_no_events() -> None:
     assert data["events"] == []
 
 
+def _injected(blocks: tuple[tuple[str, int, int], ...], seed: int = 11) -> tuple[dict[str, Any], dict[str, list[float]]]:
+    """The run with injection, and per channel what injection added (``inject=True`` minus ``inject=False``).
+
+    A block's noise is drawn before its onset jitter and its speech-like activity, so when the
+    block under test is the last one the two runs share that noise and the difference is exactly
+    what was injected.
+    """
+    on = E.synthesize(seed, blocks)
+    off = E.synthesize(seed, blocks, inject=False)
+    added = {n: [a - b for a, b in zip(on["channels"][n], off["channels"][n], strict=True)] for n in E.CHANNELS}
+    return on, added
+
+
+@pytest.mark.parametrize(
+    ("kind", "prefix", "main", "leak"),
+    [
+        ("blink", "blink", "eog", E.PARAMS["blink_leak_into_eeg"]),
+        ("clench", "clench", "emg", E.PARAMS["clench_leak_into_eeg"]),
+        ("intended", "switch", "eeg", 0.0),
+    ],
+)
+def test_each_p1_burst_is_in_the_signal_where_the_ground_truth_says(kind: str, prefix: str, main: str, leak: float) -> None:
+    """P1 tests nothing if its bursts are not in the signal. Says nothing about whether any detector finds them."""
+    on, added = _injected((("calibration_rest", 5, 0), (kind, 20, 3)))
+    width = int(E.PARAMS[f"{prefix}_width_s"] * FS)
+    amplitude = E.PARAMS[f"{prefix}_amplitude"]
+    onsets = [e["t_s"] * FS for e in on["events"]]
+    assert len(onsets) == 3
+    changed = [i for i, d in enumerate(added[main]) if abs(d) > 1e-9]
+    assert changed, f"the {kind} bursts left the {main} channel untouched"
+    # Every changed sample sits inside a burst that starts at a ground-truth onset (one sample of rounding slack).
+    for i in changed:
+        assert any(t - 1 <= i <= t + width for t in onsets), (kind, i)
+    for t in onsets:
+        window = added[main][int(t) - 1 : int(t) + width + 1]
+        assert max(abs(d) for d in window) >= 0.95 * amplitude, (kind, t)
+    # The leak into EEG is the stated fraction of the burst, and the third channel is untouched.
+    if main != "eeg":
+        assert added["eeg"] == pytest.approx([leak * d for d in added[main]], abs=1e-9)
+    for name in set(E.CHANNELS) - {main, "eeg"}:
+        assert all(abs(d) <= 1e-9 for d in added[name]), (kind, name)
+
+
+def test_the_speaking_block_adds_muscle_activity_and_leaks_it_into_eeg() -> None:
+    on, added = _injected((("calibration_rest", 5, 0), ("speaking", 5, 0)))
+    start = 5 * FS
+    assert all(d == 0.0 for name in E.CHANNELS for d in added[name][:start]), "calibration rest must stay noise only"
+    assert sum(1 for d in added["emg"][start:] if abs(d) > 1e-9) > 0.9 * 5 * FS
+    assert added["eeg"] == pytest.approx([E.PARAMS["speech_leak_into_eeg"] * d for d in added["emg"]], abs=1e-9)
+    assert all(abs(d) <= 1e-9 for d in added["eog"])
+    assert on["events"] == []
+
+
 def test_calibration_noise_does_not_depend_on_what_comes_after_it() -> None:
     # Thresholds are set from the calibration block, so it must be identical however the rest is built.
     full = E.synthesize(5)
