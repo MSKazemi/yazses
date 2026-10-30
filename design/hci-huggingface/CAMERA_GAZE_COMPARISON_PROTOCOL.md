@@ -1,8 +1,8 @@
 # Camera and gaze backend comparison protocol
 
 Status: proposed protocol dated 2026-10-28; **no study has been run and this document contains no
-results**. Part of epic #692 / issue #695 (Stage B). Documentation only: no code, no capture
-source, no change to product behaviour.
+results**. Part of epic #692 / issue #695 (Stage B). No capture source and no change to product
+behaviour; the only code is the offline metric script in section 8 and its tests.
 
 It extends the existing eye/camera programme and does not replace it. Metric names, the
 evaluation ladder (E0 to E7), the data classes (A to D) and the risk IDs (R-nn) are the ones
