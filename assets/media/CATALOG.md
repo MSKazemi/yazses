@@ -4,7 +4,12 @@ This catalog distinguishes **approved-to-share** social assets from **candidates
 
 ## Approved media packs
 
-_None yet. An item is approved only after its rights, media-specific license, and content have been reviewed._
+The project already publishes two packs as **free to use** on [Share your contribution](../../docs/contribute/share.md); they are listed here so this catalog and that page agree. Neither has a media-specific license identifier (SPDX or Creative Commons) recorded yet; when a maintainer chooses one, record it here and on that page. Any further item is approved only after its rights, media-specific license, and content have been reviewed.
+
+| Pack | Files | Notes | Status |
+|---|---|---|---|
+| Contributor share images | [`docs/assets/share/`](../../docs/assets/share/): poster, two reel covers, a contact and download card, two QR codes | 9:16 portrait; the QR codes open the latest release | approved: published as free to use |
+| Contributor reels | [Reel 1](https://github.com/MSKazemi/yazses/releases/download/media-kit/yazses-reel-1.mp4) and [Reel 2](https://github.com/MSKazemi/yazses/releases/download/media-kit/yazses-reel-2.mp4) on the [`media-kit` pre-release](https://github.com/MSKazemi/yazses/releases/tag/media-kit) | Release assets, not committed to Git | approved: published as free to use |
 
 ## Candidate materials already in this repository
 
