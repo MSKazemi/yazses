@@ -19,9 +19,11 @@ update all hit it.
 
 The installer now closes YazSes itself before it looks for files in use: the tray first (it
 would otherwise relaunch the daemon the moment the daemon went away), then `yazses stop`, which
-asks the daemon to shut down and waits, so a meeting being saved is saved rather than killed. It
-only touches processes running from the install directory it is replacing, and it still never
-force-closes. A silent upgrade that closed a tray starts it again; the in-app update, which
+asks the daemon to shut down and gives it 10 seconds to exit before ending it. While a meeting is
+still being written up, `stop` refuses, the install fails as it did before, and the tray it closed
+is started again, so YazSes is left running as it was. It only touches processes running from the
+install directory it is replacing, and Setup's own force-close is never used. A silent upgrade that
+closed a tray starts it again; the in-app update, which
 passes `/NORESTARTAPPLICATIONS` and relaunches itself, is left alone, as is the interactive
 installer's "Launch YazSes now" box. Checked on Windows 11 with a real tray and daemon: the old
 script failed with exit code 5 and left both running; the new one upgraded cleanly with the tray

@@ -87,3 +87,16 @@ def test_nothing_force_closes() -> None:
     destroy the work of a daemon still saving a meeting."""
     assert "CloseApplications=force" not in ISS
     assert "/FORCECLOSEAPPLICATIONS" not in ISS
+
+
+def test_a_refused_stop_brings_the_tray_back_before_the_install_fails() -> None:
+    """`yazses stop` refuses while a meeting is being written up. The Restart Manager then
+    fails the install, so CurStepChanged never reaches ssDone: without this, the tray
+    closed a moment earlier would stay closed and the user keeps a daemon with no tray."""
+    after = _block("StopRunningYazSes").split("'stop'", 1)[1]
+    assert "--daemon" in after
+    assert "ExecAsOriginalUser" in after and "'--tray'" in after
+    # Brought back here, so CurStepChanged must not start a second one.
+    assert "Result := False" in after
+    survivors = after.split("Survivors :=", 1)[1].split("if Exec(", 1)[0]
+    assert '"' not in survivors

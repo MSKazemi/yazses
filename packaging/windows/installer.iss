@@ -247,9 +247,11 @@ end;
   So close it here, before Setup looks. Order matters. The tray goes first, and
   forcibly: it holds no user data, and while it lives it relaunches the daemon
   whenever the daemon disappears. Then `yazses-cli stop`, which asks the daemon
-  to shut down and waits for it, so a meeting being saved is saved, not killed.
-  Whatever survives that is left to the Restart Manager, which can still refuse:
-  a daemon that will not stop is a reason not to install, not to kill it.
+  to shut down and gives it 10 s to exit before it ends the process. While a
+  meeting is still being written up, `stop` refuses instead and the daemon keeps
+  running. Whatever survives is left to the Restart Manager, which then fails the
+  install; the tray closed above is started again first, so a failed install
+  leaves YazSes running as it found it.
 
   Only processes running from this install's own directory are touched. }
 
@@ -267,7 +269,7 @@ end;
 
 function StopRunningYazSes: Boolean;
 var
-  AppDir, Script: string;
+  AppDir, Script, Survivors: string;
   ResultCode: Integer;
 begin
   Result := False;
@@ -292,6 +294,30 @@ begin
 
   if FileExists(AppDir + '\yazses-cli.exe') then
     Exec(AppDir + '\yazses-cli.exe', 'stop', AppDir, SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
+  { A daemon still running here (`stop` refused: a meeting is being written up) means
+    the Restart Manager will fail the install, and CurStepChanged never runs. Bring the
+    tray back now rather than leave the user with a daemon and no tray. Exit code 1 = a
+    daemon from this install is still running. }
+  if Result then
+  begin
+    Survivors :=
+      '$d = ' + PsQuote(AppDir + '\') + '; ' +
+      '$t = @(Get-CimInstance Win32_Process | Where-Object { ' +
+        '$_.ExecutablePath -and ' +
+        '$_.ExecutablePath.StartsWith($d, [StringComparison]::OrdinalIgnoreCase) -and ' +
+        '$_.CommandLine -match ''--daemon'' }); ' +
+      'exit [int]($t.Count -gt 0)';
+    if Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+            '-NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -Command "' +
+            Survivors + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode)
+       and (ResultCode = 1) then
+    begin
+      ExecAsOriginalUser(AppDir + '\{#MyAppExeName}', '--tray', AppDir,
+                         SW_SHOWNORMAL, ewNoWait, ResultCode);
+      Result := False;  { already back: CurStepChanged must not start a second one }
+    end;
+  end;
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
