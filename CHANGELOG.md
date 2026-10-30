@@ -6,6 +6,23 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — an XR voice-input adapter, as a library (not wired, no user-visible change)
+
+`yazses.xr` turns headset or glasses pointing rays and pinch gestures into grounded targets for
+dictation: hold-to-talk from a gesture, "this"/"here" bound to the panel being looked at, a strict
+wire format for a companion device, and a confirm rule. It is **not wired into the daemon** — there is
+no `[xr]` setting and no command — and it opens no network path. It is tested on synthetic data only;
+`design/research/2026-10-30-xr-synthetic-evaluation.md` records where the defaults fall short
+(a high prompt rate, and silent wrong binds when the eyes have moved on before the word).
+The mapping layers for the technologies on the market — [OpenXR](docs/xr-openxr.md),
+[WebXR](docs/xr-webxr.md), [Apple visionOS](docs/xr-visionos.md) and the
+[Unity, Unreal and Godot axes](docs/xr-engines.md) — are pure libraries too: no SDK is imported and
+nothing is sent. The confirm rule now holds on specific signals (a rival panel within the angular
+error budget, a recent switch, a rested look elsewhere) instead of any instantaneous change, which
+cuts the synthetic prompt rate on the eyes-on-target case from about 40% to about 1%; a rise in
+silent wrong binds when the eyes are still leaving the previous panel is documented, not fixed.
+See [XR voice input](docs/xr-voice-input.md) and ADR-033 (Proposed).
+
 ### Changed — the German page was reviewed by a native speaker
 
 `docs/de/index.md` was a machine-assisted draft. A native German reader reworded it so it reads

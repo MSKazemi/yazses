@@ -361,6 +361,11 @@ nav:
       - Per-app tone profiles: how-to/app-profiles.md
       - Jump to a symbol by voice: how-to/editor-jump.md
       - Glance-Type (look to pane): how-to/gaze-look-to-pane.md
+      - XR voice input (library, not wired): xr-voice-input.md
+      - XR over OpenXR (library, not wired): xr-openxr.md
+      - XR from a web page (library, not wired): xr-webxr.md
+      - XR on Apple Vision Pro (library, not wired): xr-visionos.md
+      - XR from Unity, Unreal and Godot (library, not wired): xr-engines.md
       - Set up hands-free input: how-to/hands-free-setup.md
       - Stop hands-free input by voice: how-to/hands-free-voice-stop.md
       - Click anywhere by voice (mouse grid): how-to/voice-mouse-grid.md

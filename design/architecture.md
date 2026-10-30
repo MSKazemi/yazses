@@ -462,6 +462,59 @@ treated as "Windows accepted this" and never as "the pointer moved". Both module
 say so, and the live-smoke evidence `design/specs/eye-pointer-output.md` asks for is still
 outstanding for both.
 
+### XR adapter (`src/yazses/xr`, [ADR-033](adr/adr-033-xr-adapter-outside-the-kernel.md) — Proposed)
+
+A headset or glasses companion is designed to send already-sampled pointing rays and gestures
+(no companion exists); this package turns them into the kernel's own `TargetSnapshot` and into
+hold-to-talk edges. It is an
+*adapter outside the kernel* (ADR-025): pure, standard library only, no OpenXR/Unity/Unreal
+import, no clock read, no I/O. **It is not wired**: nothing outside the package imports it,
+there is no `[xr]` config section, CLI command or daemon hook yet, and no transport exists for
+its frames (`bridge/` holds the pairing state machine and audio framing only). Its dormancy is a fact of the build, not a config default.
+
+| Module | Role |
+|---|---|
+| `types.py`, `geometry.py` | Frozen, validated contracts (`Vec3`, `Ray`, `RaySource`, `XrSample`, `GestureEvent`, `Panel`, `PanelHit`) and small vector helpers. Metres, radians, right-handed, +Y up, −Z forward; NaN/inf refused at construction |
+| `session.py` | `XrSession`: the pure composition of the modules below. `feed_frame(bytes, desktop_now_s)` runs wire decode → `ClockMap` rebase → per-source `RayFilter` → `SampleRetention` (rays) / `PanelRegistry` (panels) / `GesturePtt` (gestures) and returns log-safe events (a rejected frame is a canonical category, never payload text; a run of rejections becomes one rate-limited `COMPANION_MISBEHAVING`). `resolve_demonstrative(onset, end)` casts retained rays at live panels, binds, applies `confirm.decide` (panel at onset vs at end) and returns a `SessionResolution` with a `TargetSnapshot`; a pin wins without confirmation. No thread, no socket, no clock: the host must call `tick(now)` on a timer (a hand leaving tracking sends no events, so only `tick` closes the mic) and `reset()` after `COMPANION_MISBEHAVING` or a reconnect. Retains rays for 8.0 s / 720 samples (an open owner decision, below). Unwired |
+| `wire.py` | Companion → desktop frames (`sample`, `gesture`, `panel`, `panel_gone`) as bounded UTF-8 JSON. Untrusted: required fields only, unknown/duplicate keys, NaN, oversize and deep nesting refused; for any frame content the only exception that escapes `decode_frame` is `WireError`. `ClockMap` maps device time onto the desktop clock; both directions of offset movement are rate-bounded (up by `max_drift` per second; down from a credit of `jitter_s` refilled at `max_drift`) and a clock step beyond `max_jump_s` is refused |
+| `conventions.py` | Converts another runtime's axes/handedness/units (OpenXR, Unity, Unreal, Android XR, visionOS) into the canonical frame at the seam. The Android XR and visionOS rows are **unverified assumptions** (treated as OpenXR-aligned) |
+| `raycast.py` | Ray ∩ `Panel` → `PanelHit(u, v, distance)` |
+| `smoothing.py` | `RayFilter` (One-Euro) and `dwell_progress`; deterministic, driven by sample timestamps |
+| `binding.py` | Spoken "this/that/here" → panel, from the pointing history around word onset, weighted by the time each sample holds (not by sample count). Needs at least 3 usable samples covering 0.05 s (a single stray sample never binds) and a 0.6 share that strictly leads. Returns BOUND / AMBIGUOUS / NONE and never guesses; the thresholds are unvalidated starting points |
+| `confirm.py` | `decide(...)`: hold only on a specific, checkable signal (ambiguous, a rested look elsewhere of at least 0.5 s, a rival panel within the angular error budget, a switch less than 0.3 s before the word, destructive, low confidence or margin) and offer the one or two candidate panels; no target is not a prompt (fall back to keyboard focus). Known gap: a word spoken while the gaze is still leaving the previous panel binds silently more often than before (synthetic, see the evaluation note) |
+| `ptt.py` | `GesturePtt`: pinch/squeeze/tap → START/STOP/CANCEL with debounce and flicker grace; `tick` force-stops a gesture that never ended; `max_future_s` bounds forged timestamps (a stop is never ignored for them) |
+| `anchors.py` | Bounded `PanelRegistry` (expiring; ids NFC-normalised and restricted to `[A-Za-z0-9._:-]{1,128}`), the sticky `DictationTarget` pin (dropped when its panel is re-posed past a tolerance), and `describe`/`describe_all`, which speak a companion-supplied label as quoted, sanitised data |
+| `grounded.py` | Observation → `TargetSnapshot(source=TargetSource.XR_RAY)` in an `xr-panel:<id>` space whose version is supplied by the caller (`snapshot_series` takes a `versions` mapping, default 0; `XrSession` bumps a panel's version when its pose or size changes) |
+| `privacy.py` | `SampleRetention` (bounded, log-safe; defaults 2.0 s / 240 samples; refuses future-stamped samples, pickling and copying), `redact_for_log`, `may_persist`, and `EGRESS = frozenset()` |
+| `devices.py` | Static capability table; unknown is `None`, never `False`. Eye tracking is unknown for every profile; hand tracking is `True` for Android XR and Vision Pro on OS-level quotes from the repo's research note, unconfirmed against vendor documentation |
+| `synth.py` | Seeded synthetic trajectories for tests and offline evaluation |
+| `routes.py` | Static table of companion routes (OpenXR, WebXR, visionOS) with the device profiles each reaches and whether the route gives the binder a continuous ray. The root through which `devices.py` reaches the route modules |
+| `openxr.py`, `webxr.py`, `visionos.py` | Pure mappings of one platform's data (OpenXR poses and action states, WebXR input sources and events, ARKit transforms and system pinch events) into `XrSample`/`GestureEvent`. No SDK import. visionOS exposes no continuous gaze, so the binder abstains there rather than guesses; the pinch-time ray is tagged `EYE` though it is a single sample |
+| `engines.py` | Unity (left-handed, +Z forward), Unreal (left-handed, +Z up, cm) and Godot axis/unit conversion for positions, directions, quaternions, rays and panels, composed from `conventions.py`; tested by identical ray hits before and after conversion |
+
+**Invariants.**
+1. *The kernel knows nothing about XR.* The only kernel-side trace is the enum member
+   `TargetSource.XR_RAY`; the only import from outside the package is
+   `yazses.grounding.contracts`, in `grounded.py` and `session.py`.
+2. *Provenance is kept.* A ray is never mapped onto `TargetSource.GAZE`.
+3. *A hit adds no confidence.* The sample's tracking confidence passes through unchanged; a ray
+   that hit nothing yields a snapshot with no point, so the resolver answers `UNRESOLVED`.
+4. *Doubt resolves to refusal.* Ambiguous or empty pointing history is a result, a stale panel
+   stops receiving text, and a stuck gesture closes the microphone.
+5. *Zero egress, bounded memory, no persistence of raw samples without explicit research
+   consent.* Enforced by `tests/test_egress_inventory.py` (which scans the whole source tree)
+   and `tests/test_xr_privacy.py`; ADR-019's inventory is unchanged.
+6. *Time is injected.* No module reads a clock; the host drives `XrSession.tick`.
+
+**Caveat.** All tuning defaults (One-Euro cutoff/beta, binder lead/lag window and evidence
+thresholds, confirm thresholds, PTT timings, clock-map bounds, retention window) are
+unvalidated starting points; the tests use synthetic data only and no real headset trace has
+been collected. **Open privacy decision for the owner:** `XrSession` holds pointing rays in
+memory for 8.0 s (720 samples), longer than `SampleRetention`'s 2.0 s default and longer than
+the research note's "few seconds" framing, so that rays at a word's onset are still held when
+the transcript arrives. Rays never leave memory, but the length is unmeasured and undecided
+(ADR-033, Consequences).
+
 ### `src/yazses/stt/`
 
 | File | Role |
