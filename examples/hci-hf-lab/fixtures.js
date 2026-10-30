@@ -595,7 +595,7 @@ window.HCI_FIXTURES = {
     {
       "id": "emg_hold_chatter",
       "title": "EMG hold chatter",
-      "description": "Negative example. The EMG signal chatters: a 120 ms contraction, then a second one 35 ms after the first ended. A hold must last at least 250 ms, so no activation is accepted.",
+      "description": "Negative example. The EMG signal chatters (see the timeline): a 120 ms contraction, a 35 ms dropout, then a second contraction 5 ms old at the activation. The resolver has no EMG debounce and reads the bounce fields only for blinks, so the verdict rests on hold_ms, which records the first contraction. Every reading of the chatter is short of the 250 ms minimum (5 ms, 120 ms, or 160 ms with the dropout bridged), so no activation is accepted.",
       "synthetic": true,
       "negative_example": true,
       "modality": ["voice_intent", "gaze", "emg"],
@@ -620,8 +620,8 @@ window.HCI_FIXTURES = {
           "confidence": 0.9,
           "age_ms": 40,
           "hold_ms": 120,
-          "bounce_count": 2,
-          "bounce_gap_ms": 35,
+          "bounce_count": 0,
+          "bounce_gap_ms": null,
           "quality": "good"
         }
       },

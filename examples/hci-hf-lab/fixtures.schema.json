@@ -199,7 +199,11 @@
                 "confidence": { "$ref": "#/$defs/confidenceOrUnknown" },
                 "age_ms": { "$ref": "#/$defs/ms" },
                 "hold_ms": { "$ref": "#/$defs/ms" },
-                "bounce_count": { "type": "integer", "minimum": 0 },
+                "bounce_count": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Repeats after the first event, so a blink pair is 1. The resolver reads it only for kind blink, so the validator requires 0 for every other kind; record EMG chatter in the timeline instead."
+                },
                 "bounce_gap_ms": {
                   "oneOf": [
                     { "$ref": "#/$defs/ms" },

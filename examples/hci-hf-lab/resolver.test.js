@@ -76,6 +76,44 @@ test("EMG hold shorter than the minimum abstains; at the minimum it passes", () 
   assert.equal(R.resolve(inputs, FX).decision, "accept");
 });
 
+test("the bounce fields change nothing for an EMG hold: the resolver reads them only for blinks", () => {
+  const inputs = scenario("emg_switch_activation");
+  const plain = R.resolve(inputs, FX);
+  inputs.activation.bounce_count = 1;
+  inputs.activation.bounce_gap_ms = 35;
+  const bounced = R.resolve(inputs, FX);
+  assert.equal(plain.decision, "accept");
+  assert.deepEqual(bounced.reasons, plain.reasons);
+  assert.equal(bounced.decision, plain.decision);
+});
+
+test("emg_hold_chatter abstains on hold length under every reading of its chatter", () => {
+  // There is no EMG debounce, so the verdict must not hinge on which contraction hold_ms records.
+  // Each reading is derived from the scenario's timeline, not written down a second time.
+  const sc = FX.scenarios.find((s) => s.id === "emg_hold_chatter");
+  const at = (event) => sc.timeline.filter((e) => e.source === "activation" && e.event === event).map((e) => e.t_ms);
+  const starts = at("hold_start");
+  const fired = at("activation").pop();
+  assert.ok(starts.length >= 2 && at("hold_end").length >= 1, "the timeline must show the release and re-press");
+  const readings = {
+    "first contraction": at("hold_end")[0] - starts[0],
+    "contraction in progress": fired - starts[starts.length - 1],
+    "dropout bridged": fired - starts[0],
+  };
+  assert.equal(sc.inputs.activation.hold_ms, readings["first contraction"], "hold_ms records the first contraction");
+  for (const [name, ms] of Object.entries(readings)) {
+    const inputs = scenario("emg_hold_chatter");
+    inputs.activation.hold_ms = ms;
+    const r = R.resolve(inputs, FX);
+    assert.equal(r.decision, "abstain", name);
+    assert.match(r.reasons.join(" "), /EMG hold lasted/, name);
+  }
+  // The hold length is what decides it: the same inputs with a long enough hold are accepted.
+  const long = scenario("emg_hold_chatter");
+  long.activation.hold_ms = FX.thresholds.emg_min_hold_ms;
+  assert.equal(R.resolve(long, FX).decision, "accept");
+});
+
 test("blink repeated inside the refractory window is accidental", () => {
   const inputs = scenario("correct_target");
   inputs.activation.bounce_count = 1;

@@ -208,6 +208,10 @@ def _validate_scenario_structure(sid: str, sc: dict[str, Any], doc: dict[str, An
         errors.append(f"{sid}: bounce_gap_ms must be null when bounce_count is 0")
     elif count > 0 and (not _is_int(gap) or gap < 0):
         errors.append(f"{sid}: bounce_gap_ms {gap!r} must be a non-negative int when bounce_count > 0")
+    if _is_int(count) and count > 0 and act.get("kind") != "blink":
+        # resolver.js reads the bounce fields only for blinks, and the page hides them for
+        # every other kind, so a bounce on an EMG hold would claim a check that never runs.
+        errors.append(f"{sid}: bounce_count is read only for blinks; record {act.get('kind')} chatter in the timeline")
 
 
 def validate_fixtures(doc: dict[str, Any]) -> list[str]:
@@ -351,9 +355,14 @@ def test_every_scenario_issue_699_lists_is_covered(fixtures: dict[str, Any]) -> 
     for need, ids in ISSUE_699_SCENARIOS.items():
         missing = [i for i in ids if i not in by_id]
         assert not missing, f"{need}: no fixture {missing}"
-    # The two scenarios that were gaps are covered by what they actually exercise.
-    chatter = by_id["emg_hold_chatter"]["inputs"]["activation"]
-    assert chatter["kind"] == "emg_hold" and chatter["bounce_count"] >= 1
+    # The two scenarios that were gaps are covered by what they actually exercise. The EMG
+    # chatter lives in the timeline (released, then pressed again), not in the bounce fields,
+    # which the resolver reads only for blinks; resolver.test.js checks the verdict holds
+    # under every reading of that chatter.
+    chatter = by_id["emg_hold_chatter"]
+    assert chatter["inputs"]["activation"]["kind"] == "emg_hold"
+    holds = [e["event"] for e in chatter["timeline"] if e["source"] == "activation"]
+    assert holds[:3] == ["hold_start", "hold_end", "hold_start"], holds
     late = [e for e in by_id["out_of_order_sample"]["timeline"] if e.get("out_of_order")]
     assert late, "out_of_order_sample must contain an event flagged out_of_order"
     assert by_id["untrusted_target"]["expected"]["decision"] == "abstain"
@@ -465,6 +474,13 @@ def _mutated(fixtures: dict[str, Any], fn: Any) -> list[str]:
             "bounce without a gap",
             lambda d: d["scenarios"][0]["inputs"]["activation"].update(bounce_count=2),
             "bounce_gap_ms",
+        ),
+        (
+            "bounce on an activation that is not a blink",
+            lambda d: next(s for s in d["scenarios"] if s["inputs"]["activation"]["kind"] == "emg_hold")[
+                "inputs"
+            ]["activation"].update(bounce_count=1, bounce_gap_ms=35),
+            "read only for blinks",
         ),
         ("bad scenario id", lambda d: d["scenarios"][0].update(id="Bad Id"), "id must match"),
         ("negative_example not a bool", lambda d: d["scenarios"][0].update(negative_example="no"), "negative_example"),

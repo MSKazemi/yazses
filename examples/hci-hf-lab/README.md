@@ -112,7 +112,7 @@ The `quality` annotation (`good`, `degraded`,
 | `sensor_disconnection` | abstain | Gaze lost, no named target. |
 | `false_activation` | abstain | EMG twitch at 0.55 < 0.8 (negative example). |
 | `out_of_order_sample` | abstain | A gaze sample stamped 100 ms arrives after the 940 ms activation; at the decision it is 900 ms old. |
-| `emg_hold_chatter` | abstain | A 120 ms contraction, then another 35 ms later; a hold needs 250 ms (negative example). |
+| `emg_hold_chatter` | abstain | A 120 ms contraction, then another 35 ms later. There is no EMG debounce, so this checks only that every reading of the chatter (5, 120 or 160 ms) is short of 250 ms (negative example). |
 | `ambiguous_gaze_edge` | abstain | Gaze on Notes, 4.5% from Terminal, inside the 5% margin. |
 | `untrusted_target` | abstain | Gaze and voice agree on the Browser window, which is marked untrusted. |
 | `sensor_recovery` | accept | Gaze drops at 100 ms, reconnects at 500 ms, and the normal proposal follows. |

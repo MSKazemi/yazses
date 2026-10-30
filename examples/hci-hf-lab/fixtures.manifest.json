@@ -34,13 +34,13 @@
   "files": [
     {
       "path": "fixtures.js",
-      "bytes": 34508,
-      "sha256": "ad23f4926af7887205a40c5d30e77e7ae68a52371e3d9b18daf21df10b1d2a5e"
+      "bytes": 34779,
+      "sha256": "379eaaae18a3f82091c7d301128687ca7a78ecd0c4e588ccb42febf2d3108366"
     },
     {
       "path": "fixtures.schema.json",
-      "bytes": 9882,
-      "sha256": "b33e946e5ab24ec689d98db6825617f4fbade9ad21690515754b3bd814c76cff"
+      "bytes": 10160,
+      "sha256": "178563073aca419ea52f5590bd33f12967b3738b29ef6e0bcf68ff24e18210b8"
     }
   ]
 }
