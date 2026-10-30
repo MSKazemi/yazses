@@ -5,7 +5,7 @@ description: Evidence-led plan for validating YazSes desktop releases before bro
 
 # Desktop reliability and first-user validation campaign
 
-**Proposed 29 October 2026.** This is a coordination plan, **not** a declaration that its gates have passed. The current stable release is **v2.46.0**; always record the actual release under test. It implements the existing [ADR-030 direction](../design/adr/adr-030-agent-era-direction.md) and does not replace the authoritative [release evidence standard](contribute/validation.md) or [validation matrix](validation-matrix.md).
+**Proposed 29 October 2026.** This is a coordination plan, **not** a declaration that its gates have passed. The current stable release is **v2.46.0**; always record the actual release under test. It implements the existing [ADR-030 direction](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-030-agent-era-direction.md) and does not replace the authoritative [release evidence standard](contribute/validation.md) or [validation matrix](validation-matrix.md).
 
 ## Scope and freeze
 

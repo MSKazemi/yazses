@@ -33,7 +33,7 @@ Hardware pricing/eligibility changes. Start from **free static HTML/JS Space** r
 ## Existing internal seams to reuse
 
 - `src/yazses/stt/` includes the pluggable STT engine and `faster_whisper.py` cache-first model loading. Android has a separate checksum/pinned-revision issue [#683](https://github.com/MSKazemi/yazses/issues/683).
-- `src/yazses/perception/` defines `SharedPerceptionSource`, `PerceptionSample` and derived gaze/head/face signals (ADR-v2-145 and [eye programme](../../design/eye-control/ROADMAP.md)). Never open a second webcam or expose raw frames to general feature consumers.
+- `src/yazses/perception/` defines `SharedPerceptionSource`, `PerceptionSample` and derived gaze/head/face signals (ADR-v2-145 and [eye programme](https://github.com/MSKazemi/yazses/blob/main/design/eye-control/ROADMAP.md)). Never open a second webcam or expose raw frames to general feature consumers.
 - `src/yazses/gaze/` already supports MediaPipe FaceLandmarker; improve calibration and test real hardware rather than claiming pixel-accurate eye typing.
 - `src/yazses/platform/emg/` includes YESP and BrainFlow activation sources and graded squeeze logic; the hardware breadth proposal [#103](https://github.com/MSKazemi/yazses/issues/103) is closed.
 - `design/emg-protocol.md`, [intent-source issue #137](https://github.com/MSKazemi/yazses/issues/137), [external activation contract #139](https://github.com/MSKazemi/yazses/issues/139) and [research review](muscle-brain-control.md) define the right boundary for biosignal experiments.
