@@ -35,16 +35,20 @@ reference resolver should reach, and relative timestamps. The set includes negat
 
 ## Schema and version
 
-- `schema_version`: `0.1-prototype`. Provisional. Issue #699 owns the canonical schema and this
-  data must migrate to it before any upload.
+- `schema_version`: `1.0` (issue #699), maintained in this folder. It has not been reviewed for
+  upload; see the status line above.
 - Machine-readable description: `fixtures.schema.json`. Source of truth: `fixtures.js`
-  (`window.HCI_FIXTURES = <JSON>;`).
-- Top level: `schema_version`, `synthetic`, `license`, `provenance`, `generator`, `thresholds`,
-  `desktop`, `intents`, `activation_kinds`, `scenarios`.
+  (`window.HCI_FIXTURES = <JSON>;`). `fixtures.manifest.json` is generated and lists the scenario
+  ids and the SHA-256 of both files.
+- Top level: `schema_version`, `synthetic`, `consent` (not applicable: no person is recorded),
+  `license`, `provenance`, `generator`, `thresholds`, `desktop`, `intents`, `activation_kinds`,
+  `scenarios`.
 - Scenario: `id`, `title`, `description`, `synthetic`, `negative_example`, `modality`
   (subset of `voice_intent`, `gaze`, `face`, `emg`, `eeg_eog_experimental`), `inputs`,
-  `intended_target`, `expected` (`decision`, optional `target`), `decision_at_ms`, `timeline`
-  (integer relative milliseconds, non-decreasing), `simulated_conditions`.
+  `intended_target`, `expected` (`decision`, `intent` and `target` candidates, simulated `outcome`),
+  `decision_at_ms`, `timeline` (events in arrival order with `seq`; integer relative
+  milliseconds, non-decreasing except an event flagged `out_of_order`), `simulated_conditions`.
+  Each gaze and activation input carries a `confidence` (`null` means unknown) and a `quality`.
 - Decisions: `accept`, `ask_confirmation`, `abstain`, `stop`.
 
 ## Provenance and generation

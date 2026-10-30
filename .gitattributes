@@ -18,6 +18,9 @@ huggingface/benchmarks/data/** text eol=lf
 # and seven of those files are stored with CRLF. Keep every source byte-exact on every OS (`-text`,
 # like the licence texts below): a CRLF checkout would change every hash and the export would drift.
 paper/results/** -text
+# The HCI lab's manifest records the SHA-256 of its fixtures and schema, so a Windows checkout must not
+# rewrite their line endings.
+examples/hci-hf-lab/** text eol=lf
 # Vendored licence texts for add-on packs: the build copies them only when their SHA-256
 # matches licence-approvals.toml, so no checkout may rewrite their line endings.
 packaging/packs/licence-texts/** -text
