@@ -695,17 +695,22 @@ def test_text_contrast_meets_wcag_aa_in_light_and_dark() -> None:
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
-@pytest.mark.timeout(60)
+@pytest.mark.timeout(180)
 def test_resolver_unit_tests_pass_under_node() -> None:
+    """The file is run directly, not through `node --test`: node:test still runs every
+    test and exits 1 on a failure, without the runner's extra child process. On the
+    windows-latest legs this took 4.5 s to 28.6 s under a busy runner and once passed
+    50 s, the old limit, so the budget is wide; it is a hang guard, not a speed test."""
     node = shutil.which("node")
     assert node is not None
     proc = subprocess.run(  # noqa: S603 -- fixed argv, no shell
-        [node, "--test", str(LAB / "resolver.test.js")],
+        [node, str(LAB / "resolver.test.js")],
         cwd=ROOT,
+        stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
         encoding="utf-8",
-        timeout=50,
+        timeout=170,
         check=False,
     )
     assert proc.returncode == 0, proc.stdout + proc.stderr
