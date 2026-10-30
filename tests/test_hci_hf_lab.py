@@ -751,6 +751,23 @@ def test_the_manifest_describes_the_data_files_exactly(fixtures: dict[str, Any])
         assert entry["sha256"] == hashlib.sha256(data).hexdigest(), f"{entry['path']}: hash drifted; regenerate"
 
 
+def test_gitattributes_pins_exactly_the_files_the_manifest_hashes() -> None:
+    """Each hashed file and the manifest itself are pinned to LF, and nothing else in the lab is.
+
+    A folder-wide ``examples/hci-hf-lab/** text eol=lf`` pinned ``assets/logo.svg`` to LF
+    while ``contrib/icons/yazses.svg`` had no rule, so a ``core.autocrlf=true`` checkout gave
+    the two different bytes and ``test_logo_is_the_canonical_icon`` failed.
+    """
+    manifest = json.loads(_read("fixtures.manifest.json"))
+    lines = (ROOT / ".gitattributes").read_text(encoding="utf-8").splitlines()
+    prefix = "examples/hci-hf-lab/"
+    want = {prefix + f["path"] for f in manifest["files"]} | {prefix + "fixtures.manifest.json"}
+    rules = {line.split()[0]: line for line in lines if line.startswith(prefix)}
+    assert set(rules) == want, "pin the hashed files by name, not the whole lab folder"
+    for pattern in want:
+        assert rules[pattern] == f"{pattern} text eol=lf"
+
+
 @pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
 @pytest.mark.timeout(60)
 def test_the_manifest_generator_agrees_with_the_committed_manifest() -> None:
