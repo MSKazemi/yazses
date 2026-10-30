@@ -34,21 +34,21 @@ name: Publish to Hugging Face
 # its own repository-scoped token. Pushes show on the Hub as an "[OIDC]" system user.
 #
 # OWNER PREREQUISITES (none of this can be done from the repository):
-#   1. Create the Hub organisation `yazses` (it does not exist yet).
-#   2. Create each Hub repository listed in huggingface/manifest.json (an empty one is
-#      fine). A token scoped to one repository cannot create repositories, so
-#      `hf upload` to a missing repo fails by design.
-#   3. On each repository's Settings -> Trusted Publishers, add a GitHub Actions publisher
+#   1. Make sure each Hub repository listed in huggingface/manifest.json exists, and create
+#      any that does not (an empty one is fine). The `yazses` organisation, which owns
+#      yazses/README, already exists. A token scoped to one repository cannot create
+#      repositories, so `hf upload` to a missing repo fails by design.
+#   2. On each repository's Settings -> Trusted Publishers, add a GitHub Actions publisher
 #      with claims  repository equals MSKazemi/yazses , ref equals refs/heads/main ,
 #      workflow_ref starts with MSKazemi/yazses/.github/workflows/huggingface-publish.yml@
 #      (the manifest's `oidc_publisher` block; this is how the Hub's form lists them, and
 #      it is what is set on mskazemi/yazses-showcase and mskazemi/yazses-benchmark-results).
 #      Do this for every destination you will approve.
-#   4. In GitHub: Settings -> Environments -> huggingface-publish, add a required
+#   3. In GitHub: Settings -> Environments -> huggingface-publish, add a required
 #      reviewer, and restrict deployment to the main branch.
-#   5. In the manifest, set status "live" and owner_approved true for that destination,
+#   4. In the manifest, set status "live" and owner_approved true for that destination,
 #      in a reviewed commit. Then run this workflow with dry_run=false.
-# If step 3 is missing, the upload step fails with the Hub's own `invalid_grant` error and
+# If step 2 is missing, the upload step fails with the Hub's own `invalid_grant` error and
 # a pointer back to this list. Nothing is published.
 
 on:

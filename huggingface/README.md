@@ -51,7 +51,8 @@ Remote files are never deleted.
 
 To bring a destination live (owner steps):
 
-1. Create the Hub organisation and the empty repository named in the manifest.
+1. Create the repository named in the manifest if it does not exist yet (an empty one is
+   fine). The `yazses` organisation already exists; it owns `yazses/README`.
 2. On the repository's Settings, Trusted Publishers, add a GitHub Actions publisher:
    repository equals `MSKazemi/yazses`, ref equals `refs/heads/main`, workflow_ref starts with
    `MSKazemi/yazses/.github/workflows/huggingface-publish.yml@` (the claims as the Hub's form shows them).

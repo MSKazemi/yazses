@@ -526,3 +526,16 @@ def test_requirements_cap_pyav_below_the_release_that_breaks_faster_whisper() ->
     reqs = (SPACE / "requirements.txt").read_text(encoding="utf-8")
     lines = [ln.strip() for ln in reqs.splitlines() if ln.strip() and not ln.startswith("#")]
     assert any(ln.replace(" ", "").startswith("av>=") and "<19" in ln.replace(" ", "") for ln in lines), lines
+
+
+def test_the_docs_state_how_long_gradio_keeps_an_upload() -> None:
+    """`delete_cache=(frequency, age)` sweeps every `frequency` seconds and deletes files older
+    than `age`, so a file can survive up to frequency + age. docs/hugging-face.md once said the
+    demo "stores no audio"; it now states the retention, and must follow the setting."""
+    match = re.search(r"delete_cache=\((\d+),\s*(\d+)\)", _app_text())
+    assert match is not None, "app.py no longer sets delete_cache; update docs/hugging-face.md"
+    frequency, age = (int(match.group(1)) // 60, int(match.group(2)) // 60)
+    docs = re.sub(r"\s+", " ", (ROOT / "docs" / "hugging-face.md").read_text(encoding="utf-8"))
+    assert f"every {frequency} minutes" in docs and f"older than {age} minutes" in docs
+    assert f"up to about {frequency + age} minutes" in docs
+    assert "stores no audio" not in docs

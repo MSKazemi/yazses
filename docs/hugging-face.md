@@ -50,9 +50,12 @@ It trims silence with the decoder's voice-activity filter, which the desktop app
 deliberately does not use, and it applies none of the app's text post-processing.
 
 It accepts recordings of up to 60 seconds and 25 MB, and refuses longer or unreadable
-files with a message. Its code adds no logging or analytics of its own and stores no audio
-or transcripts. It makes no promise about what Hugging Face itself logs or keeps; that is
-governed by Hugging Face's own policies.
+files with a message. Its code adds no logging or analytics of its own and writes no audio
+or transcripts anywhere. Gradio, the framework it runs on, does keep each recording or upload
+in a temporary cache on the server: the Space checks that cache every 10 minutes and deletes
+files older than 10 minutes, so a recording can stay there for up to about 20 minutes. It
+makes no promise about what Hugging Face itself logs or keeps; that is governed by Hugging
+Face's own policies.
 
 ## 3. Research and source
 
@@ -79,8 +82,10 @@ introduction. The pages below live under the maintainer's own account, [huggingf
 | [Research collection](https://huggingface.co/collections/yazses/yazses-offline-speech-recognition-research) | A curated list: the paper, the demo, the showcase, the dataset and the upstream models |
 | [Paper page](https://huggingface.co/papers/2607.28878) | The Hub's page for the arXiv preprint, linked to the dataset and the Spaces that cite it |
 
-These are published from the repository's [`huggingface/`](https://github.com/MSKazemi/yazses/tree/main/huggingface)
-directory, not edited by hand on the Hub. The files are checked offline by
+The files behind these pages live in the repository's [`huggingface/`](https://github.com/MSKazemi/yazses/tree/main/huggingface)
+directory, which is their source of truth. The pages online today were first put up, and
+later moved or renamed, outside the publishing workflow; from now on, changes are published
+through that workflow rather than edited on the Hub. The files are checked offline by
 `scripts/hf_preflight.py` before anything can go out, and the benchmark tables are
 regenerated from the archive by `scripts/export_hf_benchmarks.py` (`--check` fails on
 drift). The publishing workflow is manual-only, uses Hugging Face Trusted Publishers with
