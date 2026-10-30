@@ -67,6 +67,12 @@ continue as normal. The hands-free and eye-control features stay available and m
 but get nothing new until someone is observed using them day to day. If that is you,
 [tell us](https://github.com/MSKazemi/yazses/issues/new/choose): it changes the plan.
 
+## Research horizon — Hugging Face and multimodal HCI
+
+A new **research-only** [Hugging Face × YazSes programme](research/huggingface-multimodal-hci.md) maps existing voice, shared camera/gaze, facial switches and EMG sources to reproducible local inference, model provenance, and **synthetic public demos**. The [phased research roadmap](https://github.com/MSKazemi/yazses/blob/main/design/hci-huggingface/ROADMAP.md) and [programme epic #692](https://github.com/MSKazemi/yazses/issues/692) describe evidence gates for possible EEG/EOG feasibility studies.
+
+**This does not override the pause above.** There is no shipped Hugging Face integration service, public demo Space or EEG-control product to announce; HF model downloads already exist. The next visible deliverable is a static, simulated interaction lab that never receives real webcam, voice or biosignal data. Hardware studies and any eventual product development remain conditional on independent privacy, reliability, accessibility and user-demand reviews.
+
 ## The destination
 
 The keyboard is a 150-year-old constraint, not a law of nature. YazSes exists

@@ -13,6 +13,14 @@
 
 ---
 
+## Multimodal HCI lab — Hugging Face, camera and biosignal research (proposed, 2026-10-27)
+
+An **offline-first research and documentation track**, not a new capability wave: [Hugging Face × YazSes research guide](docs/research/huggingface-multimodal-hci.md) · [phased engineering roadmap](design/hci-huggingface/ROADMAP.md) · [epic #692](https://github.com/MSKazemi/yazses/issues/692).
+
+The existing privacy-bounded camera source, gaze, face switches, EMG/BrainFlow and STT engines are the baseline. Research options: a no-upload **synthetic static Hugging Face Space**, pinned/model-licensed local inference artifacts, repeatable gaze and target-selection evaluation, and a hardware/ethics-gated EEG/EOG feasibility study. No consumer-grade mind-reading claims, no automatic network calls, no new daemon capabilities and no paid compute commitment. **ADR-030's reliability-first freeze remains in force.** Actual HF organization/Space creation needs owner approval.
+
+---
+
 ## Current state (all new features OFF by default)
 
 What is landing right now — the latest release and every unreleased change on `main` — is
