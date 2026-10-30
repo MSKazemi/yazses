@@ -73,6 +73,10 @@ A new **research-only** [Hugging Face × YazSes programme](research/huggingface-
 
 **This does not override the pause above.** There is no shipped Hugging Face integration service, public demo Space or EEG-control product to announce; HF model downloads already exist. The next visible deliverable is a static, simulated interaction lab that never receives real webcam, voice or biosignal data. Hardware studies and any eventual product development remain conditional on independent privacy, reliability, accessibility and user-demand reviews.
 
+## Desktop reliability and external first-use validation
+
+The [desktop validation campaign](desktop-validation-campaign.md) turns the feature pause into a practical correctness, hardware-evidence and first-user workflow. It uses the existing [release checklist](contribute/validation.md), [platform matrix](validation-matrix.md) and issue trackers; its weekly plan is a proposed sequence, not a claim that any gate has passed. The open-ended [first-use QA call (#714)](https://github.com/MSKazemi/yazses/issues/714) invites voluntary reports without changing the separate research-consent rules.
+
 ## The destination
 
 The keyboard is a 150-year-old constraint, not a law of nature. YazSes exists
