@@ -53,6 +53,17 @@ running, with only an orphaned daemon running, and brought the tray back after a
 The test that kept `Exec` out of the installer's code now allows exactly the three programs this
 step starts.
 
+### Fixed — `yazses doctor --mic` measured the OS default microphone, not the pinned one
+
+`doctor --mic` compares your room's level with `[accessibility] vad_threshold` and warns when
+the room alone clears the gate, which is how silence gets transcribed into words nobody said.
+It recorded the OS default input every time, while dictation records `[audio] device` when one
+is pinned. With a pinned microphone it was comparing the gate against a different microphone's
+room, so a gate below the pinned mic's noise floor could still show `[OK]`. It now records the
+pinned microphone, as `yazses mic-level`, `yazses verify` and the tray's re-calibrate already
+did. Nothing changes when no microphone is pinned. The troubleshooting page now points at
+`doctor --mic` in its "typed a sentence I never said" section.
+
 ### Changed — the German page was reviewed by a native speaker
 
 `docs/de/index.md` was a machine-assisted draft. A native German reader reworded it so it reads

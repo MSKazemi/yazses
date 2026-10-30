@@ -303,6 +303,17 @@ yazses verify
 If the `Signal` line ends with **"but only just"** and a multiple close to `1`, that is the
 cause. Your voice should sit several times above the gate; noise sits just over it.
 
+To check the gate against the room alone, without speaking:
+
+```sh
+yazses doctor --mic
+```
+
+It records two seconds of your room on the microphone YazSes uses (`[audio] device` when you
+have pinned one) and reports `[WARN] Mic level: ambient … >= vad_threshold …` when the room
+alone already clears the gate. Plain `yazses doctor` never opens the microphone, so it cannot
+tell you this.
+
 ```sh
 yazses mic-level --set   # measure this room, write the threshold
 yazses restart
