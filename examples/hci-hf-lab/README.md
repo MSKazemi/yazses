@@ -54,6 +54,8 @@ with `uv run python -m pytest tests/test_hci_hf_lab.py`.
 | `fixtures.js` | The single source of truth: `window.HCI_FIXTURES = <JSON>;`. |
 | `fixtures.schema.json` | Documentation-grade JSON Schema for the fixtures. |
 | `resolver.test.js` | `node:test` unit tests, including every fixture scenario. |
+| `eval/replay.js` | Deterministic replay report: decision counts, wrong actions, abstention, confirmation burden, simulated latency. `node eval/replay.js [--json]`. |
+| `eval/replay.test.js` | `node:test` tests for the report, including cases that force each counter. |
 | `DATASET_CARD.draft.md` | Draft dataset card. Not for upload yet. |
 
 ## Resolver rules
@@ -98,6 +100,16 @@ The first rule that fires decides. Thresholds live in `fixtures.js` under `thres
 
 A wrong-target result is counted only when the resolver accepted a window other than the
 intended one. The shipped fixtures contain none; a unit test builds one to prove the counter works.
+
+## Replay report and what it is not
+
+`node examples/hci-hf-lab/eval/replay.js` replays every fixture and prints counts with their
+denominators. It is a regression check on the resolver, not a benchmark: the scenarios are
+hand-written, so "16 / 16 match" says the resolver does what the fixture author expected and
+nothing about any device or person. It does not report a false-activation rate per hour, because
+the scenarios cover about 16 simulated seconds and an hourly figure would be invented. Real
+participant validation is a separate study (issue
+[#419](https://github.com/MSKazemi/yazses/issues/419)).
 
 ## Status labels
 
