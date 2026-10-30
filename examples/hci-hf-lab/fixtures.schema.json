@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "yazses-hci-lab-fixtures-0.1-prototype",
+  "title": "YazSes HCI lab fixtures (0.1-prototype, provisional)",
+  "description": "Documentation-grade schema for fixtures.js. NOT the canonical schema: issue #699 owns that, and this file must migrate to it. All data is synthetic.",
+  "type": "object",
+  "required": ["schema_version", "synthetic", "license", "provenance", "generator", "thresholds", "desktop", "intents", "activation_kinds", "scenarios"],
+  "properties": {
+    "schema_version": { "const": "0.1-prototype" },
+    "synthetic": { "const": true },
+    "license": { "const": "Apache-2.0", "description": "SPDX identifier." },
+    "provenance": { "type": "string", "minLength": 1 },
+    "generator": { "type": "string", "description": "How the data was produced; hand-authored, no random seed." },
+    "notice": { "type": "string" },
+    "thresholds": {
+      "type": "object",
+      "required": ["gaze_min_confidence", "max_age_ms", "voice_min_confidence", "activation_min_confidence", "emg_min_hold_ms", "blink_refractory_ms"],
+      "properties": {
+        "gaze_min_confidence": { "$ref": "#/$defs/confidence" },
+        "max_age_ms": { "$ref": "#/$defs/ms" },
+        "voice_min_confidence": { "$ref": "#/$defs/confidence" },
+        "activation_min_confidence": {
+          "type": "object",
+          "propertyNames": { "enum": ["blink", "face_gesture", "emg_hold", "eeg_eog"] },
+          "additionalProperties": { "$ref": "#/$defs/confidence" }
+        },
+        "emg_min_hold_ms": { "$ref": "#/$defs/ms" },
+        "blink_refractory_ms": { "$ref": "#/$defs/ms" }
+      }
+    },
+    "desktop": {
+      "type": "object",
+      "required": ["windows"],
+      "properties": {
+        "windows": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "label", "rect"],
+            "properties": {
+              "id": { "type": "string" },
+              "label": { "type": "string" },
+              "rect": {
+                "type": "object",
+                "required": ["x", "y", "w", "h"],
+                "description": "Percent of the simulated desktop, 0..100.",
+                "additionalProperties": { "type": "number", "minimum": 0, "maximum": 100 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "intents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "destructive"],
+        "properties": { "id": { "type": "string" }, "label": { "type": "string" }, "destructive": { "type": "boolean" } }
+      }
+    },
+    "activation_kinds": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "experimental"],
+        "properties": {
+          "id": { "enum": ["none", "blink", "face_gesture", "emg_hold", "eeg_eog"] },
+          "label": { "type": "string" },
+          "experimental": { "type": "boolean" }
+        }
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 14,
+      "items": { "$ref": "#/$defs/scenario" }
+    }
+  },
+  "$defs": {
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "ms": { "type": "integer", "minimum": 0, "description": "Relative milliseconds; never a wall-clock time." },
+    "decision": { "enum": ["accept", "ask_confirmation", "abstain", "stop"] },
+    "modality": { "enum": ["voice_intent", "gaze", "face", "emg", "eeg_eog_experimental"] },
+    "scenario": {
+      "type": "object",
+      "required": ["id", "title", "description", "synthetic", "negative_example", "modality", "inputs", "intended_target", "expected", "decision_at_ms", "timeline", "simulated_conditions"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "synthetic": { "const": true },
+        "negative_example": { "type": "boolean", "description": "True when the correct outcome is to refuse an activation that should not have fired." },
+        "modality": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/modality" } },
+        "intended_target": { "type": ["string", "null"], "description": "Window id the simulated user meant; used only to count wrong-target accepts." },
+        "simulated_conditions": {
+          "type": "object",
+          "required": ["lighting", "device"],
+          "properties": { "lighting": { "type": "string" }, "device": { "type": "string" } }
+        },
+        "decision_at_ms": { "$ref": "#/$defs/ms" },
+        "timeline": {
+          "type": "array",
+          "description": "Events in non-decreasing t_ms order, all at or before decision_at_ms.",
+          "items": {
+            "type": "object",
+            "required": ["t_ms", "source", "event"],
+            "properties": {
+              "t_ms": { "$ref": "#/$defs/ms" },
+              "source": { "enum": ["system", "gaze", "voice", "activation"] },
+              "event": { "type": "string" }
+            }
+          }
+        },
+        "inputs": {
+          "type": "object",
+          "required": ["emergency_stop", "gaze", "voice", "activation"],
+          "properties": {
+            "emergency_stop": { "type": "boolean" },
+            "gaze": {
+              "type": "object",
+              "required": ["connected", "x", "y", "confidence", "age_ms"],
+              "properties": {
+                "connected": { "type": "boolean" },
+                "x": { "type": "number", "minimum": 0, "maximum": 100 },
+                "y": { "type": "number", "minimum": 0, "maximum": 100 },
+                "confidence": { "$ref": "#/$defs/confidence" },
+                "age_ms": { "$ref": "#/$defs/ms" }
+              }
+            },
+            "voice": {
+              "type": "object",
+              "required": ["intent", "confidence", "target_ref"],
+              "properties": {
+                "intent": { "type": ["string", "null"] },
+                "confidence": { "$ref": "#/$defs/confidence" },
+                "target_ref": { "type": ["string", "null"], "description": "Window id named aloud, or null for 'this'." }
+              }
+            },
+            "activation": {
+              "type": "object",
+              "required": ["kind", "confidence", "age_ms", "hold_ms", "bounce_count", "bounce_gap_ms"],
+              "properties": {
+                "kind": { "enum": ["none", "blink", "face_gesture", "emg_hold", "eeg_eog"] },
+                "confidence": { "$ref": "#/$defs/confidence" },
+                "age_ms": { "$ref": "#/$defs/ms" },
+                "hold_ms": { "$ref": "#/$defs/ms" },
+                "bounce_count": { "type": "integer", "minimum": 0 },
+                "bounce_gap_ms": { "oneOf": [{ "$ref": "#/$defs/ms" }, { "type": "null" }] }
+              }
+            }
+          }
+        },
+        "expected": {
+          "type": "object",
+          "required": ["decision"],
+          "properties": {
+            "decision": { "$ref": "#/$defs/decision" },
+            "target": { "type": "string", "description": "Optional; a window id." }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>YazSes Multimodal HCI Lab (synthetic)</title>
+<meta name="description" content="Synthetic multimodal interaction simulator. No camera, microphone or sensor is used; nothing leaves your browser.">
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to main content</a>
+
+<div class="banner" role="region" aria-label="Simulation notice">
+  <p><strong>Synthetic simulation.</strong> No camera, microphone or sensor is used. Nothing leaves your browser. Outputs are previews only.</p>
+</div>
+
+<header class="titlebar">
+  <img src="assets/logo.svg" alt="" width="40" height="40">
+  <div>
+    <h1>YazSes Multimodal HCI Lab</h1>
+    <p class="sub">Research prototype &mdash; not a YazSes product feature</p>
+  </div>
+</header>
+
+<main id="main">
+  <section aria-labelledby="h-scenario" class="card">
+    <h2 id="h-scenario">Scenario</h2>
+    <div class="row">
+      <div class="field grow">
+        <label for="scenario">Preset scenario</label>
+        <select id="scenario"></select>
+      </div>
+    </div>
+    <p id="scenario-desc" class="muted"></p>
+    <p id="scenario-meta" class="muted small"></p>
+  </section>
+
+  <div class="grid">
+    <section aria-labelledby="h-desktop" class="card">
+      <h2 id="h-desktop">Simulated desktop and gaze</h2>
+      <div id="desktop" class="desktop" role="img" aria-label="Simulated desktop with three windows"></div>
+      <p id="gaze-readout" class="muted small"></p>
+      <fieldset>
+        <legend>Gaze sensor (simulated)</legend>
+        <div class="field check">
+          <input type="checkbox" id="gaze-connected">
+          <label for="gaze-connected">Sensor connected</label>
+        </div>
+        <div class="field">
+          <label for="gaze-x">Gaze X (% of desktop width)</label>
+          <div class="rangebox"><input type="range" id="gaze-x" min="0" max="100" step="1"><output for="gaze-x" id="gaze-x-out"></output></div>
+        </div>
+        <div class="field">
+          <label for="gaze-y">Gaze Y (% of desktop height)</label>
+          <div class="rangebox"><input type="range" id="gaze-y" min="0" max="100" step="1"><output for="gaze-y" id="gaze-y-out"></output></div>
+        </div>
+        <div class="field">
+          <label for="gaze-conf">Gaze confidence</label>
+          <div class="rangebox"><input type="range" id="gaze-conf" min="0" max="1" step="0.01"><output for="gaze-conf" id="gaze-conf-out"></output></div>
+        </div>
+        <div class="field">
+          <label for="gaze-age">Gaze signal age (ms)</label>
+          <input type="number" id="gaze-age" min="0" max="5000" step="10" inputmode="numeric">
+        </div>
+      </fieldset>
+    </section>
+
+    <section aria-labelledby="h-inputs" class="card">
+      <h2 id="h-inputs">Voice and activation</h2>
+      <fieldset>
+        <legend>Voice intent (simulated)</legend>
+        <div class="field">
+          <label for="voice-intent">Intent</label>
+          <select id="voice-intent"></select>
+        </div>
+        <div class="field">
+          <label for="voice-conf">Voice confidence</label>
+          <div class="rangebox"><input type="range" id="voice-conf" min="0" max="1" step="0.01"><output for="voice-conf" id="voice-conf-out"></output></div>
+        </div>
+        <div class="field">
+          <label for="voice-target">Spoken target reference</label>
+          <select id="voice-target"></select>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Activation (simulated)</legend>
+        <p class="note" id="eeg-note"><strong>Experimental research proposal &mdash; not a product feature; coarse activation only; not mind-reading.</strong> EEG/EOG is listed here only to study how a resolver should treat it.</p>
+        <div class="field">
+          <label for="act-kind">Activation kind</label>
+          <select id="act-kind"></select>
+        </div>
+        <div class="field" id="row-act-conf">
+          <label for="act-conf">Activation confidence</label>
+          <div class="rangebox"><input type="range" id="act-conf" min="0" max="1" step="0.01"><output for="act-conf" id="act-conf-out"></output></div>
+        </div>
+        <div class="field" id="row-act-age">
+          <label for="act-age">Activation signal age (ms)</label>
+          <input type="number" id="act-age" min="0" max="5000" step="10" inputmode="numeric">
+        </div>
+        <div class="field" id="row-act-hold" hidden>
+          <label for="act-hold">EMG hold duration (ms)</label>
+          <input type="number" id="act-hold" min="0" max="5000" step="10" inputmode="numeric">
+        </div>
+        <div class="field" id="row-act-bounce" hidden>
+          <label for="act-bounce">Extra blinks after the first (bounce count)</label>
+          <input type="number" id="act-bounce" min="0" max="5" step="1" inputmode="numeric">
+        </div>
+        <div class="field" id="row-act-bounce-gap" hidden>
+          <label for="act-bounce-gap">Gap before the extra blink (ms)</label>
+          <input type="number" id="act-bounce-gap" min="0" max="2000" step="10" inputmode="numeric">
+        </div>
+      </fieldset>
+
+      <div class="actions" role="group" aria-label="Actions">
+        <button type="button" id="btn-activate" class="primary">Activate</button>
+        <button type="button" id="btn-stop" class="danger">Emergency stop (Esc)</button>
+        <button type="button" id="btn-reset">Reset</button>
+      </div>
+      <p id="stop-state" class="muted small"></p>
+    </section>
+  </div>
+
+  <section aria-labelledby="h-pipeline" class="card">
+    <h2 id="h-pipeline">Pipeline</h2>
+    <p class="muted small">Gaze, voice and activation update as you change controls. The resolver and proposed-action stages run when you press Activate.</p>
+    <ol id="pipeline" class="pipeline"></ol>
+  </section>
+
+  <section aria-labelledby="h-result" class="card">
+    <h2 id="h-result">Result</h2>
+    <div id="live" role="status" aria-live="polite" aria-atomic="true">
+      <p id="decision-status" class="decision">Press Activate to run the resolver.</p>
+      <p id="sim-result" class="sim-result" hidden></p>
+    </div>
+    <ul id="reasons" class="reasons"></ul>
+    <div id="confirm-row" class="actions" role="group" aria-label="Confirmation" hidden>
+      <button type="button" id="btn-confirm" class="primary">Confirm</button>
+      <button type="button" id="btn-cancel">Cancel</button>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-eval" class="card">
+    <h2 id="h-eval">Replay all scenarios</h2>
+    <p class="note"><strong>SIMULATED &mdash; illustrative metrics, not a device benchmark.</strong> The counts below come from hand-authored scenarios and show how the rules behave; they are not accuracy or error rates.</p>
+    <div class="actions"><button type="button" id="btn-replay">Replay all scenarios</button></div>
+    <p id="eval-status" class="muted small" role="status" aria-live="polite"></p>
+    <dl id="summary" class="summary"></dl>
+    <div class="table-wrap" role="region" aria-label="Scenario evaluation table" tabindex="0">
+      <table id="eval-table">
+        <caption>Expected versus actual decision for each fixture scenario (SIMULATED)</caption>
+        <thead><tr><th scope="col">Scenario</th><th scope="col">Expected</th><th scope="col">Actual</th><th scope="col">Match</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p class="muted small">Synthetic fixtures, schema 0.1-prototype (provisional; issue #699 owns the canonical schema). Related issues: #692, #693, #699. Licence: Apache-2.0.</p>
+</footer>
+
+<script src="fixtures.js"></script>
+<script src="resolver.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
