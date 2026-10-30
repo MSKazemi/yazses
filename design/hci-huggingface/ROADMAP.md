@@ -8,7 +8,7 @@ Maintain an **offline product / optional public research surface** boundary. The
 
 ## Tracked epic and delivery tasks
 
-**Parent:** [Epic #692 — Hugging Face × multimodal HCI](https://github.com/MSKazemi/yazses/issues/692). Delivery children span **three existing milestones** (#7 Speech accuracy, #9 Contributor experience, #10 Hands-free). The epic has **no milestone**, by policy. The issue descriptions cross-link the parent; **native GitHub sub-issue association must be completed separately in the Issues UI** before the traceability audit can verify parentage.
+**Parent:** [Epic #692 — Hugging Face × multimodal HCI](https://github.com/MSKazemi/yazses/issues/692). Delivery children span **three existing milestones** (#7 Speech accuracy, #9 Contributor experience, #10 Hands-free). The epic has **no milestone**, by policy. *Delivery* is the [milestone-policy](../milestone-policy.md) class (each child carries one milestone), not a commitment to ship: under the ADR-030 freeze these are research and documentation tasks, none adds a daemon capability, and a proposal beyond them stops at a *Proposed* ADR or an `evergreen:research` issue. The issue descriptions cross-link the parent; **native GitHub sub-issue association must be completed separately in the Issues UI** before the traceability audit can verify parentage.
 
 | Stage | Issue | Outcome / blocking condition | Milestone |
 |---|---|---|---|

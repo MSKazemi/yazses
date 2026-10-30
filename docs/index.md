@@ -339,16 +339,6 @@ Hold the hotkey (Right Alt on Linux, Right Option on macOS, Right Ctrl on Window
 
 [Browse all use cases :octicons-arrow-right-24:](use-cases/index.md){ .md-button }
 
-## Multimodal HCI research — proposed, not shipped
-
-YazSes already has local voice, gaze, face-gesture and muscle-signal foundations.
-The [Hugging Face × YazSes research programme](research/huggingface-multimodal-hci.md)
-explores reproducible model evaluation, a **synthetic browser-only** demonstration,
-and carefully gated EEG/EOG feasibility work. No live Hugging Face webcam service,
-brain-reading feature or new capability wave is being advertised; core dictation
-remains offline. [Roadmap](roadmap.md) ·
-[Research epic #692](https://github.com/MSKazemi/yazses/issues/692).
-
 ## When *not* to use it
 
 YazSes is **not an LLM agent** — it dictates text and runs editor/terminal commands; it does not browse, reason over your files, or hold a conversation. It uses CPU faster-whisper (a cloud service may still win on raw accuracy for a noisy mic), ships English-tuned `*.en` models by default, and is desktop-only.
