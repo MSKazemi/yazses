@@ -57,6 +57,11 @@ MIN_DISTINCT_NGRAM_RATIO = 0.35
 # it catches a collapse that begins late in a long, otherwise healthy meeting, where
 # the whole-transcript averages stay comfortably inside the thresholds above.
 MAX_REPEAT_RUN = 12
+# Longest phrase (in words) whose back-to-back repetition the run check recognises. A
+# decode loop re-emits a clause or a short sentence; 8 words covers those at a cost of
+# eight passes over the n-grams. It is a stated limit, not a proof: a longer looping
+# unit is still caught by the whole-transcript ratios once it dominates the text.
+MAX_REPEAT_PERIOD = 8
 # "Thin" needs a long recording to be meaningful: a 30 s clip holding one word is an
 # accidental start, already described by `capture_state`, and calling it thin as well
 # is a second word for a fact the user has been told. Slow, sparse English conversation
@@ -186,20 +191,36 @@ def _ngrams(tokens: list[str], n: int = NGRAM) -> list[tuple[str, ...]]:
     return [tuple(tokens[i : i + n]) for i in range(len(tokens) - n + 1)]
 
 
-def longest_repeat_run(grams: list[tuple[str, ...]]) -> int:
-    """Longest run of one n-gram repeating back-to-back. Pure, O(n).
+def longest_repeat_run(
+    grams: list[tuple[str, ...]], max_period: int = MAX_REPEAT_PERIOD
+) -> int:
+    """Longest run of one phrase repeating back-to-back. Pure, O(n * max_period).
 
     Counts *consecutive* repetition rather than total frequency, because a transcript
     that says "thank you" twenty times across an hour is a normal meeting and one that
     says it twenty times in a row is a loop.
+
+    A phrase of ``p`` words makes every n-gram equal to the one ``p`` places before it,
+    not to its immediate neighbour, so comparing only neighbours (period 1) sees a
+    single-word loop ("hello hello hello ...") and is blind to "red blue green red blue
+    green ...", whose overlapping trigrams rotate through three different values. Each
+    period from 1 to ``max_period`` is therefore tried and the longest run wins. Period 1
+    reproduces the original neighbour-only count exactly.
     """
-    best = run = 0
-    prev = None
-    for g in grams:
-        run = run + 1 if g == prev else 1
-        prev = g
-        if run > best:
-            best = run
+    n = len(grams)
+    if n == 0:
+        return 0
+    best = 1
+    for p in range(1, min(max_period, n - 1) + 1):
+        matches = 0
+        for i in range(p, n):
+            if grams[i] == grams[i - p]:
+                matches += 1
+                # ``matches + p`` grams lie inside the loop; dividing by the period
+                # gives back the number of times the phrase was said.
+                best = max(best, (matches + p) // p)
+            else:
+                matches = 0
     return best
 
 
