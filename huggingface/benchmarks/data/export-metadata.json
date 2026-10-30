@@ -837,7 +837,7 @@
     "streaming_latency": 2,
     "vad_gate": 1
   },
-  "schema_version": "1",
+  "schema_version": "2",
   "sensitivity_scan": {
     "findings": 0,
     "rules": [
@@ -854,10 +854,8 @@
     ]
   },
   "source_repository": "https://github.com/MSKazemi/yazses",
-  "source_revision": "9d086aacbc4edb3e573e849a357a603f922bbe13",
   "sources": [
     {
-      "git_commit": "d2ad6d6e5dc6b5fb3fee16f8d020fab628deb456",
       "path": "paper/results/beam-governor-test-clean-significance-vs-beam2.json",
       "record_kind": "significance_analysis",
       "sha256": "234259dd43abcd36c281f40c96ca3becc8d6d55663c1a43598a1e332087e58f9",
@@ -866,7 +864,6 @@
       }
     },
     {
-      "git_commit": "d2ad6d6e5dc6b5fb3fee16f8d020fab628deb456",
       "path": "paper/results/beam-governor-test-clean-significance.json",
       "record_kind": "significance_analysis",
       "sha256": "0a2576352c66ec2c9c39de5ef848e40c5ac49298fb6a371dbf40f3b41af4a8c0",
@@ -875,7 +872,6 @@
       }
     },
     {
-      "git_commit": "d2ad6d6e5dc6b5fb3fee16f8d020fab628deb456",
       "path": "paper/results/beam-governor-test-clean.json",
       "record_kind": "measurement",
       "sha256": "9444c55292f76273012bf4c2d6d9f18de93067e6cae5038b7f8a0f7abe04ec8d",
@@ -884,7 +880,6 @@
       }
     },
     {
-      "git_commit": "d2ad6d6e5dc6b5fb3fee16f8d020fab628deb456",
       "path": "paper/results/beam-governor-test-other-significance-vs-beam2.json",
       "record_kind": "significance_analysis",
       "sha256": "cbd7706291679b601f196496c14f9902b00e53d3c512fef8ae9cb76a80d43a03",
@@ -893,7 +888,6 @@
       }
     },
     {
-      "git_commit": "d2ad6d6e5dc6b5fb3fee16f8d020fab628deb456",
       "path": "paper/results/beam-governor-test-other-significance.json",
       "record_kind": "significance_analysis",
       "sha256": "a44e6bae5619e6ef28e34d1c080186920dc5ed65c63b906746a1c392504e20f8",
@@ -902,7 +896,6 @@
       }
     },
     {
-      "git_commit": "d2ad6d6e5dc6b5fb3fee16f8d020fab628deb456",
       "path": "paper/results/beam-governor-test-other.json",
       "record_kind": "measurement",
       "sha256": "c65f2dbd133e4e6bbf092700e6eae45af3c91e02c35c2408706ac32511c1597a",
@@ -911,7 +904,6 @@
       }
     },
     {
-      "git_commit": "802873daee8259729b05c7431ba2759a4b2abcbf",
       "path": "paper/results/beam-test-clean-significance-vs-beam2.json",
       "record_kind": "significance_analysis",
       "sha256": "e9718ac8c2c069b48fef360d0586be9488471d7c731cda1f04dfd8d384b761dc",
@@ -920,7 +912,6 @@
       }
     },
     {
-      "git_commit": "802873daee8259729b05c7431ba2759a4b2abcbf",
       "path": "paper/results/beam-test-clean-significance.json",
       "record_kind": "significance_analysis",
       "sha256": "31e92c3158e5dc6a46d97fb19f024062b6227545bdcc1f9862d9d131b2d1ba7e",
@@ -929,7 +920,6 @@
       }
     },
     {
-      "git_commit": "802873daee8259729b05c7431ba2759a4b2abcbf",
       "path": "paper/results/beam-test-clean.json",
       "record_kind": "measurement",
       "sha256": "77910de310929ffdc1a665deb586d7f263c449cb8014882ed7047b0628f47f18",
@@ -938,7 +928,6 @@
       }
     },
     {
-      "git_commit": "802873daee8259729b05c7431ba2759a4b2abcbf",
       "path": "paper/results/beam-test-other-significance-vs-beam2.json",
       "record_kind": "significance_analysis",
       "sha256": "88f23e9ce04d25f220fae1b7474aa3a3e8b939b60290aff8c6f146c6c3012e19",
@@ -947,7 +936,6 @@
       }
     },
     {
-      "git_commit": "802873daee8259729b05c7431ba2759a4b2abcbf",
       "path": "paper/results/beam-test-other-significance.json",
       "record_kind": "significance_analysis",
       "sha256": "e64bfac5a39b7ba4bf28aa42e903d1fa17c9153af19a09f2c85d2e1f7609f9a9",
@@ -956,7 +944,6 @@
       }
     },
     {
-      "git_commit": "802873daee8259729b05c7431ba2759a4b2abcbf",
       "path": "paper/results/beam-test-other.json",
       "record_kind": "measurement",
       "sha256": "785f1f4df2dbbe9bba314050ae43bb3356695975851c6cb4876971a72e0e3875",
@@ -965,7 +952,6 @@
       }
     },
     {
-      "git_commit": "802873daee8259729b05c7431ba2759a4b2abcbf",
       "path": "paper/results/commands.json",
       "record_kind": "measurement",
       "sha256": "c6c579350e6831d4518b7dc83a8c261694f2c7c6b0f38214e5a77b44b12f8bf9",
@@ -974,7 +960,6 @@
       }
     },
     {
-      "git_commit": "802873daee8259729b05c7431ba2759a4b2abcbf",
       "path": "paper/results/diarization-ami16_corpus-der.json",
       "record_kind": "measurement",
       "sha256": "17797dd44e5427ef1c6b009fcda7173c2b714f8037ecca5249007c634bfcdeed",
@@ -984,7 +969,6 @@
       }
     },
     {
-      "git_commit": "cdf6bd48f5f63573538e11503b3257fa59049daf",
       "path": "paper/results/diarization-ami16_corpus-maxspk4-vs-der-significance.json",
       "record_kind": "significance_analysis",
       "sha256": "f7bef085a4b6cb31948c2b20de5ee00ad811de89f7806ccf59e3662884d71799",
@@ -993,7 +977,6 @@
       }
     },
     {
-      "git_commit": "cdf6bd48f5f63573538e11503b3257fa59049daf",
       "path": "paper/results/diarization-ami16_corpus-maxspk4.json",
       "record_kind": "measurement",
       "sha256": "905bcd26fb82c944f3e9de940768525110869c30ed0a79b4f67b14a7c0ec5e65",
@@ -1003,7 +986,6 @@
       }
     },
     {
-      "git_commit": "802873daee8259729b05c7431ba2759a4b2abcbf",
       "path": "paper/results/latency.json",
       "record_kind": "measurement",
       "sha256": "d32c1f60edb069104a72645231a022c47785f0015e1ff9ad6e2cc0404fa17c90",
@@ -1013,7 +995,6 @@
       }
     },
     {
-      "git_commit": "802873daee8259729b05c7431ba2759a4b2abcbf",
       "path": "paper/results/onset-significance.json",
       "record_kind": "significance_analysis",
       "sha256": "58657ac1c92f5fc66255eaa7735ab7f5f3f139f3642d32d762c992fd56c50225",
@@ -1022,7 +1003,6 @@
       }
     },
     {
-      "git_commit": "802873daee8259729b05c7431ba2759a4b2abcbf",
       "path": "paper/results/onset.json",
       "record_kind": "measurement",
       "sha256": "b4b0158ee5fcda77d0150f0dca522ead1964c4278d8401b4e56dba73f82fb083",
@@ -1031,7 +1011,6 @@
       }
     },
     {
-      "git_commit": "9d086aacbc4edb3e573e849a357a603f922bbe13",
       "path": "paper/results/persian-cvfa-test10559-small.json",
       "record_kind": "measurement",
       "sha256": "442df7f43591e7dd9e79ea467396e3f813870c2b0d79be9bc9a8758e20895da0",
@@ -1040,7 +1019,6 @@
       }
     },
     {
-      "git_commit": "9d086aacbc4edb3e573e849a357a603f922bbe13",
       "path": "paper/results/persian-cvfa-test10559-steja-small.json",
       "record_kind": "measurement",
       "sha256": "f24e73a70c4037a8935b45d06e90ea4d82c6198e9b6da8c2e8d1dd5d699a62cb",
@@ -1049,7 +1027,6 @@
       }
     },
     {
-      "git_commit": "365d7b1b6724621dc9ea41d51b3d46415bd80ef6",
       "path": "paper/results/persian-fleurs-test50-base.json",
       "record_kind": "measurement",
       "sha256": "80929d62249c6a27d992d051169cc42715408304fd394f4a0b8b27d876d0245b",
@@ -1058,7 +1035,6 @@
       }
     },
     {
-      "git_commit": "365d7b1b6724621dc9ea41d51b3d46415bd80ef6",
       "path": "paper/results/persian-fleurs-test50-medium.json",
       "record_kind": "measurement",
       "sha256": "4eb20ed364361f690aa4cf2328edcf575238774c6fff1370efcab3c3f38ab2b7",
@@ -1067,7 +1043,6 @@
       }
     },
     {
-      "git_commit": "365d7b1b6724621dc9ea41d51b3d46415bd80ef6",
       "path": "paper/results/persian-fleurs-test50-small-repeat.json",
       "record_kind": "measurement",
       "sha256": "5113b4c81f6748f3eb200aeeed26f4d54dcca4167dc7b5a7a69fa024b033d934",
@@ -1076,7 +1051,6 @@
       }
     },
     {
-      "git_commit": "365d7b1b6724621dc9ea41d51b3d46415bd80ef6",
       "path": "paper/results/persian-fleurs-test50-small.json",
       "record_kind": "measurement",
       "sha256": "fbde7089aa169bb70f1a360811798909a322cfc57bbcd477d05a27b199b590fc",
@@ -1085,7 +1059,6 @@
       }
     },
     {
-      "git_commit": "365d7b1b6724621dc9ea41d51b3d46415bd80ef6",
       "path": "paper/results/persian-fleurs-test871-base.json",
       "record_kind": "measurement",
       "sha256": "d47fee7d9219c14b49e3032d34e3cb8f94feee0d8f7d91edabfe3e9dec5f1208",
@@ -1094,7 +1067,6 @@
       }
     },
     {
-      "git_commit": "7bba992b2e12cdfd20f0670e82cfdcd9612fe59b",
       "path": "paper/results/persian-fleurs-test871-large-v3-turbo.json",
       "record_kind": "measurement",
       "sha256": "99bd94611c7718389b4ce022a089b648d2aa1d6ef8f765e7ebfe4fbc51183c62",
@@ -1103,7 +1075,6 @@
       }
     },
     {
-      "git_commit": "48930e15fe552a4bbc6eefd2a616619c4f627812",
       "path": "paper/results/persian-fleurs-test871-small-idle.json",
       "record_kind": "measurement",
       "sha256": "074c27c6adc47233ecf3d13eab252560467d381281236b481cd620bdee4f0f7d",
@@ -1112,7 +1083,6 @@
       }
     },
     {
-      "git_commit": "365d7b1b6724621dc9ea41d51b3d46415bd80ef6",
       "path": "paper/results/persian-fleurs-test871-small.json",
       "record_kind": "measurement",
       "sha256": "5e063a7df3e3390f77793e8c254ed353f05875ae6bd2302dc49611561fb90c16",
@@ -1121,7 +1091,6 @@
       }
     },
     {
-      "git_commit": "9299948f2b426c738f27adffb31b4e3d40956a55",
       "path": "paper/results/persian-fleurs-test871-steja-small.json",
       "record_kind": "measurement",
       "sha256": "9db730e7c817a907ac80f6c9c06e72d936dfc7722ebb49ef45d81f0063fc492c",
@@ -1130,7 +1099,6 @@
       }
     },
     {
-      "git_commit": "802873daee8259729b05c7431ba2759a4b2abcbf",
       "path": "paper/results/streaming.json",
       "record_kind": "measurement",
       "sha256": "f32d0d3a1f8e0effae0bf97ef91a949401c13428a3349929a7e932746978a726",
@@ -1139,7 +1107,6 @@
       }
     },
     {
-      "git_commit": "802873daee8259729b05c7431ba2759a4b2abcbf",
       "path": "paper/results/vad.json",
       "record_kind": "measurement",
       "sha256": "2d3fae2b5757554ff167e8966c91fc14a938721f8af05533568257a7c1b773ae",
@@ -1148,7 +1115,6 @@
       }
     },
     {
-      "git_commit": "802873daee8259729b05c7431ba2759a4b2abcbf",
       "path": "paper/results/wer-test-other.json",
       "record_kind": "measurement",
       "sha256": "4a81547df93c118bc7825d14e859ecfe1ad1abe4f4730976656f370636cb8b46",
@@ -1157,7 +1123,6 @@
       }
     },
     {
-      "git_commit": "802873daee8259729b05c7431ba2759a4b2abcbf",
       "path": "paper/results/wer.json",
       "record_kind": "measurement",
       "sha256": "03646dca5eb7b300089a788f9f1b70b56835536caa7f0aad8e39fee86a81d410",
@@ -1195,7 +1160,6 @@
         "normalizer",
         "failure",
         "source_sha256",
-        "source_git_commit",
         "timestamp_utc",
         "machine",
         "machine_cpu_model",
@@ -1222,7 +1186,7 @@
       "file": "asr_librispeech_wer.csv",
       "record_kind": "measurement",
       "rows": 11,
-      "sha256": "8941532c1178a935c5ab3cd2dbeb633f494253dac24ca3fff229b8f79a896aec",
+      "sha256": "554fde8c56db359ca6631a8d1a794c65d6ff40aeaf4230c07eb21901618b6136",
       "sources": [
         "paper/results/wer-test-other.json",
         "paper/results/wer.json"
@@ -1246,7 +1210,6 @@
         "decode_seconds",
         "rtf",
         "source_sha256",
-        "source_git_commit",
         "timestamp_utc",
         "machine",
         "machine_cpu_model",
@@ -1273,7 +1236,7 @@
       "file": "beam_sweep.csv",
       "record_kind": "measurement",
       "rows": 22,
-      "sha256": "27318d046e33ecd7898b768bfe9568388e53dbd1c7de2b292e692b0140a01fba",
+      "sha256": "cc86f4dbb4e5e7c25034645e9b76b0c88b01e8af5e6b0ef2202932e151023188",
       "sources": [
         "paper/results/beam-governor-test-clean.json",
         "paper/results/beam-governor-test-other.json",
@@ -1300,7 +1263,6 @@
         "per_call_median_ms",
         "per_call_p95_ms",
         "source_sha256",
-        "source_git_commit",
         "timestamp_utc",
         "machine",
         "machine_cpu_model",
@@ -1327,7 +1289,7 @@
       "file": "command_grammar.csv",
       "record_kind": "measurement",
       "rows": 1,
-      "sha256": "151d0afabef528851a2cdf6dd1931edc24e0e7d36b424a5fb3689ed57d72b0df",
+      "sha256": "8df5a1d416c9e24d2b5763043946d39da44780618f292ac15e0ccb77ead0637c",
       "sources": [
         "paper/results/commands.json"
       ]
@@ -1355,7 +1317,6 @@
         "scored_seconds_total",
         "derived_after_run_fields",
         "source_sha256",
-        "source_git_commit",
         "timestamp_utc",
         "machine",
         "machine_cpu_model",
@@ -1382,7 +1343,7 @@
       "file": "diarization_corpus_summary.csv",
       "record_kind": "measurement",
       "rows": 2,
-      "sha256": "a769fc968c1b3c251750ab23163c70cf38e6317b83eed82adfcc2ce9add04702",
+      "sha256": "d269b50277825a335e713b5e954040f5acbee2f069a258e8c8b02700e020d4c6",
       "sources": [
         "paper/results/diarization-ami16_corpus-der.json",
         "paper/results/diarization-ami16_corpus-maxspk4.json"
@@ -1418,7 +1379,6 @@
         "collar250ms_scored_seconds",
         "collar250ms_collar_s",
         "source_sha256",
-        "source_git_commit",
         "timestamp_utc",
         "machine",
         "machine_cpu_model",
@@ -1445,7 +1405,7 @@
       "file": "diarization_recordings.csv",
       "record_kind": "measurement",
       "rows": 32,
-      "sha256": "ff95d44c125d6e64f848b781f21a4d3f3be629e20391dc746c9b7b0e2ac01ceb",
+      "sha256": "1bfbd4759e4969fb6455e0d96ff7a916afb77a8235382727efa39b69d56ea6a1",
       "sources": [
         "paper/results/diarization-ami16_corpus-der.json",
         "paper/results/diarization-ami16_corpus-maxspk4.json"
@@ -1469,7 +1429,6 @@
         "audio_duration_p95_s",
         "non_decode_overhead_median_ms",
         "source_sha256",
-        "source_git_commit",
         "timestamp_utc",
         "machine",
         "machine_cpu_model",
@@ -1496,7 +1455,7 @@
       "file": "latency_decode.csv",
       "record_kind": "measurement",
       "rows": 3,
-      "sha256": "09a76cadc5fc76a1d092eae8b5bc7ce9a17206ff9b32dd5c01a0c79e033ea2c1",
+      "sha256": "2fc2d5816a2026d9707b466b93808c1f9360d97f041044fdf380d1df5eb85025",
       "sources": [
         "paper/results/latency.json"
       ]
@@ -1512,7 +1471,6 @@
         "p95_ms",
         "pure_stage_reps",
         "source_sha256",
-        "source_git_commit",
         "timestamp_utc",
         "machine",
         "machine_cpu_model",
@@ -1539,7 +1497,7 @@
       "file": "latency_pipeline_stages.csv",
       "record_kind": "measurement",
       "rows": 5,
-      "sha256": "5b13b726ea13979683ad190b0f99ac0baf2ab6479456d395837a8d27edefcc26",
+      "sha256": "23e1a6a5fbf8939c97a49e2103eb4a5bdc7374915819ea4b8acdedfa139afbf7",
       "sources": [
         "paper/results/latency.json"
       ]
@@ -1563,7 +1521,6 @@
         "median_trimmed_ms",
         "max_trimmed_ms",
         "source_sha256",
-        "source_git_commit",
         "timestamp_utc",
         "machine",
         "machine_cpu_model",
@@ -1590,7 +1547,7 @@
       "file": "onset_first_word.csv",
       "record_kind": "measurement",
       "rows": 40,
-      "sha256": "398e061ac332e920146e81357885488b1d96c338e9be73edf6cac45c05101fcd",
+      "sha256": "4082376d5561bf7351fb65fdcc1e31f1aaa9fe25c12b2631daa427d9dea1cd75",
       "sources": [
         "paper/results/onset.json"
       ]
@@ -1631,7 +1588,6 @@
         "rows_sha256",
         "yazses_commit_recorded",
         "source_sha256",
-        "source_git_commit",
         "timestamp_utc",
         "machine",
         "machine_cpu_model",
@@ -1658,7 +1614,7 @@
       "file": "persian_asr.csv",
       "record_kind": "measurement",
       "rows": 11,
-      "sha256": "d185331e34fa5e1334db4ecbdd2dc79f980f59497949c81ac6b13144653e3258",
+      "sha256": "89510d93785703472a1a8e146378bbecb0b4741daa00a4e5cac910072c1ccf7f",
       "sources": [
         "paper/results/persian-cvfa-test10559-small.json",
         "paper/results/persian-cvfa-test10559-steja-small.json",
@@ -1694,7 +1650,6 @@
         "file_n_comparisons",
         "file_n_significant",
         "source_sha256",
-        "source_git_commit",
         "timestamp_utc",
         "machine",
         "machine_cpu_model",
@@ -1721,7 +1676,7 @@
       "file": "significance_beam.csv",
       "record_kind": "significance_analysis",
       "rows": 26,
-      "sha256": "e0bb6c7f6136c41ac2504dc2e19b9de2faf472d00ce6e34e96aa896507090025",
+      "sha256": "396f89a1366e2c3713a35cc8946b9237fd18ad166421ee8841f6350f7383be0c",
       "sources": [
         "paper/results/beam-governor-test-clean-significance-vs-beam2.json",
         "paper/results/beam-governor-test-clean-significance.json",
@@ -1759,7 +1714,6 @@
         "n_bootstrap",
         "per_meeting_delta_json",
         "source_sha256",
-        "source_git_commit",
         "timestamp_utc",
         "machine",
         "machine_cpu_model",
@@ -1786,7 +1740,7 @@
       "file": "significance_diarization.csv",
       "record_kind": "significance_analysis",
       "rows": 2,
-      "sha256": "97852e05b9520da4854a9793d5df16fff62335bbaec67df0aeb341599e2ae609",
+      "sha256": "c4f3af4776f6bc44ccbd54b6ebd28056d11d8542f8f0e13171bdb0482ccfe08a",
       "sources": [
         "paper/results/diarization-ami16_corpus-maxspk4-vs-der-significance.json"
       ]
@@ -1810,7 +1764,6 @@
         "file_n_comparisons",
         "file_n_significant",
         "source_sha256",
-        "source_git_commit",
         "timestamp_utc",
         "machine",
         "machine_cpu_model",
@@ -1837,7 +1790,7 @@
       "file": "significance_onset.csv",
       "record_kind": "significance_analysis",
       "rows": 32,
-      "sha256": "05d5f12d4e9e322f4681b173f54d2bdba980a5a4e20e1b67df257adab372f481",
+      "sha256": "2ead1a03553bbad3f36b6f226dbe5b78c5795c7e31fd68a45d3bd295fffcfd5e",
       "sources": [
         "paper/results/onset-significance.json"
       ]
@@ -1870,7 +1823,6 @@
         "streaming_visible_at_release_pct_median",
         "streaming_visible_at_release_pct_p95",
         "source_sha256",
-        "source_git_commit",
         "timestamp_utc",
         "machine",
         "machine_cpu_model",
@@ -1897,7 +1849,7 @@
       "file": "streaming_latency.csv",
       "record_kind": "measurement",
       "rows": 2,
-      "sha256": "ab1e2807b7db3665044d86f0c5e83097ef72bbb0c07ff8e7dfe3ab4b28f1799d",
+      "sha256": "4f00c5c5ce4a5d20a49f5cd3848d1caeae942c2e90a4da1f63a213d4eb7362f9",
       "sources": [
         "paper/results/streaming.json"
       ]
@@ -1918,7 +1870,6 @@
         "speech_rms_p05",
         "speech_rms_to_threshold_margin_x",
         "source_sha256",
-        "source_git_commit",
         "timestamp_utc",
         "machine",
         "machine_cpu_model",
@@ -1945,7 +1896,7 @@
       "file": "vad_gate.csv",
       "record_kind": "measurement",
       "rows": 1,
-      "sha256": "c2dd831c9e6135f8285f689df60b48908b5688099a70e03a52c39337f1d84806",
+      "sha256": "db48368ff32906f4c2d3aeba600478c5904f8af5ef0d1f96c585bf465168736e",
       "sources": [
         "paper/results/vad.json"
       ]

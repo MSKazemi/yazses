@@ -22,6 +22,10 @@ Design rules, each of which exists because the archive's own README learned it t
   no normalisation changed.  A missing value is the empty string -- never ``0``, never inferred.
 * **Byte-reproducible.**  Stable row order, ``\\n`` newlines, no generation timestamp in any
   output.  ``--check`` regenerates in memory and compares bytes.
+* **Independent of git history.**  No output records a commit.  A result refresh is
+  regenerated *before* it is committed, and a squash merge rewrites every hash, so a commit
+  in a byte-checked file is wrong in both cases.  Provenance is the source path plus its
+  content hash (``source_file`` + ``source_sha256``), which no history rewrite can change.
 * **Nothing sensitive.**  Every string in every source record, and every output cell, is scanned
   for home-directory paths, e-mail addresses, access tokens and private-tree paths.  A hit
   aborts the export naming the file and the field.
@@ -42,7 +46,6 @@ import hashlib
 import io
 import json
 import re
-import subprocess
 import sys
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -53,7 +56,9 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[1]
 RESULTS_REL = "paper/results"
 OUT_REL = "huggingface/benchmarks/data"
-SCHEMA_VERSION = "1"
+#: 2: ``source_git_commit``, the per-source ``git_commit`` and ``source_revision`` removed, so
+#: the export no longer depends on git history.
+SCHEMA_VERSION = "2"
 SOURCE_REPOSITORY = "https://github.com/MSKazemi/yazses"
 GENERATOR = "scripts/export_hf_benchmarks.py"
 
@@ -380,7 +385,7 @@ def interval(d: Mapping[str, Any], key: str, where: str) -> tuple[Any, Any]:
 
 COMMON_HEAD = ("record_kind", "source_file", "source_pointer")
 COMMON_TAIL = (
-    "source_sha256", "source_git_commit", "timestamp_utc",
+    "source_sha256", "timestamp_utc",
     "machine", "machine_cpu_model", "machine_logical_cpus", "machine_ram_gb", "machine_os",
     "yazses_version", "faster_whisper_version", "ctranslate2_version",
     "compute_type", "device", "omp_num_threads", "load_average_1m",
@@ -974,75 +979,6 @@ PARSERS: dict[str, Callable[[Row, Source, str], Parsed]] = {
 
 
 # --------------------------------------------------------------------------------------
-# Git provenance
-# --------------------------------------------------------------------------------------
-
-
-class GitInfo:
-    """Source commits via ``git log -1 -- <file>``; empty when not derivable.
-
-    Not derivable means: not a git checkout, a shallow clone (the answer would be the
-    shallow boundary, not the real last-touching commit), or a source file that is
-    untracked or modified in the working tree (its content is not what that commit holds).
-    In those cases *fallback* -- the values recorded in the committed metadata -- is used,
-    so ``--check`` does not report drift merely because CI cloned shallowly.
-    """
-
-    def __init__(self, root: Path, fallback: Mapping[str, str] | None = None,
-                 fallback_revision: str = "") -> None:
-        self.root = root
-        self.fallback = dict(fallback or {})
-        self.fallback_revision = fallback_revision
-        self.available = self._probe()
-        self._memo: dict[str, str] = {}
-
-    def _git(self, *args: str) -> str | None:
-        try:
-            done = subprocess.run(
-                ["git", "-C", str(self.root), *args], capture_output=True, text=True,
-                check=False, timeout=60,
-            )
-        except (OSError, subprocess.SubprocessError):
-            return None
-        return done.stdout.strip() if done.returncode == 0 else None
-
-    def _probe(self) -> bool:
-        if self._git("rev-parse", "--is-inside-work-tree") != "true":
-            return False
-        return self._git("rev-parse", "--is-shallow-repository") == "false"
-
-    def commit(self, rel: str) -> str:
-        if rel not in self._memo:
-            if not self.available:
-                self._memo[rel] = self.fallback.get(rel, "")
-            elif self._git("status", "--porcelain", "--", rel):
-                self._memo[rel] = ""
-            else:
-                self._memo[rel] = self._git("log", "-1", "--format=%H", "--", rel) or ""
-        return self._memo[rel]
-
-    def revision(self, rels: Sequence[str]) -> str:
-        if not self.available:
-            return self.fallback_revision
-        if any(self._git("status", "--porcelain", "--", r) for r in rels):
-            return ""
-        return self._git("log", "-1", "--format=%H", "--", *rels) or ""
-
-
-def load_recorded(out_dir: Path) -> tuple[dict[str, str], str]:
-    """Commits recorded in a previously committed metadata file (for the shallow fallback)."""
-    path = out_dir / METADATA_NAME
-    if not path.is_file():
-        return {}, ""
-    try:
-        meta = json.loads(path.read_text(encoding="utf-8"))
-        commits = {s["path"]: s.get("git_commit", "") for s in meta.get("sources", [])}
-        return commits, meta.get("source_revision", "")
-    except (ValueError, KeyError, TypeError):
-        return {}, ""
-
-
-# --------------------------------------------------------------------------------------
 # Build
 # --------------------------------------------------------------------------------------
 
@@ -1087,15 +1023,10 @@ def _safe_source_path(results_dir: Path, rel: str) -> Path:
 def build_export(
     root: Path = REPO_ROOT,
     sources: Sequence[Source] = ALLOWLIST,
-    git: Any | None = None,
 ) -> Export:
     """Read every allowlisted source, validate, scan, and render all outputs in memory."""
     results_dir = root / RESULTS_REL
-    out_dir = root / OUT_REL
     archive = list_archive(results_dir)
-    if git is None:
-        commits, revision = load_recorded(out_dir)
-        git = GitInfo(root, commits, revision)
 
     for table in {s.table for s in sources}:
         if table not in TABLES:
@@ -1142,14 +1073,12 @@ def build_export(
                     merged[k] = v
             merged.update(
                 record_kind=src.kind, source_file=f"{RESULTS_REL}/{src.path}",
-                source_sha256=sha, source_git_commit=git.commit(f"{RESULTS_REL}/{src.path}"),
-                curation_note=src.note,
+                source_sha256=sha, curation_note=src.note,
             )
             table_rows[src.table].append(merged)
         entry = included.setdefault(src.path, {
             "path": f"{RESULTS_REL}/{src.path}",
-            "sha256": sha, "git_commit": git.commit(f"{RESULTS_REL}/{src.path}"),
-            "record_kind": src.kind, "tables": {},
+            "sha256": sha, "record_kind": src.kind, "tables": {},
         })
         entry["tables"][src.table] = entry["tables"].get(src.table, 0) + len(rows)
 
@@ -1188,7 +1117,6 @@ def build_export(
         "schema_version": SCHEMA_VERSION,
         "generator": GENERATOR,
         "source_repository": SOURCE_REPOSITORY,
-        "source_revision": git.revision([f"{RESULTS_REL}/{p}" for p in included_paths]),
         "record_kinds": list(RECORD_KINDS),
         "tables": table_meta,
         "sources": [included[p] for p in included_paths],

@@ -122,21 +122,22 @@ never inferred.
 
 ## 3. Version and date
 
-* Dataset version **1.0.0**, export `schema_version` **1** (in `export-metadata.json`).
+* Dataset version **2.0.0**, export `schema_version` **2** (in `export-metadata.json`).
+  Schema 2 drops the git commit hashes that schema 1 carried (a per-row commit column, a
+  per-source commit and a source revision): they depended on git history, not on the data.
+  Every row and every measured value is otherwise unchanged.
 * The results were measured between **2026-07-30** and **2026-10-06** (UTC; `timestamp_utc`).
-* This card was written on 2026-10-27. No output file contains the time it was generated, so
-  re-running the exporter on the same archive reproduces them byte for byte.
+* This card was written on 2026-10-27 and updated on 2026-10-30. No output file contains the
+  time it was generated or a git commit, so re-running the exporter on the same archive
+  reproduces them byte for byte, in any clone and after any merge.
 
 ## 4. Source repository and revision
 
 * Repository: <https://github.com/MSKazemi/yazses> (path `paper/results/`).
-* Source revision: the most recent commit that touched any exported source file,
-  `9d086aacbc4edb3e573e849a357a603f922bbe13` (also `source_revision` in
-  `data/export-metadata.json`). It changes only when an exported archive file changes, so it
-  does not go stale on unrelated commits.
-* Per-file commits are in the `source_git_commit` column (empty when git could not attest it:
-  untracked or locally modified file, shallow clone). Per-file content hashes are in
-  `source_sha256`.
+* Each row names its source file (`source_file`) and that file's SHA-256 (`source_sha256`);
+  `data/export-metadata.json` lists every exported source with the same hash. To find the
+  source in the repository, look the path up in any revision and compare the hash: a content
+  hash identifies the file exactly and, unlike a commit hash, survives a squash merge or rebase.
 
 ## 5. How it was exported
 
@@ -281,7 +282,7 @@ Author: Mohsen Seyedkazemi Ardebili, <https://mskazemi.com/yazses/>.
 ## 11. Provenance
 
 Every row ends with the same provenance columns: `source_file`, `source_pointer` (where in the
-source JSON the row came from), `source_sha256`, `source_git_commit`, `timestamp_utc`,
+source JSON the row came from), `source_sha256`, `timestamp_utc`,
 `machine` (CPU model / logical CPUs / RAM / OS joined) plus its parts, `yazses_version`,
 `faster_whisper_version`, `ctranslate2_version`, `compute_type`, `device`, `omp_num_threads`,
 `load_average_1m`, `corpus_name`, `corpus_split`, `corpus_n`, `corpus_sha256_16`,

@@ -4,6 +4,9 @@ The exporter is the only thing standing between the archived benchmark JSON and 
 dataset page, so these tests pin the properties a reader of that page relies on:
 
 * **Byte-reproducible.**  Same inputs, same bytes -- no generation timestamp, stable order.
+* **Independent of git history.**  No output records a commit, and the exporter never asks
+  git anything: a refresh regenerated before its commit, or a squash merge that rewrites every
+  hash, would otherwise turn the byte-compared export red.
 * **A missing value is empty, never `0`.**  A zero would read as a measurement.
 * **Measurements and analyses never share a table.**  A `-significance` file decodes nothing;
   counting it beside the grid it analyses counts the same utterances twice.
@@ -25,6 +28,7 @@ import importlib.util
 import io
 import json
 import re
+import subprocess
 import sys
 from decimal import Decimal
 from pathlib import Path
@@ -143,18 +147,8 @@ def repo(tmp_path: Path) -> Path:
     return tmp_path
 
 
-class FakeGit:
-    """Stands in for GitInfo so the commit columns are exercised without a repository."""
-
-    def commit(self, rel: str) -> str:
-        return "c" * 40 if rel.endswith("wer-toy.json") else ""
-
-    def revision(self, rels) -> str:
-        return "r" * 40
-
-
-def _build(repo: Path, sources=TOY_SOURCES, git=None):
-    return X.build_export(repo, sources, git=git or FakeGit())
+def _build(repo: Path, sources=TOY_SOURCES):
+    return X.build_export(repo, sources)
 
 
 def _rows(export, table: str) -> list[dict[str, str]]:
@@ -258,7 +252,7 @@ def test_a_significance_source_cannot_be_routed_to_a_measurement_table(repo: Pat
     bad = X.Source("beam-toy-significance.json", "beam_sweep", "beam_significance",
                    kind="significance_analysis")
     with pytest.raises(X.ExportError, match="cannot go in table"):
-        X.build_export(repo, (bad,), git=FakeGit())
+        X.build_export(repo, (bad,))
 
 
 def test_parsers_refuse_the_wrong_file_shape(repo: Path) -> None:
@@ -267,13 +261,13 @@ def test_parsers_refuse_the_wrong_file_shape(repo: Path) -> None:
         X.Source("beam-toy-significance.json", "beam_sweep", "beam"),
     )
     with pytest.raises(X.ExportError, match="beam-toy-significance.json"):
-        X.build_export(repo, swapped, git=FakeGit())
+        X.build_export(repo, swapped)
     swapped = (
         X.Source("beam-toy.json", "significance_beam", "beam_significance",
                  kind="significance_analysis"),
     )
     with pytest.raises(X.ExportError, match="comparisons"):
-        X.build_export(repo, swapped, git=FakeGit())
+        X.build_export(repo, swapped)
     assert (results / "beam-toy.json").is_file()
 
 
@@ -382,14 +376,14 @@ def test_every_archive_file_is_exactly_one_of_included_or_excluded(repo: Path) -
 def test_an_allowlisted_file_that_is_absent_is_an_error(repo: Path) -> None:
     ghost = (X.Source("nope.json", "vad_gate", "vad"),)
     with pytest.raises(X.ExportError, match="nope.json.*not present"):
-        X.build_export(repo, ghost, git=FakeGit())
+        X.build_export(repo, ghost)
 
 
 def test_a_path_escaping_the_results_directory_is_refused(repo: Path) -> None:
     (repo / "secret.json").write_text("{}", encoding="utf-8")
     sneaky = (X.Source("../../secret.json", "vad_gate", "vad"),)
     with pytest.raises(X.ExportError):
-        X.build_export(repo, sneaky, git=FakeGit())
+        X.build_export(repo, sneaky)
 
 
 @pytest.mark.parametrize("target", [
@@ -432,7 +426,7 @@ def test_every_row_carries_the_provenance_columns(repo: Path) -> None:
     for table, meta in export.metadata["tables"].items():
         cols = meta["columns"]
         for needed in (
-            "record_kind", "source_file", "source_sha256", "source_git_commit", "timestamp_utc",
+            "record_kind", "source_file", "source_sha256", "timestamp_utc",
             "machine", "machine_cpu_model", "machine_logical_cpus", "machine_os",
             "yazses_version", "faster_whisper_version", "corpus_name", "corpus_split", "corpus_n",
             "corpus_sha256_16", "corpus_stratified", "argv",
@@ -449,21 +443,41 @@ def test_every_row_carries_the_provenance_columns(repo: Path) -> None:
             assert row["timestamp_utc"] == PROV["timestamp"]
 
 
-def test_git_commit_is_recorded_or_explicitly_empty(repo: Path) -> None:
-    rows = _rows(_build(repo), "asr_librispeech_wer")
-    assert {r["source_git_commit"] for r in rows} == {"c" * 40}
-    # no git at all (a bare temp directory): empty, not a guess
-    bare = _rows(X.build_export(repo, TOY_SOURCES), "asr_librispeech_wer")
-    assert {r["source_git_commit"] for r in bare} == {""}
-    assert X.build_export(repo, TOY_SOURCES).metadata["source_revision"] == ""
+class _NoSubprocess:
+    """Fails any subprocess at all -- `git log`, `git rev-parse`, anything."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        raise AssertionError(f"the exporter started a subprocess: {args[:1]}")
 
 
-def test_the_recorded_commit_is_the_fallback_when_git_cannot_answer(repo: Path) -> None:
-    git = X.GitInfo(repo, {"paper/results/wer-toy.json": "f" * 40}, "e" * 40)
-    assert git.available is False
-    assert git.commit("paper/results/wer-toy.json") == "f" * 40
-    assert git.commit("paper/results/other.json") == ""
-    assert git.revision(["paper/results/wer-toy.json"]) == "e" * 40
+#: Fields schema 1 carried, each derived from git history. None may come back.
+_HISTORY_FIELDS = ("source_git_commit", "git_commit", "source_revision")
+
+
+def _keys(value) -> set[str]:
+    if isinstance(value, dict):
+        return set(value) | {k for v in value.values() for k in _keys(v)}
+    if isinstance(value, list):
+        return {k for v in value for k in _keys(v)}
+    return set()
+
+
+def test_the_export_does_not_depend_on_git_history(repo: Path, monkeypatch) -> None:
+    """A result refresh is regenerated before it is committed (a `git log` answer is still
+    empty then), and a squash merge rewrites every hash; either turned the byte-compared
+    export red the moment it reached a branch. So nothing may consult git, and no output may
+    carry a field derived from it. Provenance is `source_file` + `source_sha256`."""
+    monkeypatch.setattr(subprocess, "Popen", _NoSubprocess)
+    toy = _build(repo)
+    for meta in toy.metadata["tables"].values():
+        assert not set(meta["columns"]) & set(_HISTORY_FIELDS), meta["columns"]
+    assert not _keys(toy.metadata) & set(_HISTORY_FIELDS)
+    # The real archive, too: with git unavailable, it still reproduces the committed bytes.
+    real = X.build_export()
+    assert X.diff_export(real, ROOT) == []
+    committed = json.loads((DATA / X.METADATA_NAME).read_text(encoding="utf-8"))
+    assert not _keys(committed) & set(_HISTORY_FIELDS)
+    assert committed["schema_version"] == X.SCHEMA_VERSION == "2"
 
 
 def test_the_argv_is_copied_when_present_and_empty_otherwise(repo: Path) -> None:
@@ -527,10 +541,9 @@ def test_malformed_records_are_flagged_with_file_and_field(repo: Path, text: str
 
 def test_unknown_parser_or_table_in_the_allowlist_is_rejected(repo: Path) -> None:
     with pytest.raises(X.ExportError, match="unknown parser"):
-        X.build_export(repo, (X.Source("wer-toy.json", "asr_librispeech_wer", "nope"),),
-                       git=FakeGit())
+        X.build_export(repo, (X.Source("wer-toy.json", "asr_librispeech_wer", "nope"),))
     with pytest.raises(X.ExportError, match="unknown table"):
-        X.build_export(repo, (X.Source("wer-toy.json", "no_such_table", "wer"),), git=FakeGit())
+        X.build_export(repo, (X.Source("wer-toy.json", "no_such_table", "wer"),))
     with pytest.raises(ValueError, match="unknown record kind"):
         X.Source("wer-toy.json", "asr_librispeech_wer", "wer", kind="guess")
 
@@ -566,8 +579,8 @@ def test_cli_list_reports_included_and_excluded_without_writing(repo: Path) -> N
 def test_cli_check_never_writes_and_exits_1_on_drift(repo: Path, monkeypatch) -> None:
     monkeypatch.setattr(X, "ALLOWLIST", TOY_SOURCES)
     monkeypatch.setattr(X, "build_export",
-                        lambda root=X.REPO_ROOT, sources=TOY_SOURCES, git=None:
-                        _orig_build(root, sources, FakeGit()))
+                        lambda root=X.REPO_ROOT, sources=TOY_SOURCES:
+                        _orig_build(root, sources))
     # nothing committed yet: drift (missing files), and --check must not create them
     code, _, err = _run(["--check"], repo)
     assert code == 1 and "missing" in err
@@ -587,8 +600,8 @@ def test_cli_check_never_writes_and_exits_1_on_drift(repo: Path, monkeypatch) ->
 def test_cli_reports_a_sensitive_source_as_an_error_exit(repo: Path, monkeypatch) -> None:
     monkeypatch.setattr(X, "ALLOWLIST", TOY_SOURCES)
     monkeypatch.setattr(X, "build_export",
-                        lambda root=X.REPO_ROOT, sources=TOY_SOURCES, git=None:
-                        _orig_build(root, sources, FakeGit()))
+                        lambda root=X.REPO_ROOT, sources=TOY_SOURCES:
+                        _orig_build(root, sources))
     doc = json.loads(WER_DOC, parse_float=Decimal)
     doc["config"]["selection"] = "x " + _FAKE_SECRETS["e-mail"]
     doc["provenance"] = dict(PROV)
@@ -845,11 +858,13 @@ def test_the_card_lists_every_csv_as_its_own_config() -> None:
     assert "automatic-speech-recognition" in fm["task_categories"]
 
 
-def test_the_card_states_its_revision_row_counts_and_date_range() -> None:
+def test_the_card_states_its_schema_version_row_counts_and_date_range() -> None:
     text = CARD.read_text(encoding="utf-8")
     meta = json.loads((DATA / X.METADATA_NAME).read_text(encoding="utf-8"))
-    assert meta["source_revision"] and meta["source_revision"] in text, (
-        "README.md names a stale source revision; update it from export-metadata.json")
+    assert f"`schema_version` **{meta['schema_version']}**" in text, (
+        "README.md names a stale export schema version; update it from export-metadata.json")
+    for field in _HISTORY_FIELDS:
+        assert field not in text, f"README.md still describes the removed field {field!r}"
     for table, rows in meta["row_counts"].items():
         assert re.search(rf"`{table}`[^\n]*\|\s*{rows}\s*\|", text), (table, rows)
     stamps = sorted(r["timestamp_utc"] for t in meta["tables"] for r in _csv(t))
