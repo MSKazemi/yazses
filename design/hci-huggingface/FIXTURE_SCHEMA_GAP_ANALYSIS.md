@@ -1,15 +1,15 @@
 # Fixture schema gap analysis (prototype 0.1 against issue #699)
 
-Status: analysis dated 2026-10-28; documentation only. **Decision taken (2026-10-28): option B, keep the
-schema in `examples/hci-hf-lab/` and version it to 1.0.** Section 5 records how each gap was closed
-on branch `feat/hci-hf-fixtures-1-0`, stacked on the replay-report branch; the sections above are
-kept as the analysis that led there. Part of epic #692 / issue #699. It compares
+Status: analysis dated 2026-10-28; documentation only. **Implemented as option B in #710, pending
+maintainer confirmation:** the schema stays in `examples/hci-hf-lab/`, versioned to 1.0. Section 5
+records how each gap was closed in PR #710; the sections above are kept as the analysis that led
+there. Part of epic #692 / issue #699. It compares
 what the synthetic Space prototype ships (`examples/hci-hf-lab/`, draft PR #703: `fixtures.js`,
 `fixtures.schema.json`, schema `0.1-prototype`) with what #699 asks the canonical fixture set to
 contain. It does **not** create a second schema: #699 says the Space consumes the dataset and must
 not define its own, and the prototype's schema describes itself as provisional.
 
-## 1. Where the canonical schema lives (decided: option B)
+## 1. Where the canonical schema lives (option B implemented, pending maintainer confirmation)
 
 #699 prefers `design/hci-huggingface/fixtures/` for the machine-readable schema, the documented
 cases, a manifest and a dependency-light validator. The prototype already contains a working
@@ -23,7 +23,8 @@ under `design/` would create exactly the duplication the issue forbids. The opti
 | C. Split: the schema and validator live in `design/`, the Space ships a generated copy of the fixtures | Cleanest contract, and the Space copy is generated, never hand-edited. Needs a generator and a drift test, like the Hub export. |
 
 No recommendation is made here: the choice affects #703, #696 and any future dataset on the Hub,
-and it belongs to the maintainer. Whichever is chosen, the fields in section 3 are the same.
+and it belongs to the maintainer. PR #710 implements option B; no maintainer decision is recorded
+on #699 yet. Whichever is chosen, the fields in section 3 are the same.
 
 ## 2. What the prototype already satisfies
 
@@ -57,7 +58,7 @@ and it belongs to the maintainer. Whichever is chosen, the fields in section 3 a
 | G8 | Ambiguous or **untrusted** target requiring abstention | Conflicting modalities and low confidence abstain. There is no ambiguity between two near targets and no notion of a trusted or untrusted target |
 | G9 | Stop, fallback **and recovery** on a missing sensor | Emergency stop and sensor disconnection exist. No scenario shows the sensor returning and the system recovering |
 | G10 | A manifest of the fixture set | None; the schema and the fixtures file are the only artifacts |
-| G11 | Documented intended metrics, with all sample numbers labelled simulated | The replay report (#700, branch `feat/hci-hf-replay-eval`) defines them; the schema documentation does not yet cross-reference it |
+| G11 | Documented intended metrics, with all sample numbers labelled simulated | The replay report (#700, PR #708) defines them; the schema documentation does not yet cross-reference it |
 
 Scenario coverage, for reference, against the ten scenarios #699 lists: covered are correct gaze plus
 spoken reference, contradictory voice and gaze, missing or low-confidence camera signal, accidental
@@ -70,10 +71,10 @@ covered is ambiguous or untrusted target (G8).
 G1, G2, G3, G4 and G10 change the schema (new fields and a manifest), so they force a version bump
 and a migration of the 16 existing scenarios. G5 is a documentation statement. G6 to G9 add
 scenarios and, for G8, may need a small extension of the resolver's rules, which the replay report
-and the resolver tests would then cover. None of this is started: it waits for the decision in
-section 1.
+and the resolver tests would then cover. None of this was started when the analysis was written;
+section 5 records what PR #710 then changed.
 
-## 5. Resolution (schema 1.0, branch `feat/hci-hf-fixtures-1-0`)
+## 5. Resolution (schema 1.0, PR #710)
 
 | Gap | How it was closed |
 |---|---|
