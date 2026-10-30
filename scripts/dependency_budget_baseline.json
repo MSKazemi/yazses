@@ -1,6 +1,7 @@
 {
   "_comment": "Recorded by `scripts/check_dependency_budget.py --record-baseline`. Update deliberately \u2014 this file changing is the point, not a bug in the diff.",
   "base_dependencies": [
+    "av",
     "cryptography",
     "evdev",
     "faster-whisper",

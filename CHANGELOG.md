@@ -20,6 +20,21 @@ naturally, and it is marked reviewed instead of draft. Thank you,
 [@loneicewolf](https://github.com/loneicewolf)
 ([#728](https://github.com/MSKazemi/yazses/pull/728), [#350](https://github.com/MSKazemi/yazses/issues/350)).
 
+### Fixed — a fresh `pip install` could no longer transcribe a file
+
+`yazses transcribe <file>` and the MCP server's transcribe tool decode the file with
+faster-whisper's `decode_audio`, which uses PyAV. faster-whisper 1.2.1 requires `av>=11`
+with no ceiling, so a fresh `pip install yazses` resolved PyAV 19.0.2, and 19 removed an
+argument faster-whisper still passes (`av.open(..., metadata_errors=...)`). The result
+was `TypeError: open() got an unexpected keyword argument 'metadata_errors'` for every
+file, even a plain WAV, on any machine without a system `ffmpeg` to fall back on.
+Installs from the lockfile, which holds PyAV 18, were never affected, and neither were
+live dictation or meeting capture, which hand the model arrays.
+
+`av` is now capped below 19 in `pyproject.toml`, with the reason beside it. The ceiling
+comes off once a faster-whisper release works with PyAV 19. A new test decodes a WAV with
+the ffmpeg fallback removed, so the PyAV path is tested on its own.
+
 ### Removed — the public paper-v2 working draft and its planning package
 
 All of the author's manuscripts are private. `design/publication/` (the paper-v2 LaTeX draft, its
