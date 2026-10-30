@@ -1541,14 +1541,14 @@
     {
       "type": "library",
       "name": "msgpack",
-      "version": "1.2.1",
-      "purl": "pkg:pypi/msgpack@1.2.1",
-      "bom-ref": "pkg:pypi/msgpack@1.2.1",
+      "version": "1.2.3",
+      "purl": "pkg:pypi/msgpack@1.2.3",
+      "bom-ref": "pkg:pypi/msgpack@1.2.3",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "04c721c2c7448767e9e3f2520a475663d8ee0f09c31890f6d2bd70fd636a9647"
+          "content": "32edb81a2b5eb7cd7c9d941b2bfbbb082fd2cd09e0e725930316af6b708db186"
         }
       ]
     },
