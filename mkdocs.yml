@@ -361,6 +361,7 @@ nav:
       - Per-app tone profiles: how-to/app-profiles.md
       - Jump to a symbol by voice: how-to/editor-jump.md
       - Glance-Type (look to pane): how-to/gaze-look-to-pane.md
+      - XR voice input (library, not wired): xr-voice-input.md
       - Set up hands-free input: how-to/hands-free-setup.md
       - Stop hands-free input by voice: how-to/hands-free-voice-stop.md
       - Click anywhere by voice (mouse grid): how-to/voice-mouse-grid.md

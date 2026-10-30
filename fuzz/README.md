@@ -41,6 +41,7 @@ to satisfy a scanner and never run would be a claim the project could not back.
     uv pip install atheris        # Linux/x86_64 wheels for CPython 3.12-3.14
     python fuzz/fuzz_text_pipeline.py -atheris_runs=200000
     python fuzz/fuzz_config.py     -atheris_runs=200000
+    python fuzz/fuzz_xr_wire.py    -atheris_runs=200000   # XR companion wire decoder; by hand, not in CI
 
     # or with a corpus directory, which is how CI runs it
     python fuzz/fuzz_text_pipeline.py fuzz/corpus/text -max_total_time=180

@@ -75,6 +75,22 @@ KNOWN_ORPHANS = {
         "ADR-028 build/test-time catalogue check (tests/test_packs_catalog.py). "
         "scripts/build-packs.py `validate` still carries its own copy of the same check; "
         "make the script call catalogue_problems so there is one.",
+    # The XR adapter (ADR-033, Proposed) is a tested library with no daemon or CLI caller
+    # yet: no `[xr]` config section, no transport for companion frames, no entry point.
+    # `session` is the module a host would drive, so the other three hang off it or off
+    # nothing at all; wiring `session` is what retires the entries below.
+    "xr.session":
+        "XrSession, the one object a host drives. Nothing constructs it: there is no [xr] "
+        "config section, no companion transport (bridge/ has none) and no CLI entry point.",
+    "xr.conventions":
+        "Coordinate-convention conversion for the companion seam; a transport that reports a "
+        "non-OpenXR convention would call it. No transport exists yet.",
+    "xr.devices":
+        "Device-capability profiles for choosing a modality preset; read by a future "
+        "`[xr]` setup flow. Its capability values are unconfirmed against vendor docs.",
+    "xr.synth":
+        "Synthetic trajectories for tests and the offline evaluation; deliberately not "
+        "reachable from the daemon. Move to tests/ or a scripts/ entry if that stays true.",
 }
 
 

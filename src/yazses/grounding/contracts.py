@@ -221,6 +221,7 @@ class TargetSource(Enum):
     MOUSE = "mouse"
     HEAD_POINTER = "head_pointer"
     SELECTION = "selection"
+    XR_RAY = "xr_ray"
 
 
 @dataclass(frozen=True)
