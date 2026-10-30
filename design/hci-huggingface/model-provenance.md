@@ -1,8 +1,8 @@
 # Model provenance and compatibility inventory
 
 Status: inventory dated 2026-10-28; read-only; not a recommendation to add any model.
-Part of epic #692 / issue #694. Android pinning is tracked separately in #683; this
-document does not duplicate it.
+Part of epic #692 / issue #694. Android pinning was done separately in #683 (closed as
+completed on 2026-10-25, through PR #684); this document does not duplicate it.
 
 ## How to read this
 
@@ -29,7 +29,8 @@ document does not duplicate it.
   (what YazSes downloads) and the upstream original (what it was converted from) are
   listed separately (see Table A3).
 - **Code facts.** Every "YazSes does X" statement cites `file:line`. Line numbers are
-  for the `docs/hci-hf-model-provenance` worktree at the time of writing.
+  for commit `4fda3403` on `main`; every repository file cited here is identical there to
+  `0e0dcfd1`, the commit the inventory was written against.
 
 ## Table A: models YazSes uses or lists
 
@@ -47,7 +48,7 @@ OpenAI or Distil-Whisper card as "the original model" (see Table A3).
 | `Systran/faster-whisper-tiny` (`tiny`) | Converted by Systran from openai/whisper-tiny | https://huggingface.co/Systran/faster-whisper-tiny | mit (front matter). Body: none; links upstream card | `d90ca5fe260221311c53c58e660288d3deb8d356` (2023-11-23) | faster-whisper / CTranslate2 | not stated | not stated in the conversion card | Listed: `stt/download.py:64`; loaded only if `[stt] model = "tiny"` | No (only `tiny.en` measured) |
 | `Systran/faster-whisper-tiny.en` (`tiny.en`) | Systran, from openai/whisper-tiny.en | https://huggingface.co/Systran/faster-whisper-tiny.en | mit (front matter) | `0d3d19a32d3338f10357c0889762bd8d64bbdeba` (2023-11-23) | faster-whisper / CTranslate2 | not stated | not stated in the conversion card | Listed: `stt/download.py:65`; named in `docs/models.md:90` | Yes: `paper/results/wer.json` (laptop); `probes/wer-matrix.json`, `probes/wer-vm-clean.json`, `wer-test-other.json` (Xeon). Model name only, no repo or sha recorded |
 | `Systran/faster-whisper-base` (`base`) | Systran, from openai/whisper-base | https://huggingface.co/Systran/faster-whisper-base | mit (front matter) | `ebe41f70d5b6dfa9166e2c581c45c9c0cfc57b66` (2023-11-23) | faster-whisper / CTranslate2 | not stated | not stated in the conversion card | Listed: `stt/download.py:48` | Yes, multilingual Persian runs: `paper/results/persian-fleurs-test50-base.json`, `persian-fleurs-test871-base.json` (these record `revision: null`) |
-| `Systran/faster-whisper-base.en` (`base.en`) | Systran, from openai/whisper-base.en | https://huggingface.co/Systran/faster-whisper-base.en | mit (front matter) | `3d3d5dee26484f91867d81cb899cfcf72b96be6c` (2023-11-23) | faster-whisper / CTranslate2 | not stated | English only (`en` tag); card does not state limitations | **Yes, default**: `src/yazses/config.py:43` (`model: str = "base.en"`); mapping `stt/download.py:49`; `docs/models.md:62-63` | Yes: `wer.json` (laptop); `probes/wer-matrix.json`, `probes/wer-vm-clean.json`, `wer-test-other.json`, `probes/decode-determinism-base.en-*.json` |
+| `Systran/faster-whisper-base.en` (`base.en`) | Systran, from openai/whisper-base.en | https://huggingface.co/Systran/faster-whisper-base.en | mit (front matter) | `3d3d5dee26484f91867d81cb899cfcf72b96be6c` (2023-11-23) | faster-whisper / CTranslate2 | not stated | English only (`en` tag); card does not state limitations | **Yes, default**: `src/yazses/config.py:43` (`model: str = "base.en"`); mapping `stt/download.py:49`; `docs/models.md:15`, `:24` | Yes: `wer.json` (laptop); `probes/wer-matrix.json`, `probes/wer-vm-clean.json`, `wer-test-other.json`, `probes/decode-determinism-base.en-*.json` |
 | `Systran/faster-whisper-small` (`small`) | Systran, from openai/whisper-small | https://huggingface.co/Systran/faster-whisper-small | mit (front matter) | `536b0662742c02347bc0e980a01041f333bce120` (2023-11-23) | faster-whisper / CTranslate2 | not stated | not stated in the conversion card | Listed: `stt/download.py:62` | Yes, Persian runs: `persian-fleurs-test50-small*.json`, `persian-fleurs-test871-small*.json`. `persian-cvfa-test10559-small.json` records `revision: 536b0662742c02347bc0e980a01041f333bce120`, which equals this sha |
 | `Systran/faster-whisper-small.en` (`small.en`) | Systran, from openai/whisper-small.en | https://huggingface.co/Systran/faster-whisper-small.en | mit (front matter) | `d1d751a5f8271d482d14ca55d9e2deeebbae577f` (2023-11-23) | faster-whisper / CTranslate2 | not stated | English only | Listed: `stt/download.py:63`; `docs/models.md:92` | Yes: `wer.json` (laptop); `probes/wer-matrix.json`, `probes/wer-vm-clean.json`, `wer-test-other.json`, `probes/decode-determinism-small.en-*.json` |
 | `Systran/faster-whisper-medium` (`medium`) | Systran, from openai/whisper-medium | https://huggingface.co/Systran/faster-whisper-medium | mit (front matter) | `08e178d48790749d25932bbc082711ddcfdfbc4f` (2023-11-23) | faster-whisper / CTranslate2 | not stated | not stated in the conversion card | Listed: `stt/download.py:60` | Yes, Persian: `persian-fleurs-test50-medium.json` |
