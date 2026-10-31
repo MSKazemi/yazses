@@ -1,4 +1,5 @@
 ---
+title: Mandarin platform compatibility reports
 description: "Where real-hardware reports on Simplified and Traditional Han text injection on Linux X11, Linux Wayland, macOS and Windows collect, one per CHN-COMPAT campaign task; none has been submitted yet."
 ---
 
