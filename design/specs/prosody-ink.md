@@ -1,3 +1,8 @@
+---
+description: >-
+  Design spec for Prosody Ink: turning pauses and stress in speech into paragraph breaks and emphasis in dictated text, computed on-device on CPU. The page states current delivery status.
+---
+
 # Spec: Prosody Ink — prosody-driven text formatting
 
 | Field | Value |
