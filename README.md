@@ -17,7 +17,7 @@ account, no subscription and no API key. YazSes is free and open source under Ap
 [![Documentation](https://img.shields.io/badge/docs-mskazemi.com%2Fyazses-5e35b1)](https://mskazemi.com/yazses/)
 [![Hosted demo on Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-hosted%20demo-yellow)](https://huggingface.co/spaces/mskazemi/yazses-offline-transcription-demo)
 [![Open Source Helpers](https://www.codetriage.com/mskazemi/yazses/badges/users.svg)](https://www.codetriage.com/mskazemi/yazses)
-[![All Contributors](https://img.shields.io/badge/all_contributors-47-orange.svg?style=flat-square)](#contributors)
+[![All Contributors](https://img.shields.io/badge/all_contributors-48-orange.svg?style=flat-square)](#contributors)
 
 ![YazSes — hold a key, speak, release; the text is typed into the focused app](docs/screenshots/yazses-reel.gif)
 
@@ -909,6 +909,7 @@ patch counts. Contribution types follow the [all-contributors emoji key](https:/
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/nuthakkikeerthi"><img src="https://avatars.githubusercontent.com/u/203968755?v=4?s=100" width="100px;" alt="nuthakkikeerthi"/><br /><sub><b>nuthakkikeerthi</b></sub></a><br /><a href="#translation-nuthakkikeerthi" title="Translation">🌍</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/loneicewolf"><img src="https://avatars.githubusercontent.com/u/68499986?v=4?s=100" width="100px;" alt="loneicewolf"/><br /><sub><b>loneicewolf</b></sub></a><br /><a href="#translation-loneicewolf" title="Translation">🌍</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/2D00M6"><img src="https://avatars.githubusercontent.com/u/196942467?v=4?s=100" width="100px;" alt="2D00M6"/><br /><sub><b>2D00M6</b></sub></a><br /><a href="#translation-2D00M6" title="Translation">🌍</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Ptraaah"><img src="https://avatars.githubusercontent.com/u/122882415?v=4?s=100" width="100px;" alt="Ptraaah"/><br /><sub><b>Ptraaah</b></sub></a><br /><a href="#translation-Ptraaah" title="Translation">🌍</a></td>
     </tr>
   </tbody>
 </table>
