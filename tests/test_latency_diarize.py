@@ -87,7 +87,7 @@ def test_the_light_policy_still_switches_model_and_narrows_the_beam():
     """The other direction: fixing the base path must not flatten the light one,
     which is the whole point of the governor. Its beam width is decided by
     measurement -- see `governor.LIGHT_BEAM` and
-    paper/results/beam-governor-test-other.json."""
+    results/beam-governor-test-other.json."""
     from yazses.latency.governor import LIGHT_BEAM
 
     for beam in (0, 2, 5, 8):

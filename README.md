@@ -316,7 +316,7 @@ decides every utterance today**.
 **Performance.** Measured on a 13th-gen Core i7 laptop, int8 on CPU: **4.07 % WER** on
 LibriSpeech test-clean with the default `base.en`, a **1.56 s median** decode, and **0.29 ms**
 of total non-decode pipeline overhead. Almost all of the latency is the speech model. The
-method and the commands to reproduce these numbers are on the [benchmarks page](docs/benchmarks.md).
+method behind these numbers is on the [benchmarks page](docs/benchmarks.md).
 
 **Models**
 
@@ -776,7 +776,7 @@ Before you open a pull request, run the same gates as CI (see [CONTRIBUTING.md](
 
 ```bash
 uv run python -m pytest tests/   # tests — must be green
-uv run ruff check src tests scripts paper/benchmark   # lint — must be green
+uv run ruff check src tests scripts   # lint — must be green
 uv run mypy src                  # types — advisory (currently clean; don't add errors)
 ```
 

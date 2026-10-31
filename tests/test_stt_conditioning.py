@@ -1,6 +1,6 @@
 """`[stt] condition_on_previous_text` — the knob the decode 2x2 said users need.
 
-Measured (`docs/benchmarks.md`, `paper/results/probes/decode-determinism-*.json`,
+Measured (`docs/benchmarks.md`, `results/probes/decode-determinism-*.json`,
 five decodes per arm over 200 LibriSpeech utterances): conditioning each 30-second
 window on the text of the one before it is what makes `large-v3` wander between
 4.84 % and 6.21 % WER across *identical* runs, because on roughly 1.5 % of

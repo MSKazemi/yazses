@@ -190,7 +190,6 @@ LEFT_UNKNOWN: dict[str, str] = {
     "i18n": "localization glossary consumed by docs and runtime",
     "huggingface": "Hub publishing sources and manifest, validated by the test suite and the publish workflow",
     "man": "generated from the CLI; a drift test guards it",
-    "paper": "benchmark harness that is part of the lint gate",
 }
 
 

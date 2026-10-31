@@ -11,7 +11,7 @@ Decided during the Azure measurement window, the first time Meeting Mode's speak
 attribution had ever been scored against annotated human audio. The decision below rests
 on the full AMI test split (16 recordings, 543.7 min) and a cross-domain gate on
 VoxConverse (15 recordings, 137.7 min); both are reproducible with
-`paper/benchmark/bench_diarization.py`.
+`benchmark/bench_diarization.py`.
 
 ---
 
@@ -127,7 +127,7 @@ elsewhere.
 ### The gate: `1.2` does not transfer to another domain
 
 VoxConverse exists in this harness for exactly one purpose — *"it checks that a change does
-not help one domain by hurting another"* (`paper/benchmark/README.md`). Fifteen dev
+not help one domain by hurting another"* (`benchmark/README.md`). Fifteen dev
 recordings, 137.7 min, broadcast and YouTube audio:
 
 | threshold | 0.5 (shipped) | 0.7 | **1.2 (AMI optimum)** |
@@ -407,10 +407,10 @@ is published whether or not the fix lands in the same release.
 This ADR closed on an error its own guard cannot see: one speaker cut into two
 people-sized clusters, which no fragment-duration threshold reaches. It said detecting
 that needs **cluster centroids**, and that no centroid survived in any published artifact.
-It does now: `paper/benchmark/probes/centroid_merge.py` recomputes the per-cluster
+It does now: `benchmark/probes/centroid_merge.py` recomputes the per-cluster
 embedding centroids with the same ERes2Net file the diarizer clusters with, and
 `analyze_centroid.py` scores them. Both results are archived
-(`paper/results/centroid-merge-ami16_corpus-{meeting,recimport}.json`).
+(`results/centroid-merge-ami16_corpus-{meeting,recimport}.json`).
 
 Which clusters are *wrongly* split is decided by the reference RTTM, not by the embeddings
 — each hypothesis cluster is mapped to the true speaker it overlaps most. Deciding it from

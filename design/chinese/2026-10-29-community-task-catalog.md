@@ -268,7 +268,7 @@ The named validation commands are a **minimum smoke** and must be supplemented b
 
 **Source:** [#503](https://github.com/MSKazemi/yazses/issues/503); **risk:** L0; **estimate:** 120 minutes; **blocked by:** Common corpus manifest accepted; CHN-MEASURE-WHISPER-SMALL-001 already in campaign.
 
-**Allowed files (proposal, narrow further before campaign publication):** `paper/results/probes/**; docs/benchmarks.md`.
+**Allowed files (proposal, narrow further before campaign publication):** `results/probes/**; docs/benchmarks.md`.
 
 **Implementation / evidence:** Use real pinned small weights and the frozen corpus; record raw/punct/normalized/script CER, S/D/I, latency, RTF, RSS, core-seconds and exact host.
 
@@ -280,7 +280,7 @@ The named validation commands are a **minimum smoke** and must be supplemented b
 
 **Source:** [#503](https://github.com/MSKazemi/yazses/issues/503); **risk:** L0; **estimate:** 120 minutes; **blocked by:** CHN-NEXT-402 baseline frozen; separate existing CHN-MEASURE-TURBO/LARGE3 tasks.
 
-**Allowed files (proposal, narrow further before campaign publication):** `paper/results/probes/**; docs/benchmarks.md`.
+**Allowed files (proposal, narrow further before campaign publication):** `results/probes/**; docs/benchmarks.md`.
 
 **Implementation / evidence:** Run identical manifest/split/normalizer/threads on the same hardware where feasible; report quality-resource tradeoffs and long-form failures.
 
@@ -292,7 +292,7 @@ The named validation commands are a **minimum smoke** and must be supplemented b
 
 **Source:** [#503](https://github.com/MSKazemi/yazses/issues/503); **risk:** L2; **estimate:** 180 minutes; **blocked by:** Permissive model-weight revision and benchmark corpus pinned.
 
-**Allowed files (proposal, narrow further before campaign publication):** `paper/benchmark/probes/**; paper/results/probes/**`.
+**Allowed files (proposal, narrow further before campaign publication):** `benchmark/probes/**; results/probes/**`.
 
 **Implementation / evidence:** Run research-only adapter in isolated environment, emit comparable schema and document CPU load, model size, timestamps/forced aligner and offline cache behavior.
 

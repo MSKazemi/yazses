@@ -50,7 +50,7 @@ now return `config.base_beam`, which the daemon fills from `[stt] beam_size`.
 **The light path is beam 2, not beam 1.** The `[stt] beam_size` sweep in `docs/benchmarks.md`
 could not settle this: it scores `base.en`, and the light policy runs `tiny.en`, so it measures a
 combination the product never executes. Scored directly on `tiny.en`, 200 LibriSpeech utterances
-per split (`paper/results/beam-governor-test-{clean,other}.json`):
+per split (`results/beam-governor-test-{clean,other}.json`):
 
 | Split | beam 1 | beam 2 | beam 5 |
 |---|---|---|---|

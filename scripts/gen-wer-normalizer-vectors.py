@@ -2,7 +2,7 @@
 """Freeze Whisper's English text normaliser as test vectors for the Kotlin port (#677).
 
 The desktop benchmark scores WER after ``whisper_normalizer.EnglishTextNormalizer``
-(``paper/benchmark/bench_wer.py``). A phone measurement is only comparable with a desktop
+(``benchmark/bench_wer.py``). A phone measurement is only comparable with a desktop
 one if both normalise the same way, so the Android ``:core:bench`` module ports that
 normaliser. This script writes the oracle for the port: every input below, normalised by
 the real package, as JSON the Kotlin tests replay.

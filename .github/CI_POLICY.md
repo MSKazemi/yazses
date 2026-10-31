@@ -152,7 +152,7 @@ Optimization must preserve evidence, not redefine green.
 | `changes` | fast | every run; decides `full` |
 | `repo-hygiene` (size, translations, ruff, dependency budget, CI contract and generated-file drift tests) | fast | every run |
 | `test-linux`: the whole suite on ubuntu-latest / 3.12 | Linux baseline | every run |
-| `test` (the rest of the OS/interpreter matrix), `gui`, `extras`, `benchmark-harness` | full | `full` is not `false` |
+| `test` (the rest of the OS/interpreter matrix), `gui`, `extras` | full | `full` is not `false` |
 | `freebsd`, `windows-update-handoff` (both advisory) | full | `full` is not `false` |
 | `ci-gate` | aggregate | always; see section 6 |
 
@@ -515,7 +515,7 @@ git grep -hE '^\s*(- )?(run: )?uv sync' -- .github/workflows | wc -l   # command
 `version` to setup-uv, and five of them passed no `python-version` either. The composite
 passes `latest` and, here, `"3.12"`. Their logs on `main` before the change show what they
 resolved to. On run 40964872494 (4fda3403, 2026-10-29), `repo-hygiene`, `gui` (both OSes),
-`extras`, `benchmark-harness` and `windows-update-handoff` each logged "Could not determine
+`extras` and `windows-update-handoff` each logged "Could not determine
 uv version from uv.toml or pyproject.toml. Falling back to latest." and installed uv
 0.13.6. `test-linux`, which passes `latest`, installed the same 0.13.6. `heavy-extras` (run
 40312521603, 2026-10-26) logged the same fallback. setup-uv's resolver at the pinned commit

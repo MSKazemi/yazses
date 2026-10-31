@@ -61,7 +61,7 @@ class GovernorConfig:
 #: twenty-seventh on clean, to remove the one accuracy loss the grid actually
 #: measured. That is the trade this policy exists to make.
 #:
-#: See paper/results/beam-governor-test-{clean,other}.json and their
+#: See results/beam-governor-test-{clean,other}.json and their
 #: `-significance` and `-significance-vs-beam2` companions.
 LIGHT_BEAM = 2
 

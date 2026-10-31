@@ -6,6 +6,23 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — the benchmark harness, the result files and their tests moved to the private research repository
+
+`paper/benchmark/` (the harness), `paper/results/` (the archived JSON and logs) and the 37 tests that guarded them are
+no longer in this repository. They live with the manuscripts they support, in the author's private research repository,
+and the retired `paper/` folder is ignored here. What follows from that, stated plainly:
+
+- `docs/benchmarks.md` no longer offers a way to re-run its numbers from a clone; it says so and gives the recipe each
+  row was measured with (model, decode settings, corpus subset, machine). Its links into the removed files are plain text.
+- The `benchmark.yml` workflow and the `benchmark-harness` CI job are gone, along with the lint target `paper/benchmark`.
+  The `benchmark` dependency group stays: `scripts/bench-stt.py` and `scripts/gen-wer-normalizer-vectors.py` use it.
+- The Hugging Face benchmark tables already published stay as they are. Their generator moved too, so `manifest.json` no
+  longer runs an export check and the tables' `source_file` column now reads `results/<file>`, not a repository path.
+- The visibility table in `design/README.md` has no public exception under `paper/` any more.
+- Contributor task `CHN-QA-CER-HARNESS-001` needed the harness and is now `expired`.
+
+Earlier entries below name the old paths because that is where the files were at the time.
+
 ### Fixed — "Install now" on a pipx install did nothing, and said so in a balloon that vanished
 
 `pipx install /path/to/checkout` makes pipx remember that *folder* as where the package comes

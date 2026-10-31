@@ -24,7 +24,7 @@ class SttConfig:
     # base.en is the default because it is the best *latency* trade for
     # hold-to-talk, not because the larger checkpoints add little -- they add a
     # lot, and this comment used to say otherwise. Measured on 200 LibriSpeech
-    # utterances per cell (`paper/results/wer.json` and `wer-test-other.json`):
+    # utterances per cell (`results/wer.json` and `wer-test-other.json`):
     # tiny.en scores 4.82% on clean audio and 11.77% on hard; base.en 4.07% and
     # 9.46%; small.en 2.59% and 5.59%; medium.en 5.51% on hard.
     #
@@ -74,7 +74,7 @@ class SttConfig:
     #
     # What it buys and what it costs was measured, five decodes per arm, 200
     # LibriSpeech utterances (docs/benchmarks.md, and the artifacts
-    # `decode-determinism-*.json` under `paper/results/probes/`).
+    # `decode-determinism-*.json` under `results/probes/`).
     #
     # On `base.en`, the shipped model, conditioning is
     # simply better: 4.01% against 4.24-4.28% on test-clean, 9.46% against 9.81% on
@@ -326,7 +326,7 @@ class StreamingConfig:
     #
     # Latency: streaming does NOT make the final text arrive sooner — commit()
     # re-decodes the whole utterance anyway, now competing with a decode loop
-    # running every partial_interval_ms. Measured (paper/benchmark/bench_streaming.py,
+    # running every partial_interval_ms. Measured (benchmark/bench_streaming.py,
     # n=15 real-time-fed utterances): speech-end -> final text 0.92 s -> 1.22 s on
     # tiny.en, and 1.42 s -> 2.21 s on base.en. Worse, on base.en the rolling
     # decode cannot keep up with the audio, so LocalAgreement confirmed no prefix

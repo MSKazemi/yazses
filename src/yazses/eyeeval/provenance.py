@@ -6,14 +6,14 @@ reads the machine, kept separate so every rule in the runner is testable with a
 *fake* provenance and never has to touch the host.
 
 `design/eye-control/METRICS.md` asks for the same provenance discipline
-`paper/benchmark/_common.py` already uses -- "a number without the machine/software/config
+`benchmark/_common.py` already uses -- "a number without the machine/software/config
 that produced it is not a reproducible measurement". This maps that dataclass onto the
 result envelope's `software`/`machine` sections. It deliberately does **not** import it:
-`paper/` is not shipped, and `_common.py` pulls numpy and psutil at module scope, neither
+the benchmark harness is not shipped, and `_common.py` pulls numpy and psutil at module scope, neither
 of which a base install has. The mapping is written down instead: `from_benchmark` turns
 one of that harness's committed provenance blocks into a `Provenance` here, and
 `BENCHMARK_FIELDS` / `BENCHMARK_FIELDS_NOT_CARRIED` place every field of the benchmark
-dataclass, which `tests/test_eye_eval_benchmark_provenance.py` checks against its source.
+dataclass, which a test kept with the harness checks against its source.
 
 ## What is collected, and what cannot be
 
@@ -30,7 +30,7 @@ tempting shortcut:
   in field 1, so a single `asdict()` of it would have put the hostname in every result
   ever produced. Each field is read individually instead.
 * the CPU model is read from `/proc/cpuinfo` (Linux) or `platform.processor()`, never from
-  a subprocess. `paper/benchmark/_common.py` shells out to `lscpu`/`sysctl` for a better
+  a subprocess. `benchmark/_common.py` shells out to `lscpu`/`sysctl` for a better
   string; here the file read is preferred because it cannot spawn anything, which keeps
   this module outside the reach of `tests/test_egress_inventory.py`'s shell-out scan and
   makes a camera-less CI run cheaper.
@@ -402,7 +402,7 @@ def asdict(prov: Provenance) -> dict[str, Any]:
 #
 # #421 asks that the paper harness's provenance be *mapped*, not described a second time.
 # This is that mapping, written as data so a test can hold it against the field list of
-# `paper/benchmark/_common.Provenance` in both directions: a field added there must be placed
+# `benchmark/_common.Provenance` in both directions: a field added there must be placed
 # here, either carried or left out with a reason. It is a whitelist on purpose. A key not
 # named below never reaches an eye-control result, so a free-text field such as `argv`
 # cannot arrive by accident.
@@ -445,7 +445,7 @@ def _benchmark_value_ok(key: str, value: Any) -> bool:
 
 
 def from_benchmark(block: Any) -> Provenance:
-    """A `Provenance` from one `paper/benchmark/_common.py` provenance block. Pure.
+    """A `Provenance` from one `benchmark/_common.py` provenance block. Pure.
 
     Raises `ValueError` instead of returning defaults when *block* is not an object,
     carries none of the mapped fields, or carries one of the wrong type. A block that could
@@ -464,7 +464,7 @@ def from_benchmark(block: Any) -> Provenance:
     if not present:
         raise ValueError(
             f"carries none of the benchmark provenance fields {tuple(BENCHMARK_FIELDS)}; "
-            f"it is not a paper/benchmark provenance block"
+            f"it is not a benchmark provenance block"
         )
     values: dict[str, Any] = {}
     packages: dict[str, str] = {}

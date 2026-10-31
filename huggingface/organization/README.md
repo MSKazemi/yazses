@@ -91,9 +91,9 @@ by Mohsen Seyedkazemi Ardebili. arXiv:2607.28878. https://arxiv.org/abs/2607.288
 clean recording is easier than dictation on your own microphone, so expect your own results to
 differ.
 
-**Reproduce.** The benchmark commands and the method are on the benchmarks page. Every archived
-measurement, including runs that were later superseded, is listed in the
-[results manifest](https://github.com/MSKazemi/yazses/blob/main/paper/results/MANIFEST.md).
+**Method.** The benchmark setup and every published number are on the
+[benchmarks page](https://github.com/MSKazemi/yazses/blob/main/docs/benchmarks.md). The raw result files
+are kept in a private research archive.
 
 ## Models used (third-party, not trained by YazSes)
 

@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import ast
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -61,8 +62,23 @@ def _liveness_probes(tree: ast.AST) -> list[int]:
 
 
 def _python_files() -> list[Path]:
+    """Every TRACKED python file under the source roots.
+
+    Tracked, not "whatever is on disk": `paper/` also holds private, untracked working
+    folders (saved VM sweeps, drafts) that are not part of the product and that a
+    contributor's checkout does not have. One of them records a deliberate probe of this very
+    call, and scanning the disk made the guard fail on a file nobody ships. Without git (an
+    sdist) fall back to the disk, which is then the whole tree anyway.
+    """
+    roots = ("src", "tests", "paper", "scripts", "hooks")
+    listed = subprocess.run(
+        ["git", "ls-files", "-z", "--", *[f"{r}/**/*.py" for r in roots], *[f"{r}/*.py" for r in roots]],
+        cwd=REPO, capture_output=True, text=True, check=False,
+    )
+    if listed.returncode == 0 and listed.stdout:
+        return sorted({REPO / name for name in listed.stdout.split("\0") if name})
     files = []
-    for root in ("src", "tests", "paper", "scripts", "hooks"):
+    for root in roots:
         files.extend(sorted((REPO / root).rglob("*.py")))
     return files
 

@@ -106,7 +106,7 @@ jobs:
           python-version: "3.12"
 
       - name: Lint (ruff)
-        run: uv run ruff check src tests scripts paper/benchmark
+        run: uv run ruff check src tests scripts
 
       - name: Dependency budget
         env:
@@ -673,54 +673,6 @@ jobs:
             # and b237c1bc).
             python -m pytest tests/ -q -rf -n auto --dist worksteal
 
-  # The benchmark harness's own tests. `uv sync` installs the base dependencies
-  # only, so `psutil`, `jiwer` and `whisper-normalizer` -- all in the `benchmark`
-  # dependency *group* -- are absent in the `test` job above. Seven tests raised
-  # ModuleNotFoundError there, which turned `main` red and skipped the
-  # `publish-pypi` step of a tagged release.
-  #
-  # `tests/benchmark_deps.py` now makes those tests skip when the group is
-  # missing, which fixes the red but would leave the harness tested nowhere:
-  # `benchmark.yml` is `workflow_dispatch` only, because it downloads 346 MB of
-  # LibriSpeech and decodes for tens of minutes. This job is the cheap half --
-  # the group is five small pure-Python-ish wheels, no corpus, no checkpoints --
-  # so the tests that guard the harness actually execute on every push.
-  benchmark-harness:
-    name: Benchmark harness tests
-    needs: changes
-    if: needs.changes.outputs.full != 'false'
-    runs-on: ubuntu-latest
-    # Healthy runs take under a minute; the limit only ends a hang (CI_POLICY.md §8).
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-      # Repository-owned composite: uv, the interpreter and `uv sync` (CI_POLICY.md §8).
-      - name: Install uv and dependencies (with the benchmark group)
-        uses: ./.github/actions/setup-uv-python
-        with:
-          python-version: "3.12"
-          sync-args: --group benchmark
-
-      - name: The benchmark dependencies must actually be importable
-        # Without this the tests skip and the job passes green having tested
-        # nothing -- the same failure mode the `gui` job guards against, and the
-        # reason this job exists rather than trusting the skip to be temporary.
-        run: uv run python -c "import psutil, jiwer, whisper_normalizer, soundfile"
-
-      - name: Run the benchmark harness tests
-        shell: bash
-        run: |
-          set -o pipefail
-          uv run python -m pytest -v -rs \
-            tests/test_bench_provenance.py \
-            tests/test_bench_wer_split.py \
-            tests/test_bench_diarization_scoring.py \
-            tests/test_bench_persian.py \
-            tests/test_bench_persian_manifest.py \
-            tests/test_fa_manifest.py \
-            tests/test_wer_normalizer_vectors.py
-
   # ADR-027's one-click Windows update, executed for real. The unit tests prove the
   # job's decisions and text with an injected launcher, opener and spawn -- and the
   # first version passed every one of them while it could never have worked (the
@@ -814,7 +766,6 @@ jobs:
       - test
       - gui
       - extras
-      - benchmark-harness
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -831,7 +782,7 @@ jobs:
           import sys
 
           # The jobs that run only on the full lane, so may skip when it is off.
-          FULL_LANE = {"test", "gui", "extras", "benchmark-harness"}
+          FULL_LANE = {"test", "gui", "extras"}
 
           full = os.environ.get("FULL", "")
           if full not in ("true", "false"):

@@ -40,7 +40,7 @@ Do not add model auto-selection by unmeasured RAM heuristics. If a probe wins, p
 
 ## Scorer and dataset contract (already implemented)
 
-The current scoring instrument is `paper/benchmark/bench_mandarin.py` and pure `mandarin_metrics.py`. The schema is `yazses.bench.mandarin/1`; the evaluation normalization is **`zh-eval-v1`**. Its manifest mode requires per-row data provenance and declared checkpoint license, runs the shipping engine configured for `zh` with production script conversion disabled, and records four CER views:
+The current scoring instrument is `benchmark/bench_mandarin.py` and pure `mandarin_metrics.py`. The schema is `yazses.bench.mandarin/1`; the evaluation normalization is **`zh-eval-v1`**. Its manifest mode requires per-row data provenance and declared checkpoint license, runs the shipping engine configured for `zh` with production script conversion disabled, and records four CER views:
 
 1. `cer_raw` — exact code-point difference, including punctuation, spaces, and script mismatch;
 2. `cer_punct` — NFC, explicit width folding, Latin case folding and whitespace removal but **keeps** punctuation;
@@ -74,14 +74,14 @@ The initial **pilot** may reuse the small ASCEND probe solely to find pipeline i
 CI smoke, with no model, audio or network:
 
 ```sh
-uv run python paper/benchmark/bench_mandarin.py --smoke --out /tmp/mandarin-smoke.json
+uv run python benchmark/bench_mandarin.py --smoke --out /tmp/mandarin-smoke.json
 uv run python -m pytest tests/test_bench_mandarin.py -q
 ```
 
 A real authorized benchmark, run locally by an evaluator with lawful access to corpus audio, only **after** the manifest is reviewed:
 
 ```sh
-uv run python paper/benchmark/bench_mandarin.py \
+uv run python benchmark/bench_mandarin.py \
   --manifest /path/to/mandarin-test.jsonl \
   --audio-root /path/to/authorized-audio \
   --model small --script simplified \
@@ -92,7 +92,7 @@ uv run python paper/benchmark/bench_mandarin.py \
   --out /path/to/aggregate-mandarin-small.json
 ```
 
-The paths and revision are placeholders. A manifest has a `.meta.json` sidecar and uses the existing `paper/benchmark/persian_manifest.py` license/consent gate (generic despite its name). Do not copy a local manifest, raw utterances, hidden test labels or private audio into a public PR. The runtime must record actual revision and hash, not silently trust the operator-supplied name. To compare Qwen/Paraformer, first establish an **isolated probe adapter** capable of emitting the same schema; `--model` alone does not make the current factory support an unimplemented engine.
+The paths and revision are placeholders. A manifest has a `.meta.json` sidecar and uses the existing `benchmark/persian_manifest.py` license/consent gate (generic despite its name). Do not copy a local manifest, raw utterances, hidden test labels or private audio into a public PR. The runtime must record actual revision and hash, not silently trust the operator-supplied name. To compare Qwen/Paraformer, first establish an **isolated probe adapter** capable of emitting the same schema; `--model` alone does not make the current factory support an unimplemented engine.
 
 ## Required measurement record
 

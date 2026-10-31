@@ -29,7 +29,6 @@ MAX_DAYS = 90
 #: `workflow:job:artifact name` -> why it still inherits. Shrink this list; do not grow it.
 INHERITS_DEFAULT: dict[str, str] = {
     "android-test.yml:build:android-test-reports": "failure report; predates the rule",
-    "benchmark.yml:bench:results-${{ matrix.os }}": "benchmark numbers; predates the rule",
     "build-windows.yml:build:unsigned-installer-${{ matrix.arch }}": "build lane; predates the rule",
     "flatpak.yml:generate:python3-yazses-json": "consumed by the build job; predates the rule",
     "fuzz.yml:fuzz:fuzz-${{ matrix.harness }}-findings": "crash inputs; predates the rule",
