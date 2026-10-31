@@ -95,6 +95,10 @@ public class HoldSession(
     /** Key events that arrived while a burst was decoding or delivering. */
     private val queued = ArrayDeque<Kind>()
 
+    /** How many key events are queued now. Module-internal, so tests can check the bound directly. */
+    internal val queuedEventCount: Int
+        get() = queued.size
+
     /**
      * The field state the caller most recently reported, through onPress, onTick, onDecoded,
      * onDecodeFailed or onDelivered. Every path that can start a capture reads it.

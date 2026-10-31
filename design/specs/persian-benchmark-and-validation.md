@@ -163,7 +163,7 @@ whitespace-separated words of the normalized text, so a ZWNJ-joined compound is 
 CER is over Unicode code points, spaces and ZWNJ included; both are case-sensitive. In
 `fa-eval-v1` the ZWNJ is kept, Persian/Arabic-Indic/Latin digits are not folded into one
 another, and Arabic presentation forms, tashkeel, tatweel and bidi marks are not stripped;
-the rule-by-rule rationale is in `paper/benchmark/persian_metrics.py`. Changing any of these
+the rule-by-rule rationale is in `benchmark/persian_metrics.py`. Changing any of these
 is a new normalizer version, never an edit to `fa-eval-v1`. Evaluation normalization is for
 metrics only and is never applied to text a user receives.
 

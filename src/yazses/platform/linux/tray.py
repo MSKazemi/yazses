@@ -90,11 +90,13 @@ class LinuxTray:
             changed = Signal(object)
             update_ready = Signal(object)
             notified = Signal(object)
+            reported = Signal(object)
 
         self._bridge = _Bridge()
         self._bridge.changed.connect(self._apply_model)
         self._bridge.update_ready.connect(self._show_update_result)
         self._bridge.notified.connect(lambda pair: self._notify(*pair))
+        self._bridge.reported.connect(lambda pair: self._dialog(*pair))
 
         self._tray = QSystemTrayIcon()
         self._tray.setToolTip("YazSes")
@@ -560,7 +562,10 @@ class LinuxTray:
             outcome = ctrl.install_update(status)
             bridge = self._bridge
             if bridge is not None:
-                bridge.notified.emit(upgrade_result_message(outcome))
+                # A balloon vanishes in seconds, and a failed update is the one result
+                # the user has to read and act on -- so only success is a balloon.
+                signal = bridge.notified if outcome.ok else bridge.reported
+                signal.emit(upgrade_result_message(outcome))
 
         threading.Thread(target=_work, name="tray-update-install", daemon=True).start()
 

@@ -1,9 +1,17 @@
 # Chinese support — execution backlog
 
-**Status:** Proposed work inventory  
+**Status:** Historical work inventory (original September design; current audit linked below)  
 **Important repository convention:** bounded contributor tasks belong in `campaign/tasks.json`, not one GitHub issue per task. This file defines work packages and umbrella discussions; [agent-ready-task-contracts.md](agent-ready-task-contracts.md) defines how packages are split into ADR-023-compliant campaign tasks.
 
 For the architectural dependency graph, see [implementation-roadmap.md](implementation-roadmap.md).
+
+> **2026-10-29 reconciliation:** The first campaign tasks are in
+> [`campaign/tasks.json`](../../campaign/tasks.json) and some underlying QA/benchmark
+> source has since been implemented. Inventory states may need explicit, evidence-backed
+> reconciliation; “open” is not proof a task's code is absent, and “verified” is not proof
+> of a real-model measurement. See [as-built audit](2026-10-29-as-built-audit.md),
+> [24 remaining task contracts](2026-10-29-community-task-catalog.md),
+> and [ADR review](2026-10-29-adr-review.md).
 
 ## 1. One epic outcome
 
@@ -18,13 +26,13 @@ use the validated product surfaces, and switch back without changing YazSes' off
 
 **Release boundary:** Mandarin only. Cantonese, arbitrary code-switching, and unvalidated surfaces remain separate.
 
-**Governing ADRs:** v2-135 through v2-139.
+**Governing ADRs on main:** v2-140 through v2-144. ADR-v2-135 now names an unrelated feature.
 
 **Done when:** ADR-v2-144's evidence gate is resolved with a committed support matrix and result artifacts.
 
 ## 2. GitHub umbrella issues
 
-After the ADRs are accepted, use a small number of umbrella issues for discussion and coordination:
+These GitHub umbrella issues already exist. Use them for discussion and coordination while the governing ADRs remain Proposed:
 
 | Umbrella | Purpose | Roadmap packages |
 |---|---|---|
@@ -38,7 +46,7 @@ Do not create one GitHub issue for each 15–30 minute contributor task. ADR-023
 
 ### Current campaign mapping
 
-Draft campaign PR [#533](https://github.com/MSKazemi/yazses/pull/533) materializes the first
+Merged campaign PR [#533](https://github.com/MSKazemi/yazses/pull/533) introduced the first
 bounded tasks from this backlog.
 
 **Open before ADR approval because they do not choose architecture:**

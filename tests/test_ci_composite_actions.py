@@ -13,6 +13,9 @@ therefore has to stay boring in three ways, and each is checked here from the fi
 3. **Wired.** Every action is referenced by a workflow job, so it cannot silently rot,
    and every `uses: ./.github/actions/...` in a workflow resolves to a real action.
 
+It also keeps the reuse rule honest: a job that still calls `astral-sh/setup-uv` directly
+must be a listed, justified exception (`DIRECT_SETUP_UV`).
+
 The action directory is read from disk, so a new action is covered the moment it exists.
 """
 
@@ -137,6 +140,51 @@ def test_every_local_reference_resolves_to_an_action() -> None:
             )
 
 
+#: Jobs that still call `astral-sh/setup-uv` themselves instead of the composite, each with
+#: the reason CI_POLICY.md §8 asks for. The test below derives the real set from the
+#: workflows and compares both ways, so a new direct call fails until it is either moved to
+#: the composite or justified here, and a migrated job fails until its entry is deleted.
+DIRECT_SETUP_UV: dict[str, str] = {
+    "build-macos.yml:build": "build/release lane: produces the shipped macOS bundle (§8 Reuse, §11)",
+    "build-windows.yml:build": "build/release lane: produces and signs the shipped Windows installer (§8 Reuse, §11)",
+    "packs-spike.yml:spike": "build lane: freezes a `--no-dev` environment held equal to build-windows.ps1's",
+    "macos-smoke.yml:smoke": "has no `uv sync` step: scripts/build-macos.sh syncs inside the bundle build",
+    "release.yml:test": "release lane: release steps stay explicit (§8 Reuse, §11)",
+    "release.yml:publish-pypi": "release lane: publishes to PyPI",
+    "release.yml:build-deb": "release lane: builds the released .deb",
+    "eye-eval-ci.yml:evaluate": "not migrated yet: tests/test_eye_ci_entry_point.py pins this setup step's shape",
+    "eye-eval-ci.yml:matrix": "not migrated yet: tests/test_eye_ci_entry_point.py pins this setup step's shape",
+}
+
+
+def _direct_setup_uv_jobs() -> set[str]:
+    return {
+        label
+        for label, job in _workflow_jobs()
+        for step in job.get("steps") or []
+        if str(step.get("uses", "")).startswith("astral-sh/setup-uv@")
+    }
+
+
+def test_direct_setup_uv_calls_are_exactly_the_justified_exceptions() -> None:
+    found = _direct_setup_uv_jobs()
+    assert found, "no workflow calls setup-uv directly; the scan is probably broken"
+    unjustified = sorted(found - DIRECT_SETUP_UV.keys())
+    assert not unjustified, (
+        f"{unjustified} install uv with `astral-sh/setup-uv` directly. Use "
+        "`./.github/actions/setup-uv-python` (CI_POLICY.md §8), or add the job to "
+        "DIRECT_SETUP_UV with the reason it cannot."
+    )
+    stale = sorted(DIRECT_SETUP_UV.keys() - found)
+    assert not stale, f"{stale} no longer call setup-uv directly; delete their DIRECT_SETUP_UV entries"
+    assert all(reason.strip() for reason in DIRECT_SETUP_UV.values())
+
+
+def test_no_test_yml_job_calls_setup_uv_directly() -> None:
+    """Every Python job in the PR workflow goes through the composite (#537)."""
+    assert not sorted(label for label in _direct_setup_uv_jobs() if label.startswith("test.yml:"))
+
+
 def test_setup_uv_python_forwards_the_interpreter_to_setup_uv() -> None:
     """`test_macos_uv_jobs_pin_the_interpreter.py` accepts a step whose `uses` contains
     `setup-uv` and whose `with:` has `python-version`. For a job that calls the composite
@@ -148,3 +196,18 @@ def test_setup_uv_python_forwards_the_interpreter_to_setup_uv() -> None:
     assert len(setup) == 1, "the composite must install uv through exactly one setup-uv step"
     assert setup[0]["with"]["python-version"] == "${{ inputs.python-version }}"
     assert data["inputs"]["python-version"].get("required") is True
+
+
+def test_setup_uv_python_leaves_the_uv_cache_key_at_its_default() -> None:
+    """CI_POLICY.md §8 "Caches" states what setup-uv's built-in cache key contains: the
+    architecture, OS image, interpreter and a hash of the dependency files, matched exactly
+    with no restore-key fallback. That holds only while the composite passes nothing that
+    changes the key: an empty `cache-dependency-glob` makes it never invalidate, and a
+    `cache-suffix` or `enable-cache` change is a cache decision the policy must record.
+    Changing the inputs is allowed; doing it without updating §8 is what this stops."""
+    data = yaml.safe_load((ACTIONS / "setup-uv-python" / "action.yml").read_text(encoding="utf-8"))
+    setup = next(s for s in data["runs"]["steps"] if "astral-sh/setup-uv@" in str(s.get("uses", "")))
+    assert set(setup["with"]) == {"version", "python-version"}, (
+        f"setup-uv now receives {sorted(setup['with'])}; update CI_POLICY.md §8 'Caches' "
+        "with what the uv cache key contains, then this set"
+    )

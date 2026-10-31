@@ -107,3 +107,28 @@ def test_the_public_engineering_tier_is_actually_populated():
         f"only {len(public_design)} files in the public design tier — that is a sign "
         f"material has been misfiled as private, not that there is nothing to publish"
     )
+
+
+#: The generated result tables that remain public carry the command that produced them. One such file
+#: recorded a scratch path inside the private `.claude/` tree for months: the hook only inspects what
+#: a commit stages, and nothing re-read the tracked content afterwards. Results have no reason to name
+#: a private tree, so for them (and only them) a reference is a defect.
+RESULT_TREES = ("huggingface/benchmarks/data",)
+
+
+@pytest.mark.parametrize("tree", RESULT_TREES)
+def test_generated_results_never_name_a_private_tree(tree: str):
+    prefixes = _private_prefixes()
+    pattern = re.compile(r"(?:^|[^A-Za-z0-9_.-])(?:" + "|".join(re.escape(p) for p in prefixes) + r")/")
+    hits: list[str] = []
+    for name in _tracked_files():
+        if not name.startswith(f"{tree}/") or not name.endswith((".json", ".md", ".csv", ".txt", ".log")):
+            continue
+        for number, line in enumerate((ROOT / name).read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
+            if pattern.search(line):
+                hits.append(f"{name}:{number}")
+    assert not hits, (
+        f"these result files name a path inside a private tier: {hits}\n\n"
+        f"A result records how it was produced; record a neutral name (for example the dump's file "
+        f"name) instead of where it sat on one machine."
+    )

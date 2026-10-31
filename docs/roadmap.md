@@ -67,6 +67,20 @@ continue as normal. The hands-free and eye-control features stay available and m
 but get nothing new until someone is observed using them day to day. If that is you,
 [tell us](https://github.com/MSKazemi/yazses/issues/new/choose): it changes the plan.
 
+## Research horizon — Hugging Face and multimodal HCI
+
+A new **research-only** [Hugging Face × YazSes programme](research/huggingface-multimodal-hci.md) maps existing voice, shared camera/gaze, facial switches and EMG sources to reproducible local inference, model provenance, and **synthetic public demos**. The [phased research roadmap](https://github.com/MSKazemi/yazses/blob/main/design/hci-huggingface/ROADMAP.md) and [programme epic #692](https://github.com/MSKazemi/yazses/issues/692) describe evidence gates for possible EEG/EOG feasibility studies.
+
+**This does not override the pause above.** What exists on Hugging Face today is the model downloads and the separate [hosted transcription demo](try-without-installing.md); there is no Hugging Face integration service and no EEG-control product. A synthetic, browser-only interaction lab lives in [`examples/hci-hf-lab/`](https://github.com/MSKazemi/yazses/tree/main/examples/hci-hf-lab); it never receives real webcam, voice or biosignal data, and it is not a YazSes feature. While the pause holds, further research proposals stop at a *Proposed* ADR or an `evergreen:research` issue. Hardware studies and any eventual product development remain conditional on independent privacy, reliability, accessibility and user-demand reviews.
+
+## Desktop reliability and external first-use validation
+
+The [desktop validation campaign](desktop-validation-campaign.md) turns the feature pause into a practical correctness, hardware-evidence and first-user workflow. It uses the existing [release checklist](contribute/validation.md), [platform matrix](validation-matrix.md) and issue trackers; its weekly plan is a proposed sequence, not a claim that any gate has passed. The open-ended [first-use QA call (#714)](https://github.com/MSKazemi/yazses/issues/714) invites voluntary reports without changing the separate research-consent rules.
+
+## Future research: YazSes XR (not scheduled)
+
+[**YazSes XR — voice-first interaction for virtual worlds**](https://github.com/MSKazemi/yazses/tree/main/design/xr) is a **proposed, unimplemented research direction**: privacy-first speech-to-text composition for supported XR apps, with later experiments in app-owned 3D object targeting, avatar actions and hands-free accessibility. The [ten candidates](https://github.com/MSKazemi/yazses/blob/main/design/xr/FEATURES.md), [conditional phase plan](https://github.com/MSKazemi/yazses/blob/main/design/xr/ROADMAP.md), and [security design](https://github.com/MSKazemi/yazses/blob/main/design/xr/ARCHITECTURE.md) document future options, **not features that can be enabled today**. Work remains subject to the ADR-030 breadth freeze and an explicit evidence-based decision before implementation.
+
 ## The destination
 
 The keyboard is a 150-year-old constraint, not a law of nature. YazSes exists

@@ -13,6 +13,20 @@
 
 ---
 
+## Multimodal HCI lab — Hugging Face, camera and biosignal research (proposed, 2026-10-27)
+
+An **offline-first research and documentation track**, not a new capability wave: [Hugging Face × YazSes research guide](docs/research/huggingface-multimodal-hci.md) · [phased engineering roadmap](design/hci-huggingface/ROADMAP.md) · [epic #692](https://github.com/MSKazemi/yazses/issues/692).
+
+The existing privacy-bounded camera source, gaze, face switches, EMG/BrainFlow and STT engines are the baseline. Research options: a no-upload **synthetic static Hugging Face Space**, pinned/model-licensed local inference artifacts, repeatable gaze and target-selection evaluation, and a hardware/ethics-gated EEG/EOG feasibility study. No consumer-grade mind-reading claims, no automatic network calls, no new daemon capabilities and no paid compute commitment. A synthetic, browser-only interaction lab lives in [`examples/hci-hf-lab/`](examples/hci-hf-lab/); it never receives real webcam, voice or biosignal data, and it is not a YazSes feature. (The separate [hosted transcription demo](docs/try-without-installing.md) already runs on Hugging Face.) **ADR-030's reliability-first freeze remains in force:** further proposals stop at a *Proposed* ADR or an `evergreen:research` issue. Publishing the lab as a Hugging Face Space needs owner approval.
+
+---
+
+## Future research proposal — YazSes XR (not committed delivery)
+
+The [YazSes XR research programme](design/xr/README.md) documents ten ideas for voice, gaze and accessible interaction with existing virtual worlds, an [evidence-gated roadmap](design/xr/ROADMAP.md), [architecture](design/xr/ARCHITECTURE.md), [evaluation criteria](design/xr/EVALUATION.md), and [conditional tasks](design/xr/TASKS.md). This is **design only**; there is no released XR integration and no XR implementation milestone. It does not alter the accepted [ADR-030 focus and breadth freeze](design/adr/adr-030-agent-era-direction.md).
+
+---
+
 ## Current state (all new features OFF by default)
 
 What is landing right now — the latest release and every unreleased change on `main` — is

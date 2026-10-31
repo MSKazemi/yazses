@@ -311,6 +311,7 @@ nav:
       - Quick start (five minutes): get-started.md
       - Watch the CLI: watch-the-cli.md
       - Try it without installing: try-without-installing.md
+      - YazSes and Hugging Face: hugging-face.md
       - Platform support (OS + CPU): platform-support.md
       - Validation matrix (what is proven on hardware): validation-matrix.md
       - Install on Linux: install-linux.md
@@ -372,6 +373,7 @@ nav:
   - Research:
       - The science of post-keyboard input: research/index.md
       - Students, researchers & industry: research/get-involved.md
+      - Hugging Face & multimodal HCI lab: research/huggingface-multimodal-hci.md
       - Eye control: research/eye-control.md
       - Grounded multimodal interaction: research/grounded-multimodal-interaction.md
       - Voice control: research/voice-control.md
@@ -423,6 +425,8 @@ nav:
           - Packaging runbooks: design/packaging/index.md
           - v2 cognitive layer: design/v2-cognitive-layer/index.md
           - Mandarin language programme: design/chinese/index.md
+          - HCI × Hugging Face programme: design/hci-huggingface/index.md
+          - XR research programme (proposed): design/xr/index.md
           - Architecture (internal): design/architecture.md
           - Threat model: design/threat-model.md
           - EMG protocol: design/emg-protocol.md

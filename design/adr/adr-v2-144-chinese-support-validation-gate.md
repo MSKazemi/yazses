@@ -133,3 +133,13 @@ Before gate:
 After gate:
 
 The wording may state supported Mandarin/Simplified/Traditional workflows, but must still name measured limitations, hardware assumptions and any backend fallback. It must not expand to Cantonese or arbitrary Chinese dialects unless separately validated.
+
+---
+## Implementation reconciliation and actual release state (2026-10-29)
+
+Model-free regressions now exist for language profiles, config transaction, CLI/Settings/doctor, Mandarin command safety, CJK spacing, subtitles/renderers, Meeting Mode Han quality units and the Mandarin CER scorer. This does **not** satisfy the release requirement alone. At the audited revision, `docs/research/mandarin-platform/` has no physical X11/Wayland/macOS/Windows evidence reports; native command phrase statuses in `zh.py` are all provisional; a release-quality, multi-slice, real-audio Mandarin model comparison has not been demonstrated by this review.
+
+The release manager must complete the [dated evidence matrix](../chinese/2026-10-29-validation-and-release-gates.md), including real model/corpus revision and permission record, representative CPU latency/RAM and long-form stability, native Simplified and Traditional approval, installer/offline-after-cache, actual Unicode injection, negative command cases, and the full English regression suite. Every *claimed* surface requires its own pass, limitation or explicit exclusion. The absence of physical evidence is a **blocker for that platform claim**, not an automatic defect in all models or platforms.
+
+Status remains **Proposed** until maintainer disposition. Neither a working `language set zh-CN` command nor a green CI fixture is authorization to publish blanket “Chinese supported” wording. The supported release scope must exclude Cantonese, unrestricted Mandarin-English code switching, open-ended commands and unvalidated meeting modes.
+

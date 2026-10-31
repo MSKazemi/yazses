@@ -926,3 +926,21 @@ This spec is implemented when:
 - `design/chinese/model-strategy.md`: candidate evaluation.
 - `design/chinese/test-and-validation-plan.md`: full verification protocol.
 - `design/chinese/implementation-roadmap.md`: work decomposition.
+
+---
+## 24. As-built implementation appendix (2026-10-29)
+
+This is a **dated reconciliation**, not a replacement for the 2026-09-20 design history and not approval of a new public interface. The original sections describe the planned API; current `main` already implements the core profile resolver, shared `language.service`, atomic config transaction, `language list/status/set` CLI, Settings preview/application, doctor status, Mandarin safe-core grammar, CJK transcript fixes and a model-free Mandarin CER benchmark instrument.
+
+| Capability | Current source | Current test evidence | Remains to validate |
+|---|---|---|---|
+| Profiles + transaction | `language/profiles.py`, `plan.py`, `service.py` | `tests/test_language_profiles.py`, `test_language_service.py`, `test_cli_language_set.py` | real package failure and daemon-effective state |
+| GUI/doctor | `settingsui/language_view.py`, `system/doctor.py` | `test_settings_language_profiles.py`, `test_doctor_language.py` | real GUI, model cache and restart feedback |
+| Conservative Mandarin commands | `commands/grammars/zh.py` | `test_chinese_command_grammar.py`, `test_mandarin_command_safety.py` | **native review pending; all phrases provisional** |
+| Chinese transcript and quality units | `postprocess/cjk.py`, `recimport/`, `meeting/quality.py` | `test_cjk_text.py`, `test_cjk_transcripts.py`, `test_meeting_cjk_word_count.py` | real decoder, streaming, file/meeting and platforms |
+| CER benchmark harness | `benchmark/bench_mandarin.py` | `tests/test_bench_mandarin.py` | corpus/weights/hardware run + license/consent evidence |
+
+The canonical follow-up contracts are [as-built audit](../chinese/2026-10-29-as-built-audit.md), [switching architecture](../chinese/2026-10-29-language-switch-architecture.md), [model protocol](../chinese/2026-10-29-model-selection-protocol.md), [test/validation gates](../chinese/2026-10-29-validation-and-release-gates.md), [community task catalog](../chinese/2026-10-29-community-task-catalog.md), and [ADR review](../chinese/2026-10-29-adr-review.md).
+
+**Definition of completion:** A user can install, select and undo `zh-CN`/`zh-TW` without losing their English configuration; an exact licensed model/corpus/hardware benchmark passes pre-registered release SLOs; supported desktop targets show real Unicode input; native reviewers validate commands and workflows; unsupported surfaces are explicitly excluded; English CI and offline guarantees remain green. No overall Chinese-support claim before ADR-v2-144's measured signoff.
+

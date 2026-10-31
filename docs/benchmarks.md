@@ -13,10 +13,11 @@ These are the same measurements reported in the
 [accompanying paper](https://arxiv.org/abs/2607.28878) (arXiv:2607.28878).
 
 Every measurement ever archived — including the ones that contradicted a claim on this
-page and the runs that were later superseded — is indexed in
-[`paper/results/MANIFEST.md`](https://github.com/MSKazemi/yazses/blob/main/paper/results/MANIFEST.md),
-one row per file with what it measured, the script and command line that produced it,
-and the machine it ran on. This page is the reading; that is the evidence.
+page and the runs that were later superseded — is indexed in a manifest in the author's
+private results archive, one row per file with what it measured, the script and command
+line that produced it, and the machine it ran on. The harness and those files are not part
+of this repository (see [What you can and cannot re-run](#what-you-can-and-cannot-re-run)).
+This page is the reading.
 
 !!! info "Test machine"
     13th Gen Intel Core i7-1370P · 20 logical CPUs · 33.3 GB RAM · Ubuntu 24.04.4
@@ -225,7 +226,7 @@ does not do it.
 
 #### The distribution, measured
 
-`paper/benchmark/probes/largev3_repeat.py` decoded the same 200 `test-other` utterances
+`probes/largev3_repeat.py` decoded the same 200 `test-other` utterances
 four more times, one process per repeat, on a box carrying a steady load average of ~4 on
 16 vCPUs. The shape is sharper than "it moves":
 
@@ -256,9 +257,8 @@ own **1.15-point** spread, 5.46 % to 6.61 %. And the fall across repeats 1–3 (
 101) looked at the time like a warm-up artefact of the harness; repeat 4's 144 refutes
 that. It is variance, not a trend.
 
-Reproduce with `python paper/benchmark/probes/largev3_repeat.py 4 test-other 200` — the
-one probe on this page meant to be re-run rather than read. Artifact:
-[`paper/results/probes/largev3-instability-test-other.json`](https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/largev3-instability-test-other.json).
+The probe is `probes/largev3_repeat.py` (4 repeats, `test-other`, 200 utterances); its artifact is
+`probes/largev3-instability-test-other.json`, both in the private archive.
 
 #### Can it be turned off? Yes — and it changes nothing for the default install
 
@@ -349,23 +349,23 @@ difference at all. Set it to `false` only on `large-v3` and above, where the fai
 prevents is a repetition loop rather than a tenth of a point.
 
 Artifacts:
-[`decode-determinism-large-v3-test-other.json`](https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/decode-determinism-large-v3-test-other.json),
-[`-no_context.json`](https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/decode-determinism-large-v3-test-other-no_context.json),
-[`base.en-test-clean`](https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/decode-determinism-base.en-test-clean.json),
-[`base.en-test-other`](https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/decode-determinism-base.en-test-other.json),
-[`decode-arms-per-utterance`](https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/decode-arms-per-utterance-large-v3-test-other.json),
-[`small.en-test-other`](https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/decode-determinism-small.en-test-other-baseline-no_context.json),
-[`small.en-test-clean`](https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/decode-determinism-small.en-test-clean-baseline-no_context.json),
-[`medium.en-test-other`](https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/decode-determinism-medium.en-test-other-baseline-no_context.json),
-[`decode-mechanism-small.en`](https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/decode-mechanism-small.en-test-other.json),
-[`decode-mechanism-medium.en`](https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/decode-mechanism-medium.en-test-other.json),
-[`decode-mechanism-base.en-test-other`](https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/decode-mechanism-base.en-test-other.json).
+`decode-determinism-large-v3-test-other.json`,
+`-no_context.json`,
+`base.en-test-clean`,
+`base.en-test-other`,
+`decode-arms-per-utterance`,
+`small.en-test-other`,
+`small.en-test-clean`,
+`medium.en-test-other`,
+`decode-mechanism-small.en`,
+`decode-mechanism-medium.en`,
+`decode-mechanism-base.en-test-other`.
 
 ### The same code on four instruction sets
 
 Everything above was measured on one machine. The natural objection is that a WER is
 partly a property of the CPU it was decoded on — CTranslate2 dispatches different int8
-kernels per ISA and reduces partial sums in a different order — so `benchmark.yml` was
+kernels per ISA and reduces partial sums in a different order — so the (since removed) benchmark workflow was
 dispatched across every runner GitHub offers. Same 60 utterances, same checkpoints,
 CTranslate2 4.8.1 everywhere:
 
@@ -387,8 +387,7 @@ else.
 macOS runner reported a one-minute load average of **30.44** on three logical CPUs. The
 provenance block is what says so; a table of RTFs would not have.
 
-The full artifacts, one directory per runner, are in
-[`paper/results/platforms/`](https://github.com/MSKazemi/yazses/tree/main/paper/results/platforms).
+The full artifacts, one directory per runner, are in the private archive (`platforms/`).
 The workflow had never run before this dispatch, and its Intel-macOS leg had never
 installed at all. `uv sync` there resolves the `all` extra, and three separate
 dependencies have stopped publishing macOS x86_64 wheels: [`onnxruntime`](https://pypi.org/project/onnxruntime/#files)
@@ -402,7 +401,7 @@ after 2.2.2. Only the first was a version floor that could be lowered; see
 Every test in this repository runs on a machine where the install already succeeded, so
 an extra that cannot be resolved at all is invisible to the suite — and in CI it looks
 like an infrastructure flake rather than a defect. It is therefore measured:
-[`bench_platform_resolution.py`](https://github.com/MSKazemi/yazses/blob/main/paper/benchmark/bench_platform_resolution.py)
+`bench_platform_resolution.py`
 resolves the base install and all 22 extras against each supported platform with
 `uv pip compile --python-platform`, which needs no machine of that kind and installs
 nothing. **92 combinations; 84 resolve.**
@@ -481,8 +480,8 @@ measured far more stably than the headline number usually quoted next to it.
 **The paired test.** With `first_word_hits` now recorded, each cell is compared to its
 own row's lead-0 baseline by exact McNemar — throwing away the ~180 utterances both
 conditions got the same and asking only about the handful whose verdict moved.
-[`analyze_onset.py`](https://github.com/MSKazemi/yazses/blob/main/paper/benchmark/analyze_onset.py)
-produces [`onset-significance.json`](https://github.com/MSKazemi/yazses/blob/main/paper/results/onset-significance.json).
+`analyze_onset.py`
+produces `onset-significance.json`.
 Sixteen distinct comparisons were asked, each measured twice. **None survives correction
 for multiplicity** (Bonferroni threshold 0.0031). Two reach uncorrected `p < 0.05` in
 *both* replicates, and both say the same thing:
@@ -678,10 +677,10 @@ published percentages could not settle whether 9.46 beats 9.84. The comparison t
 is a bootstrap **paired on the utterances both settings decoded**, which throws away the
 variance the two conditions share, and it needs per-utterance error counts that the
 first artifacts did not record. `bench_beam.py` now writes them and
-[`analyze_beam.py`](https://github.com/MSKazemi/yazses/blob/main/paper/benchmark/analyze_beam.py)
+`analyze_beam.py`
 reads them, against beam 1 by default and against any other width with `--baseline=N`;
 the verdicts are in
-[`beam-test-clean-significance.json`](https://github.com/MSKazemi/yazses/tree/main/paper/results)
+`beam-test-clean-significance.json`
 and its `test-other` and `-vs-beam2` companions.
 
 Of the four conclusions this section drew from the bare grid, **two survived the paired
@@ -716,8 +715,8 @@ products advertise, so it is the one worth publishing.
 
 **Method:** 15 speaker-stratified LibriSpeech utterances (median duration 10.4 s), fed
 at **real time** — a microphone delivers 100 ms of audio every 100 ms, and a benchmark
-that feeds faster than that invents a machine which hears the future. Reproduce with
-`uv run python paper/benchmark/bench_streaming.py 15`. Same machine as above.
+that feeds faster than that invents a machine which hears the future. Measured with
+`bench_streaming.py` on 15 utterances. Same machine as above.
 
 | Model | Batch (default) | Streaming | Text already visible at release |
 |---|---|---|---|
@@ -843,7 +842,7 @@ Persian is benchmarked on the pinned Google FLEURS `fa_ir` test split through th
 shipping engine, scored raw and after the versioned evaluation normalizer
 (`fa-eval-v1`), with the text-quality block the
 [Persian benchmark spec](https://github.com/MSKazemi/yazses/blob/main/design/specs/persian-benchmark-and-validation.md) requires.
-Full method and commands: [`paper/benchmark/README.md`](https://github.com/MSKazemi/yazses/blob/main/paper/benchmark/README.md).
+Full method and commands: the harness README in the private archive.
 These runs are FA-04 slice 3 ([#513](https://github.com/MSKazemi/yazses/issues/513));
 machine: AMD EPYC, 4 vCPU, 8.3 GB RAM, int8, 4 threads, Ubuntu 24.04.4.
 
@@ -960,7 +959,7 @@ unsupported combinations to be recorded rather than omitted. The candidates belo
 were considered and **not decoded**, so no result file exists for them and the tables
 above cannot show them. Each figure comes from the issue comment linked in its row,
 not from an archived artifact;
-[`paper/results/MANIFEST.md`](https://github.com/MSKazemi/yazses/blob/main/paper/results/MANIFEST.md)
+the archive's manifest
 lists the same three under "Recorded without an artifact".
 
 | Candidate | Disposition | Reason | Source |
@@ -1027,44 +1026,25 @@ uv run python scripts/bench-stt.py data/librispeech-sample --engine faster-whisp
 
 The script will output a Markdown row at the end. Open a PR to add your row to the table!
 
-## Reproducing the paper figures
+## What you can and cannot re-run
 
-The harness lives in the repository, reuses the shipping code rather than a
-reimplementation, and writes JSON with a provenance block recording the exact
-hardware and library versions.
-
-```sh
-git clone https://github.com/MSKazemi/yazses
-cd yazses
-uv sync --group benchmark
-
-# one-time: fetch LibriSpeech test-clean (346 MB). The corpus is not redistributed
-# here, so paper/data/ does not exist until you create it.
-mkdir -p paper/data && cd paper/data
-curl -fsSL -O https://www.openslr.org/resources/12/test-clean.tar.gz
-tar -xzf test-clean.tar.gz
-cd ../..
-
-# run everything
-uv run python paper/benchmark/run_all.py --wer-n 200 --lat-n 30 --vad-n 200
-
-# or a single experiment
-uv run python paper/benchmark/bench_wer.py 200
-uv run python paper/benchmark/bench_latency.py 30
-uv run python paper/benchmark/bench_streaming.py 15
-```
-
-Results land in `paper/results/*.json`. If your numbers differ materially from this
-page, that is worth an [issue](https://github.com/MSKazemi/yazses/issues) — different
-CPUs are expected to differ, but a large gap on the same class of hardware means
-something is wrong and we would like to know.
+The benchmark harness reuses the shipping code rather than a reimplementation and writes JSON
+with a provenance block recording the exact hardware and library versions. **The harness and
+the raw result files are not part of this repository**: they are kept in the author's private
+research repository, so no number on this page can be re-run from a clone of this one. What
+this page gives you instead is the recipe each row was measured with: the model, the decode
+settings, the corpus subset (LibriSpeech `test-clean` or `test-other`, 200 utterances unless a
+row says otherwise; the corpus is public, [OpenSLR 12](https://www.openslr.org/12)), and the
+machine. Different CPUs are expected to differ, but if a measurement of yours disagrees with a
+row here on the same class of hardware, that is worth an
+[issue](https://github.com/MSKazemi/yazses/issues).
 
 ## Diarization (Meeting Mode)
 
 Scored on two corpora that answer two different questions. **Their numbers are not
 comparable and must never be averaged.** Scoring is frame-based at 10 ms with an
 optimal one-to-one speaker mapping (md-eval semantics),
-`paper/benchmark/bench_diarization.py`; the backend is sherpa-onnx — pyannote
+`bench_diarization.py`; the backend is sherpa-onnx — pyannote
 segmentation-3.0 plus a 3D-Speaker ERes2Net embedder — with the defaults as shipped.
 
 The aggregate is the **mean across recordings**, not time-weighted across the corpus.
@@ -1080,7 +1060,7 @@ of 26.71 %. Quote the time-weighted figure when placing this beside published wo
 the mean when asking how a meeting will go; they are 0.66 points apart here and need
 not be, on a corpus whose recordings differ in length by 3.5x. Both come from the same
 `meetings` rows in
-[`paper/results/diarization-ami16_corpus-der.json`](https://github.com/MSKazemi/yazses/blob/main/paper/results/diarization-ami16_corpus-der.json),
+`diarization-ami16_corpus-der.json`,
 which is also the first artifact to carry the 26.71 % headline **per recording**: it
 had previously been quoted from a sweep row that could not be decomposed, re-aggregated
 or bootstrapped.
@@ -1133,11 +1113,9 @@ So **none of ADR-v2-133 reaches a user who supplies a speaker count.** The 75.21
 switches the threshold off. Both settings sit in the same config table and nothing said
 so, which is now a `WARNING` on the run
 (`recimport/diarizer.py::warn_pinned_count`) rather than a fact you had to measure to
-discover. Artifacts: [`probes/ami16-maxspk.json`][a1] (0.5) and
-[`diarization-ami16_corpus-maxspk4.json`][a2] (1.2).
+discover. Artifacts: `probes/ami16-maxspk.json` (0.5) and
+`diarization-ami16_corpus-maxspk4.json` (1.2).
 
-[a1]: https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/ami16-maxspk.json
-[a2]: https://github.com/MSKazemi/yazses/blob/main/paper/results/diarization-ami16_corpus-maxspk4.json
 
 #### Does the count help at the new threshold? The sample cannot say
 
@@ -1161,7 +1139,7 @@ Both intervals cross zero and the sign test is flat, so the honest verdict is *n
 difference this sample can resolve* — the +2.71 mean is carried by two of sixteen
 recordings. Brackets are 95 % paired-bootstrap intervals over the recordings, 10 000
 resamples, seed 20260824, from
-[`analyze_diarization.py`](https://github.com/MSKazemi/yazses/blob/main/paper/benchmark/analyze_diarization.py).
+`analyze_diarization.py`.
 
 **The mechanism is worth knowing, because it says when to use the flag.** Free clustering
 *over*-splits: 6 to 9 clusters in a four-person room. Over-splitting is cheap under DER —

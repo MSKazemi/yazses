@@ -1,0 +1,46 @@
+{
+  "generated_by": "eval/make_manifest.js; do not edit by hand",
+  "schema_version": "1.0",
+  "synthetic": true,
+  "license": "Apache-2.0",
+  "consent": {
+    "required": false,
+    "reason": "Synthetic data only; no person was recorded, so no consent is needed."
+  },
+  "scenario_count": 21,
+  "scenarios": [
+    "correct_target",
+    "low_confidence",
+    "stale_sensor",
+    "conflicting_modalities",
+    "muscle_hold_release",
+    "accidental_blink",
+    "confirmation_required",
+    "emergency_stop",
+    "voice_only",
+    "gaze_plus_voice",
+    "face_gesture_activation",
+    "emg_switch_activation",
+    "eeg_eog_experimental",
+    "incorrect_target_selection",
+    "sensor_disconnection",
+    "false_activation",
+    "out_of_order_sample",
+    "emg_hold_chatter",
+    "ambiguous_gaze_edge",
+    "untrusted_target",
+    "sensor_recovery"
+  ],
+  "files": [
+    {
+      "path": "fixtures.js",
+      "bytes": 34779,
+      "sha256": "379eaaae18a3f82091c7d301128687ca7a78ecd0c4e588ccb42febf2d3108366"
+    },
+    {
+      "path": "fixtures.schema.json",
+      "bytes": 10160,
+      "sha256": "178563073aca419ea52f5590bd33f12967b3738b29ef6e0bcf68ff24e18210b8"
+    }
+  ]
+}

@@ -3,6 +3,12 @@
 **Status:** Proposed release protocol  
 **Purpose:** Define what must be tested in CI, what must be benchmarked offline, what requires real desktop hardware, and what requires native-language review before first-class Mandarin support is claimed.
 
+> **2026-10-29 evidence status:** Many planned unit and regression tests
+> now exist. They do not substitute for a real model, physical injection reports
+> or native-language review. Use the up-to-date
+> [verification and release matrix](2026-10-29-validation-and-release-gates.md)
+> for gate IDs, test entrypoints, evidence shapes and user-facing support wording.
+
 ## 1. Validation philosophy
 
 Chinese support has four independent failure classes:
@@ -705,7 +711,7 @@ design/chinese/results/<release-or-date>/
     native-review.md
 ```
 
-If repository policy prefers `paper/results` for machine artifacts, put JSON there and link from this directory. Follow the established public/private visibility contract.
+If repository policy prefers `results` for machine artifacts, put JSON there and link from this directory. Follow the established public/private visibility contract.
 
 ---
 

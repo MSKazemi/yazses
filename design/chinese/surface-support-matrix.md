@@ -10,6 +10,15 @@ Legend:
 - **Existing primitive** — low-level support exists already but still needs end-to-end validation.
 - **Deferred** — deliberately outside P1.
 
+> **Implementation update (2026-10-29):** The table distinguishes intended P1
+> support from current evidence. The old Meeting Mode Han-count defect was repaired
+> and is covered by model-free tests; **real Mandarin meeting quality is still
+> unvalidated**. The CLI/Settings/profile resolver, Tier-1 safe command grammar and
+> CJK renderers are implemented, but native command acceptance, benchmark and actual
+> OS Unicode input remain open. See
+> [as-built audit](2026-10-29-as-built-audit.md) and
+> [release validation matrix](2026-10-29-validation-and-release-gates.md).
+
 ## Product surfaces
 
 | Surface | P1 target | Current architectural basis | Extra work/evidence | Release condition |
@@ -21,10 +30,10 @@ Legend:
 | Long-form file transcription | **Conditional** | same engine | repetition/hallucination stress run | required for long-form claim |
 | Meeting live transcript | **Conditional** | shared configured engine | effective language metadata; Chinese rendering | require meeting audit |
 | Meeting batch transcript | **Conditional** | shared engine/factory | long-form decode stability | require meeting audit |
-| Meeting quality gate | **Blocked for Chinese until fixed** | existing quality module is currently English/whitespace-oriented: `quality.tokenize()` treats a contiguous Han run as one token and `store.live_word_count()` reuses it | implement a CJK-valid quality unit, re-baseline thresholds on Mandarin, and test healthy/repetition/thin Chinese transcripts | **R05 must close** |
+| Meeting quality gate | **Conditional: Han-quality implementation exists; real Mandarin release evidence missing** | `meeting/quality.py::tokenize` and `store.live_word_count()` have CJK quality units and regression tests | run genuine healthy/thin/repetition meetings; check threshold sensitivity and notes context capacity | **do not include meeting claim without measured validation** |
 | Meeting minutes | **Deferred until Chinese meeting transcript is trustworthy** | downstream of transcript | verify summary backend/formatting language assumptions separately | separate evidence |
-| Tier-1 edit commands | **P1** | canonical `CommandIntent` + dispatch | Chinese grammar + native phrase review + negative corpus | required |
-| Tier-1 navigation commands | **P1** | same dispatch | Chinese grammar/numerals | required |
+| Tier-1 edit commands | **Conditional P1** | `commands/grammars/zh.py` safe-core exists with anchored rules and negative tests | all `PHRASE_REVIEW` entries provisional; native Simplified + Traditional review required | **native safety approval required** |
+| Tier-1 navigation commands | **Conditional P1** | localized grammar/numeral parser implemented | review natural phrases, numeric bounds and false positives in real speech | **native language approval required** |
 | Terminal/open-ended run commands | **Deferred or narrow P1 subset** | safety-sensitive existing actions | native phrasing + false-positive corpus + safety-gate proof | do not broaden casually |
 | User macros | **Existing primitive** | trigger strings are data | Chinese exact-match fixtures/docs | non-blocking |
 | Tier-2 SLM command router | **Deferred** | optional existing path | Chinese model/router evidence | not a P1 dependency |
@@ -33,8 +42,8 @@ Legend:
 | Regional Taiwan/HK vocabulary conversion | **Deferred** | not the current converter’s contract | separate ADR if wanted | not implied by Hant |
 | Mandarin-English code switching | **Deferred** | Polyglot Switch design | separate pair model/evaluation | not implied by Mandarin |
 | Cantonese | **Deferred** | no P1 model/profile contract | explicit `yue` model/corpus/commands | not implied by Traditional |
-| Settings UI language selector | **P1** | existing STT controls/controller | shared LanguagePlan preview/apply | required for GUI claim |
-| CLI `language list/status/set` | **P1** | new orchestration layer | resolver/transaction/status | required |
+| Settings UI language selector | **P1 implementation exists** | Qt-free `settingsui/language_view.py` and shared apply/controller tests | actual Qt/app workflow on supported OS and crash/error recovery | **real Settings smoke required** |
+| CLI `language list/status/set` | **P1 implementation exists** | `language/profiles.py`, `plan.py`, `service.py`, `cli.py` with automated tests | real install/cache/restart and cross-OS packaging smoke | **release gate still required** |
 | `doctor` diagnostics | **P1** | existing diagnostics | shared coherence checks | required |
 | Documentation localization | **Already separate** | `docs/zh-CN`, `docs/zh-TW`, i18n process | keep decoupled from speech | never auto-switch STT |
 | Desktop notification text | **Not a speech blocker** | UI strings/localization | localization project if desired | independent |

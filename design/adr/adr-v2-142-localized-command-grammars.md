@@ -106,3 +106,13 @@ Rejected. “VS Code” and “Chinese” are different axes. Overloading the fi
 - No Chinese rule invokes shell actions more broadly than its English semantic equivalent.
 - Traditional/Simplified aliases are explicitly tested.
 - Command parser changes do not globally normalize injected prose.
+
+---
+## Implementation reconciliation (2026-10-29)
+
+The grammar registry and a conservative Mandarin Tier-1 recognizer are implemented under `src/yazses/commands/grammars/{registry,zh}.py`. The classifier remains the existing language-neutral `CommandIntent` dispatch and preserves historical English call signatures. It selects a grammar through `[commands] language = "auto"` (following speech), honors an explicit pin with a warning, and fails closed to dictation if an unknown grammar is requested. The Mandarin branch **does not consult the English Tier-2 SLM**. Positive, negative, safety and bounded-numeral tests exist.
+
+**Linguistic release blocker:** every phrase family in `zh.py::PHRASE_REVIEW` and the numeral policy in `NUMERAL_REVIEW` are marked `provisional`, not native-reviewed. Do not mark Mandarin commands as fully supported merely because regex tests pass. Separate Simplified and Traditional native reviews, negative colloquial prose, and action-by-action dispositions are required; high-impact terminal/open-ended actions stay excluded unless separately approved. See [community task catalog](../chinese/2026-10-29-community-task-catalog.md) and [release gates](../chinese/2026-10-29-validation-and-release-gates.md).
+
+The existing parser caps counts at 0–99 and line numbers at 0–999. Proposed expansions of abbreviated Han numbers must retain unambiguous bounds and all English parity/safety tests; this paragraph is not permission to change ranges.
+

@@ -233,6 +233,53 @@ def test_a_dead_microphone_is_not_blamed_on_the_gate(monkeypatch):
     assert status == "OK", "a silent capture must not be reported as room noise"
 
 
+def _fake_rooms(monkeypatch, floors: dict):
+    """Replace `miclevel.record` with one microphone per device, each a constant floor.
+
+    Nothing is opened: the fake returns a synthetic array whose mean(|x|) is the floor
+    named for the requested device (``None`` = the OS default). Returns the list of
+    devices asked for, so a test can see which microphone doctor measured.
+    """
+    import numpy as np
+
+    from yazses.system import miclevel
+
+    asked: list = []
+
+    def _record(seconds, sample_rate=16000, device=None):
+        asked.append(device)
+        return np.full(int(seconds * sample_rate), floors[device], dtype=np.float32)
+
+    monkeypatch.setattr(miclevel, "record", _record)
+    return asked
+
+
+def test_mic_level_measures_the_pinned_microphone_not_the_os_default(monkeypatch):
+    """`doctor --mic` sampled the OS default while the daemon gates `[audio] device`.
+
+    Incident shape (0.0039 room vs a 0.0005 gate), but on the pinned microphone, with a
+    quiet OS-default input beside it. Measuring the default reported a false `[OK]`.
+    """
+    cfg = load_config(None)
+    cfg.accessibility.vad_threshold = 0.0005
+    cfg.audio.device = "USB Headset"
+    asked = _fake_rooms(monkeypatch, {None: 0.0001, "USB Headset": 0.0039})
+    _n, status, detail = doctor._mic_level_check(cfg, seconds=0.1)
+    assert asked == ["USB Headset"]
+    assert status == "WARN", detail
+    assert "0.0039" in detail and "mic-level --set" in detail
+
+
+def test_mic_level_follows_the_os_default_when_nothing_is_pinned(monkeypatch):
+    cfg = load_config(None)
+    cfg.accessibility.vad_threshold = 0.01
+    cfg.audio.device = ""
+    asked = _fake_rooms(monkeypatch, {None: 0.0039})
+    _n, status, _d = doctor._mic_level_check(cfg, seconds=0.1)
+    assert asked == [None], "an empty `[audio] device` means the OS default, not ''"
+    assert status == "OK", "a 0.01 gate over a 0.0039 room is the normal setup"
+
+
 def test_doctor_names_the_microphone_behind_the_alias(monkeypatch):
     """`OS default: default` is the least useful true thing doctor can say.
 

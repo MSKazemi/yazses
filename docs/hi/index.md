@@ -549,7 +549,7 @@ Contributions are very welcome — bug reports, docs, packaging, and code.
 
 ```bash
 uv run python -m pytest tests/   # tests — must be green
-uv run ruff check src tests scripts paper/benchmark   # lint — must be green
+uv run ruff check src tests scripts   # lint — must be green
 uv run mypy src                  # types — advisory (currently clean; don't add errors)
 ```
 
@@ -636,6 +636,8 @@ Thanks to these people for helping build YazSes ✨ — every bug report, doc fi
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Warayuth014"><img src="https://avatars.githubusercontent.com/u/124881432?v=4?s=100" width="100px;" alt="Warayut Bunbanlu"/><br /><sub><b>Warayut Bunbanlu</b></sub></a><br /><a href="#translation-Warayuth014" title="Translation">🌍</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/nuthakkikeerthi"><img src="https://avatars.githubusercontent.com/u/203968755?v=4?s=100" width="100px;" alt="nuthakkikeerthi"/><br /><sub><b>nuthakkikeerthi</b></sub></a><br /><a href="#translation-nuthakkikeerthi" title="Translation">🌍</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/loneicewolf"><img src="https://avatars.githubusercontent.com/u/68499986?v=4?s=100" width="100px;" alt="loneicewolf"/><br /><sub><b>loneicewolf</b></sub></a><br /><a href="#translation-loneicewolf" title="Translation">🌍</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/2D00M6"><img src="https://avatars.githubusercontent.com/u/196942467?v=4?s=100" width="100px;" alt="2D00M6"/><br /><sub><b>2D00M6</b></sub></a><br /><a href="#translation-2D00M6" title="Translation">🌍</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Ptraaah"><img src="https://avatars.githubusercontent.com/u/122882415?v=4?s=100" width="100px;" alt="Ptraaah"/><br /><sub><b>Ptraaah</b></sub></a><br /><a href="#translation-Ptraaah" title="Translation">🌍</a></td>
     </tr>
   </tbody>
 </table>

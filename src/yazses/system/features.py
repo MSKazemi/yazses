@@ -2115,7 +2115,7 @@ def enable_caveat(slug: str, cfg) -> str | None:
     if slug == "streaming":
         model = (getattr(getattr(cfg, "stt", None), "model", "") or "").strip().lower()
         # Streaming only wins where a rolling decode keeps up with the speech.
-        # Measured (paper/benchmark/bench_streaming.py, n=15, real-time-fed):
+        # Measured (benchmark/bench_streaming.py, n=15, real-time-fed):
         # tiny.en confirmed a live prefix in 15/15 utterances (72 % of the text
         # on screen at release); base.en managed it in 6/15 (0 % median), while
         # still making the final text 56 % slower than with streaming off.

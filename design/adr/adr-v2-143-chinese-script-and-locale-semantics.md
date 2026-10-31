@@ -100,3 +100,13 @@ Any future documentation must distinguish these claims:
 - “Cantonese speech recognition”
 
 They are not interchangeable.
+
+---
+## Implementation reconciliation (2026-10-29)
+
+Canonical high-level profiles in `language/profiles.py` resolve English `en` and Mandarin `zh-CN/zh-Hans` or `zh-TW/zh-Hant`. Both Mandarin presets use STT `language=zh` with multilingual Whisper; only the optional output-script conversion differs (`simplified` vs `traditional`). The configuration's command grammar language (`auto`/explicit) and the localized UI/docs are **not** inferred from that script.
+
+Bare `zh` must ask for a script choice. `zh-HK`, `yue` and Cantonese are deliberately outside P1: Hant is not Cantonese and a locale does not select a recognizer dialect. The optional OpenCC script wrapper is post-ASR; it does not guarantee Taiwan lexical choices, speech translation or region-specific punctuation. [Switching contract](../chinese/2026-10-29-language-switch-architecture.md) defines the matrix and invalid aliases; [native QA](../chinese/2026-10-29-validation-and-release-gates.md) must check both variants independently.
+
+No new `[language] active_profile` persisted key should be added as an implementation shortcut. The current profile is derived from existing canonical STT and command settings; historical manually configured installs remain supported through status/doctor diagnostics.
+

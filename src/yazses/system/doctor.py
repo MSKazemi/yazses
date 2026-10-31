@@ -1330,11 +1330,18 @@ def _config_summary(
 
 
 def _sample_mic(cfg, seconds: float) -> LevelStats:
-    """Record a short ambient clip and return its level stats (seam for tests)."""
+    """Record a short ambient clip and return its level stats (seam for tests).
+
+    Records from the microphone the daemon gates -- ``[audio] device`` when one is
+    pinned, else the OS default -- as ``mic-level``, ``verify`` and the daemon's
+    re-calibrate already do. This recorded the OS default unconditionally, so with a
+    pinned microphone it compared ``vad_threshold`` against a different microphone's
+    room level: a gate sitting under the pinned mic's floor could read ``[OK]``.
+    """
     from yazses.system.miclevel import analyze, record
 
     sr = cfg.audio.sample_rate
-    return analyze(record(seconds, sr), sr)
+    return analyze(record(seconds, sr, device=cfg.audio.device or None), sr)
 
 
 def _mic_level_check(cfg, seconds: float = 2.0) -> _Check:

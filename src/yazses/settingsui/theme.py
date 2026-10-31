@@ -114,6 +114,19 @@ def palette_colors(widget: object) -> tuple[RGB, RGB]:
         return (0, 0, 0), (239, 239, 239)
 
 
+def mute_label(label: object, extra: str = "") -> None:
+    """Style *label* as secondary text and keep its text on the page's left edge.
+
+    A stylesheet ``margin-*`` or ``padding-*`` makes Qt count a ``QLabel`` as framed, and a
+    framed label gets a default text indent of half an "x" -- about 6 px at 9 pt. So every
+    caption written as ``muted_style_for(label, "margin-bottom: 6px;")`` sat right of the
+    heading and the form labels above it. ``setIndent(0)`` is the explicit answer, and
+    belongs next to the stylesheet that causes the problem.
+    """
+    label.setStyleSheet(muted_style_for(label, extra))  # type: ignore[attr-defined]
+    label.setIndent(0)  # type: ignore[attr-defined]
+
+
 def muted_style_for(widget: object, extra: str = "") -> str:
     """`muted_stylesheet` for a live widget's palette."""
     fg, bg = palette_colors(widget)

@@ -98,7 +98,7 @@ page header, where it is relevant.
 - `tests/test_gui_job_covers_the_settingsui_family.py` must be checked: new modules need to be
   inside the family the GUI CI job covers.
 - Full gates before any claim of done: `uv run python -m pytest tests/ -v`,
-  `uv run ruff check src tests scripts paper/benchmark`, `uv run mypy src` (after
+  `uv run ruff check src tests scripts benchmark`, `uv run mypy src` (after
   `uv sync --extra desktop`, so Qt call sites are type-checked for real).
 
 ## 6. Docs surfaces

@@ -125,12 +125,210 @@ intents through `activation/intent.py`; detectors never execute an action themse
   `design/specs/biosignal-pipeline.md`, `design/specs/biosignal-validation-protocol.md`, and an
   architecture row in `design/architecture.md`.
 
+### Changed — the benchmark harness, the result files and their tests moved to the private research repository
+
+`paper/benchmark/` (the harness), `paper/results/` (the archived JSON and logs) and the 37 tests that guarded them are
+no longer in this repository. They live with the manuscripts they support, in the author's private research repository,
+and the retired `paper/` folder is ignored here. What follows from that, stated plainly:
+
+- `docs/benchmarks.md` no longer offers a way to re-run its numbers from a clone; it says so and gives the recipe each
+  row was measured with (model, decode settings, corpus subset, machine). Its links into the removed files are plain text.
+- The `benchmark.yml` workflow and the `benchmark-harness` CI job are gone, along with the lint target `paper/benchmark`.
+  The `benchmark` dependency group stays: `scripts/bench-stt.py` and `scripts/gen-wer-normalizer-vectors.py` use it.
+- The Hugging Face benchmark tables already published stay as they are. Their generator moved too, so `manifest.json` no
+  longer runs an export check and the tables' `source_file` column now reads `results/<file>`, not a repository path.
+- The visibility table in `design/README.md` has no public exception under `paper/` any more.
+- Contributor task `CHN-QA-CER-HARNESS-001` needed the harness and is now `expired`.
+
+Earlier entries below name the old paths because that is where the files were at the time.
+
+### Changed — the Indonesian page was reviewed by a native speaker
+
+`docs/id/index.md` was a machine-assisted draft. A native Indonesian reader reworded it so it reads
+naturally, and it is marked reviewed instead of draft. Thank you,
+[@Ptraaah](https://github.com/Ptraaah)
+([#743](https://github.com/MSKazemi/yazses/pull/743), [#343](https://github.com/MSKazemi/yazses/issues/343)).
+
+### Fixed — "Install now" on a pipx install did nothing, and said so in a balloon that vanished
+
+`pipx install /path/to/checkout` makes pipx remember that *folder* as where the package comes
+from. Delete the folder (a git worktree, a build directory) and `pipx upgrade yazses` prints
+`Unable to parse package spec: <path>` and changes nothing. The tray offered an update it could never apply, and the result was a
+two-second balloon, so the user came back to the same version with no explanation.
+
+The upgrade command for a pipx install is now resolved against pipx's own record
+(`pipx_metadata.json`). When the recorded source is a local path that no longer exists, the
+command becomes `pipx install --force yazses[<your extras>]`, which reinstalls into the same
+environment from PyPI, keeps the extras, and leaves a `pipx upgrade` that works from then on.
+A PyPI source, a git/https URL, a checkout that still exists, and a record whose extras are not
+plain extra names are untouched, and so is a `--suffix` install or a venv outside the PIPX_HOME
+pipx reports, where the reinstall would add a second copy instead of repairing this one. After a
+failure, `yazses update` prints the command that ran, not `pipx upgrade`. The tray, the Settings window and `yazses update` all run the
+same resolved command. Checked against pipx 1.4.3 in a throwaway `PIPX_HOME`: 2.43.1 → 2.45.0
+through the real checked-upgrade path.
+
+An update that fails or does not move the version now opens a dialog in the Linux tray instead
+of a balloon, and the hint for a pipx install names the reinstall command rather than "reinstall
+the way you first installed it".
+
+### Fixed — installing a new YazSes over a running one no longer stops at "unable to automatically close all applications"
+
+Run the installer while YazSes was in the tray and Setup listed `YazSesApp.exe` twice, then
+failed with "Setup was unable to automatically close all applications" (silently: exit code 5,
+nothing installed, the old version untouched). YazSes is a tray process plus a windowless
+`--daemon` child; Windows' Restart Manager, which `CloseApplications` relies on, has no window
+to ask in either, so it gives up. Only the in-app one-click update avoided this, because it
+waits for YazSes to exit before it starts the installer. A manual download, `winget upgrade`,
+`choco upgrade`, `scoop update`, and anyone updating from a release older than the one-click
+update all hit it.
+
+The installer now closes YazSes itself before it looks for files in use: the tray first (it
+would otherwise relaunch the daemon the moment the daemon went away), then `yazses stop`, which
+asks the daemon to shut down and gives it 10 seconds to exit before ending it. While a meeting is
+still being written up, `stop` refuses, the install fails as it did before, and the tray it closed
+is started again, so YazSes is left running as it was. It only touches processes running from the
+install directory it is replacing, and Setup's own force-close is never used. A silent upgrade that
+closed a tray starts it again; the in-app update, which
+passes `/NORESTARTAPPLICATIONS` and relaunches itself, is left alone, as is the interactive
+installer's "Launch YazSes now" box. Checked on Windows 11 with a real tray and daemon: the old
+script failed with exit code 5 and left both running; the new one upgraded cleanly with the tray
+running, with only an orphaned daemon running, and brought the tray back after a silent upgrade.
+The test that kept `Exec` out of the installer's code now allows exactly the three programs this
+step starts.
+
+### Fixed — `yazses doctor --mic` measured the OS default microphone, not the pinned one
+
+`doctor --mic` compares your room's level with `[accessibility] vad_threshold` and warns when
+the room alone clears the gate, which is how silence gets transcribed into words nobody said.
+It recorded the OS default input every time, while dictation records `[audio] device` when one
+is pinned. With a pinned microphone it was comparing the gate against a different microphone's
+room, so a gate below the pinned mic's noise floor could still show `[OK]`. It now records the
+pinned microphone, as `yazses mic-level`, `yazses verify` and the tray's re-calibrate already
+did. Nothing changes when no microphone is pinned. The troubleshooting page now points at
+`doctor --mic` in its "typed a sentence I never said" section.
+
+### Added — Android: a property test that the hold-to-talk session cannot wedge
+
+`:core:session`'s `HoldSession` had example tests for a lost key-up and a decode that never
+reports back, which cover only the sequences someone thought of. `HoldSessionPropertyTest` drives
+the session directly with 3,000 seeded random sequences of 80 steps each (press, release, tick,
+decoded, decode-failed, delivered, cancel, undo invalidation, undo and field reports, with the
+secure-field flag flipping at random and a debounce of 0, 1 or 500 ms). After every step it checks
+that the key-event queue never holds more than `MAX_QUEUED_EVENTS`; that after `cancel()` the
+session is idle with an empty queue and a later normal-field press starts capture; that no
+secure-field press emits `StartCapture` and the session is never holding or capturing while the
+last field report was secure; and that `undo()` returns a given insert at most once, and only the
+insert that is still undoable. The seed is fixed, so a failure reproduces exactly. The test also
+fails if the generator reaches any situation those checks depend on (a full queue, a cancel while
+decoding, an undo after a clipboard delivery, and so on) fewer than 50 times. No sequence found a
+defect. Nine of ten hand-made mutations of the session turn the test red. The tenth removes the
+debounce-time secure check, which no current path can reach because every way into the debounce
+already refuses a secure field. `HoldSession` gains a module-internal `queuedEventCount` so the
+test can read the queue bound directly. The test takes about 4 s in
+`./gradlew --offline :core:session:test` and adds no dependency
+([#676](https://github.com/MSKazemi/yazses/issues/676)).
+
+### Added — the MCP registry entry is checked against the registry's schema, and publishing is ready but off
+
+`server.json` for the official MCP registry (`io.github.MSKazemi/yazses`, PyPI's
+`yazses` over stdio with the argument `mcp-server`) now names its schema,
+[`2025-12-11`](https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json).
+It also gains a `title` and a `websiteUrl`. Every field was checked against that schema
+and against the registry's PyPI publishing rules, and `mcp-publisher validate` 1.8.6
+accepts the file. A vendored copy of the schema lets the tests check the rendered file
+offline ([#639](https://github.com/MSKazemi/yazses/issues/639), ADR-032 §2).
+
+`README.md` now carries the registry's ownership line,
+`<!-- mcp-name: io.github.MSKazemi/yazses -->`, which the registry looks for in the PyPI
+description. It is an HTML comment, so it does not show on GitHub or PyPI. The first
+release with this line is the first one that can be listed.
+
+`release.yml` has a new `publish-mcp-registry` job. It is `continue-on-error`, and its
+environment must not get a required reviewer, because `apt-repo.yml` and `checksums.yml`
+wait on the `Release` run and a failed or pending job in it would stop them
+(`CI_POLICY.md` §11.2). It is **skipped on every release**
+until the maintainer sets the repository variable `MCP_REGISTRY_PUBLISH` to `true`.
+Once it is on, it runs after the PyPI upload and checks that the tag matches the
+version and that the README carries the marker. It then waits for PyPI to serve the
+release, and publishes with a pinned, checksum-verified `mcp-publisher` over GitHub
+OIDC, so no secret is stored. `scripts/render-mcp-server-json.py` gains
+`--expect-tag`, `--check-readme` and `--check-pypi-json` for those checks. YazSes is
+**not listed in the registry yet**. The steps are in `packaging/README.md`.
+
+### Changed — the German page was reviewed by a native speaker
+
+`docs/de/index.md` was a machine-assisted draft. A native German reader reworded it so it reads
+naturally, and it is marked reviewed instead of draft. Thank you,
+[@2D00M6](https://github.com/2D00M6)
+([#729](https://github.com/MSKazemi/yazses/pull/729), [#337](https://github.com/MSKazemi/yazses/issues/337)).
+
 ### Changed — the Swedish page was reviewed by a native speaker
 
 `docs/sv/index.md` was a machine-assisted draft. A native Swedish reader reworded it so it reads
 naturally, and it is marked reviewed instead of draft. Thank you,
 [@loneicewolf](https://github.com/loneicewolf)
 ([#728](https://github.com/MSKazemi/yazses/pull/728), [#350](https://github.com/MSKazemi/yazses/issues/350)).
+
+### Fixed — a fresh `pip install` could no longer transcribe a file
+
+`yazses transcribe <file>` and the MCP server's transcribe tool decode the file with
+faster-whisper's `decode_audio`, which uses PyAV. faster-whisper 1.2.1 requires `av>=11`
+with no ceiling, so a fresh `pip install yazses` resolved PyAV 19.0.2 (so did pipx and
+`uv tool` installs, which do not read the lockfile either), and 19 removed an
+argument faster-whisper still passes (`av.open(..., metadata_errors=...)`). The result
+was `TypeError: open() got an unexpected keyword argument 'metadata_errors'` for every
+file, even a plain WAV, on any machine without a system `ffmpeg` to fall back on.
+Installs from the lockfile, which holds PyAV 18, were never affected, and neither were
+live dictation or meeting capture, which hand the model arrays.
+
+`av` is now capped below 19 in `pyproject.toml`, with the reason beside it. The ceiling
+comes off once a faster-whisper release works with PyAV 19. A new test decodes a WAV with
+the ffmpeg fallback removed, so the PyAV path is tested on its own, and another fails if the
+ceiling is dropped while faster-whisper still passes the removed argument.
+
+### Added — a Hugging Face presence, kept in `huggingface/` and published from it
+
+A showcase Space, a benchmark-results dataset and the hosted demo Space are live under the
+maintainer's Hub account (`mskazemi`), and the `yazses` organization carries a short card and
+a research collection. `huggingface/` in this repository is now the source of truth for
+those pages; they were first put up by hand, and from now on changes go through the publish
+workflow.
+
+- **Source for the Hub pages**: an organization card, a static showcase Space, and the
+  hardened hosted-demo Space (`huggingface/space-demo/`: upload size and duration limits,
+  clear errors, the "audio is processed on Hugging Face infrastructure" notice above the
+  audio widget, the arXiv link that lets Hugging Face Papers index the paper, and a table of
+  how the demo differs from the desktop pipeline).
+- **A benchmark dataset of results**, not audio: `scripts/export_hf_benchmarks.py` turns an
+  allowlist of `paper/results/` files into 14 CSV tables with provenance (source path and
+  SHA-256, machine, versions, corpus; no git commit, so the committed export does not go
+  stale when a branch is squash-merged). Significance analyses stay in their own tables, a
+  value the source does not record stays empty, and `--check` fails on drift.
+- **`scripts/hf_preflight.py`** validates exactly what may be uploaded (no private trees,
+  secrets, audio, PDFs, broken links, or a live collection note still saying "Planned") and
+  cannot publish. **`scripts/hf_collection.py`**
+  maintains a Hub Collection idempotently, dry-run by default.
+- **`huggingface-publish.yml`**: manual-only, read-only validation first, then an upload from
+  `main` through Hugging Face Trusted Publishers (short-lived OIDC credentials, no stored
+  token). Every destination needs `owner_approved` in a reviewed commit.
+- **Docs**: [YazSes and Hugging Face](docs/hugging-face.md), which separates the installed
+  app (local), the hosted demo (remote) and the Hub (model host).
+
+### Fixed — the hosted demo could not decode any audio after a rebuild
+
+`faster-whisper` 1.2.1 passes `metadata_errors=` to `av.open`, which PyAV 19.0.2 rejects, so
+a Space rebuild that resolved `av` fresh turned every file decode into a `TypeError`. The
+demo's requirements now cap `av` below 19 (`faster-whisper` itself only declares `av>=11`), and
+the visitor-facing error names the exception class so a server fault is distinguishable from a
+bad file. The same break reached the desktop app's `yazses transcribe <file>` on a fresh
+install; that is the PyAV entry above. Live dictation and meeting capture hand `faster-whisper`
+audio arrays and were never affected.
+
+### Fixed — the docs said the hosted demo gives "the accuracy you get"
+
+The hosted demo filters silence with the decoder's voice-activity filter and applies none of
+the desktop app's text post-processing, so the app can type slightly different text. The page
+now says it is an indication of accuracy, not the identical pipeline.
 
 ### Removed — the public paper-v2 working draft and its planning package
 
@@ -141,6 +339,26 @@ site-navigation entry and the "Paper v2 evidence programme" card on the research
 the tree. The measurement archive in `paper/benchmark/` and `paper/results/` stays public: it is the
 reproducibility evidence the docs pages rely on. Earlier CHANGELOG entries and release notes describe
 the draft as it was and are left as written. The commits that added the draft remain in git history.
+
+### Changed — the settings window looks finished on Windows 11
+
+Rendering the real window and looking at every page showed three things that read as
+unfinished. None changes what any setting does.
+
+- **Lighter dividers.** The lines between the sidebar, the page and the Apply bar were drawn
+  as a dark and a light line side by side, which the Windows 11 style shows as one heavy bar.
+  They are now 1 px in the theme's own `midlight`, the colour the feature list's row
+  dividers already used, in light and in dark. The divider also runs the full height of the
+  window: an empty strip reserved for the snap-permission banner had left an 8 px gap above
+  it. The strip keeps its margins whenever a banner is in it.
+- **Aligned page edges.** Every page's description, the General page's note and the
+  Hands-free text started about 6 px to the right of the heading and the labels above them.
+  A stylesheet `margin-*` makes Qt treat a `QLabel` as framed, and a framed label indents its
+  text by half an "x". `theme.mute_label()` sets the same colour as before and `setIndent(0)`.
+- **No repeated sentence.** The Hands-free page said "Pause, resume … the camera-driven
+  hands-free inputs" in its description and again, almost word for word, in the line below.
+  The second line now adds only what the first does not, including that opening the controls
+  does not open the camera.
 
 ### Fixed — on Windows the Speech page no longer offers settings that do nothing
 
@@ -163,6 +381,12 @@ permission that does not exist on Windows.
 ### Changed — CI: uv and Python setup live in one composite action (#537)
 
 The repeated uv, interpreter and `uv sync` sequence now lives in `.github/actions/setup-uv-python`, a repository-owned composite action with no secrets, no permission block and no cache of its own. Three jobs use it: `test-linux`, `test` and the docs build. Their uv version, interpreter and sync are unchanged. The inventory of repeated setup, and the rule for new Python jobs and for caches and timeouts, are in `.github/CI_POLICY.md` section 8. `tests/test_ci_composite_actions.py` checks the action's contract statically. Timeouts were already handled by #632.
+
+### Changed — CI: six more jobs use the setup composite; cache and artifact-lifetime rules are written down (#537)
+
+`repo-hygiene`, `gui`, `extras`, `benchmark-harness` and `windows-update-handoff` in `test.yml`, and the weekly `heavy-extras` job, now install uv, the interpreter and their dependencies through `.github/actions/setup-uv-python`. No job in `test.yml` calls `astral-sh/setup-uv` directly any more. Their logs on `main` before the change show they already resolved the same uv (0.13.6) and the same CPython 3.12 that the composite now pins, so neither should change. The jobs that still call setup-uv directly are release, build and benchmark legs, plus `eye-eval-ci.yml`. Each is listed with its reason in `tests/test_ci_composite_actions.py`, and a new unlisted direct call fails the suite.
+
+`.github/CI_POLICY.md` section 8 now records what setup-uv's built-in uv cache keys on. The key covers architecture, OS image, interpreter and the dependency files, matched exactly. The section also gives a rule for artifact lifetimes. A new `actions/upload-artifact` step must state `retention-days`, and `tests/test_ci_artifact_retention.py` enforces that. The six existing uploads that inherit the repository's 90-day default are listed there and left unchanged. The repeated-setup counts were re-measured on 2026-10-30.
 
 ### Changed — Telugu page: the opening says the key is released
 
@@ -298,6 +522,24 @@ default-normaliser caveat above still stands.
 ### Added — Android: Whisper's English normaliser in `:core:bench`
 
 `:core:bench` can now normalise English text the way the desktop benchmark does. `Wer.wer`, `Wer.normalise` and `Wer.corpusWer` take a `TextNormalizer`, and `TextNormalizer.WHISPER_ENGLISH` runs `EnglishTextNormalizer`, a line-by-line Kotlin port of the English normaliser in whisper-normalizer 0.1.15 (MIT), the package that `paper/benchmark/bench_wer.py` uses. Under this mode words are split as jiwer splits them (on the ASCII space only, so an unspaced run of CJK characters is one word), and a reference that is empty after Python's `strip()` is skipped, as the desktop skips it. For ordinary English text the port matches the oracle exactly: the replay of 614 vectors generated from the package passes 614/614, and an independent differential review of about 250,000 inputs found no mismatch outside the Unicode case below. The one documented difference is the age of the Unicode tables. The JDK 17 toolchain has Unicode 13 and CPython 3.14 has Unicode 16; they differ on 11,141 code points, 11,139 unassigned in Unicode 13 plus U+1734 and U+1171E, which were reclassified. For those, the port does not treat about 9,787 letters as word characters, so `\b` is wrong beside `um` or `mr`; it does not treat about 110 decimal digits as digits; it keeps about 950 symbols and 208 marks that Python drops, and 59 punctuation marks that Python makes spaces; and it keeps emoji from as early as Unicode 14 (for example U+1F979). On Android the normaliser runs on the operating system's tables, which vary by version; that is not tested. The desktop result also depends on the Unicode version of the Python that runs it. Two further limits: the `\s+'` rule takes time quadratic in the length of a whitespace run in both implementations, and the port is about 20 times slower in that pathological case (20,000 spaces take about 15 s against about 0.7 s in Python; realistic text takes about 18 ms per 1,000 characters); and CPython raises AssertionError on a digit token longer than 4,300 characters, where the port returns the text. The default, `TextNormalizer.SIMPLE`, keeps its normaliser. Its one change is that a reference which is only whitespace under Python's definition (for example a no-break space) is now skipped in every mode, as the desktop skips it.
+
+### Fixed — the transcript-collapse detector could not see a loop of more than one word
+
+`meeting/quality.py` flags a late-onset decode collapse when one phrase repeats back-to-back at
+least 12 times. It counted a repeat only when an n-gram equalled its *immediate neighbour*, which
+is true of `hello hello hello …` and false of every loop longer than a word: the overlapping
+trigrams of `red blue green red blue green …` rotate through three different values, so the run
+never exceeded 1. A healthy 250-word start followed by that phrase said 16 times scored `ok`
+(top-trigram share 0.054, distinct ratio 0.855, run 1) — the case the check exists for, because
+the whole-transcript ratios stay inside their thresholds. Found by an outside review of the
+measurement paper, reproduced here before the change.
+
+`longest_repeat_run` now tries every period from 1 to `MAX_REPEAT_PERIOD` (8 words) and keeps the
+longest run; period 1 is the old count exactly, so single-word loops and every recorded threshold
+are unchanged. A looping unit longer than 8 words is still caught by the whole-transcript ratios
+once it dominates the text. Regression tests cover three multi-word phrases, a long phrase said
+only ten times (not a loop), the period limit, and the unchanged single-word case. Not validated
+on real multi-word collapses — none has been observed.
 
 ## [2.46.0] - 2026-10-24
 

@@ -208,7 +208,7 @@ def test_the_ami_catastrophe_this_guard_was_built_for_is_untouched():
 #
 # These distributions are measured, not invented: they are what the shipped diarizer
 # returned for four-person AMI meetings at the shipped clustering threshold, rescued from
-# the sweep that produced `paper/results/plausibility-ami16-1.2.json`.
+# the sweep that produced `results/plausibility-ami16-1.2.json`.
 
 TS3003D_OVER_SPLIT = {  # 9 labels for 4 people, 33 minutes
     "speaker_0": 21.3, "speaker_1": 944.6, "speaker_2": 377.9, "speaker_3": 84.3,

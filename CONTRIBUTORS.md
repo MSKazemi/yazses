@@ -127,6 +127,11 @@ found defects that no amount of reading the code here would have surfaced.
   ([#333](https://github.com/MSKazemi/yazses/pull/333)). Recorded the half that makes the page
   worth having — the distance it held speech at and the room noise it rejected — instead of
   "works fine"
+- [@2D00M6](https://github.com/2D00M6) — native-speaker review of the German page: reworded the
+  machine-assisted draft so it reads naturally, and promoted `de` from a generator-owned draft to
+  a human-owned translation so it can no longer be silently overwritten
+  ([#337](https://github.com/MSKazemi/yazses/issues/337) →
+  [#729](https://github.com/MSKazemi/yazses/pull/729))
 - [@4nmus](https://github.com/4nmus) — Russian README translation, the project's first in
   Cyrillic script
 - [@AmothissacrajT](https://github.com/AmothissacrajT) (Amoth issac raj) — Ubuntu 24.04 (X11) showcase
@@ -240,6 +245,11 @@ found defects that no amount of reading the code here would have surfaced.
 - [@Parinitha-26](https://github.com/Parinitha-26)
 - [@Prithvi4904](https://github.com/Prithvi4904) — first README translation (Hindi), and the
   language switcher that makes every later translation reachable
+- [@Ptraaah](https://github.com/Ptraaah) — native-speaker review of the Indonesian page: reworded the
+  machine-assisted draft so it reads naturally, and promoted `id` from a generator-owned draft to a
+  human-owned translation so it can no longer be silently overwritten
+  ([#343](https://github.com/MSKazemi/yazses/issues/343) →
+  [#743](https://github.com/MSKazemi/yazses/pull/743))
 - [@sahanaekin7-crypto](https://github.com/sahanaekin7-crypto) — reviewed the Tamil page
   (`docs/ta/index.md`) and improved its wording and grammar for clarity and consistency,
   then took the draft marker off ([#549](https://github.com/MSKazemi/yazses/pull/549))

@@ -68,6 +68,13 @@ classifiers = [
 ]
 dependencies = [
     "faster-whisper>=1.2.1",
+    # PyAV is faster-whisper's own dependency (`av>=11`, no ceiling), capped here so a
+    # fresh `pip install` stops resolving 19.x. faster-whisper 1.2.1's `decode_audio`
+    # calls `av.open(..., metadata_errors=...)`, which PyAV 19.0.2 rejects with a
+    # TypeError, so every file decode fails (`yazses transcribe`, the MCP transcribe tool).
+    # Live dictation and meeting capture hand the model arrays and are unaffected. The lockfile already
+    # holds 18.x. Raise the ceiling once a faster-whisper release works with PyAV 19.
+    "av>=18,<19",
     "sounddevice>=0.5.5",
     "numpy>=2.4.6",
     "typer>=0.26.8",
@@ -458,9 +465,8 @@ dev = [
     "PyYAML>=6.0.3",
     "pytest-xdist>=3.8.0",
 ]
-# Reproducible benchmark harness behind docs/benchmarks.md and the arXiv paper
-# (paper/benchmark/). Build-only; never shipped in the wheel. `uv sync --group
-# benchmark` then `uv run python paper/benchmark/run_all.py`. jiwer = WER scoring;
+# Dependencies of the benchmark harness behind docs/benchmarks.md and the arXiv paper (the harness itself
+# is in the author's private research repository). Build-only; never shipped in the wheel. jiwer = WER scoring;
 # whisper-normalizer = Whisper's own EnglishTextNormalizer, the standard that makes
 # our WER comparable with other Whisper results; psutil = RSS; soundfile = read
 # LibriSpeech FLAC; matplotlib = the paper figures.
@@ -527,12 +533,6 @@ timeout = 300
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-# `paper/benchmark/probes/` is an archived record, not maintained code. Its own README says
-# "Read them; do not run them": the scripts hardcode absolute paths on hosts that no longer
-# exist, and several were edited between runs — which version produced which artifact is
-# exactly the thing the archive preserves. Linting would rewrite that record. The maintained
-# harness beside them (`paper/benchmark/*.py`) IS linted, and is in the gate.
-extend-exclude = ["paper/benchmark/probes"]
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I"]
@@ -544,13 +544,6 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-# `_common` is the shared helper module that sits *beside* the benchmark scripts in
-# paper/benchmark/, imported as a bare name because they run from that directory.
-# Without this ruff reads it as third-party and folds it in among jiwer and numpy,
-# which is where its autofix would put it — the nine scripts that import it all keep
-# it in its own block, and that grouping is the author's, not an accident.
-known-first-party = ["_common"]
-
 [tool.ruff.lint.per-file-ignores]
 # Re-exports: package __init__ files intentionally import names they do not use.
 "__init__.py" = ["F401"]

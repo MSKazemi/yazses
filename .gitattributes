@@ -10,6 +10,17 @@ tests/fixtures/face_switch_replay_report.json text eol=lf
 tests/fixtures/grounding_replay_report.json text eol=lf
 design/eye-control/validation-slots.json text eol=lf
 design/eye-control/generated/** text eol=lf
+# The Hugging Face benchmark export is hashed byte for byte (SHA256SUMS + export-metadata.json),
+# and the tests compare a fresh export against the checkout. Git for Windows would check the CSVs
+# out with CRLF and every file would read as drifted, so pin them to LF on every OS.
+huggingface/benchmarks/data/** text eol=lf
+# The HCI lab's manifest records the SHA-256 of its fixtures and schema, and `make_manifest.js --check`
+# compares the manifest itself as a string, so a Windows checkout must not rewrite those three files.
+# Name them, not the folder: a folder-wide `text` would also pin assets/logo.svg to LF while its
+# source, contrib/icons/yazses.svg, gets CRLF, and would force `text` onto any binary added later.
+examples/hci-hf-lab/fixtures.js text eol=lf
+examples/hci-hf-lab/fixtures.schema.json text eol=lf
+examples/hci-hf-lab/fixtures.manifest.json text eol=lf
 # Vendored licence texts for add-on packs: the build copies them only when their SHA-256
 # matches licence-approvals.toml, so no checkout may rewrite their line endings.
 packaging/packs/licence-texts/** -text

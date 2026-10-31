@@ -114,8 +114,8 @@ def test_the_public_part_of_design_is_still_committable() -> None:
 #
 # `design/README.md` carries the visibility table and says in the same breath that
 # three mechanisms enforce it and "changing one without the others is a bug". The
-# table declared `paper/results/` public from the day the harness was published.
-# The hook's allow-list still read `^paper/benchmark/[^/]+\.(py|md)$`, so the
+# table declared the results folder public from the day the harness was published.
+# The hook's allow-list still read `^…/benchmark/[^/]+\.(py|md)$`, so the
 # entire results archive — the artifacts behind every number on a public page —
 # was uncommittable, and the block message read like a considered policy decision
 # rather than a list that had not caught up. Nothing failed until someone tried.
@@ -130,7 +130,7 @@ TABLE_ROW = re.compile(r"^\|\s*(`[^|]+`)\s*\|\s*\*\*(Public|Private)\*\*\s*\|", 
 def _contract_trees(visibility: str) -> tuple[str, ...]:
     """Directories the visibility table in design/README.md gives `visibility`.
 
-    A row may name more than one directory (`paper/benchmark/`, `paper/results/`),
+    A row may name more than one directory,
     so each cell is split on the comma and every backticked path is returned.
     """
     text = (ROOT / "design" / "README.md").read_text(encoding="utf-8")
@@ -160,7 +160,7 @@ def test_the_contract_table_is_parseable() -> None:
     """Guard the guard, again: an unparseable table must not read as agreement."""
     public = _contract_trees("Public")
     private = _contract_trees("Private")
-    assert len(public) >= 3, f"only {public} parsed as public out of design/README.md"
+    assert len(public) >= 2, f"only {public} parsed as public out of design/README.md"
     assert len(private) >= 3, f"only {private} parsed as private out of design/README.md"
     assert not set(public) & set(private), "a directory is listed as both"
 
@@ -170,12 +170,6 @@ def test_the_contract_table_is_parseable() -> None:
     [
         ("design/", "adr/adr-001.md"),
         ("docs/", "benchmarks.md"),
-        ("paper/benchmark/", "bench_wer.py"),
-        ("paper/benchmark/", "probes/largev3_repeat.py"),
-        ("paper/benchmark/", "probes/drivers/x86-bootstrap.sh"),
-        ("paper/results/", "wer.json"),
-        ("paper/results/", "README.md"),
-        ("paper/results/", "probes/logs/x86b-serial_chain.log"),
     ],
 )
 def test_every_tree_called_public_can_actually_be_committed(tree: str, name: str) -> None:
@@ -205,11 +199,13 @@ def test_every_tree_called_public_can_actually_be_committed(tree: str, name: str
 @pytest.mark.parametrize(
     ("prefix", "rest"),
     [
-        ("paper/", "main.tex"),                     # the manuscript
-        ("paper/", "corpus/ami/ES2004a.wav"),       # licensed audio
-        ("paper/", "references/whisper.pdf"),       # a third-party paper
-        ("paper/benchmark/", "corpus/train.wav"),   # audio smuggled under the harness
-        ("paper/results/", "corpus/ES2004a.flac"),  # audio smuggled under the archive
+        ("papers/", "paper-beyond-wer/main.tex"),   # a manuscript
+        ("papers/", "corpus/ami/ES2004a.wav"),      # licensed audio
+        ("papers/", "references/whisper.pdf"),      # a third-party paper
+        ("papers/benchmark/", "bench_wer.py"),      # the harness, which used to be an exception
+        ("papers/results/", "wer.json"),            # the archive, which used to be an exception
+        ("paper/", "benchmark/bench_wer.py"),       # the retired name of the same folder
+        ("paper/", "results/wer.json"),
         ("strategy", "/launch.md"),
         (".claude", "/plans/today.md"),
     ],
@@ -219,11 +215,9 @@ def test_widening_the_allow_list_did_not_let_the_private_half_through(
 ) -> None:
     """The allow-list is anchored on extension, not on depth, precisely so that a
     subdirectory under a published tree cannot carry audio or a manuscript out.
-    `paper/` is private *except* for code and small artifacts, and that exception
-    has to stay an exception."""
+    `papers/` is private, harness and results included; the old exception for them is retired."""
     path = prefix + rest
     assert not _committable(_hook_text(), path), (
-        f"{path} would be committable to a public repository. The paper/ exception "
-        f"is for harness code (.py/.md/.sh) and result artifacts (.json/.md/.log) "
-        f"only — no audio, no transcripts, no manuscript."
+        f"{path} would be committable to a public repository. Nothing under papers/ or the "
+        f"retired paper/ folder may be: manuscripts, harness, results and corpus are private."
     )

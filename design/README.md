@@ -23,6 +23,7 @@ site](https://mskazemi.com/yazses/) instead. This directory answers the other qu
 | [`v2-cognitive-layer/`](v2-cognitive-layer/) | Design notes for the opt-in perceptual/personalization features. |
 | [`meeting-mode/`](meeting-mode/), [`mobile/`](mobile/) | Subsystem design notes. |
 | [`chinese/`](chinese/) | First-class Mandarin support design package: architecture, model policy, validation, risk controls, community task contracts, and release evidence gates. |
+| [`xr/`](xr/) | **Proposed future research:** ten voice/gaze/metaverse interaction ideas, conditional delivery plan, adapter architecture, safety gates, evaluation and contributor work packages. No shipped XR support or implementation approval. |
 | [`eye-control/`](eye-control/) | Eye/gaze/head/face-camera accessibility programme: as-built audit, roadmap, test gates and agent-sized tasks. |
 | [`packaging/`](packaging/) | Release-engineering runbooks: APT, PPA, Snap, macOS notarisation, Windows signing. Procedures only — they name GitHub Secret *keys*, never values. |
 
@@ -36,8 +37,8 @@ and a new file's status is never ambiguous.
 | `design/` | **Public** | Engineering and science. The argument for the software is the software's best evidence. |
 | `docs/` | **Public** | User-facing documentation, published to the docs site. |
 | `strategy/` | **Private** | Marketing copy, SEO analysis, vision/idea notes for features that may never ship, distribution status. Tactics lose value when public, and unbuilt ideas read as promises. |
-| `paper/` | **Private** | Private manuscript and reference working material: all of the author's papers live here and none of their source is published. |
-| `paper/benchmark/`, `paper/results/` | **Public** | The exception, and a deliberate one: `docs/benchmarks.md` publishes numbers and tells the reader to reproduce them. While these were private, those instructions 404'd and the page's central promise was false. Harness code and small result JSON only — no audio, no transcripts, no manuscript. |
+| `papers/` | **Private** | The manuscripts, the benchmark harness, the archived result files and the corpus: everything the author's papers rest on lives here, in its own private repository, and none of it is published. `docs/benchmarks.md` gives the numbers and the method; it does not ship the harness. |
+| `paper/` | **Private** | The old name of the harness and results folder, retired. Nothing under it may be committed. |
 | `.claude/` | **Private** | Coding-agent artifacts: plans, memory, project-local skills. |
 
 Enforced in three places, all of which must agree: `.gitignore`,

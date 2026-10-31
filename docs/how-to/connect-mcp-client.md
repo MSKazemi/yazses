@@ -78,7 +78,8 @@ claude mcp add yazses -- yazses mcp-server
 ## Route 3: the MCP registry
 
 The official [MCP registry](https://registry.modelcontextprotocol.io) lists servers that
-clients can search for. YazSes is **not listed yet**. Once it is, it will appear as
+clients can search for. YazSes is **not listed yet**. The entry is ready, and the
+maintainer will publish it from a release. Once it is listed, it will appear as
 `io.github.MSKazemi/yazses`, pointing at the `yazses` package on PyPI with the argument
 `mcp-server`.
 

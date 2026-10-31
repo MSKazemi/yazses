@@ -22926,7 +22926,7 @@
       "uv run python -m pytest tests/test_bench_wer_split.py tests/test_benchmarks_match_results.py -q"
     ],
     "evidence": [],
-    "state": "open",
+    "state": "expired",
     "source": "issue #503 (Mandarin model evidence; CHN-40)"
   },
   {

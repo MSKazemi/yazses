@@ -22,7 +22,7 @@
 
 | Phase | Status | Evidence | Tracking |
 |---|---|---|---|
-| 0 — measurement harness (LOFA-1) | **Not done.** No harness or result for endpoint lead time or false-early-fire rate is recorded | nothing under `paper/benchmark/` measures it | No tracker |
+| 0 — measurement harness (LOFA-1) | **Not done.** No harness or result for endpoint lead time or false-early-fire rate is recorded | nothing under `benchmark/` measures it | No tracker |
 | 1 — pre-warm | **Shipped, narrower than designed**, off by default (`[endpoint]`, slug `ghost-ahead`). The anticipator is fed only from the streaming-partial loop, so it acts only when `[streaming] enabled` is also on; this spec wanted it on the default batch path. The Phase 1 gate (a measured cut in the post-release tail, ≤ 3 fires per release) is unmeasured | `stt/endpoint.py` `EndpointAnticipator`; `core/daemon.py` `_endpoint_prewarm_tick` calls `StreamingEngine.prewarm()`; `stt/streaming.py` `prefix_stable_for_ms()`. `audio/vad_calibrated.py` `trailing_energy_falling()` has no caller, and `[endpoint] prefix_stable_ms` / `falling_window_ms` are flagged inert in `docs/configuration.md` | No tracker |
 | 2 — speculative finalize | **Not built.** `[endpoint] speculative_finalize` is accepted and inert; the LOFA-3 harmless-discard test it is gated on does not exist | `docs/configuration.md` (⚠️ inert) | No tracker; no delivery promise |
 | Content ghost-text (lexical prediction) | **Rejected** — unchanged. Re-opens only on the pre-registered bar: a peer-reviewed result showing > 30 % acceptance of free-form *spoken*-content suggestions on CPU-class models. No such result is recorded here | *Explicitly deferred* and *Deferred-feature note* below | None — rejected, see the note below |

@@ -3,6 +3,11 @@
 **Status:** Assessment of `main` as of 2026-09-20  
 **Purpose:** Identify what is already implemented, what is only documented, what is unsafe to expose as a product-level switch, and which architectural seams should be preserved.
 
+> **Historical baseline (2026-09-20).** This file records the code state at its original audit,
+> not the 2026-10-29 implementation. Profile switching, Mandarin command grammar, meeting
+> Han counting, CJK transcript fixes and the CER harness have since landed. For *current*
+> status and evidence see [2026-10-29 as-built audit](2026-10-29-as-built-audit.md).
+
 ## Executive finding
 
 YazSes does **not** need a new Chinese transcription pipeline.

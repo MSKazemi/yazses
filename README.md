@@ -1,5 +1,7 @@
 # YazSes
 
+<!-- mcp-name: io.github.MSKazemi/yazses -->
+
 **Offline voice typing for Linux, macOS and Windows.** Hold a key, speak, release, and your
 words are typed into whatever app you are using.
 
@@ -13,8 +15,9 @@ account, no subscription and no API key. YazSes is free and open source under Ap
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21856271.svg)](https://doi.org/10.5281/zenodo.21856271)
 [![Documentation](https://img.shields.io/badge/docs-mskazemi.com%2Fyazses-5e35b1)](https://mskazemi.com/yazses/)
+[![Hosted demo on Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-hosted%20demo-yellow)](https://huggingface.co/spaces/mskazemi/yazses-offline-transcription-demo)
 [![Open Source Helpers](https://www.codetriage.com/mskazemi/yazses/badges/users.svg)](https://www.codetriage.com/mskazemi/yazses)
-[![All Contributors](https://img.shields.io/badge/all_contributors-46-orange.svg?style=flat-square)](#contributors)
+[![All Contributors](https://img.shields.io/badge/all_contributors-48-orange.svg?style=flat-square)](#contributors)
 
 ![YazSes — hold a key, speak, release; the text is typed into the focused app](docs/screenshots/yazses-reel.gif)
 
@@ -110,6 +113,14 @@ your microphone, hotkey and typing, and tells you what to fix.
 in Docker or your browser, or read [what installing actually costs](https://mskazemi.com/yazses/install-cost.html)
 first. APT, Snap, pipx, `.dmg` and `.exe` are covered under
 [all install options](#all-install-options).
+
+> **Hugging Face, in one paragraph.** The speech models YazSes downloads once are hosted on
+> the Hugging Face Hub; after that, recognition runs on your own computer. The
+> [hosted demo](https://huggingface.co/spaces/mskazemi/yazses-offline-transcription-demo) is
+> a separate page that processes audio **on Hugging Face's servers**, so it is for judging
+> accuracy, not for private use. GitHub stays the home of the code and of contributions.
+> The project's Hugging Face organization is [huggingface.co/yazses](https://huggingface.co/yazses).
+> Details: [YazSes and Hugging Face](docs/hugging-face.md).
 
 ## 🙌 Help build YazSes
 
@@ -305,7 +316,7 @@ decides every utterance today**.
 **Performance.** Measured on a 13th-gen Core i7 laptop, int8 on CPU: **4.07 % WER** on
 LibriSpeech test-clean with the default `base.en`, a **1.56 s median** decode, and **0.29 ms**
 of total non-decode pipeline overhead. Almost all of the latency is the speech model. The
-method and the commands to reproduce these numbers are on the [benchmarks page](docs/benchmarks.md).
+method behind these numbers is on the [benchmarks page](docs/benchmarks.md).
 
 **Models**
 
@@ -703,6 +714,7 @@ architecture and troubleshooting.
 | [Install on Windows](docs/windows-install.md) | SmartScreen, antivirus exceptions, privacy settings |
 | [CLI reference](docs/cli-reference.md) | Every command and flag, including macros and vocabulary |
 | [Privacy statement](docs/privacy-statement.md) | What stays on-device and what is never collected |
+| [YazSes and Hugging Face](docs/hugging-face.md) | Where the models come from, what the hosted demo does with audio, how the paper and benchmarks relate |
 | [Research: the science of post-keyboard input](docs/research/index.md) | Cited surveys of eye, voice and muscle/brain input, with every design decision traced to a measurement |
 | [Students, researchers and industry](docs/research/get-involved.md) | Thesis-sized projects with open issues, the research platform, how to cite |
 | [Record your own demo GIF](docs/demo-guide.md) | How to capture a short hold-to-talk demo |
@@ -764,7 +776,7 @@ Before you open a pull request, run the same gates as CI (see [CONTRIBUTING.md](
 
 ```bash
 uv run python -m pytest tests/   # tests — must be green
-uv run ruff check src tests scripts paper/benchmark   # lint — must be green
+uv run ruff check src tests scripts   # lint — must be green
 uv run mypy src                  # types — advisory (currently clean; don't add errors)
 ```
 
@@ -896,6 +908,8 @@ patch counts. Contribution types follow the [all-contributors emoji key](https:/
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Warayuth014"><img src="https://avatars.githubusercontent.com/u/124881432?v=4?s=100" width="100px;" alt="Warayut Bunbanlu"/><br /><sub><b>Warayut Bunbanlu</b></sub></a><br /><a href="#translation-Warayuth014" title="Translation">🌍</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/nuthakkikeerthi"><img src="https://avatars.githubusercontent.com/u/203968755?v=4?s=100" width="100px;" alt="nuthakkikeerthi"/><br /><sub><b>nuthakkikeerthi</b></sub></a><br /><a href="#translation-nuthakkikeerthi" title="Translation">🌍</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/loneicewolf"><img src="https://avatars.githubusercontent.com/u/68499986?v=4?s=100" width="100px;" alt="loneicewolf"/><br /><sub><b>loneicewolf</b></sub></a><br /><a href="#translation-loneicewolf" title="Translation">🌍</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/2D00M6"><img src="https://avatars.githubusercontent.com/u/196942467?v=4?s=100" width="100px;" alt="2D00M6"/><br /><sub><b>2D00M6</b></sub></a><br /><a href="#translation-2D00M6" title="Translation">🌍</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Ptraaah"><img src="https://avatars.githubusercontent.com/u/122882415?v=4?s=100" width="100px;" alt="Ptraaah"/><br /><sub><b>Ptraaah</b></sub></a><br /><a href="#translation-Ptraaah" title="Translation">🌍</a></td>
     </tr>
   </tbody>
 </table>

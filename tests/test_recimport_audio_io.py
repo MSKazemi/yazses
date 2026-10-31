@@ -31,6 +31,47 @@ def test_load_wav_returns_16k_mono_float32(tmp_path):
     assert abs(len(audio) - 8000) < 400  # ~0.5s at 16 kHz
 
 
+def test_pyav_alone_decodes_a_wav_with_the_ffmpeg_fallback_removed(tmp_path, monkeypatch):
+    """The PyAV path has to work on its own, not merely "work or fall back".
+
+    `load_audio` retries with a system ffmpeg when PyAV raises, so on any machine that
+    has ffmpeg a broken PyAV still passes `test_load_wav_returns_16k_mono_float32`
+    through the fallback. PyAV 19 broke a fresh `pip install` this way:
+    faster-whisper 1.2.1 calls `av.open(..., metadata_errors=...)`, which 19 rejects,
+    so without ffmpeg every `yazses transcribe <file>` failed, even on a plain WAV.
+    The lockfile held PyAV 18, which is why nothing here noticed. Removing the
+    fallback makes this test depend on PyAV alone.
+    """
+    monkeypatch.setattr("yazses.recimport.audio_io.shutil.which", lambda _name: None)
+    f = tmp_path / "tone.wav"
+    _write_wav(f)
+    audio, sr = load_audio(f)
+    assert sr == 16000
+    assert abs(len(audio) - 8000) < 400
+
+
+def test_the_pyav_ceiling_stays_while_faster_whisper_still_passes_metadata_errors():
+    """The test above decodes with the lockfile's PyAV 18, so it stays green if the
+    `av` ceiling in pyproject.toml is dropped, and a fresh `pip install` breaks again.
+    The ceiling stays for as long as faster-whisper passes the argument PyAV 19 removed.
+    """
+    import inspect
+    import re
+    import tomllib
+    from pathlib import Path
+
+    import faster_whisper.audio
+
+    if "metadata_errors" not in inspect.getsource(faster_whisper.audio.decode_audio):
+        pytest.skip("faster-whisper no longer passes metadata_errors: the av ceiling can go")
+    pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
+    deps = tomllib.loads(pyproject.read_text(encoding="utf-8"))["project"]["dependencies"]
+    av = [d for d in deps if re.match(r"av\s*(?:[<>=!~;]|$)", d)]
+    assert av, "pyproject.toml no longer caps `av`"
+    ceiling = re.search(r"<\s*(\d+)", av[0])
+    assert ceiling and int(ceiling.group(1)) <= 19, f"`{av[0]}` lets PyAV 19 back in"
+
+
 # ---- the documented contract when nothing can decode the file ---------------
 
 

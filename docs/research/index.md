@@ -102,6 +102,11 @@ the hardware.
   What YazSes still lacks before you could run, replicate and publish a study
   with it — deliberately unflattering, with the seam and the size for each.
 
+- :material-flask-outline: **[Hugging Face × multimodal HCI lab](huggingface-multimodal-hci.md)**
+  A proposed offline-first research programme: model provenance, synthetic Spaces,
+  shared-camera/gaze benchmarking, EMG and experimental EEG/EOG with explicit evidence gates.
+  Research, not a shipped cloud or brain-control feature.
+
 - :material-eye-outline: **[Eye control](eye-control.md)**
   What a $20 webcam can and cannot know about where you look — and why
   "coarse but honest" beats "precise but fake".

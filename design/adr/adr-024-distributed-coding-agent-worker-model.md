@@ -291,6 +291,14 @@ behind it (zero approvals, the admin bypass mode, non-strict status policy) are 
 [CI_POLICY.md §6.2](../../.github/CI_POLICY.md). Until that step is applied and validated as
 #462 describes, Phase 3 stays closed.
 
+**Update (2026-10-30, #462).** `ci-gate` has now reported on `main` and on ordinary PRs. A
+red blocking set failed it, and a failure confined to an advisory job did not.
+CI_POLICY.md §6.2 lists the runs. Since the fast/full lane split (#535), `ci-gate` also
+accepts a skipped full-lane job, but only when the lane decision is literally `false`. The
+advisory jobs are now `freebsd` and `windows-update-handoff`. The live ruleset has not
+changed. Prerequisite 1 and the "required by the ruleset" half of prerequisite 2 are still
+**not met**.
+
 One limit holds even after the ruleset is applied. A pull request runs its own copy of
 `test.yml`, so a PR can change the gate it is judged by. This prerequisite therefore relies on
 human review of workflow changes; the ruleset alone does not deliver it. Workflow and release
