@@ -711,7 +711,7 @@ design/chinese/results/<release-or-date>/
     native-review.md
 ```
 
-If repository policy prefers `paper/results` for machine artifacts, put JSON there and link from this directory. Follow the established public/private visibility contract.
+If repository policy prefers `results` for machine artifacts, put JSON there and link from this directory. Follow the established public/private visibility contract.
 
 ---
 

@@ -65,10 +65,10 @@ never sees.
 
 **The capability.** Given a presented phrase, a transcribed result and the correction
 actions, compute the standard set. This is arithmetic on data the system already has, and
-`paper/benchmark/bench_throughput.py` already reports the uncorrected error rate — the
+`benchmark/bench_throughput.py` already reports the uncorrected error rate — the
 corrected and MSD rates are what is missing.
 
-**Seam:** `paper/benchmark/bench_wer.py` is the natural home. **Size:** days.
+**Seam:** `benchmark/bench_wer.py` is the natural home. **Size:** days.
 **Why it matters for publishing:** a paper reporting only WER will be asked for these in
 review.
 
@@ -133,7 +133,7 @@ speaker in the sample.
 post-hoc grouping: per-speaker WER with dispersion, and a worst-group figure beside the
 mean.
 
-**Seam:** `paper/benchmark/_common.py`. **Size:** days.
+**Seam:** `benchmark/_common.py`. **Size:** days.
 **Related:** agenda question 6 and [#255](https://github.com/MSKazemi/yazses/issues/255).
 
 ## 9. Result artifacts that survive the paper

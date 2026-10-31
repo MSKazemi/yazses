@@ -1,797 +1,797 @@
 {
   "excluded": [
     {
-      "path": "paper/results/MANIFEST.md",
+      "path": "results/MANIFEST.md",
       "reason": "documentation about the archive, not a result",
-      "sha256": "12584c696bff10430089f4ce31b3db05e871954825c00a730233b603c2e65bf9"
+      "sha256": "3425a4d2f3e53cf0051c38e1886ec57b5fa0ee619e293def99242c2fe2d01e6c"
     },
     {
-      "path": "paper/results/README.md",
+      "path": "results/README.md",
       "reason": "documentation about the archive, not a result",
-      "sha256": "e9dbd94bbdb0779a219f41c804038ceb5bb3993a4bfa8390f1be0d7b0d382673"
+      "sha256": "3aecca4a8c6e99b96f6b34ae8c65c781e3cac38a040872b5ea8dfa87e23e3673"
     },
     {
-      "path": "paper/results/centroid-merge-ami16_corpus-meeting.json",
+      "path": "results/centroid-merge-ami16_corpus-meeting.json",
       "reason": "per-cluster embedding centroids and every cluster-pair cosine; bulky derived embedding data rather than a summary table",
       "sha256": "9a8785378af2ad244ad2f836e649fbd3b0209dac8b7739349e1f2689ce650fcb"
     },
     {
-      "path": "paper/results/centroid-merge-ami16_corpus-recimport.json",
+      "path": "results/centroid-merge-ami16_corpus-recimport.json",
       "reason": "per-cluster embedding centroids and every cluster-pair cosine; bulky derived embedding data rather than a summary table",
       "sha256": "89b9922909e3a04f4f27ae219c19e07f23a80653481938bc9dcd40b62406c3f2"
     },
     {
-      "path": "paper/results/history/platform-resolution-2026-08-24T01-00-23Z.json",
+      "path": "results/history/platform-resolution-2026-08-24T01-00-23Z.json",
       "reason": "dated copy kept for the archive's own history (a probe run or an earlier platform-resolution snapshot); not a current result",
       "sha256": "3b32af817b3ff9b74bd57ae4521b086c77d111541062c4457d68f890eb9ec983"
     },
     {
-      "path": "paper/results/history/probes-decode-mechanism-base.en-test-clean-2026-08-24T15-41-44Z.json",
+      "path": "results/history/probes-decode-mechanism-base.en-test-clean-2026-08-24T15-41-44Z.json",
       "reason": "dated copy kept for the archive's own history (a probe run or an earlier platform-resolution snapshot); not a current result",
       "sha256": "92e3f6fc3d42e7b5891256cfdb5defd850bcdc1621e5dcc14757b2c949d31fde"
     },
     {
-      "path": "paper/results/history/probes-prompt-vs-no-context-small.en-test-clean-2026-08-24T15-17-17Z.json",
+      "path": "results/history/probes-prompt-vs-no-context-small.en-test-clean-2026-08-24T15-17-17Z.json",
       "reason": "dated copy kept for the archive's own history (a probe run or an earlier platform-resolution snapshot); not a current result",
       "sha256": "1ba4a4bfa46d52b92a8b8eae2d12cd0a426f61fff9fdd50d53873d19e818048d"
     },
     {
-      "path": "paper/results/history/probes-prompt-vs-no-context-small.en-test-clean-2026-08-24T15-18-29Z.json",
+      "path": "results/history/probes-prompt-vs-no-context-small.en-test-clean-2026-08-24T15-18-29Z.json",
       "reason": "dated copy kept for the archive's own history (a probe run or an earlier platform-resolution snapshot); not a current result",
       "sha256": "542f7cc3a930d939122b07968d60c45717e6bd282aebc97923d7e5142b760066"
     },
     {
-      "path": "paper/results/history/probes-thread-determinism-base.en-test-clean-2026-08-24T15-57-24Z.json",
+      "path": "results/history/probes-thread-determinism-base.en-test-clean-2026-08-24T15-57-24Z.json",
       "reason": "dated copy kept for the archive's own history (a probe run or an earlier platform-resolution snapshot); not a current result",
       "sha256": "1a4a7ee690818f75b26755c7379c9127d01b4a46803b99f0bca794f5f09c9c39"
     },
     {
-      "path": "paper/results/history/probes-thread-determinism-base.en-test-clean-2026-08-24T17-26-09Z.json",
+      "path": "results/history/probes-thread-determinism-base.en-test-clean-2026-08-24T17-26-09Z.json",
       "reason": "dated copy kept for the archive's own history (a probe run or an earlier platform-resolution snapshot); not a current result",
       "sha256": "c8360a950da046917de30a3af8bce11a0538e6853be39f63827520759790d925"
     },
     {
-      "path": "paper/results/index.json",
+      "path": "results/index.json",
       "reason": "superseded roll-up snapshot written by run_all.py (2.12.0.dev4); its wer block duplicates wer.json, so exporting both would count the same decode twice",
       "sha256": "df40c154d0c6d185980e33ec7c42198c824ab0238f786cb1feb1fcf1224dbfd9"
     },
     {
-      "path": "paper/results/meta.json",
+      "path": "results/meta.json",
       "reason": "mixes three unrelated families (dysfluency-gate evaluation, model disk footprint, repository size statistics); not normalised in schema version 1",
       "sha256": "447ac9174748c90940f5a64838e0132cef224f3267815cef8b9e3afe88529a98"
     },
     {
-      "path": "paper/results/platform-resolution.json",
+      "path": "results/platform-resolution.json",
       "reason": "install-target resolution per OS and instruction set; not an accuracy, latency or diarization evaluation",
       "sha256": "4733c009a27f4b80d26d4f1d25f887212766cbf953c368144323df59073b382f"
     },
     {
-      "path": "paper/results/platforms/README.md",
+      "path": "results/platforms/README.md",
       "reason": "documentation about the archive, not a result",
       "sha256": "f4d5a695021fbd8891295249239e9d4ca9f0db9fa7e97e5ff216c6ffdaf4c93f"
     },
     {
-      "path": "paper/results/platforms/macos-latest/commands.json",
+      "path": "results/platforms/macos-latest/commands.json",
       "reason": "one-off CI-runner smoke run (60 utterances, shared hardware of unknown neighbours, load average noted); its README says it is not the published table, so it is not mixed with the dedicated-host 200-utterance runs",
       "sha256": "99eb7b8d871b07f0cee41a9bc5f2dda8a97afb22f71b47e8d86b85adc9feb3bc"
     },
     {
-      "path": "paper/results/platforms/macos-latest/index.json",
+      "path": "results/platforms/macos-latest/index.json",
       "reason": "one-off CI-runner smoke run (60 utterances, shared hardware of unknown neighbours, load average noted); its README says it is not the published table, so it is not mixed with the dedicated-host 200-utterance runs",
       "sha256": "a18270413464ed13a28a6314d8e3199a370b827c6688ea61a0417838ced8eeb1"
     },
     {
-      "path": "paper/results/platforms/macos-latest/latency.json",
+      "path": "results/platforms/macos-latest/latency.json",
       "reason": "one-off CI-runner smoke run (60 utterances, shared hardware of unknown neighbours, load average noted); its README says it is not the published table, so it is not mixed with the dedicated-host 200-utterance runs",
       "sha256": "750b64fb087b8bb3fe15f1410d914c154f311e2a33d0b2d6fbaa9cc874805368"
     },
     {
-      "path": "paper/results/platforms/macos-latest/meta.json",
+      "path": "results/platforms/macos-latest/meta.json",
       "reason": "one-off CI-runner smoke run (60 utterances, shared hardware of unknown neighbours, load average noted); its README says it is not the published table, so it is not mixed with the dedicated-host 200-utterance runs",
       "sha256": "7088cc4e8f6ec3c798f77f4d8850822c7a801f171e7ba5fb3fbb46cb27bcca07"
     },
     {
-      "path": "paper/results/platforms/macos-latest/streaming.json",
+      "path": "results/platforms/macos-latest/streaming.json",
       "reason": "one-off CI-runner smoke run (60 utterances, shared hardware of unknown neighbours, load average noted); its README says it is not the published table, so it is not mixed with the dedicated-host 200-utterance runs",
       "sha256": "630afedb5f17572df60f92df422335b94b5fb18fea31f80d26595debf111bb66"
     },
     {
-      "path": "paper/results/platforms/macos-latest/vad.json",
+      "path": "results/platforms/macos-latest/vad.json",
       "reason": "one-off CI-runner smoke run (60 utterances, shared hardware of unknown neighbours, load average noted); its README says it is not the published table, so it is not mixed with the dedicated-host 200-utterance runs",
       "sha256": "5494f798276c9616f8e31cd8a9532fbc22fb00a32192f5489a981a3f7fd10e1c"
     },
     {
-      "path": "paper/results/platforms/macos-latest/wer.json",
+      "path": "results/platforms/macos-latest/wer.json",
       "reason": "one-off CI-runner smoke run (60 utterances, shared hardware of unknown neighbours, load average noted); its README says it is not the published table, so it is not mixed with the dedicated-host 200-utterance runs",
       "sha256": "9b7d53cde55974f7526b2be87790af4f107a944fc15d252db905b9365e599b94"
     },
     {
-      "path": "paper/results/platforms/ubuntu-24.04-arm/commands.json",
+      "path": "results/platforms/ubuntu-24.04-arm/commands.json",
       "reason": "one-off CI-runner smoke run (60 utterances, shared hardware of unknown neighbours, load average noted); its README says it is not the published table, so it is not mixed with the dedicated-host 200-utterance runs",
       "sha256": "53ba5632b5706f3416e70bd7b2d2e39967ad6ee21d1ccf64d6a1ff91458bb60f"
     },
     {
-      "path": "paper/results/platforms/ubuntu-24.04-arm/index.json",
+      "path": "results/platforms/ubuntu-24.04-arm/index.json",
       "reason": "one-off CI-runner smoke run (60 utterances, shared hardware of unknown neighbours, load average noted); its README says it is not the published table, so it is not mixed with the dedicated-host 200-utterance runs",
       "sha256": "8725906f9428f120699330f8032536502e2255a34e25c38285c30be22cd9c265"
     },
     {
-      "path": "paper/results/platforms/ubuntu-24.04-arm/latency.json",
+      "path": "results/platforms/ubuntu-24.04-arm/latency.json",
       "reason": "one-off CI-runner smoke run (60 utterances, shared hardware of unknown neighbours, load average noted); its README says it is not the published table, so it is not mixed with the dedicated-host 200-utterance runs",
       "sha256": "36a99756133abcbf415b5d0891afb559c02d5e18c20965b76896f62bfaf477da"
     },
     {
-      "path": "paper/results/platforms/ubuntu-24.04-arm/meta.json",
+      "path": "results/platforms/ubuntu-24.04-arm/meta.json",
       "reason": "one-off CI-runner smoke run (60 utterances, shared hardware of unknown neighbours, load average noted); its README says it is not the published table, so it is not mixed with the dedicated-host 200-utterance runs",
       "sha256": "5313bf3a4fc089d98ea9505d0548b3f03bcfb406244c7318a452401bddedd9a8"
     },
     {
-      "path": "paper/results/platforms/ubuntu-24.04-arm/streaming.json",
+      "path": "results/platforms/ubuntu-24.04-arm/streaming.json",
       "reason": "one-off CI-runner smoke run (60 utterances, shared hardware of unknown neighbours, load average noted); its README says it is not the published table, so it is not mixed with the dedicated-host 200-utterance runs",
       "sha256": "0aeafd0f8c0f499075c5f11512240ad5028853bf5107fe2d5329d2b0b28e136b"
     },
     {
-      "path": "paper/results/platforms/ubuntu-24.04-arm/vad.json",
+      "path": "results/platforms/ubuntu-24.04-arm/vad.json",
       "reason": "one-off CI-runner smoke run (60 utterances, shared hardware of unknown neighbours, load average noted); its README says it is not the published table, so it is not mixed with the dedicated-host 200-utterance runs",
       "sha256": "f61ec94a5aa00df1f99dc077cc96d1103acae4411ad83fa012d4a95c79321ce7"
     },
     {
-      "path": "paper/results/platforms/ubuntu-24.04-arm/wer.json",
+      "path": "results/platforms/ubuntu-24.04-arm/wer.json",
       "reason": "one-off CI-runner smoke run (60 utterances, shared hardware of unknown neighbours, load average noted); its README says it is not the published table, so it is not mixed with the dedicated-host 200-utterance runs",
       "sha256": "b031053601a91717f6214c2850db4e5b352cb1d50fb2ace3e5a590700cfe4f5b"
     },
     {
-      "path": "paper/results/platforms/ubuntu-latest/commands.json",
+      "path": "results/platforms/ubuntu-latest/commands.json",
       "reason": "one-off CI-runner smoke run (60 utterances, shared hardware of unknown neighbours, load average noted); its README says it is not the published table, so it is not mixed with the dedicated-host 200-utterance runs",
       "sha256": "bbd1331d666025ceb93e88f61b0f51440209df9d95ddfd9fd1229c8c49f987d2"
     },
     {
-      "path": "paper/results/platforms/ubuntu-latest/index.json",
+      "path": "results/platforms/ubuntu-latest/index.json",
       "reason": "one-off CI-runner smoke run (60 utterances, shared hardware of unknown neighbours, load average noted); its README says it is not the published table, so it is not mixed with the dedicated-host 200-utterance runs",
       "sha256": "6b2a1b87e49f8dc3cce45f10429722c39e8f79a3320f39effa8ef4f22677a0b1"
     },
     {
-      "path": "paper/results/platforms/ubuntu-latest/latency.json",
+      "path": "results/platforms/ubuntu-latest/latency.json",
       "reason": "one-off CI-runner smoke run (60 utterances, shared hardware of unknown neighbours, load average noted); its README says it is not the published table, so it is not mixed with the dedicated-host 200-utterance runs",
       "sha256": "1a1aee0f529d28afa1097b73683e286eddfd34e8dace3d111c285bf0cac42ffe"
     },
     {
-      "path": "paper/results/platforms/ubuntu-latest/meta.json",
+      "path": "results/platforms/ubuntu-latest/meta.json",
       "reason": "one-off CI-runner smoke run (60 utterances, shared hardware of unknown neighbours, load average noted); its README says it is not the published table, so it is not mixed with the dedicated-host 200-utterance runs",
       "sha256": "21f7bd752342b1e12e197a61cc0097e8a0de462b50118fc7785a950fd610076e"
     },
     {
-      "path": "paper/results/platforms/ubuntu-latest/streaming.json",
+      "path": "results/platforms/ubuntu-latest/streaming.json",
       "reason": "one-off CI-runner smoke run (60 utterances, shared hardware of unknown neighbours, load average noted); its README says it is not the published table, so it is not mixed with the dedicated-host 200-utterance runs",
       "sha256": "bfdf86a6294aa1c1d5428522cf61d7a37241e4e483b9965f1d555163f1466f11"
     },
     {
-      "path": "paper/results/platforms/ubuntu-latest/vad.json",
+      "path": "results/platforms/ubuntu-latest/vad.json",
       "reason": "one-off CI-runner smoke run (60 utterances, shared hardware of unknown neighbours, load average noted); its README says it is not the published table, so it is not mixed with the dedicated-host 200-utterance runs",
       "sha256": "c2aa6c466910fc9be6b5b9e7aac8bd08c12f56f9f9368f33007a216062d5bc92"
     },
     {
-      "path": "paper/results/platforms/ubuntu-latest/wer.json",
+      "path": "results/platforms/ubuntu-latest/wer.json",
       "reason": "one-off CI-runner smoke run (60 utterances, shared hardware of unknown neighbours, load average noted); its README says it is not the published table, so it is not mixed with the dedicated-host 200-utterance runs",
       "sha256": "fff66a45a8d0848ed30386586c40388ee0e89ec168733dc6d102be63b406f97e"
     },
     {
-      "path": "paper/results/platforms/windows-latest/commands.json",
+      "path": "results/platforms/windows-latest/commands.json",
       "reason": "one-off CI-runner smoke run (60 utterances, shared hardware of unknown neighbours, load average noted); its README says it is not the published table, so it is not mixed with the dedicated-host 200-utterance runs",
       "sha256": "425e5a9bd2a201aa5471cbe13939c4bdd178d531a37355e269d02fef488569a1"
     },
     {
-      "path": "paper/results/platforms/windows-latest/index.json",
+      "path": "results/platforms/windows-latest/index.json",
       "reason": "one-off CI-runner smoke run (60 utterances, shared hardware of unknown neighbours, load average noted); its README says it is not the published table, so it is not mixed with the dedicated-host 200-utterance runs",
       "sha256": "dadb74a02fe2dbe65c09570516a53f3af0b591bf5a719e23cc928dc47703a90f"
     },
     {
-      "path": "paper/results/platforms/windows-latest/latency.json",
+      "path": "results/platforms/windows-latest/latency.json",
       "reason": "one-off CI-runner smoke run (60 utterances, shared hardware of unknown neighbours, load average noted); its README says it is not the published table, so it is not mixed with the dedicated-host 200-utterance runs",
       "sha256": "9449e90aa62616908e108d10707d244b05516ec456c2748dd2fddd906d4506ed"
     },
     {
-      "path": "paper/results/platforms/windows-latest/meta.json",
+      "path": "results/platforms/windows-latest/meta.json",
       "reason": "one-off CI-runner smoke run (60 utterances, shared hardware of unknown neighbours, load average noted); its README says it is not the published table, so it is not mixed with the dedicated-host 200-utterance runs",
       "sha256": "aaf905ab9285e073c62e10fbfc4113300142244ad01cea8e1ff81784be277b2a"
     },
     {
-      "path": "paper/results/platforms/windows-latest/streaming.json",
+      "path": "results/platforms/windows-latest/streaming.json",
       "reason": "one-off CI-runner smoke run (60 utterances, shared hardware of unknown neighbours, load average noted); its README says it is not the published table, so it is not mixed with the dedicated-host 200-utterance runs",
       "sha256": "82e251bc189b137ff08c69a1e7e139d9e500cdf270cce2cf6386d83eab26d1e1"
     },
     {
-      "path": "paper/results/platforms/windows-latest/vad.json",
+      "path": "results/platforms/windows-latest/vad.json",
       "reason": "one-off CI-runner smoke run (60 utterances, shared hardware of unknown neighbours, load average noted); its README says it is not the published table, so it is not mixed with the dedicated-host 200-utterance runs",
       "sha256": "455c4d78fa9be404e7f0f64d50bcb0546af1fefe122be9a3448b31bdde1fbc16"
     },
     {
-      "path": "paper/results/platforms/windows-latest/wer.json",
+      "path": "results/platforms/windows-latest/wer.json",
       "reason": "one-off CI-runner smoke run (60 utterances, shared hardware of unknown neighbours, load average noted); its README says it is not the published table, so it is not mixed with the dedicated-host 200-utterance runs",
       "sha256": "e0574f7f14c7c218627ae2c76fd1cfc5cbc001a4198db255401f7362587db558"
     },
     {
-      "path": "paper/results/plausibility-ami-1.2.json",
+      "path": "results/plausibility-ami-1.2.json",
       "reason": "attribution-warning firing-rate study with nested per-recording label-second maps; different family, not normalised in schema version 1",
       "sha256": "14ff1d560b9a33d6f3d3b8881bcfaefa3c8da4ab4a427618c8156f69b86c8218"
     },
     {
-      "path": "paper/results/plausibility-ami16-1.2.json",
+      "path": "results/plausibility-ami16-1.2.json",
       "reason": "attribution-warning firing-rate study with nested per-recording label-second maps; different family, not normalised in schema version 1",
       "sha256": "7116f975c941809b5e4af71d808c2ac1874f2f7a8d596257adadb48d8e508e98"
     },
     {
-      "path": "paper/results/plausibility-voxconverse-0.9.json",
+      "path": "results/plausibility-voxconverse-0.9.json",
       "reason": "attribution-warning firing-rate study with nested per-recording label-second maps; different family, not normalised in schema version 1",
       "sha256": "bcc3c110452a201a236a1b9e7d8b3e499f5e2ff7aec27c4bf5704460ed6ff7a7"
     },
     {
-      "path": "paper/results/plausibility-voxconverse-1.0.json",
+      "path": "results/plausibility-voxconverse-1.0.json",
       "reason": "attribution-warning firing-rate study with nested per-recording label-second maps; different family, not normalised in schema version 1",
       "sha256": "a38b6fdca7004efcf382a56bfee0989b6405ed36eae699f5b6e3ce2c81c6beaa"
     },
     {
-      "path": "paper/results/probes/README.md",
+      "path": "results/probes/README.md",
       "reason": "documentation about the archive, not a result",
-      "sha256": "42228a08c3ee1762a3397cb8874ce3a3f60726a434c356333d01d803c047edc3"
+      "sha256": "88aee7198760c6e291361e60624a07bccd9b6cff41095467aae32a1e14f4e859"
     },
     {
-      "path": "paper/results/probes/ami-der.json",
+      "path": "results/probes/ami-der.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "a6415bb6b3cf4fc57739dfdc2877d3ff84b74b6a75ee7e810f93159cc84e9292"
     },
     {
-      "path": "paper/results/probes/ami-maxspk4.json",
+      "path": "results/probes/ami-maxspk4.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "a3cc9cbc1589f8ee67ba09de338ad95f12a4ba8f24faa67ebd1f90efd1a9a054"
     },
     {
-      "path": "paper/results/probes/ami-one-der.json",
+      "path": "results/probes/ami-one-der.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "108fdc46af749d6064352e2e122a9e0062154b4a10d7a206f7e421aecdab0523"
     },
     {
-      "path": "paper/results/probes/ami-one-sweep.json",
+      "path": "results/probes/ami-one-sweep.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "b2da11659b3ad786192b6039ddd3d4d50bb2f7b0ec64236e462a1ec733dd5b64"
     },
     {
-      "path": "paper/results/probes/ami-sweep2.json",
+      "path": "results/probes/ami-sweep2.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "505ba684fad4adbea3d5e2696e03eb8fe6d98424891f151d63475907fd510502"
     },
     {
-      "path": "paper/results/probes/ami16-maxspk.json",
+      "path": "results/probes/ami16-maxspk.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "49fbbb8365ae3dd0cb95ba71917570789a5264adb367eafdbc10684f0cc7c444"
     },
     {
-      "path": "paper/results/probes/ami16-shipped.json",
+      "path": "results/probes/ami16-shipped.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "856cdf7f4257493b10559dbebc655959b89f903ab46e5d5975e5db6732db695b"
     },
     {
-      "path": "paper/results/probes/ami16-thr12.json",
+      "path": "results/probes/ami16-thr12.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "627c98052cf3e8a067288c0f18f61242f8bf0f61db334f8fca2ff3205a9f40f6"
     },
     {
-      "path": "paper/results/probes/beam-probe-other.json",
+      "path": "results/probes/beam-probe-other.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "bb088691cf9c4c648f10d149920d7b2db01fba85eeca15f0b2df22bb91ca2e58"
     },
     {
-      "path": "paper/results/probes/beam-probe.json",
+      "path": "results/probes/beam-probe.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "9b0bc607cbca269b14408e50702cdbe8e124059aad68a221ec07fb1034c23fa1"
     },
     {
-      "path": "paper/results/probes/clip-probe-rep.json",
+      "path": "results/probes/clip-probe-rep.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "23ee172c32effdbf41a562c2ebc8d0a85b66ec820f004f29de98b854f1a8487f"
     },
     {
-      "path": "paper/results/probes/clip-probe.json",
+      "path": "results/probes/clip-probe.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "b6cf4ef06a540755bbc4b758eabe8d73e688da9b22ee08cd5a80449de9059750"
     },
     {
-      "path": "paper/results/probes/decode-arms-per-utterance-large-v3-test-other.json",
+      "path": "results/probes/decode-arms-per-utterance-large-v3-test-other.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "1f725dafb8a886164b9a4037a8304978c983a221f3cb06162cf7a3d9887674d8"
     },
     {
-      "path": "paper/results/probes/decode-determinism-base.en-test-clean.json",
+      "path": "results/probes/decode-determinism-base.en-test-clean.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "23ca85cb7d051a35bf4b3571eaed07b0bcf998b6e48a2861d73a6f4eb188872e"
     },
     {
-      "path": "paper/results/probes/decode-determinism-base.en-test-other.json",
+      "path": "results/probes/decode-determinism-base.en-test-other.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "5ea0113892a44f67e9f0785ed723b89db1b420002c8a302a5d6f9c7c0d1b862b"
     },
     {
-      "path": "paper/results/probes/decode-determinism-large-v3-test-other-no_context.json",
+      "path": "results/probes/decode-determinism-large-v3-test-other-no_context.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "92848044c8c7cb2b6d244ebbebe530cc9b1b48fedc16a4386f6f57bd82e17534"
     },
     {
-      "path": "paper/results/probes/decode-determinism-large-v3-test-other.json",
+      "path": "results/probes/decode-determinism-large-v3-test-other.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "2d758063d0306827bcbc864578d29edab5261f6a1f843626b532e09783ed8db9"
     },
     {
-      "path": "paper/results/probes/decode-determinism-medium.en-test-clean-baseline-no_context.json",
+      "path": "results/probes/decode-determinism-medium.en-test-clean-baseline-no_context.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "4f9752a7802c62f200ee1ca3f0cead3da1d6f31aef86dc5a5817a98d0e08853f"
     },
     {
-      "path": "paper/results/probes/decode-determinism-medium.en-test-other-baseline-no_context.json",
+      "path": "results/probes/decode-determinism-medium.en-test-other-baseline-no_context.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "ad835a34a6d3a35c199eb2755dbe80bb8a4b88253d161bf5cd409613bde96642"
     },
     {
-      "path": "paper/results/probes/decode-determinism-small.en-test-clean-baseline-no_context.json",
+      "path": "results/probes/decode-determinism-small.en-test-clean-baseline-no_context.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "fa866577f49f85926583effd2776126a50977dbfb1e26556c418919c790ac9ba"
     },
     {
-      "path": "paper/results/probes/decode-determinism-small.en-test-other-baseline-no_context.json",
+      "path": "results/probes/decode-determinism-small.en-test-other-baseline-no_context.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "bab5d9bba202af410221424e6216c91248b8e50d4f4a069182d046defc6c5dc8"
     },
     {
-      "path": "paper/results/probes/decode-determinism-tiny.en-test-clean-baseline.json",
+      "path": "results/probes/decode-determinism-tiny.en-test-clean-baseline.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "ada7b927eb33e1a8d85cd86d0ea937fff36a4b26c151b36b28213d9ff412c04b"
     },
     {
-      "path": "paper/results/probes/decode-mechanism-base.en-test-clean.json",
+      "path": "results/probes/decode-mechanism-base.en-test-clean.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "7eb6172509a77cfce48c867b6bf94cf0db35fbb79301f06ea93fd32d27c0f1d0"
     },
     {
-      "path": "paper/results/probes/decode-mechanism-base.en-test-other.json",
+      "path": "results/probes/decode-mechanism-base.en-test-other.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "9b98c7789df4cd70fab30e61d3ba35c9c1846b2c9a8a0f28bccb53a452e2eb13"
     },
     {
-      "path": "paper/results/probes/decode-mechanism-large-v3-test-clean.json",
+      "path": "results/probes/decode-mechanism-large-v3-test-clean.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "f4793ae2a0f95b682a67f71b4b936c0ec87da579c81ce0a3fce4a196007788a6"
     },
     {
-      "path": "paper/results/probes/decode-mechanism-medium.en-test-other.json",
+      "path": "results/probes/decode-mechanism-medium.en-test-other.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "797625262e36a60ea7670c0a52a523aba4c0edb717c1000749aa015137f860f2"
     },
     {
-      "path": "paper/results/probes/decode-mechanism-small.en-test-other.json",
+      "path": "results/probes/decode-mechanism-small.en-test-other.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "fe4d5abb71574c5c0aea1b63e7077db4f32beb7b6b5a5601c1fa43232cf330bd"
     },
     {
-      "path": "paper/results/probes/der.json",
+      "path": "results/probes/der.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "8f015123932b60d12fe4012381215313f78d219cb41344325559810c4680a59e"
     },
     {
-      "path": "paper/results/probes/embmodel-test.json",
+      "path": "results/probes/embmodel-test.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "0f418ac10b86f12ec8c70b6aa59ecc25d583646961d85112eaf49796f21c8997"
     },
     {
-      "path": "paper/results/probes/embmodel-test2.json",
+      "path": "results/probes/embmodel-test2.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "6b486ffd9aeb0c6c87f2e3977f90fec03bac461b963280a3c245817b9cd4bdfc"
     },
     {
-      "path": "paper/results/probes/guard-0.9.json",
+      "path": "results/probes/guard-0.9.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "02c8dea314f2c4884ea0f7769d87ee8b3270d5eeac81f99e3b5146cd30b5f729"
     },
     {
-      "path": "paper/results/probes/guard-ami12.json",
+      "path": "results/probes/guard-ami12.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "67cedbf286891ee1ed86b784c145e15aabb9ad09bf071fa99e715074f0ca3d93"
     },
     {
-      "path": "paper/results/probes/guard-probe.json",
+      "path": "results/probes/guard-probe.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "d09ec81470f7a567eeaae6c8e33cb502a7491d428efbaede512f820726cee497"
     },
     {
-      "path": "paper/results/probes/guard-vox09.json",
+      "path": "results/probes/guard-vox09.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "04b03e9634f219f0aed504fccf1d51156589fc1b8dabfb323ebfd7d07360154a"
     },
     {
-      "path": "paper/results/probes/guard-vox10.json",
+      "path": "results/probes/guard-vox10.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "7cf4184097a73fbf4a133bf75df1a8260bcb08f9d01ec7f52a05f411ce94d4a5"
     },
     {
-      "path": "paper/results/probes/largev3-instability-test-clean.json",
+      "path": "results/probes/largev3-instability-test-clean.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "0b01b1745e30549162350a034ceef09e1e8fde1412947508d104d765268de3a0"
     },
     {
-      "path": "paper/results/probes/largev3-instability-test-other.json",
+      "path": "results/probes/largev3-instability-test-other.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "1d918b99d666c810a20701a729b113964c03cd839bc61c786b6dff59a184f58e"
     },
     {
-      "path": "paper/results/probes/leadin-probe.json",
+      "path": "results/probes/leadin-probe.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "84aa2c44c469adbd693ff7b2806b98d7cbb84aa547fc0f2a3321e35d78ed2ddf"
     },
     {
-      "path": "paper/results/probes/logs/persian-fleurs-matrix.log",
+      "path": "results/probes/logs/persian-fleurs-matrix.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "922c24f957580c6a42da677e142b42a972480154fdff71ddec63ef4ecf2f2e4e"
     },
     {
-      "path": "paper/results/probes/logs/x86-ami16.log",
+      "path": "results/probes/logs/x86-ami16.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "43a9d5b4708eebe8faf629a7b2151164109bac498be5148851cc5446f77f3f95"
     },
     {
-      "path": "paper/results/probes/logs/x86-ami16_build.log",
+      "path": "results/probes/logs/x86-ami16_build.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "0d19cdcdde40ff19592a67a49795f6e9be663291fffb949e56e2644facf983a8"
     },
     {
-      "path": "paper/results/probes/logs/x86-ami16_maxspk.log",
+      "path": "results/probes/logs/x86-ami16_maxspk.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "4553fa7b14a10d5209de598da1446c61eaa2e8cdda8e04b681149e31b3942c4a"
     },
     {
-      "path": "paper/results/probes/logs/x86-ami16_shipped.log",
+      "path": "results/probes/logs/x86-ami16_shipped.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "da74e5fcd6b9161428a8ee395ece184b23f48e2df9ad34e54251debf3ab21519"
     },
     {
-      "path": "paper/results/probes/logs/x86-ami16_thr12.log",
+      "path": "results/probes/logs/x86-ami16_thr12.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "4b82f2731199d26d5da6441eb02422d12962147d07bd797e61d6dbe1b2b638e4"
     },
     {
-      "path": "paper/results/probes/logs/x86-ami_crosscheck.log",
+      "path": "results/probes/logs/x86-ami_crosscheck.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "d69a92fd6dadf7396b4bcd85cd22384403e04cb1aa8a2e98972c117aed3a14b5"
     },
     {
-      "path": "paper/results/probes/logs/x86-bootstrap.log",
+      "path": "results/probes/logs/x86-bootstrap.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "d87dc4707963f64dceb24a3df2edf87e7143a8c5b186da510e10546618b6ec42"
     },
     {
-      "path": "paper/results/probes/logs/x86-der_run.log",
+      "path": "results/probes/logs/x86-der_run.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "f77567fa758b8db57783d7b270e8821a57027ecabdba984a485ec32a463c45f0"
     },
     {
-      "path": "paper/results/probes/logs/x86-det2.log",
+      "path": "results/probes/logs/x86-det2.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "bb6f6d94f238d84ca6554b59bd2bc1b373338d145de8bfce06b03ae284e0b51d"
     },
     {
-      "path": "paper/results/probes/logs/x86-det3.log",
+      "path": "results/probes/logs/x86-det3.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "44f127a2cb9fae89b1ae99fe80bc3788e24ec474222611a6de4a7bc07338e248"
     },
     {
-      "path": "paper/results/probes/logs/x86-det4.log",
+      "path": "results/probes/logs/x86-det4.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "4e67810c711defb99ac219b035f5b55458fe1438959454ee6882ec3d1fefa116"
     },
     {
-      "path": "paper/results/probes/logs/x86-diag_one.log",
+      "path": "results/probes/logs/x86-diag_one.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "c982af08ab3d6e81dba5d638848b746a815aa57f2768a12f6d647dafaf56a8a0"
     },
     {
-      "path": "paper/results/probes/logs/x86-embtest.log",
+      "path": "results/probes/logs/x86-embtest.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "cebe9ce6bbaa932649ee25f63936a08fb793e27296faf14ca38bc5bd7e24e335"
     },
     {
-      "path": "paper/results/probes/logs/x86-embtest2.log",
+      "path": "results/probes/logs/x86-embtest2.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "941361b0b553ae04a25ef7443b8270d4720f5cfe6b6e0d958ab69ecfe0925faa"
     },
     {
-      "path": "paper/results/probes/logs/x86-extras_run.log",
+      "path": "results/probes/logs/x86-extras_run.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "9ea097cd78e4111dedc762e42e8ebf1dedd5a3b610f62cb63f6e854502960f96"
     },
     {
-      "path": "paper/results/probes/logs/x86-final_run.log",
+      "path": "results/probes/logs/x86-final_run.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "a7f2df96bbc00ae02936de58197c4ab4abf4c2655feba760cd8c8c26e830ed3a"
     },
     {
-      "path": "paper/results/probes/logs/x86-final_wer.log",
+      "path": "results/probes/logs/x86-final_wer.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "50275ebb896ac67f38117fa3a1694679a44d2c40037354f31adc54431507114b"
     },
     {
-      "path": "paper/results/probes/logs/x86-guard_ami12.log",
+      "path": "results/probes/logs/x86-guard_ami12.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "a412cd81491ff05473e47fe475c50515766d2089d255d2f5c071456df17c41d7"
     },
     {
-      "path": "paper/results/probes/logs/x86-guard_ami_bench.log",
+      "path": "results/probes/logs/x86-guard_ami_bench.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "a0f178469e964d339dc68e90b7ffd4ba052e1515e47c0e1841fdfb5becc0937f"
     },
     {
-      "path": "paper/results/probes/logs/x86-guard_corpus.log",
+      "path": "results/probes/logs/x86-guard_corpus.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "16b4b1e63d9f355acdfc6c32b3aec965215ba9cb1ecea34bc969984fb357d4c9"
     },
     {
-      "path": "paper/results/probes/logs/x86-guard_probe.log",
+      "path": "results/probes/logs/x86-guard_probe.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "66e040d55edcb69402fa9e2a64cc2340ff096bacf06da24da68575cde88914da"
     },
     {
-      "path": "paper/results/probes/logs/x86-guard_sweep.log",
+      "path": "results/probes/logs/x86-guard_sweep.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "b911ac508a89aae8b9b371d4ea15d9ba76b10113cc10dd830165d943fa5a4192"
     },
     {
-      "path": "paper/results/probes/logs/x86-guard_vox10.log",
+      "path": "results/probes/logs/x86-guard_vox10.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "e0f08661db100ca0f49f5bb157dfe073a0965cdfb0a63e06935faf6e157e6321"
     },
     {
-      "path": "paper/results/probes/logs/x86-maxspk.log",
+      "path": "results/probes/logs/x86-maxspk.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "a60b53066cf177d3e2bc6791467a0da4a8c1a6119973a9ff1e2b91ffe09f8a94"
     },
     {
-      "path": "paper/results/probes/logs/x86-moon_check.log",
+      "path": "results/probes/logs/x86-moon_check.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "935b44dec419a1ee7225d6f9bacf18dab5028f2c8f998859d7065274112bdd75"
     },
     {
-      "path": "paper/results/probes/logs/x86-prep_vox.log",
+      "path": "results/probes/logs/x86-prep_vox.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "99c35ace5f8375f2048820c54da951ca3108fbd92736ebedd4cae140ae67fe98"
     },
     {
-      "path": "paper/results/probes/logs/x86-queue.log",
+      "path": "results/probes/logs/x86-queue.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "90d6754f6dab59b895830c5319b185b02b6dcd822310e4f6051f73151458f99b"
     },
     {
-      "path": "paper/results/probes/logs/x86-reverify_run.log",
+      "path": "results/probes/logs/x86-reverify_run.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "81dd978ae7db85a23d21cb02d09361c1418416de5bd85c778153e55f260541ed"
     },
     {
-      "path": "paper/results/probes/logs/x86-run_ami.log",
+      "path": "results/probes/logs/x86-run_ami.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "a3d201a500dfb1d4e2b4462eb12c87fbcccdb8d09254ee8c1dd9204e90275083"
     },
     {
-      "path": "paper/results/probes/logs/x86-run_ami2.log",
+      "path": "results/probes/logs/x86-run_ami2.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "70c31a6b6180fff3cea50ee5f982896b75e4ea5f2806ec2670948b4e9ab16128"
     },
     {
-      "path": "paper/results/probes/logs/x86-spk_profile.log",
+      "path": "results/probes/logs/x86-spk_profile.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "b1a0511fec7f9bce5c45c5f1ea1d4199916e953c43fad1be7e95f1d5f8a65e97"
     },
     {
-      "path": "paper/results/probes/logs/x86-sweep.log",
+      "path": "results/probes/logs/x86-sweep.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "ce914dbdd9ddf2d4f44eef5b7dcd82104cbf29ee2890abeb217c0a67ca43380b"
     },
     {
-      "path": "paper/results/probes/logs/x86-synth_wide.log",
+      "path": "results/probes/logs/x86-synth_wide.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "5944e4c784bc4a2b21edce7bd64c82569b0992b008a52ffa1b14b4d6e168734c"
     },
     {
-      "path": "paper/results/probes/logs/x86-thread1.log",
+      "path": "results/probes/logs/x86-thread1.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "12f11f857a20490affc4396fd976d05f9d24e789d98ae300b4f9492a8732cc8f"
     },
     {
-      "path": "paper/results/probes/logs/x86-thread2.log",
+      "path": "results/probes/logs/x86-thread2.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "469d63de0e99de6a01ac07b529470ab36a3539947fe7702cbdeb4e682ab3a496"
     },
     {
-      "path": "paper/results/probes/logs/x86-thread3.log",
+      "path": "results/probes/logs/x86-thread3.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "172799e60c0d52244d6fb51a9778a6f9a5b8b738958c965fb6ed8524e364d063"
     },
     {
-      "path": "paper/results/probes/logs/x86-validate_scorer.log",
+      "path": "results/probes/logs/x86-validate_scorer.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "20a7ab30861aa037cef0b5b7cc52a7685edd3c15bbcfba1418fef88978b9b094"
     },
     {
-      "path": "paper/results/probes/logs/x86-vox_gate.log",
+      "path": "results/probes/logs/x86-vox_gate.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "a91cae6caa9c78d1e8370bcd0299bf0306b67c2d92d43d0e48a0bd7ead75ead5"
     },
     {
-      "path": "paper/results/probes/logs/x86-vox_optimum.log",
+      "path": "results/probes/logs/x86-vox_optimum.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "2205a1a8a43aeb7573dd6b2259dbe06b9ad32225b81176ef5851f2afeccbd4f1"
     },
     {
-      "path": "paper/results/probes/logs/x86-vox_run.log",
+      "path": "results/probes/logs/x86-vox_run.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "33d56ccb25138d52a7281ec8ca80fa43080283173a3bd81ede06ff7f54558629"
     },
     {
-      "path": "paper/results/probes/logs/x86-wer_matrix.log",
+      "path": "results/probes/logs/x86-wer_matrix.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "08503ea045eabb4df77505fded3c53ebc06fda289c21ff8cf56f5babede4655e"
     },
     {
-      "path": "paper/results/probes/logs/x86-wer_matrix2.log",
+      "path": "results/probes/logs/x86-wer_matrix2.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "5a3a8c1c99adc535b506495f0f38f01e4610f156c54abb8029e69d3c1fe70af6"
     },
     {
-      "path": "paper/results/probes/logs/x86-wer_vm.log",
+      "path": "results/probes/logs/x86-wer_vm.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "60f8a54206a8013171bc9dc9b3d7808876d63bd02ea46c478b362fc8bdd8aa56"
     },
     {
-      "path": "paper/results/probes/logs/x86-wide_sweep.log",
+      "path": "results/probes/logs/x86-wide_sweep.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "364a9da2ffac7fe63d5954cfe92bc37478921af698be898913fd0ec461732ca3"
     },
     {
-      "path": "paper/results/probes/logs/x86-x86_final.log",
+      "path": "results/probes/logs/x86-x86_final.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "9c1e4fef0fd0f77858574ac16ef0e62b3c6a2900eb1fe2ee159ace221fbf5b91"
     },
     {
-      "path": "paper/results/probes/logs/x86-x86_reverify.log",
+      "path": "results/probes/logs/x86-x86_reverify.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "fe0e0888ce3b7d4f737ea23e6f270083714a214e468cfa6b6b7b40220984df88"
     },
     {
-      "path": "paper/results/probes/logs/x86-x86_sync.log",
+      "path": "results/probes/logs/x86-x86_sync.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "8566fa83c32f5ad9f2ee3013a685f5adb9ae20221ab097d286a956d29c508a20"
     },
     {
-      "path": "paper/results/probes/logs/x86-x86_three.log",
+      "path": "results/probes/logs/x86-x86_three.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "187329f811ae1777eb747ac611ae2fc1d6488494e8f45a64209705a97600c9ed"
     },
     {
-      "path": "paper/results/probes/logs/x86b-beam_probe.log",
+      "path": "results/probes/logs/x86b-beam_probe.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "ffde9b94ea03a807e265aaf4ec7e17bf2f6ca723efb8e560c7e2f98f87b5354a"
     },
     {
-      "path": "paper/results/probes/logs/x86b-beam_probe_other.log",
+      "path": "results/probes/logs/x86b-beam_probe_other.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "3fead4cbc4e2231edde858e3076477d7d6708bdf5ca6d9ada63faeef473d07c3"
     },
     {
-      "path": "paper/results/probes/logs/x86b-bootstrap.log",
+      "path": "results/probes/logs/x86b-bootstrap.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "d87dc4707963f64dceb24a3df2edf87e7143a8c5b186da510e10546618b6ec42"
     },
     {
-      "path": "paper/results/probes/logs/x86b-chain_x86b.log",
+      "path": "results/probes/logs/x86b-chain_x86b.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "ee275da035dc6b9488b3d3c4cbbf33ccc14258bbf542ffb45a08688b76efec08"
     },
     {
-      "path": "paper/results/probes/logs/x86b-clip_probe.log",
+      "path": "results/probes/logs/x86b-clip_probe.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "ae530d4da5a79e22b55cfa45ecd64cc6a159b751271d12a41f6be70404a517a4"
     },
     {
-      "path": "paper/results/probes/logs/x86b-clip_probe_rep.log",
+      "path": "results/probes/logs/x86b-clip_probe_rep.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "b96ebdd3897ecddd027fb8d9aef3933eb3fe3e0a24e978039037faee4c1f1d40"
     },
     {
-      "path": "paper/results/probes/logs/x86b-extras_bare_names.log",
+      "path": "results/probes/logs/x86b-extras_bare_names.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "b56ebb9f39476d9c86de1e153af67ec1494651ba554449adc583e4120dbcf181"
     },
     {
-      "path": "paper/results/probes/logs/x86b-extras_via_extra.log",
+      "path": "results/probes/logs/x86b-extras_via_extra.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "211db938558b51f012b3e1fea5d26adf3706786ff55fe6f6d94d00d473142ad8"
     },
     {
-      "path": "paper/results/probes/logs/x86b-leadin_probe.log",
+      "path": "results/probes/logs/x86b-leadin_probe.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "2b943eb325363b622519b38f084829aeaaa8a21b6c87c94d1d695fd631401f19"
     },
     {
-      "path": "paper/results/probes/logs/x86b-onset_bench.log",
+      "path": "results/probes/logs/x86b-onset_bench.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "d57817c872a64c537d04a4285b380eff8a697e5c0677e96ac23b88e0bd8c4262"
     },
     {
-      "path": "paper/results/probes/logs/x86b-other_wer.log",
+      "path": "results/probes/logs/x86b-other_wer.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "1da900b248759c1de9be48149bd139db89057dcff67af2b8ba7965f6338db0b0"
     },
     {
-      "path": "paper/results/probes/logs/x86b-queue_x86b.log",
+      "path": "results/probes/logs/x86b-queue_x86b.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "e23e6d6f542f4e693f7fd41652d5461734593be5cc675ea7641a4b31942c6c13"
     },
     {
-      "path": "paper/results/probes/logs/x86b-serial_chain.log",
+      "path": "results/probes/logs/x86b-serial_chain.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "49b4b2e4761a5ca97f6e7db05da800a6108730ea008523acf3af27ad3aada451"
     },
     {
-      "path": "paper/results/probes/logs/x86b-serial_x86b.log",
+      "path": "results/probes/logs/x86b-serial_x86b.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "ee11bfdc2b90dc472605a31d40b8c1bf90b7148d6f76ff8055b3e5ea9f1b22aa"
     },
     {
-      "path": "paper/results/probes/logs/x86b-serial_x86b_gov.log",
+      "path": "results/probes/logs/x86b-serial_x86b_gov.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "4c945daa7b0ac03bf4cd75c691d20cb479da431ad3912269de500605dfaa6b08"
     },
     {
-      "path": "paper/results/probes/logs/x86b-serial_x86b_next.log",
+      "path": "results/probes/logs/x86b-serial_x86b_next.log",
       "reason": "raw run log or non-JSON file; may carry host paths and has no structured schema",
       "sha256": "f04c9056a47e4be965fb0ef0d50cafd8ad6b5275de35d7a7efc9226a79bef99e"
     },
     {
-      "path": "paper/results/probes/prompt-vs-no-context-small.en-test-clean.json",
+      "path": "results/probes/prompt-vs-no-context-small.en-test-clean.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "5e2207e4bd63868c6b7f1b1cc483969e8f191d4a0a11ea0bce328a0bf1ed10da"
     },
     {
-      "path": "paper/results/probes/spk-profile.json",
+      "path": "results/probes/spk-profile.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "fae96ade3b20f654a84a353c26a6d15de24c39c8aed1623ed135e81f1be69202"
     },
     {
-      "path": "paper/results/probes/sweep.json",
+      "path": "results/probes/sweep.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "f0e36819acee742fa7b47e2ea905061531cd03c797dbab78553953eff28ded68"
     },
     {
-      "path": "paper/results/probes/synth-der2.json",
+      "path": "results/probes/synth-der2.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "edd02be02b1c707fe042b3deb0ae23faddcf62d790ca5b0290c153bb9bd64900"
     },
     {
-      "path": "paper/results/probes/synth-sweep-wide.json",
+      "path": "results/probes/synth-sweep-wide.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "028d949f1e10b79284d98a3cf7d02153b63761085a9c150096da126c6bff1c97"
     },
     {
-      "path": "paper/results/probes/thread-determinism-base.en-test-clean.json",
+      "path": "results/probes/thread-determinism-base.en-test-clean.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "dfe9430ccfb6f06f890d6ad92d60d192016a5b0b2aa7793d10a372ec86ba5cfe"
     },
     {
-      "path": "paper/results/probes/vox-gate.json",
+      "path": "results/probes/vox-gate.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "6c34bc6681323537ea83bbaa05f9890bfd37419d55031059e607341c261e4801"
     },
     {
-      "path": "paper/results/probes/wer-matrix.json",
+      "path": "results/probes/wer-matrix.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "cb805e5eb49cfbc9359a400daecf81f758f19e5873ffa023ee2b55237158d8fd"
     },
     {
-      "path": "paper/results/probes/wer-vm-clean.json",
+      "path": "results/probes/wer-vm-clean.json",
       "reason": "exploratory probe made while a question was being scoped, not a harness result; its README marks some as superseded by a committed harness script",
       "sha256": "33b0b50bb503a1ae8b35d056badd8701883582609a297df68111057eb3804552"
     }
@@ -814,7 +814,7 @@
       "distinct[] (per-run consistency summary)"
     ]
   },
-  "generator": "scripts/export_hf_benchmarks.py",
+  "generator": "export_hf_benchmarks.py (private research repository)",
   "record_kinds": [
     "measurement",
     "significance_analysis",
@@ -856,7 +856,7 @@
   "source_repository": "https://github.com/MSKazemi/yazses",
   "sources": [
     {
-      "path": "paper/results/beam-governor-test-clean-significance-vs-beam2.json",
+      "path": "results/beam-governor-test-clean-significance-vs-beam2.json",
       "record_kind": "significance_analysis",
       "sha256": "234259dd43abcd36c281f40c96ca3becc8d6d55663c1a43598a1e332087e58f9",
       "tables": {
@@ -864,7 +864,7 @@
       }
     },
     {
-      "path": "paper/results/beam-governor-test-clean-significance.json",
+      "path": "results/beam-governor-test-clean-significance.json",
       "record_kind": "significance_analysis",
       "sha256": "0a2576352c66ec2c9c39de5ef848e40c5ac49298fb6a371dbf40f3b41af4a8c0",
       "tables": {
@@ -872,7 +872,7 @@
       }
     },
     {
-      "path": "paper/results/beam-governor-test-clean.json",
+      "path": "results/beam-governor-test-clean.json",
       "record_kind": "measurement",
       "sha256": "9444c55292f76273012bf4c2d6d9f18de93067e6cae5038b7f8a0f7abe04ec8d",
       "tables": {
@@ -880,7 +880,7 @@
       }
     },
     {
-      "path": "paper/results/beam-governor-test-other-significance-vs-beam2.json",
+      "path": "results/beam-governor-test-other-significance-vs-beam2.json",
       "record_kind": "significance_analysis",
       "sha256": "cbd7706291679b601f196496c14f9902b00e53d3c512fef8ae9cb76a80d43a03",
       "tables": {
@@ -888,7 +888,7 @@
       }
     },
     {
-      "path": "paper/results/beam-governor-test-other-significance.json",
+      "path": "results/beam-governor-test-other-significance.json",
       "record_kind": "significance_analysis",
       "sha256": "a44e6bae5619e6ef28e34d1c080186920dc5ed65c63b906746a1c392504e20f8",
       "tables": {
@@ -896,7 +896,7 @@
       }
     },
     {
-      "path": "paper/results/beam-governor-test-other.json",
+      "path": "results/beam-governor-test-other.json",
       "record_kind": "measurement",
       "sha256": "c65f2dbd133e4e6bbf092700e6eae45af3c91e02c35c2408706ac32511c1597a",
       "tables": {
@@ -904,7 +904,7 @@
       }
     },
     {
-      "path": "paper/results/beam-test-clean-significance-vs-beam2.json",
+      "path": "results/beam-test-clean-significance-vs-beam2.json",
       "record_kind": "significance_analysis",
       "sha256": "e9718ac8c2c069b48fef360d0586be9488471d7c731cda1f04dfd8d384b761dc",
       "tables": {
@@ -912,7 +912,7 @@
       }
     },
     {
-      "path": "paper/results/beam-test-clean-significance.json",
+      "path": "results/beam-test-clean-significance.json",
       "record_kind": "significance_analysis",
       "sha256": "31e92c3158e5dc6a46d97fb19f024062b6227545bdcc1f9862d9d131b2d1ba7e",
       "tables": {
@@ -920,7 +920,7 @@
       }
     },
     {
-      "path": "paper/results/beam-test-clean.json",
+      "path": "results/beam-test-clean.json",
       "record_kind": "measurement",
       "sha256": "77910de310929ffdc1a665deb586d7f263c449cb8014882ed7047b0628f47f18",
       "tables": {
@@ -928,7 +928,7 @@
       }
     },
     {
-      "path": "paper/results/beam-test-other-significance-vs-beam2.json",
+      "path": "results/beam-test-other-significance-vs-beam2.json",
       "record_kind": "significance_analysis",
       "sha256": "88f23e9ce04d25f220fae1b7474aa3a3e8b939b60290aff8c6f146c6c3012e19",
       "tables": {
@@ -936,7 +936,7 @@
       }
     },
     {
-      "path": "paper/results/beam-test-other-significance.json",
+      "path": "results/beam-test-other-significance.json",
       "record_kind": "significance_analysis",
       "sha256": "e64bfac5a39b7ba4bf28aa42e903d1fa17c9153af19a09f2c85d2e1f7609f9a9",
       "tables": {
@@ -944,7 +944,7 @@
       }
     },
     {
-      "path": "paper/results/beam-test-other.json",
+      "path": "results/beam-test-other.json",
       "record_kind": "measurement",
       "sha256": "785f1f4df2dbbe9bba314050ae43bb3356695975851c6cb4876971a72e0e3875",
       "tables": {
@@ -952,7 +952,7 @@
       }
     },
     {
-      "path": "paper/results/commands.json",
+      "path": "results/commands.json",
       "record_kind": "measurement",
       "sha256": "c6c579350e6831d4518b7dc83a8c261694f2c7c6b0f38214e5a77b44b12f8bf9",
       "tables": {
@@ -960,7 +960,7 @@
       }
     },
     {
-      "path": "paper/results/diarization-ami16_corpus-der.json",
+      "path": "results/diarization-ami16_corpus-der.json",
       "record_kind": "measurement",
       "sha256": "17797dd44e5427ef1c6b009fcda7173c2b714f8037ecca5249007c634bfcdeed",
       "tables": {
@@ -969,7 +969,7 @@
       }
     },
     {
-      "path": "paper/results/diarization-ami16_corpus-maxspk4-vs-der-significance.json",
+      "path": "results/diarization-ami16_corpus-maxspk4-vs-der-significance.json",
       "record_kind": "significance_analysis",
       "sha256": "f7bef085a4b6cb31948c2b20de5ee00ad811de89f7806ccf59e3662884d71799",
       "tables": {
@@ -977,7 +977,7 @@
       }
     },
     {
-      "path": "paper/results/diarization-ami16_corpus-maxspk4.json",
+      "path": "results/diarization-ami16_corpus-maxspk4.json",
       "record_kind": "measurement",
       "sha256": "905bcd26fb82c944f3e9de940768525110869c30ed0a79b4f67b14a7c0ec5e65",
       "tables": {
@@ -986,7 +986,7 @@
       }
     },
     {
-      "path": "paper/results/latency.json",
+      "path": "results/latency.json",
       "record_kind": "measurement",
       "sha256": "d32c1f60edb069104a72645231a022c47785f0015e1ff9ad6e2cc0404fa17c90",
       "tables": {
@@ -995,7 +995,7 @@
       }
     },
     {
-      "path": "paper/results/onset-significance.json",
+      "path": "results/onset-significance.json",
       "record_kind": "significance_analysis",
       "sha256": "58657ac1c92f5fc66255eaa7735ab7f5f3f139f3642d32d762c992fd56c50225",
       "tables": {
@@ -1003,7 +1003,7 @@
       }
     },
     {
-      "path": "paper/results/onset.json",
+      "path": "results/onset.json",
       "record_kind": "measurement",
       "sha256": "b4b0158ee5fcda77d0150f0dca522ead1964c4278d8401b4e56dba73f82fb083",
       "tables": {
@@ -1011,7 +1011,7 @@
       }
     },
     {
-      "path": "paper/results/persian-cvfa-test10559-small.json",
+      "path": "results/persian-cvfa-test10559-small.json",
       "record_kind": "measurement",
       "sha256": "442df7f43591e7dd9e79ea467396e3f813870c2b0d79be9bc9a8758e20895da0",
       "tables": {
@@ -1019,7 +1019,7 @@
       }
     },
     {
-      "path": "paper/results/persian-cvfa-test10559-steja-small.json",
+      "path": "results/persian-cvfa-test10559-steja-small.json",
       "record_kind": "measurement",
       "sha256": "f24e73a70c4037a8935b45d06e90ea4d82c6198e9b6da8c2e8d1dd5d699a62cb",
       "tables": {
@@ -1027,7 +1027,7 @@
       }
     },
     {
-      "path": "paper/results/persian-fleurs-test50-base.json",
+      "path": "results/persian-fleurs-test50-base.json",
       "record_kind": "measurement",
       "sha256": "80929d62249c6a27d992d051169cc42715408304fd394f4a0b8b27d876d0245b",
       "tables": {
@@ -1035,7 +1035,7 @@
       }
     },
     {
-      "path": "paper/results/persian-fleurs-test50-medium.json",
+      "path": "results/persian-fleurs-test50-medium.json",
       "record_kind": "measurement",
       "sha256": "4eb20ed364361f690aa4cf2328edcf575238774c6fff1370efcab3c3f38ab2b7",
       "tables": {
@@ -1043,7 +1043,7 @@
       }
     },
     {
-      "path": "paper/results/persian-fleurs-test50-small-repeat.json",
+      "path": "results/persian-fleurs-test50-small-repeat.json",
       "record_kind": "measurement",
       "sha256": "5113b4c81f6748f3eb200aeeed26f4d54dcca4167dc7b5a7a69fa024b033d934",
       "tables": {
@@ -1051,7 +1051,7 @@
       }
     },
     {
-      "path": "paper/results/persian-fleurs-test50-small.json",
+      "path": "results/persian-fleurs-test50-small.json",
       "record_kind": "measurement",
       "sha256": "fbde7089aa169bb70f1a360811798909a322cfc57bbcd477d05a27b199b590fc",
       "tables": {
@@ -1059,7 +1059,7 @@
       }
     },
     {
-      "path": "paper/results/persian-fleurs-test871-base.json",
+      "path": "results/persian-fleurs-test871-base.json",
       "record_kind": "measurement",
       "sha256": "d47fee7d9219c14b49e3032d34e3cb8f94feee0d8f7d91edabfe3e9dec5f1208",
       "tables": {
@@ -1067,7 +1067,7 @@
       }
     },
     {
-      "path": "paper/results/persian-fleurs-test871-large-v3-turbo.json",
+      "path": "results/persian-fleurs-test871-large-v3-turbo.json",
       "record_kind": "measurement",
       "sha256": "99bd94611c7718389b4ce022a089b648d2aa1d6ef8f765e7ebfe4fbc51183c62",
       "tables": {
@@ -1075,7 +1075,7 @@
       }
     },
     {
-      "path": "paper/results/persian-fleurs-test871-small-idle.json",
+      "path": "results/persian-fleurs-test871-small-idle.json",
       "record_kind": "measurement",
       "sha256": "074c27c6adc47233ecf3d13eab252560467d381281236b481cd620bdee4f0f7d",
       "tables": {
@@ -1083,7 +1083,7 @@
       }
     },
     {
-      "path": "paper/results/persian-fleurs-test871-small.json",
+      "path": "results/persian-fleurs-test871-small.json",
       "record_kind": "measurement",
       "sha256": "5e063a7df3e3390f77793e8c254ed353f05875ae6bd2302dc49611561fb90c16",
       "tables": {
@@ -1091,7 +1091,7 @@
       }
     },
     {
-      "path": "paper/results/persian-fleurs-test871-steja-small.json",
+      "path": "results/persian-fleurs-test871-steja-small.json",
       "record_kind": "measurement",
       "sha256": "9db730e7c817a907ac80f6c9c06e72d936dfc7722ebb49ef45d81f0063fc492c",
       "tables": {
@@ -1099,7 +1099,7 @@
       }
     },
     {
-      "path": "paper/results/streaming.json",
+      "path": "results/streaming.json",
       "record_kind": "measurement",
       "sha256": "f32d0d3a1f8e0effae0bf97ef91a949401c13428a3349929a7e932746978a726",
       "tables": {
@@ -1107,7 +1107,7 @@
       }
     },
     {
-      "path": "paper/results/vad.json",
+      "path": "results/vad.json",
       "record_kind": "measurement",
       "sha256": "2d3fae2b5757554ff167e8966c91fc14a938721f8af05533568257a7c1b773ae",
       "tables": {
@@ -1115,7 +1115,7 @@
       }
     },
     {
-      "path": "paper/results/wer-test-other.json",
+      "path": "results/wer-test-other.json",
       "record_kind": "measurement",
       "sha256": "4a81547df93c118bc7825d14e859ecfe1ad1abe4f4730976656f370636cb8b46",
       "tables": {
@@ -1123,7 +1123,7 @@
       }
     },
     {
-      "path": "paper/results/wer.json",
+      "path": "results/wer.json",
       "record_kind": "measurement",
       "sha256": "03646dca5eb7b300089a788f9f1b70b56835536caa7f0aad8e39fee86a81d410",
       "tables": {
@@ -1186,10 +1186,10 @@
       "file": "asr_librispeech_wer.csv",
       "record_kind": "measurement",
       "rows": 11,
-      "sha256": "554fde8c56db359ca6631a8d1a794c65d6ff40aeaf4230c07eb21901618b6136",
+      "sha256": "5173b1b773aaa67ebfd7de24b5fe99a3d925496aa92816eab0f13cbb8a403acd",
       "sources": [
-        "paper/results/wer-test-other.json",
-        "paper/results/wer.json"
+        "results/wer-test-other.json",
+        "results/wer.json"
       ]
     },
     "beam_sweep": {
@@ -1236,12 +1236,12 @@
       "file": "beam_sweep.csv",
       "record_kind": "measurement",
       "rows": 22,
-      "sha256": "cc86f4dbb4e5e7c25034645e9b76b0c88b01e8af5e6b0ef2202932e151023188",
+      "sha256": "b5acd092a1afeadfb2b7c041700ceb595595a6427ee61670aa112520fc99adbc",
       "sources": [
-        "paper/results/beam-governor-test-clean.json",
-        "paper/results/beam-governor-test-other.json",
-        "paper/results/beam-test-clean.json",
-        "paper/results/beam-test-other.json"
+        "results/beam-governor-test-clean.json",
+        "results/beam-governor-test-other.json",
+        "results/beam-test-clean.json",
+        "results/beam-test-other.json"
       ]
     },
     "command_grammar": {
@@ -1289,9 +1289,9 @@
       "file": "command_grammar.csv",
       "record_kind": "measurement",
       "rows": 1,
-      "sha256": "8df5a1d416c9e24d2b5763043946d39da44780618f292ac15e0ccb77ead0637c",
+      "sha256": "36e681a5352ba8d9b386e5c499dcb4df953c558f0d1ac56f97ad425cabb6da3d",
       "sources": [
-        "paper/results/commands.json"
+        "results/commands.json"
       ]
     },
     "diarization_corpus_summary": {
@@ -1343,10 +1343,10 @@
       "file": "diarization_corpus_summary.csv",
       "record_kind": "measurement",
       "rows": 2,
-      "sha256": "d269b50277825a335e713b5e954040f5acbee2f069a258e8c8b02700e020d4c6",
+      "sha256": "850f78e469698b2f49011194f2b6617d404eb61e75a5a2e023a3e729ca47f473",
       "sources": [
-        "paper/results/diarization-ami16_corpus-der.json",
-        "paper/results/diarization-ami16_corpus-maxspk4.json"
+        "results/diarization-ami16_corpus-der.json",
+        "results/diarization-ami16_corpus-maxspk4.json"
       ]
     },
     "diarization_recordings": {
@@ -1405,10 +1405,10 @@
       "file": "diarization_recordings.csv",
       "record_kind": "measurement",
       "rows": 32,
-      "sha256": "1bfbd4759e4969fb6455e0d96ff7a916afb77a8235382727efa39b69d56ea6a1",
+      "sha256": "e984860f968ef65f90f9cb545ce3b99cb5bec0688ee973c929b7a1b06e23c3e8",
       "sources": [
-        "paper/results/diarization-ami16_corpus-der.json",
-        "paper/results/diarization-ami16_corpus-maxspk4.json"
+        "results/diarization-ami16_corpus-der.json",
+        "results/diarization-ami16_corpus-maxspk4.json"
       ]
     },
     "latency_decode": {
@@ -1455,9 +1455,9 @@
       "file": "latency_decode.csv",
       "record_kind": "measurement",
       "rows": 3,
-      "sha256": "2fc2d5816a2026d9707b466b93808c1f9360d97f041044fdf380d1df5eb85025",
+      "sha256": "0632f48f1ae410f19695f0f8633e7297599a451fff3d308015fcf4e03ed2fcf4",
       "sources": [
-        "paper/results/latency.json"
+        "results/latency.json"
       ]
     },
     "latency_pipeline_stages": {
@@ -1497,9 +1497,9 @@
       "file": "latency_pipeline_stages.csv",
       "record_kind": "measurement",
       "rows": 5,
-      "sha256": "23e1a6a5fbf8939c97a49e2103eb4a5bdc7374915819ea4b8acdedfa139afbf7",
+      "sha256": "76bf7a597772d1a59f312c051849e60665ca0be3da1961997a80cf0691deb5de",
       "sources": [
-        "paper/results/latency.json"
+        "results/latency.json"
       ]
     },
     "onset_first_word": {
@@ -1547,9 +1547,9 @@
       "file": "onset_first_word.csv",
       "record_kind": "measurement",
       "rows": 40,
-      "sha256": "4082376d5561bf7351fb65fdcc1e31f1aaa9fe25c12b2631daa427d9dea1cd75",
+      "sha256": "9ae8cba3cff644b1f164e3e7ff7dd0a0f0fb29d8c333647ba2a62c2c6be3b462",
       "sources": [
-        "paper/results/onset.json"
+        "results/onset.json"
       ]
     },
     "persian_asr": {
@@ -1614,19 +1614,19 @@
       "file": "persian_asr.csv",
       "record_kind": "measurement",
       "rows": 11,
-      "sha256": "89510d93785703472a1a8e146378bbecb0b4741daa00a4e5cac910072c1ccf7f",
+      "sha256": "a4ff90cd84c6a91ab0734c7de3cfb77a9945055d3e4a6675d3e91d9ec8a34236",
       "sources": [
-        "paper/results/persian-cvfa-test10559-small.json",
-        "paper/results/persian-cvfa-test10559-steja-small.json",
-        "paper/results/persian-fleurs-test50-base.json",
-        "paper/results/persian-fleurs-test50-medium.json",
-        "paper/results/persian-fleurs-test50-small-repeat.json",
-        "paper/results/persian-fleurs-test50-small.json",
-        "paper/results/persian-fleurs-test871-base.json",
-        "paper/results/persian-fleurs-test871-large-v3-turbo.json",
-        "paper/results/persian-fleurs-test871-small-idle.json",
-        "paper/results/persian-fleurs-test871-small.json",
-        "paper/results/persian-fleurs-test871-steja-small.json"
+        "results/persian-cvfa-test10559-small.json",
+        "results/persian-cvfa-test10559-steja-small.json",
+        "results/persian-fleurs-test50-base.json",
+        "results/persian-fleurs-test50-medium.json",
+        "results/persian-fleurs-test50-small-repeat.json",
+        "results/persian-fleurs-test50-small.json",
+        "results/persian-fleurs-test871-base.json",
+        "results/persian-fleurs-test871-large-v3-turbo.json",
+        "results/persian-fleurs-test871-small-idle.json",
+        "results/persian-fleurs-test871-small.json",
+        "results/persian-fleurs-test871-steja-small.json"
       ]
     },
     "significance_beam": {
@@ -1676,16 +1676,16 @@
       "file": "significance_beam.csv",
       "record_kind": "significance_analysis",
       "rows": 26,
-      "sha256": "396f89a1366e2c3713a35cc8946b9237fd18ad166421ee8841f6350f7383be0c",
+      "sha256": "0a0a68bd0797e921bb50e339f3b20f285a2b47a2a76991b11fa53b0245a627c9",
       "sources": [
-        "paper/results/beam-governor-test-clean-significance-vs-beam2.json",
-        "paper/results/beam-governor-test-clean-significance.json",
-        "paper/results/beam-governor-test-other-significance-vs-beam2.json",
-        "paper/results/beam-governor-test-other-significance.json",
-        "paper/results/beam-test-clean-significance-vs-beam2.json",
-        "paper/results/beam-test-clean-significance.json",
-        "paper/results/beam-test-other-significance-vs-beam2.json",
-        "paper/results/beam-test-other-significance.json"
+        "results/beam-governor-test-clean-significance-vs-beam2.json",
+        "results/beam-governor-test-clean-significance.json",
+        "results/beam-governor-test-other-significance-vs-beam2.json",
+        "results/beam-governor-test-other-significance.json",
+        "results/beam-test-clean-significance-vs-beam2.json",
+        "results/beam-test-clean-significance.json",
+        "results/beam-test-other-significance-vs-beam2.json",
+        "results/beam-test-other-significance.json"
       ]
     },
     "significance_diarization": {
@@ -1740,9 +1740,9 @@
       "file": "significance_diarization.csv",
       "record_kind": "significance_analysis",
       "rows": 2,
-      "sha256": "c4f3af4776f6bc44ccbd54b6ebd28056d11d8542f8f0e13171bdb0482ccfe08a",
+      "sha256": "c5297a3cb8b1483ec6cdf2a1e940fd4fa58130bbf5d8ad2a75299346edd64402",
       "sources": [
-        "paper/results/diarization-ami16_corpus-maxspk4-vs-der-significance.json"
+        "results/diarization-ami16_corpus-maxspk4-vs-der-significance.json"
       ]
     },
     "significance_onset": {
@@ -1790,9 +1790,9 @@
       "file": "significance_onset.csv",
       "record_kind": "significance_analysis",
       "rows": 32,
-      "sha256": "2ead1a03553bbad3f36b6f226dbe5b78c5795c7e31fd68a45d3bd295fffcfd5e",
+      "sha256": "00729346fe11de47eb1591c9aba295aac4144eabf204563f70894ebd6045e4df",
       "sources": [
-        "paper/results/onset-significance.json"
+        "results/onset-significance.json"
       ]
     },
     "streaming_latency": {
@@ -1849,9 +1849,9 @@
       "file": "streaming_latency.csv",
       "record_kind": "measurement",
       "rows": 2,
-      "sha256": "4f00c5c5ce4a5d20a49f5cd3848d1caeae942c2e90a4da1f63a213d4eb7362f9",
+      "sha256": "5a266e94750cfaa9652831659f3c8093d00134f1c84dfddcec483cc0f64df9e1",
       "sources": [
-        "paper/results/streaming.json"
+        "results/streaming.json"
       ]
     },
     "vad_gate": {
@@ -1896,9 +1896,9 @@
       "file": "vad_gate.csv",
       "record_kind": "measurement",
       "rows": 1,
-      "sha256": "db48368ff32906f4c2d3aeba600478c5904f8af5ef0d1f96c585bf465168736e",
+      "sha256": "c43beaaa81a2153a73ede08365d8f4b438ce80be558297cff2a058feac927a5f",
       "sources": [
-        "paper/results/vad.json"
+        "results/vad.json"
       ]
     }
   }

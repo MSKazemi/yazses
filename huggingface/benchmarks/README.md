@@ -112,7 +112,7 @@ vocabulary also reserves `superseded` and `withdrawn`; no included file currentl
 ## 2. Why the dataset is generated
 
 The numbers were already public: every figure on the project's benchmarks page is backed by a
-JSON file in `paper/results/` of the source repository. Copying them by hand into a Hub dataset
+JSON file in the author's results archive, which is kept in a private research repository. Copying them by hand into a Hub dataset
 would create a second copy that can drift from the first, or be edited without leaving a trace.
 So the tables are produced by a script from an explicit allowlist of those files, with a
 `--check` mode that fails when the committed tables no longer match the archive. Nothing is
@@ -133,17 +133,16 @@ never inferred.
 
 ## 4. Source repository and revision
 
-* Repository: <https://github.com/MSKazemi/yazses> (path `paper/results/`).
+* Source: the author's results archive, kept in a private research repository; the published record is this dataset. YazSes itself: <https://github.com/MSKazemi/yazses>.
 * Each row names its source file (`source_file`) and that file's SHA-256 (`source_sha256`);
-  `data/export-metadata.json` lists every exported source with the same hash. To find the
-  source in the repository, look the path up in any revision and compare the hash: a content
-  hash identifies the file exactly and, unlike a commit hash, survives a squash merge or rebase.
+  `data/export-metadata.json` lists every exported source with the same hash. The
+  hash identifies the source file exactly and, unlike a commit hash, survives a squash merge or rebase.
 
 ## 5. How it was exported
 
-`scripts/export_hf_benchmarks.py` in the source repository.
+The export script is kept with the archive, in the private research repository.
 
-* An explicit **allowlist** of archive files; the rest of `paper/results/` is never globbed in.
+* An explicit **allowlist** of archive files; the rest of the archive is never globbed in.
   Every other file is listed in `export-metadata.json` with a reason, so a new archive file
   cannot enter or disappear silently.
 * Each file is validated: required provenance (timestamp, CPU model, logical CPUs, OS, YazSes
@@ -153,13 +152,13 @@ never inferred.
   private-tree paths in any source string and in every output cell.
 * Output: CSV, `\n` newlines, stable row order, numbers copied from the source text.
 * The script writes only to `huggingface/benchmarks/data/` and refuses any other target; it
-  never modifies `paper/results/`.
+  never modifies the archive.
 * `data/SHA256SUMS` covers the CSVs and the metadata file (`sha256sum -c SHA256SUMS`).
 
 ## 6. Methodology
 
-How the measurements were taken is described in the source repository
-(`paper/benchmark/README.md`, `docs/benchmarks.md`); in brief:
+How the measurements were taken is described on the project's benchmarks page
+(`docs/benchmarks.md`); in brief:
 
 * **Accuracy.** faster-whisper (CTranslate2), int8, CPU, no GPU. English WER is scored with the
   Whisper English text normaliser on a deterministic, speaker-stratified 200-utterance subset of
@@ -219,7 +218,7 @@ Every metric below is a **different kind of measurement**; none is interchangeab
 * **Identify a model by `model_key`, not `model`.** `model_key` is the key the source file files
   the result under (for example `base.en`) and is filled in every row. `model` and `engine` are
   copied only from files that record them explicitly, so they are empty for the older
-  `paper/results/wer.json` rows; filtering on `model` alone would silently drop those rows,
+  `wer.json` rows; filtering on `model` alone would silently drop those rows,
   including the `base.en` `test-clean` result.
 * **Corpus digests are not yet recorded.** The harness can stamp a digest of the selected
   utterance ids (`corpus_sha256_16`) and a `corpus_stratified` flag, but no archived file carries
@@ -239,22 +238,11 @@ Every metric below is a **different kind of measurement**; none is interchangeab
 
 Verify the files: `cd data && sha256sum -c SHA256SUMS`.
 
-Regenerate the tables from the archive (byte-identical output; `--check` exits 1 on drift and
-never writes):
-
-```bash
-git clone https://github.com/MSKazemi/yazses && cd yazses
-uv sync
-uv run python scripts/export_hf_benchmarks.py --check
-uv run python scripts/export_hf_benchmarks.py --list    # included files, and excluded ones with reasons
-```
-
-Re-measure on your own machine (this produces **new** numbers on your hardware, not these):
-
-```bash
-uv sync --group benchmark
-uv run python paper/benchmark/run_all.py --wer-n 200 --lat-n 30 --vad-n 200
-```
+The archive these tables were generated from, and the script that generates them, are kept in the
+author's private research repository, so the tables cannot be regenerated from a clone of the public
+YazSes repository. The checksum above verifies the files as published; each row's `source_sha256`
+identifies the archive file it was copied from. A re-measurement on your own hardware produces new
+numbers, not these; the setup is described on the project's benchmarks page (`docs/benchmarks.md`).
 
 The `argv` column holds the command that produced a row where the archive recorded one (home
 directories appear as `$HOME`); older files predate the field and the column is empty.

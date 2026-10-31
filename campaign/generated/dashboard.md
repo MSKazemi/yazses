@@ -15,9 +15,9 @@ That is the honest state and this page will show it until it changes. A dashboar
 | measurement | 0 | 12 | 94 |
 | docs | 0 | 10 | 40 |
 | packaging | 0 | 9 | 24 |
-| qa-fixture | 0 | 8 | 9 |
+| qa-fixture | 0 | 7 | 9 |
 | security-privacy | 0 | 5 | 8 |
 
-149 tasks are open now of 899 in the inventory. The rest are held back deliberately: releasing more work than can be reviewed leaves people waiting, which costs more than a shorter list does.
+148 tasks are open now of 899 in the inventory. The rest are held back deliberately: releasing more work than can be reviewed leaves people waiting, which costs more than a shorter list does.
 
 Reviewer load, queue age and incident details are deliberately **not** published here — those are about individuals, and aggregate output is what a reader needs.

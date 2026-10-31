@@ -421,7 +421,7 @@ def _visibility_rows() -> list[tuple[str, str]]:
 
     text = (ROOT / "design" / "README.md").read_text(encoding="utf-8")
     rows: list[tuple[str, str]] = []
-    # A cell may name more than one path ("`paper/benchmark/`, `paper/results/`"), and
+    # A cell may name more than one path (two backticked paths in one cell), and
     # capturing only the first is how the first draft of this test reported a leak that
     # was not one -- it could not see the second half of its own Public row.
     for cell, visibility in re.findall(r"^\|([^|]+)\| \*\*(Public|Private)\*\* \|", text, re.M):

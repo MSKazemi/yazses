@@ -21,7 +21,7 @@ data class ErrorRate(val errors: Int, val refLength: Int) {
  * their numbers. It is NOT comparable with the desktop benchmark.
  *
  * [WHISPER_ENGLISH] is [EnglishTextNormalizer], a port of the whisper-normalizer package that the
- * desktop benchmark uses (paper/benchmark/bench_wer.py:36). WER computed with it on English text is
+ * desktop benchmark uses (benchmark/bench_wer.py:36). WER computed with it on English text is
  * comparable with the desktop benchmark's. It is verified against the package's own outputs
  * (EnglishTextNormalizerVectorsTest: 614 of 614 vectors pass). For ordinary English text the two agree
  * exactly. The documented difference is the age of the Unicode tables, which is what the
@@ -32,9 +32,9 @@ enum class TextNormalizer { SIMPLE, WHISPER_ENGLISH }
 /**
  * WER and CER by Levenshtein distance over normalised tokens.
  *
- * Mirrors the desktop: WER is jiwer-style word edit distance (paper/benchmark/bench_wer.py:35,227),
+ * Mirrors the desktop: WER is jiwer-style word edit distance (benchmark/bench_wer.py:35,227),
  * CER is per code point over the zh-eval-v1 view with whitespace and punctuation removed
- * (paper/benchmark/mandarin_metrics.py:69-71, :140, :186-190).
+ * (benchmark/mandarin_metrics.py:69-71, :140, :186-190).
  *
  * WER takes a [TextNormalizer]. Pass [TextNormalizer.WHISPER_ENGLISH] to match the desktop
  * benchmark's English WER. The default, [TextNormalizer.SIMPLE], is this module's own rule and is

@@ -1,6 +1,6 @@
 {
   "total": 899,
-  "open": 149,
+  "open": 148,
   "by_family": {
     "app-profile": 154,
     "compatibility": 301,
@@ -20,12 +20,12 @@
   },
   "by_state": {
     "draft": 4,
-    "expired": 1,
-    "open": 149,
+    "expired": 2,
+    "open": 148,
     "verified": 745
   },
   "no_setup_needed": 93,
-  "cloud_agent_ready": 33,
+  "cloud_agent_ready": 32,
   "hardware_required": 73,
-  "review_minutes_if_all_merged": 1088
+  "review_minutes_if_all_merged": 1073
 }

@@ -3,7 +3,7 @@
 Enabling streaming on anything but tiny.en is not an error — the config is valid
 and the code runs — but it is a silent downgrade: the rolling decode cannot keep
 up, so no live text appears before release and the final text lands later than
-with streaming off (docs/benchmarks.md, paper/benchmark/bench_streaming.py).
+with streaming off (docs/benchmarks.md, benchmark/bench_streaming.py).
 Nothing told the user that, so the advice has to come from `enable_caveat`.
 """
 from __future__ import annotations

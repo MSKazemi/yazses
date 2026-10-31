@@ -49,8 +49,7 @@
       "publisher": "yazses-benchmarks",
       "delete_remote_files": false,
       "max_file_bytes": 5242880,
-      "required_card_keys": ["license", "configs"],
-      "export_check": ["scripts/export_hf_benchmarks.py", "--check"]
+      "required_card_keys": ["license", "configs"]
     },
     "demo-space": {
       "repo_id": "mskazemi/yazses-offline-transcription-demo",

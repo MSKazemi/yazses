@@ -103,8 +103,7 @@ not the thing being replaced; the composing loop is.
 loop requires local inference, and a well-resourced vendor could study it better. The
 one real advantage is that the signal lives here already and can be gathered *without
 anyone shipping audio anywhere*: the learning corpus (opt-in, encrypted, on-device) is
-built out of exactly the re-dictation events the 62% finding is about, and `paper/
-benchmark/bench_throughput.py` is the instrument for the study. That is an advantage in
+built out of exactly the re-dictation events the 62% finding is about, and the throughput benchmark (`bench_throughput.py`) is the instrument for the study. That is an advantage in
 **evidence**, not in capability, and it should not be dressed up as more.
 
 **How we would know.** Net WPM after correction, on *composed* prose rather than

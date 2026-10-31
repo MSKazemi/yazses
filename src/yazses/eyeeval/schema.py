@@ -25,7 +25,7 @@ between "no false activations" and "false activations were not counted" is the w
 safety claim.
 
 **Provenance travels with the number.** The section list mirrors `Provenance` in
-`paper/benchmark/_common.py` rather than inventing a second vocabulary: `machine` is that
+`benchmark/_common.py` rather than inventing a second vocabulary: `machine` is that
 dataclass's `os`/`kernel`/`cpu_model`/`logical_cpus`/`ram_gb` fields, `software` is its
 version block. A benchmark harness already learned that a number without the machine that
 produced it is not a measurement; this reuses the lesson instead of relearning it.

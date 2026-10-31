@@ -33,7 +33,7 @@ def _build_normalizer():
     0.00 %. So the community table was reporting recognition errors that were not
     recognition errors, on the page that invites contributors to publish numbers.
 
-    It also made these numbers incomparable with `paper/benchmark/bench_wer.py`,
+    It also made these numbers incomparable with `benchmark/bench_wer.py`,
     which has always used `EnglishTextNormalizer` -- two harnesses in one project
     producing two different WERs for the same audio and the same model.
 

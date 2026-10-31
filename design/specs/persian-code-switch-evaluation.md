@@ -7,7 +7,7 @@ the Persian programme ([#483](https://github.com/MSKazemi/yazses/issues/483)).
 **Companions:** [persian-benchmark-and-validation.md](persian-benchmark-and-validation.md)
 §5 "Code-switch" (the metric list this makes precise) and §8 (sampling);
 [polyglot-switch.md](polyglot-switch.md) (the feature being measured).
-**Scorer:** `paper/benchmark/codeswitch_metrics.py`, tested by
+**Scorer:** `benchmark/codeswitch_metrics.py`, tested by
 `tests/test_codeswitch_metrics.py` on synthetic text.
 
 ---
@@ -33,7 +33,7 @@ So this document freezes all of them as protocol version **`fa-en-cs-v1`**. The 
    a new version of the prompt file, and both scores are reported. It is never edited
    out silently.
 
-When this file landed, `paper/results/` held no fa-en code-switch result.
+When this file landed, `results/` held no fa-en code-switch result.
 
 ## 2. Scope
 
@@ -251,7 +251,7 @@ reader can recompute any rate and judge its size.
 A contributor scores locally and shares only the aggregate block:
 
 ```sh
-uv run python paper/benchmark/codeswitch_metrics.py rows.jsonl --split heldout --out agg.json
+uv run python benchmark/codeswitch_metrics.py rows.jsonl --split heldout --out agg.json
 ```
 
 `rows.jsonl` holds `{id, category, reference, hypothesis}` per prompt. It stays on the

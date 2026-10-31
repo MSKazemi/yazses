@@ -21,7 +21,7 @@ fills with plausible-sounding work:
 
 **There is no throughput baseline, so no throughput claim can be honest today.**
 
-`paper/benchmark/` holds six harnesses that reuse shipping code and write JSON with a
+`benchmark/` holds six harnesses that reuse shipping code and write JSON with a
 provenance block: `bench_wer.py`, `bench_latency.py`, `bench_vad.py`, `bench_streaming.py`,
 `bench_commands.py`, `bench_meta.py`. **None measures words per minute, correction cost, or
 time-to-finished-text.**
@@ -34,7 +34,7 @@ than replaced:
 > — `docs/comparison.md`
 
 > no claim on throughput "or correction cost; that comparison requires a user study, which
-> we have not run" — `paper/main.tex`
+> we have not run" — `papers/paper-system/main.tex`
 
 The method is already settled — MacKenzie & Soukoreff's protocol, Soukoreff & MacKenzie's
 unified error metric, Vertanen & Kristensson's phrase set, preregistered
@@ -49,7 +49,7 @@ states the number it must move rather than a promised percentage.
 **Target:** a reproducible figure for *finished text per minute* by dictation, and the same
 for typing, on identical prompts, on one stated machine.
 
-- Reuses the shipping pipeline like every other harness; writes JSON to `paper/results/`
+- Reuses the shipping pipeline like every other harness; writes JSON to `results/`
   with the same provenance block.
 - Measures **time to finished text**, not time to first transcript. That distinction is
   the point: a fast recogniser producing text that needs three corrections is slower than
@@ -130,7 +130,7 @@ generalised version inherits that bar and is harder to hold to it.
 ADR-021 rests on **"62 % of real correction utterances are re-dictations rather than
 edits"** (Ghosh et al., ACM TOCHI 27:4, 2020, n=266), and scores it 5/5 on evidence. The
 citation has **no title, no DOI, no URL**, and appears in neither `design/research/hci-corpus.bib`
-nor `paper/refs.bib` — so it fails the project's own rule that "before any of these numbers
+nor `papers/paper-system/refs.bib` — so it fails the project's own rule that "before any of these numbers
 enters the manuscript or a public page, the specific entry must be read at source".
 
 Better-sourced neighbours exist and should carry the argument until it is resolved: pure

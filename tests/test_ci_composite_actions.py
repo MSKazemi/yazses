@@ -145,7 +145,6 @@ def test_every_local_reference_resolves_to_an_action() -> None:
 #: workflows and compares both ways, so a new direct call fails until it is either moved to
 #: the composite or justified here, and a migrated job fails until its entry is deleted.
 DIRECT_SETUP_UV: dict[str, str] = {
-    "benchmark.yml:bench": "its sync is conditional: the macos-15-intel leg resolves unlocked with `uv pip install`",
     "build-macos.yml:build": "build/release lane: produces the shipped macOS bundle (§8 Reuse, §11)",
     "build-windows.yml:build": "build/release lane: produces and signs the shipped Windows installer (§8 Reuse, §11)",
     "packs-spike.yml:spike": "build lane: freezes a `--no-dev` environment held equal to build-windows.ps1's",

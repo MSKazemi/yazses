@@ -64,10 +64,8 @@ Face's own policies.
 - **The first paper**, *YazSes: An Offline, Privacy-First, Cross-Platform Hold-to-Talk
   Voice-Dictation System* ([arXiv:2607.28878](https://arxiv.org/abs/2607.28878)),
   describes the system. Cite it, or the software's concept DOI, as `CITATION.cff` says.
-- **Benchmark results** behind the published numbers are archived as JSON in
-  [`paper/results/`](https://github.com/MSKazemi/yazses/tree/main/paper/results), with a
-  [manifest](https://github.com/MSKazemi/yazses/blob/main/paper/results/MANIFEST.md) naming the
-  machine each one was taken on. Two numbers are comparable only if their machine matches.
+- **Benchmark results** behind the published numbers: the raw result files, each carrying the machine it was
+  taken on, are kept in a private research archive. Two numbers are comparable only if their machine matches.
   The method and headline results are on [Benchmarks](benchmarks.md).
 
 ## The rest of the Hub presence
@@ -86,9 +84,8 @@ The files behind these pages live in the repository's [`huggingface/`](https://g
 directory, which is their source of truth. The pages online today were first put up, and
 later moved or renamed, outside the publishing workflow; from now on, changes are published
 through that workflow rather than edited on the Hub. The files are checked offline by
-`scripts/hf_preflight.py` before anything can go out, and the benchmark tables are
-regenerated from the archive by `scripts/export_hf_benchmarks.py` (`--check` fails on
-drift). The publishing workflow is manual-only, uses Hugging Face Trusted Publishers with
+`scripts/hf_preflight.py` before anything can go out. The benchmark tables are generated from
+the author's private results archive, and a test there fails when they drift from it. The publishing workflow is manual-only, uses Hugging Face Trusted Publishers with
 short-lived credentials rather than a stored token, and refuses any destination the
 maintainer has not approved in a reviewed commit.
 

@@ -15,7 +15,7 @@ Every number in these figures comes from something that can be checked:
     wired is making the claim the CLI makes;
   * every timing comes from `docs/benchmarks.md`, parsed at generation time, so
     a figure cannot disagree with the benchmark table a reader can scroll to.
-    `paper/` (where the raw JSON lives) is gitignored, so the published page is
+    The raw JSON is not in this repository (it is kept in a private archive), so the published page is
     the tracked source of truth;
   * command counts come from the generated `docs/command-index.md`;
   * the "designed, not built" blocks each carry an evidence pointer to the file

@@ -195,7 +195,7 @@ The exact validator name/path must match repository reality when the vector form
   "cloud_agent_ready": false,
   "allowed_paths": [
     "design/chinese/results/**",
-    "paper/results/**"
+    "results/**"
   ],
   "validation": [
     "uv run python <benchmark-validator> <result-json>"

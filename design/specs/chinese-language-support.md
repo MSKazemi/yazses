@@ -938,7 +938,7 @@ This is a **dated reconciliation**, not a replacement for the 2026-09-20 design 
 | GUI/doctor | `settingsui/language_view.py`, `system/doctor.py` | `test_settings_language_profiles.py`, `test_doctor_language.py` | real GUI, model cache and restart feedback |
 | Conservative Mandarin commands | `commands/grammars/zh.py` | `test_chinese_command_grammar.py`, `test_mandarin_command_safety.py` | **native review pending; all phrases provisional** |
 | Chinese transcript and quality units | `postprocess/cjk.py`, `recimport/`, `meeting/quality.py` | `test_cjk_text.py`, `test_cjk_transcripts.py`, `test_meeting_cjk_word_count.py` | real decoder, streaming, file/meeting and platforms |
-| CER benchmark harness | `paper/benchmark/bench_mandarin.py` | `tests/test_bench_mandarin.py` | corpus/weights/hardware run + license/consent evidence |
+| CER benchmark harness | `benchmark/bench_mandarin.py` | `tests/test_bench_mandarin.py` | corpus/weights/hardware run + license/consent evidence |
 
 The canonical follow-up contracts are [as-built audit](../chinese/2026-10-29-as-built-audit.md), [switching architecture](../chinese/2026-10-29-language-switch-architecture.md), [model protocol](../chinese/2026-10-29-model-selection-protocol.md), [test/validation gates](../chinese/2026-10-29-validation-and-release-gates.md), [community task catalog](../chinese/2026-10-29-community-task-catalog.md), and [ADR review](../chinese/2026-10-29-adr-review.md).
 

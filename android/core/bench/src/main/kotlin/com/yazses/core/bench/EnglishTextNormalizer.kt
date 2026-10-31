@@ -32,7 +32,7 @@ package com.yazses.core.bench
 
 /**
  * Whisper's English text normaliser: the same rules the desktop benchmark applies to WER
- * (paper/benchmark/bench_wer.py uses whisper_normalizer.english.EnglishTextNormalizer), so a WER
+ * (benchmark/bench_wer.py uses whisper_normalizer.english.EnglishTextNormalizer), so a WER
  * measured on a phone is computed on the same text. Output is lower-case, space-separated, with
  * numbers written as digits and British spellings replaced by American ones.
  *

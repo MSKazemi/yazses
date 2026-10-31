@@ -47,11 +47,11 @@ test-cov:
 
 lint:
 	@echo "▶  Linting…"
-	uv run ruff check src tests scripts paper/benchmark
+	uv run ruff check src tests scripts
 
 lint-fix:
 	@echo "▶  Linting (auto-fix)…"
-	uv run ruff check src tests scripts paper/benchmark --fix
+	uv run ruff check src tests scripts --fix
 
 hygiene:
 	@echo "▶  Checking repo hygiene (file sizes)…"
