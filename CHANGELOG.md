@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.47.0] - 2026-10-31
+
 ### Changed — the benchmark harness, the result files and their tests moved to the private research repository
 
 `paper/benchmark/` (the harness), `paper/results/` (the archived JSON and logs) and the 37 tests that guarded them are
