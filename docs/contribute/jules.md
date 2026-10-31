@@ -355,8 +355,8 @@ After the owner deliberately adds `jules` to an eligible issue:
 5. Normal repository CI should run.
 6. Human review remains mandatory before merge.
 
-If any of those properties fail, stop the central rollout and use the emergency-disable procedure in
-#447.
+If any of those properties fail, stop the central rollout and use the emergency-disable procedure
+in #447.
 
 ---
 
