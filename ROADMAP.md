@@ -32,12 +32,12 @@ The [YazSes XR research programme](design/xr/README.md) documents ten ideas for 
 What is landing right now — the latest release and every unreleased change on `main` — is
 generated from the changelog at [mskazemi.com/yazses/now.html](https://mskazemi.com/yazses/now.html).
 
-**Stable release: v2.46.0**, published on PyPI, GitHub Releases, Snap, and the APT repo, with
+**Stable release: v2.47.0**, published on PyPI, GitHub Releases, Snap, and the APT repo, with
 Windows `.exe`, macOS `.dmg`, and Debian `.deb` installers attached to the GitHub release (all
 release workflows fire on `v*` tags). The v2 line is delivered as a long series of research
 waves, each a fresh state-of-the-art sweep → ADRs → pure, 100%-covered, off-by-default cores.
 
-On `main` (v2.46.0 plus the unreleased frontier): **<!-- registry:total -->150<!-- /registry --> capabilities (<!-- registry:wired -->125<!-- /registry --> wired / <!-- registry:unwired -->25<!-- /registry --> honestly
+On `main` (v2.47.0 plus the unreleased frontier): **<!-- registry:total -->150<!-- /registry --> capabilities (<!-- registry:wired -->125<!-- /registry --> wired / <!-- registry:unwired -->25<!-- /registry --> honestly
 marked "planned")**, **14800+ tests green**, ADRs `adr-v2-001..151`, and the per-wave
 state-of-the-art research notes. The counts come from the feature registry
 (`yazses.system.features`) and from running the suite, not from counting by hand — every one
