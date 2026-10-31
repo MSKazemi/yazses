@@ -6,6 +6,13 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — the Indonesian page was reviewed by a native speaker
+
+`docs/id/index.md` was a machine-assisted draft. A native Indonesian reader reworded it so it reads
+naturally, and it is marked reviewed instead of draft. Thank you,
+[@Ptraaah](https://github.com/Ptraaah)
+([#743](https://github.com/MSKazemi/yazses/pull/743), [#343](https://github.com/MSKazemi/yazses/issues/343)).
+
 ### Fixed — "Install now" on a pipx install did nothing, and said so in a balloon that vanished
 
 `pipx install /path/to/checkout` makes pipx remember that *folder* as where the package comes
