@@ -1,22 +1,16 @@
 ---
 title: "YazSes — bahasa Indonesia"
-description: "YazSes adalah daemon dikte suara yang bebas, sumber terbuka, dan bekerja luring untuk Linux, macOS, dan Windows. Tahan sebuah tombol, bicaralah, lalu lepaskan — teksnya muncul di tempat Anda sedang mengetik. Semuanya berjalan di komputer Anda sendiri: tanpa awan, tanpa akun, tanpa langganan."
+description: "YazSes adalah program dikte suara yang bebas, sumber terbuka, dan bekerja luring untuk Linux, macOS, dan Windows. Tahan tombol, bicaralah, lalu lepaskan — teksnya muncul di tempat Anda sedang mengetik. Semuanya berjalan di komputer Anda sendiri: tanpa cloud, tanpa akun, tanpa langganan."
 alternates:
   en: index.md
 ---
 
 **Read this in other languages:** [English](../index.md) · [Deutsch](../de/index.md) · [Nederlands](../nl/index.md) · [Tiếng Việt](../vi/index.md) · [Türkçe](../tr/index.md) · bahasa Indonesia · [español](../es/index.md) · [français](../fr/index.md) · [italiano](../it/index.md) · [polski](../pl/index.md) · [português do Brasil](../pt-BR/index.md) · [svenska](../sv/index.md) · [čeština](../cs/index.md) · [ελληνικά](../el/index.md) · [Русский](../ru/index.md) · [українська](../uk/index.md) · [اردو](../ur/index.md) · [العربية](../ar/index.md) · [فارسی](../fa/index.md) · [हिंदी](../hi/index.md) · [বাংলা](../bn/index.md) · [தமிழ்](../ta/index.md) · [తెలుగు](../te/index.md) · [ไทย](../th/index.md) · [日本語](../ja/index.md) · [简体中文](../zh-CN/index.md) · [繁體中文](../zh-TW/index.md) · [한국어](../ko/index.md)
-<!-- yazses-l10n: locale=id; source=README.md; source_sha=3baacb8; scope=partial; status=draft -->
-
-> ⚠️ **Terjemahan draf** — Dibantu mesin dan belum ditinjau oleh penutur asli.
->
-> *This is a machine-assisted **draft** translation, not yet reviewed by a native
-> speaker. English is authoritative: [README.md](https://github.com/MSKazemi/yazses#readme). Improving it is a
-> welcome first contribution — see [issue #343](https://github.com/MSKazemi/yazses/issues/343).*
+<!-- yazses-l10n: locale=id; source=README.md; source_sha=3baacb8; scope=partial; status=active; reviewer=@Ptraaah -->
 
 # YazSes
 
-YazSes adalah daemon dikte suara yang bebas, sumber terbuka, dan bekerja luring untuk Linux, macOS, dan Windows. Tahan sebuah tombol, bicaralah, lalu lepaskan — teksnya muncul di tempat Anda sedang mengetik. Semuanya berjalan di komputer Anda sendiri: tanpa awan, tanpa akun, tanpa langganan.
+YazSes adalah program dikte suara yang bebas, sumber terbuka, dan bekerja luring untuk Linux, macOS, dan Windows. Tahan tombol, bicaralah, lalu lepaskan — teksnya muncul di tempat Anda sedang mengetik. Semuanya berjalan di komputer Anda sendiri: tanpa cloud, tanpa akun, tanpa langganan.
 
 ## Pemasangan
 
@@ -31,21 +25,21 @@ yazses quickstart
 yazses start
 ```
 
-Jalankan pertama kali akan mengunduh model suara satu kali (sekitar 148 MB). Setelah itu sama sekali tidak memerlukan jaringan.
+Saat pertama kali dijalankan, YazSes akan mengunduh model suara satu kali (sekitar 148 MB). Setelah itu, YazSes tidak memerlukan jaringan sama sekali.
 
-## Apa yang dilakukannya
+## Apa yang Bisa Dilakukan
 
-- **Dikte** — Tahan tombolnya, bicaralah, lepaskan. Teks diketikkan ke jendela yang aktif.
-- **Perintah suara** — Ucapkan “simpan berkas” atau “ke baris 40”, dan ia bertindak alih-alih mengetik kata-katanya.
-- **Rapat dan rekaman** — Transkripsikan berkas audio, atau rekam seluruh rapat dengan penandaan pembicara — semuanya luring.
+- **Dikte** — Tahan tombol, bicaralah, lalu lepaskan. Teks diketik langsung ke jendela yang sedang aktif.
+- **Perintah suara** — Ucapkan “simpan berkas” atau “ke baris 40”, dan YazSes menjalankannya sebagai perintah, alih-alih mengetik kata-katanya.
+- **Rapat dan rekaman** — Transkripsikan berkas audio, atau rekam seluruh rapat dengan penandaan pembicara — semuanya di perangkat Anda.
 
 ## Privasi
 
-Secara default, audio ditranskripsikan di komputer Anda dan tidak dikirim ke mana pun. Tidak ada telemetri dan tidak ada jalur ke awan.
+Secara default, audio ditranskripsikan di komputer Anda dan tidak dikirim ke mana pun. Tidak ada telemetri dan tidak ada jalur ke cloud.
 
 ## Selengkapnya
 
-Dokumentasi selebihnya untuk saat ini berbahasa Inggris.
+Dokumentasi lainnya untuk saat ini masih berbahasa Inggris.
 
 - [Dokumentasi](https://mskazemi.com/yazses/)
 - [README lengkap dalam bahasa Inggris](https://github.com/MSKazemi/yazses#readme)
