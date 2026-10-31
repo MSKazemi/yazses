@@ -80,6 +80,17 @@ Include the jaw-clench step (default: [biosignal] jaw_clench).
 Start without waiting for Enter.
 .RE
 .TP
+\fByazses biosignal check-source\fR \fISOURCE\fR
+Check that a device or recording keeps the source contract the detectors rely on.
+.RS
+.TP
+\fB\-\-seconds, \-s\fR
+How long to drive the source.
+.TP
+\fB\-\-json\fR
+Print one JSON object instead of a report.
+.RE
+.TP
 \fByazses biosignal doctor\fR
 Check BrainFlow, serial ports, your calibration, and run a synthetic self-check.
 .RS

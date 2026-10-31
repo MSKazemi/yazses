@@ -8267,6 +8267,31 @@ def biosignal_profile_clear(
 
 
 @biosignal_app.command(
+    "check-source",
+    epilog=_examples(
+        "yazses biosignal check-source                       the configured source, 5 s",
+        "yazses biosignal check-source lsl:type=EEG -s 20    an LSL stream for 20 s",
+        "yazses biosignal check-source file:session.edf --json",
+    ),
+)
+def biosignal_check_source(
+    source: str = typer.Argument("", help="Source spec; defaults to [biosignal] source, else synthetic."),
+    seconds: float = typer.Option(5.0, "--seconds", "-s", help="How long to drive the source."),
+    as_json: bool = typer.Option(False, "--json", help="Print one JSON object instead of a report."),
+) -> None:
+    """Check that a device or recording keeps the source contract the detectors rely on.
+
+    Opens the source for a few seconds and checks start/stop, the declared channels and
+    sample rate, block shapes, timestamps, gaps and rate accuracy. Use it when bringing up
+    a new board or driver. Exit 1 if any check fails.
+    """
+    from yazses.biosignal.cli_impl import run_check_source
+
+    cfg, _data_dir = _biosignal_context()
+    raise typer.Exit(run_check_source(cfg, source=source, seconds=seconds, as_json=as_json))
+
+
+@biosignal_app.command(
     "boards",
     epilog=_examples(
         "yazses biosignal boards          boards known to work, with their ids",

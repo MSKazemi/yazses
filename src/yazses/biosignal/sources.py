@@ -661,7 +661,7 @@ def _load_npz(path: Path, fs_override: float | None) -> _Recording:
 
 
 class FileReplaySource:
-    """Replay a recorded CSV or ``.npz`` session as a :class:`BlockSource`.
+    """Replay a recorded CSV, ``.npz``, EDF/EDF+/BDF or XDF session as a :class:`BlockSource`.
 
     ``realtime=False`` (default) delivers every block immediately — the way to score a
     detector over a long recording in seconds. ``realtime=True`` paces to the wall clock
@@ -670,6 +670,12 @@ class FileReplaySource:
     so one object can be replayed. The file is read in the constructor: a missing or
     malformed file raises ``FileNotFoundError`` / ``ValueError`` there, because the
     caller named it explicitly.
+
+    ``.edf``/``.bdf`` go through the pure reader in :mod:`yazses.biosignal.edf` and
+    ``.xdf`` through :mod:`yazses.biosignal.xdf` (the optional ``xdf`` extra). For those,
+    ``fs`` *selects* a sample-rate group rather than overriding the rate, and the file's
+    annotations or marker stream become :meth:`ground_truth` -- so ``evaluate`` can score
+    a detector against a labelled recording from another tool.
     """
 
     def __init__(
@@ -684,7 +690,22 @@ class FileReplaySource:
         p = Path(path).expanduser()
         if not p.is_file():
             raise FileNotFoundError(f"recording not found: {p}")
-        rec = _load_npz(p, fs) if p.suffix.lower() == ".npz" else _load_csv(p, fs)
+        suffix = p.suffix.lower()
+        self._truth: tuple[BioEvent, ...] = ()
+        if suffix in (".edf", ".bdf"):
+            from yazses.biosignal.edf import load_edf
+            edf = load_edf(p, fs=fs)
+            rec = _Recording(edf.data, edf.fs, edf.channels, edf.t0)
+            self._truth = tuple(edf.events)
+        elif suffix == ".xdf":
+            from yazses.biosignal.xdf import load_xdf
+            xdf = load_xdf(p)
+            rec = _Recording(xdf.data, xdf.fs, xdf.channels, xdf.t0)
+            self._truth = tuple(xdf.events)
+        elif suffix == ".npz":
+            rec = _load_npz(p, fs)
+        else:
+            rec = _load_csv(p, fs)
         self.path = p
         self.fs: float = rec.fs
         self.channels: tuple[ChannelInfo, ...] = rec.channels
@@ -705,6 +726,10 @@ class FileReplaySource:
     @property
     def duration(self) -> float:
         return self.n_samples / self.fs
+
+    def ground_truth(self) -> list[BioEvent]:
+        """Labelled events carried by the file (EDF+ annotations, XDF markers), else ``[]``."""
+        return list(self._truth)
 
     def start(self) -> None:
         self._pos = 0
@@ -836,15 +861,16 @@ class RecordingTap:
 
     Transparent to the consumer: ``read()`` returns exactly what the inner source
     returned. A write failure is logged once and recording stops; it never interrupts the
-    stream. ``.npz`` paths are buffered in memory and written at ``stop()`` (or at end of
-    stream); anything else is streamed to CSV as it arrives. The file is created with mode
+    stream. ``.npz``, ``.edf`` and ``.bdf`` paths are buffered in memory and written at
+    ``stop()`` (or at end of stream) -- EDF+/BDF+ open in EDFbrowser, MNE and the vendor
+    tools; anything else is streamed to CSV as it arrives. The file is created with mode
     ``0o600`` — it is raw biometric-adjacent signal, so keep it local and private.
     """
 
     def __init__(self, source: BlockSource, path: str | os.PathLike[str]) -> None:
         self._inner = source
         self._path = Path(path).expanduser()
-        self._npz = self._path.suffix.lower() == ".npz"
+        self._npz = self._path.suffix.lower() in (".npz", ".edf", ".bdf")
         self._writer: _CsvWriter | None = None
         self._buffer: list[SampleBlock] = []
         self._failed = False
@@ -899,7 +925,11 @@ class RecordingTap:
         if self._buffer:
             buffered, self._buffer = self._buffer, []
             try:
-                write_npz(self._path, buffered)
+                if self._path.suffix.lower() in (".edf", ".bdf"):
+                    from yazses.biosignal.edf import write_edf
+                    write_edf(self._path, buffered)
+                else:
+                    write_npz(self._path, buffered)
             except Exception:
                 log.warning("Writing %s failed.", self._path, exc_info=True)
 
@@ -1288,8 +1318,9 @@ class BrainFlowBlockSource:
 # 4. factory
 # ====================================================================================
 
-_SPEC_HELP = ("expected 'synthetic', 'synthetic:<emg|eeg|eog|mixed>', 'file:<path>' or "
-              "'brainflow:<board_id>[:<serial_port>]'")
+_SPEC_HELP = ("expected 'synthetic', 'synthetic:<emg|eeg|eog|mixed>', 'file:<path>', "
+              "'brainflow:<board_id>[:<serial_port>]', 'lsl:<name>' / 'lsl:type=<type>', "
+              "'thinkgear:<port>', 'bitalino:<port>[:<options>]' or 'myo:<address>'")
 
 
 def open_source(spec: str, **kw: Any) -> BlockSource:
@@ -1301,6 +1332,17 @@ def open_source(spec: str, **kw: Any) -> BlockSource:
       path, so ``file:C:\\rec.csv`` works).
     * ``brainflow:<board_id>[:<serial_port>]`` — :class:`BrainFlowBlockSource`
       (``brainflow:-1`` is BrainFlow's synthetic board).
+    * ``lsl:<name>`` / ``lsl:type=<type>`` / ``lsl:source_id=<id>`` — a Lab Streaming Layer
+      stream published on *this* machine (:mod:`yazses.biosignal.lsl_source`).
+    * ``thinkgear:<port>[:<options>]`` — a NeuroSky ThinkGear headset
+      (:mod:`yazses.biosignal.thinkgear`).
+    * ``bitalino:<port>[:<options>]`` — a PLUX BITalino (r)evolution board
+      (:mod:`yazses.biosignal.bitalino`).
+    * ``myo:<address>`` — a Myo armband's raw EMG over Bluetooth LE
+      (:mod:`yazses.biosignal.myo`).
+
+    The device modules are imported only when their scheme is asked for, and each keeps
+    its optional dependency (pylsl, pyserial, bleak) lazy inside it.
 
     Raises ``ValueError`` for an unknown or malformed spec. The returned source is not
     started.
@@ -1322,5 +1364,17 @@ def open_source(spec: str, **kw: Any) -> BlockSource:
             raise ValueError(f"brainflow spec {spec!r} needs an integer board id "
                              f"({_SPEC_HELP})") from None
         return BrainFlowBlockSource(board_id, port.strip(), **kw)
+    if scheme == "lsl":
+        from yazses.biosignal.lsl_source import open_lsl_source
+        return open_lsl_source(text, **kw)
+    if scheme == "thinkgear":
+        from yazses.biosignal.thinkgear import thinkgear_from_spec
+        return thinkgear_from_spec(rest, **kw)
+    if scheme == "bitalino":
+        from yazses.biosignal.bitalino import bitalino_from_spec
+        return bitalino_from_spec(rest, **kw)
+    if scheme == "myo":
+        from yazses.biosignal.myo import source_from_spec
+        return source_from_spec(text, **kw)   # full text: a MAC address contains colons
     raise ValueError(f"unknown source spec {spec!r}; {_SPEC_HELP}")
 

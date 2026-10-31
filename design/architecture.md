@@ -826,7 +826,12 @@ and the thresholds are unmeasured. Validation is synthetic only; no field-test r
 | `evaluate.py` | Evaluation harness: recall, precision and latency against scripted events, and phantom activations per hour on an idle stream, with intervals and a synthetic-data caveat. |
 | `fieldtest.py` | In-situ field test: a guided session of ordinary activity (rest, speech, chew, typing, movement, then a cued gesture per switch) that counts phantom activations per usable hour by activity and the hit rate, with Poisson upper bounds and Wilson intervals; `FieldTestAggregate` merges reports. Counts and whole-second durations only; clock-injected, no I/O. |
 | `boards.py` | A small table of known boards and their BrainFlow ids (advice for choosing `[biosignal] source`; stdlib only, opens nothing). |
-| `sources.py` | `SyntheticSource`, `FileReplaySource`, `BrainFlowBlockSource`, `open_source('synthetic' \| 'file:…' \| 'brainflow:<id>')`; `brainflow` imported lazily (the `emg-band` extra). |
+| `sources.py` | `SyntheticSource`, `FileReplaySource` (CSV, `.npz`, EDF/BDF, XDF), `BrainFlowBlockSource`, `RecordingTap`, and `open_source` for `synthetic`, `file:`, `brainflow:`, `lsl:`, `thinkgear:`, `bitalino:` and `myo:`; every device module is imported only for its own scheme. |
+| `lsl_source.py` | Lab Streaming Layer inlet; liblsl pinned to machine-only discovery before its first call, foreign hosts refused (ADR-019). `pylsl` lazy (`lsl` extra). |
+| `thinkgear.py`, `bitalino.py` | Pure packet/frame parsers (checksum, CRC-4, sequence gaps) for NeuroSky ThinkGear and PLUX BITalino, plus pyserial transports (`emg` extra). Vendor attention/blink scores are never used. |
+| `myo.py` | Myo armband raw EMG over Bluetooth LE (`myohw.h` protocol); bleak on a background thread behind a bounded drop-oldest queue (`ble` extra). |
+| `edf.py`, `xdf.py` | Pure EDF/EDF+/BDF reader and writer (annotations become ground-truth events); XDF via `pyxdf` (`xdf` extra). |
+| `integrity.py`, `conformance.py` | Stream-integrity guard wrapped round every daemon source (gaps, overlaps, rate drift, stalls, layout changes, non-finite samples close the gate until 1 s of clean stream), and the source conformance kit behind `yazses biosignal check-source`. |
 | `pipeline.py`, `runner.py` | `BiosignalPipeline` (pure: blocks in, events out) and `BiosignalRunner` (the thread, `mode_map` / `intent_map`, stuck-hold watchdog, status). |
 | `cli_impl.py` | The `yazses biosignal` command bodies, the `BiosignalActivationSource` adapter the daemon starts, and the ledger counters file. |
 

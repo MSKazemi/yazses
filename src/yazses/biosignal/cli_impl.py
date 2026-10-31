@@ -108,11 +108,16 @@ def _scheme(spec: str) -> str:
 def squeeze_expected(spec: str) -> bool:
     """Whether the muscle-squeeze switch could apply to this source (so it needs a profile).
 
-    False only for a board known to be EEG-only (a Muse has no muscle channel). A 'mixed'
-    board such as ``brainflow:-1``, a board the table does not list, a recording and a
-    plain ``emg`` band all return True, so a missing calibration is still reasoned about.
+    False only for a source known to be EEG-only: a ``thinkgear:`` headset (one EEG forehead
+    electrode, no muscle channel) and a BrainFlow board the table lists as EEG-only (a Muse).
+    A 'mixed' board such as ``brainflow:-1``, a board the table does not list, a ``bitalino``,
+    ``myo``, ``lsl`` or ``file`` source, a recording and a plain ``emg`` band all return
+    True, so a missing calibration is still reasoned about.
     """
-    if _scheme(spec) != "brainflow":
+    scheme = _scheme(spec)
+    if scheme == "thinkgear":
+        return False
+    if scheme != "brainflow":
         return True
     try:
         from yazses.biosignal.boards import preset_for
@@ -515,7 +520,7 @@ def run_calibrate(
         return UNUSABLE
     try:
         src = _open(spec)
-    except (ValueError, FileNotFoundError) as exc:
+    except (ValueError, FileNotFoundError, ImportError) as exc:
         _warn(f"Cannot open source {spec!r}: {exc}")
         return UNUSABLE
     src.start()
@@ -679,7 +684,7 @@ def run_monitor(
         return UNUSABLE
     try:
         src = _open(spec, realtime=True)
-    except (ValueError, FileNotFoundError) as exc:
+    except (ValueError, FileNotFoundError, ImportError) as exc:
         _warn(f"Cannot open source {spec!r}: {exc}")
         return UNUSABLE
     demo = _scheme(spec) == "synthetic" and hasattr(src, "schedule_blink")
@@ -693,7 +698,15 @@ def run_monitor(
         _warn(f"Source {spec!r} is not available: {getattr(src, 'last_error', '') or 'no data'}")
         src.stop()
         return UNUSABLE
+    # The same stream-integrity guard the daemon wraps every source in (runner.py). The
+    # arrival-rate check is for live hardware only; synthetic and file sources are paced
+    # by the harness. The pipeline reads ``parts.quality`` on every block, so setting it
+    # here, before the first block, is enough.
+    from yazses.biosignal.integrity import IntegrityGate, IntegrityGuard
+
+    guard = IntegrityGuard(src, check_arrival_rate=_scheme(spec) not in ("synthetic", "file"))
     pipeline, parts, ledger = _build_pipeline(bio, src, sw, data_dir)
+    parts.quality = IntegrityGate(guard, parts.quality)
     _say(f"Monitoring {spec}  (fs {src.fs:g} Hz, {len(src.channels)} channels; detectors: "
          f"{sw.names()}).  Ctrl-C to stop."
          + ("  Demo gestures are scripted every 8 s." if demo else ""))
@@ -754,7 +767,7 @@ def run_monitor(
                 _say("  recent: " + "; ".join(lines[:_RECENT_N]))
 
     try:
-        why = _pump(src, pipeline, on_result, max_seconds=seconds)
+        why = _pump(guard, pipeline, on_result, max_seconds=seconds)
     except KeyboardInterrupt:
         why = "stopped"
     _say(f"\nStopped ({why}) after {time.monotonic() - started:.1f} s, {state['blocks']} blocks.")
@@ -790,7 +803,7 @@ def run_replay(
     bio = cfg.biosignal
     try:
         src = _open(f"file:{path}")
-    except (ValueError, FileNotFoundError) as exc:
+    except (ValueError, FileNotFoundError, ImportError) as exc:
         _warn(f"Cannot replay {path!r}: {exc}")
         return UNUSABLE
     sw = switches_from(bio, emg, blink, clench)
@@ -1165,7 +1178,7 @@ def run_record(
             src = _synthetic_session(spec, seconds, seed, float(bio.mains_hz))
         else:
             src = _open(spec)
-    except (ValueError, FileNotFoundError) as exc:
+    except (ValueError, FileNotFoundError, ImportError) as exc:
         _warn(f"Cannot open source {spec!r}: {exc}")
         return UNUSABLE
 
@@ -1275,19 +1288,26 @@ def run_evaluate(
     if file:
         try:
             src = _open(f"file:{file}")
-        except (ValueError, FileNotFoundError) as exc:
+        except (ValueError, FileNotFoundError, ImportError) as exc:
             _warn(f"Cannot read {file!r}: {exc}")
             return UNUSABLE
-        if not truth:
+        # An EDF+ file's annotations / an XDF marker stream are labels already; an explicit
+        # --truth file still wins.
+        embedded = list(src.ground_truth()) if hasattr(src, "ground_truth") else []
+        if not truth and not embedded:
             _warn("A recording needs its labels: pass --truth <events.json> "
-                  '(e.g. [{"kind": "double_blink", "t": 12.3}]). '
+                  '(e.g. [{"kind": "double_blink", "t": 12.3}]), or use an EDF+/XDF file '
+                  "that carries annotations. "
                   "`yazses biosignal record --source synthetic --truth-out` writes an example.")
             return UNUSABLE
-        try:
-            labelled = load_truth(Path(truth).expanduser())
-        except (OSError, ValueError) as exc:
-            _warn(f"Cannot read the truth file: {exc}")
-            return UNUSABLE
+        if truth:
+            try:
+                labelled = load_truth(Path(truth).expanduser())
+            except (OSError, ValueError) as exc:
+                _warn(f"Cannot read the truth file: {exc}")
+                return UNUSABLE
+        else:
+            labelled = embedded
         label = f"file {file}"
         duration = float(src.duration)
     else:
@@ -1423,6 +1443,40 @@ def run_profile_clear(cfg: Any, data_dir: Path, *, yes: bool = False) -> int:
 
 # ---------------------------------------------------------------------------
 # boards
+
+
+def run_check_source(
+    cfg: Any, *, source: str = "", seconds: float = 5.0, as_json: bool = False,
+) -> int:
+    """Drive one source for a few seconds and check it keeps the source contract.
+
+    For whoever is bringing up a new device or driver: lifecycle, declared channels and
+    rate, block shapes, timestamps, gaps and rate accuracy (``biosignal/conformance.py``).
+    It opens the device for ``seconds`` -- which is why it is not part of ``doctor``.
+    Exit 0 when every clause passes, 1 when one fails, 2 when the source cannot be built.
+    """
+    from yazses.biosignal.conformance import check_source
+
+    spec = (source or str(getattr(cfg.biosignal, "source", "") or "") or "synthetic").strip()
+    if not (seconds > 0 and seconds <= 600):
+        _warn("--seconds must be between 0 and 600.")
+        return UNUSABLE
+    try:
+        src = _open(spec, realtime=True)
+    except (ValueError, FileNotFoundError, ImportError) as exc:
+        _warn(f"Cannot open source {spec!r}: {exc}")
+        return UNUSABLE
+    report = check_source(src, seconds=float(seconds))
+    if as_json:
+        _say(json.dumps({
+            "source": spec, "passed": report.passed, "blocks": report.blocks,
+            "samples": report.samples, "stream_s": round(report.stream_s, 3),
+            "clauses": [{"clause": c.clause, "status": c.status, "detail": c.detail}
+                        for c in report.clauses],
+        }, indent=2))
+    else:
+        _say(report.format())
+    return OK if report.passed else FAILED
 
 
 def run_boards(*, as_json: bool = False) -> int:
@@ -1577,7 +1631,7 @@ def run_field_test(
     narrate = _warn if as_json else _say          # keep stdout pure JSON when asked
     try:
         src = _open(spec, realtime=True)
-    except (ValueError, FileNotFoundError) as exc:
+    except (ValueError, FileNotFoundError, ImportError) as exc:
         _warn(f"Cannot open source {spec!r}: {exc}")
         return UNUSABLE
     sw = switches_from(bio)

@@ -1126,13 +1126,16 @@ def _registry() -> list[_Def]:
              lambda c: c.facegesture.enabled, fg_on, fg_off),
         _Def("biosignal", "Biosignal Switch (EEG/EMG/EOG)",
              "[biosignal] — a muscle squeeze or double blink as a switch", EXPERIMENTAL,
-             "Reads an electrode board (OpenBCI, Muse and other BrainFlow boards), a recording or "
+             "Reads an electrode board (OpenBCI, Muse and other BrainFlow boards, a Lab Streaming "
+             "Layer stream, a NeuroSky or BITalino device, a Myo armband), a recording (CSV, EDF/BDF, "
+             "XDF) or "
              "the built-in synthetic generator and turns only the reliable things an electrode can "
              "tell a computer — a muscle squeeze and its strength, a deliberate double blink, "
              "optionally a jaw clench — into a switch press, for people who can speak but cannot "
              "press a key. It never decodes thoughts. Needs `[biosignal] source` and a calibration "
              "(`yazses biosignal calibrate`); a board needs the `emg-band` extra (BrainFlow), "
-             "while the synthetic and replay sources need nothing. Measure the false-positive "
+             "the other devices need `lsl`, `emg` or `ble`, while the synthetic and replay sources "
+             "need nothing. Measure the false-positive "
              "rate with `yazses biosignal report` first. Experimental; off by default.",
              lambda c: c.biosignal.enabled, bio_on, bio_off),
         # The preset is a composition, not a capability of its own (ADR-v2-148): its one key

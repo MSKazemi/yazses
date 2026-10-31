@@ -6,6 +6,33 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — biosignal sources for market devices, and a stream-integrity guard
+
+- **New `[biosignal] source` kinds**: `lsl:<stream>` reads a Lab Streaming Layer stream published
+  on this computer (OpenBCI GUI, muse-lsl/BlueMuse and other vendor tools; `lsl` extra, liblsl
+  pinned to machine-only discovery); `thinkgear:<port>` a NeuroSky headset and
+  `bitalino:<port>` a BITalino kit (`emg` extra); `myo:<address>` a Myo armband's raw EMG over
+  Bluetooth LE (`ble` extra).
+- **Open file formats**: `file:` replays EDF, EDF+ and BDF with no extra library, and LabRecorder
+  `.xdf` with the new `xdf` extra. `yazses biosignal evaluate --file` uses an EDF+ file's
+  annotations or an XDF marker stream as labels, and `yazses biosignal record --out x.edf`
+  writes EDF+/BDF+ that EDFbrowser and MNE open.
+- **Board presets**: OYMotion gForce Pro and gForce Dual, ANT Neuro eego 8 and Mentalab Explore
+  4/8 in `yazses biosignal boards`.
+- **Stream-integrity guard**: every source the daemon opens is checked for dropped packets,
+  overlapping or backwards timestamps, sample-rate drift, stalls and channel changes; a breach
+  closes the switch until a second of clean stream, and `status` names the reason.
+  `yazses biosignal check-source` runs the same contract checks on a device or recording.
+- **Fixed: a double blink could fire after a bad stretch.** The detector reports a pair about
+  1.3 s late, so a pair made while the signal or stream was bad could arrive after the gate had
+  reopened and be accepted. Events are now judged by when they happened, across both blinks,
+  and `status` names the reason a gate is closed (`dropped_by_reason` gains `stream`).
+- `yazses biosignal monitor` now runs the stream checks too, and `yazses biosignal boards`
+  lists the LSL, NeuroSky, BITalino and Myo sources. A NeuroSky headset no longer asks for a
+  squeeze calibration, because it has no muscle channel.
+- None of the new devices has been used on real hardware yet: each was built against its
+  published protocol document and tested with byte-level fixtures and fakes.
+
 ### Added — biosignal switches: artifact-grade EMG/EOG/EEG events under a false-positive budget (ADR-v2-152)
 
 A new opt-in `yazses.biosignal` package reads raw electrode samples (a synthetic source, a

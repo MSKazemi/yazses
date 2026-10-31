@@ -62,6 +62,28 @@ path; they work on the BrainFlow, file and synthetic sources.
 
 A board that is unplugged or busy is logged and leaves the switch unavailable; YazSes carries on without it.
 
+### Other devices and recordings
+
+These sources do not go through BrainFlow. Each one is opened only when you name it, and each one
+keeps its library optional.
+
+| Source | Example | Extra | What it is for |
+|---|---|---|---|
+| `lsl:<stream name>` or `lsl:type=EEG` | `lsl:type=EEG` | `lsl` | Any app that publishes a [Lab Streaming Layer](https://labstreaminglayer.readthedocs.io/info/supported_devices.html) stream: OpenBCI GUI, muse-lsl or BlueMuse for a Muse, and many vendor tools. YazSes only looks on this computer, never on your network, and refuses a stream from another host. |
+| `thinkgear:<port>` | `thinkgear:/dev/rfcomm0` | `emg` | A NeuroSky MindWave or other ThinkGear headset (one forehead electrode, so blinks). Only the raw signal is used, never the headset's own "attention" or "blink strength" scores. |
+| `bitalino:<port>[:<options>]` | `bitalino:COM5:A1=emg,fs=1000` | `emg` | A PLUX BITalino (r)evolution kit with its EMG, EEG or EOG sensor on a chosen input. |
+| `myo:<address>` | `myo:AA:BB:CC:DD:EE:FF` | `ble` | A Myo armband's raw 8-channel EMG over Bluetooth LE. The values are raw counts, not microvolts, so calibrate on the band itself. |
+| `file:<recording>` | `file:session.edf` | none (`xdf` for `.xdf`) | Replay a CSV, `.npz`, EDF/EDF+/BDF or LabRecorder `.xdf` file. Annotations in an EDF+ file, or an XDF marker stream, are used as labels by `yazses biosignal evaluate`. |
+
+`yazses biosignal record --out session.edf` (or `.bdf`) writes a file that EDFbrowser, MNE and most
+vendor tools open. Before you rely on a new device, run `yazses biosignal check-source <source>`: it
+opens the device for a few seconds and checks that the stream is well-formed (no dropped packets, a
+steady sample rate, consistent channels). While the switch runs, a stream that breaks those rules
+closes the switch the same way a bad electrode does.
+
+None of these devices has been tested with YazSes on real hardware yet. They were built and tested
+against their published protocol documents.
+
 ## Which channels are read
 
 What YazSes can detect depends on which channels your hardware gives it:

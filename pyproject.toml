@@ -203,6 +203,17 @@ tts = [
 emg-band = [
     "brainflow>=5.22.2",
 ]
+# Lab Streaming Layer inlet for `[biosignal] source = "lsl:..."` -- the protocol most EEG
+# vendor tools publish to. liblsl opens sockets of its own; biosignal/lsl_source.py pins
+# discovery to this machine before the first call (ADR-019). Imported lazily.
+lsl = [
+    "pylsl>=1.18.6",
+]
+# Replaying LabRecorder `.xdf` recordings through `file:<path>.xdf`. EDF/EDF+/BDF need
+# nothing: biosignal/edf.py is a pure reader. Imported lazily.
+xdf = [
+    "pyxdf>=1.18.0",
+]
 # Real-time noise suppression before STT (ADR-v2-015, #69). Spectral gating over
 # numpy + scipy — no torch, no numpy ceiling. DeepFilterNet is deliberately NOT
 # here: its latest release pins numpy<2.0 against this project's numpy>=2.4.6, so
@@ -405,6 +416,8 @@ all = [
     "opencv-contrib-python>=5.0",
     "opencc-python-reimplemented>=0.1.7",
     "brainflow>=5.22.2",
+    "pylsl>=1.18.6",
+    "pyxdf>=1.18.0",
     "noisereduce>=3.0.3",
     "useful-moonshine-onnx>=20251121",
     "pyannote.audio>=4.0.7; sys_platform != 'darwin' or platform_machine != 'x86_64'",
@@ -558,7 +571,7 @@ files = ["src"]
 [[tool.mypy.overrides]]
 module = [
     "bleak.*", "cv2.*", "df.*", "faster_whisper.*", "jeepney.*", "kokoro_onnx.*", "l2cs.*",
-    "brainflow.*", "llama_cpp.*", "mediapipe.*", "moonshine_onnx.*", "noisereduce.*",
+    "brainflow.*", "pylsl.*", "pyxdf.*", "llama_cpp.*", "mediapipe.*", "moonshine_onnx.*", "noisereduce.*",
     "opencc.*",
     "pyannote.*", "pyatspi.*", "pynvim.*",
     "pywintypes.*", "resemblyzer.*", "sherpa_onnx.*", "silero_vad.*", "sounddevice.*",

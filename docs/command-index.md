@@ -93,6 +93,14 @@ Guided calibration: learn YOUR resting level and your squeeze, blink and clench 
 - `--clench`, `--no-clench` — Include the jaw-clench step (default: [biosignal] jaw_clench).
 - `--yes`, `-y` — Start without waiting for Enter.
 
+### `yazses biosignal check-source`
+
+Check that a device or recording keeps the source contract the detectors rely on.
+
+- **Arguments:** `source`
+- `--seconds`, `-s` — How long to drive the source.
+- `--json` — Print one JSON object instead of a report.
+
 ### `yazses biosignal doctor`
 
 Check BrainFlow, serial ports, your calibration, and run a synthetic self-check.

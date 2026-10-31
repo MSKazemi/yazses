@@ -1096,6 +1096,15 @@ def _voiceguard_check(cfg, data_dir: Path) -> _Check | None:
     ))
 
 
+#: ``[biosignal] source`` scheme -> (importable module, YazSes extra, what to call it).
+_BIOSIGNAL_SCHEME_DEPS: dict[str, tuple[str, str, str]] = {
+    "lsl": ("pylsl", "lsl", "a Lab Streaming Layer stream"),
+    "thinkgear": ("serial", "emg", "a NeuroSky ThinkGear headset"),
+    "bitalino": ("serial", "emg", "a BITalino board"),
+    "myo": ("bleak", "ble", "a Myo armband"),
+}
+
+
 def _biosignal_check(
     cfg, data_dir: Path, *, brainflow_present: bool | None = None, now=None
 ) -> _Check:
@@ -1140,8 +1149,19 @@ def _biosignal_check(
         except (ValueError, OSError) as exc:
             fails.append((
                 f"source {spec!r} is not usable: {exc}",
-                "use \"synthetic\", \"file:<recording>\" or \"brainflow:<board id>[:<port>]\""))
+                "use \"synthetic\", \"file:<recording>\", \"brainflow:<board id>[:<port>]\", "
+                "\"lsl:<stream>\", \"thinkgear:<port>\", \"bitalino:<port>\" or \"myo:<address>\""))
             scheme = ""
+
+    # The device sources keep their library optional; name the extra that brings it.
+    needs = _BIOSIGNAL_SCHEME_DEPS.get(scheme)
+    if scheme == "file" and spec.lower().endswith(".xdf"):
+        needs = ("pyxdf", "xdf", "an XDF recording")
+    if needs is not None and importlib.util.find_spec(needs[0]) is None:
+        from yazses.system.remedy import install_hint
+
+        fails.append((f"the source is {needs[2]} but {needs[0]} is not installed",
+                      install_hint(needs[1]) or f"install the YazSes `{needs[1]}` extra"))
 
     if scheme == "brainflow":
         present = (importlib.util.find_spec("brainflow") is not None

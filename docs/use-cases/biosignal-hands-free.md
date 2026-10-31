@@ -41,11 +41,34 @@ extra safeguards. That is why the squeeze is the recommended trigger, and why bl
 a short, reversible command rather than dictation. YazSes does not read thoughts, imagined movement or
 attention, and this feature does not try to.
 
+## How it works
+
+The switch is experimental and off by default. Its steps run in this order, and each one can stop the next:
+
+```mermaid
+flowchart LR
+    A["Electrode, headband<br/>or saved recording"] --> B["Stream check<br/>are samples arriving steadily?"]
+    B --> C["Signal-quality check<br/>flat, clipped or noisy? ignored"]
+    C --> D["Squeeze"]
+    C --> E["Double blink"]
+    C --> F["Jaw clench"]
+    D --> G["False-activation budget<br/>too many cancelled? weaken or pause"]
+    E --> G
+    F --> G
+    G --> H["Switch: start dictation<br/>or run a command"]
+```
+
+A stream or electrode the checks recognise as bad produces silence, not a press, and a held squeeze
+is released when samples stop. The checks are not perfect: in synthetic tests a large, sudden jolt can
+still look like a squeeze, which is why you measure your own false-activation rate before relying on
+it. The switch never reads thoughts: it sees only the muscle and eye activity described above.
+
 ## How to start
 
 1. **Pick the hardware.** A DIY muscle sensor (MyoWare 2.0 or a BioAmp EXG Pill) on a microcontroller is the
    cheapest and most dependable squeeze trigger. A board BrainFlow supports (an OpenBCI board, a Muse
-   headband) gives raw-signal control and lets YazSes measure its own mistakes. The
+   headband) gives raw-signal control and lets YazSes measure its own mistakes; so does a device that
+   publishes a Lab Streaming Layer stream, a NeuroSky headset, a BITalino kit or a Myo armband. The
    [hardware guide](../how-to/biosignal-hardware.md) compares them, and covers the mains setting and the
    safety rules. It is not a medical device, and electrodes must never be connected to mains-powered
    equipment.

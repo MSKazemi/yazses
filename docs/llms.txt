@@ -21,6 +21,7 @@ YazSes is a hold-to-talk voice daemon that replaces cloud dictation tools. When 
 - **Dysfluency-Friendly Mode**: opt-in collapse of stutters/repeats for stuttered or dysarthric speech
 - **Self-improving**: opt-in, encrypted on-device learning corpus; `yazses tune` proposes accuracy fixes from your own corrections
 - **EMG support**: can be triggered by a USB muscle sensor for hands-free use by people with motor disabilities
+- **Experimental biosignal switches** (muscle squeeze, double blink, jaw clench) can read BrainFlow boards, Lab Streaming Layer streams, NeuroSky, BITalino, Myo and EDF/BDF/XDF recordings. Off by default. Not thought decoding. Not yet tested on real hardware.
 
 ## Compared to alternatives
 

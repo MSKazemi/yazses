@@ -5,7 +5,7 @@ description: The measured hierarchy of hands-free control, from a $50 EMG electr
 
 # Muscle & brain control: the honest hierarchy
 
-*Updated 2026-08-07. Part of the [research series](index.md).*
+*Updated 2026-10-31. Part of the [research series](index.md).*
 
 !!! abstract "The short version"
 
@@ -100,7 +100,7 @@ than the blink switch ([Han et al.](#ref-ppg)). The lesson generalises — pick
 the physiological channel where your intended action is loudest, rather than
 trying to filter it out of a noisier one.
 
-This is the reasoning recorded in ADR-v2-129: **consumer-EEG triggers are
+This is the reasoning recorded in ADR-v2-129: **consumer-EEG thought triggers are
 rejected** — not because BCIs aren't coming, but because in 2026 a dedicated
 EMG channel strictly dominates on signal-to-noise, latency, and false
 activations. (For completeness: invasive BCIs are a different world entirely,
@@ -276,6 +276,26 @@ without owning our pipeline. See [`contract/README.md`](https://github.com/MSKaz
 Configuration lives under `[activation]`; it is off by default and changes nothing
 until an intent-carrying source exists.
 
+## What you can actually buy, and what YazSes reads
+
+The readers below are experimental and off by default. The table lists the device families
+YazSes can read, the signal each one gives, and what that signal is good for as a switch.
+
+| Device family | Signal | How YazSes reads it | Good for as a switch |
+|---|---|---|---|
+| DIY sensor on a microcontroller (MyoWare 2.0, BioAmp EXG Pill) | EMG | YESP over serial (`[emg] device_port`) | Squeeze |
+| OpenBCI Cyton / Ganglion | EEG and EMG | BrainFlow or LSL | Squeeze from an EMG electrode; blink or jaw clench from frontal or temporal EEG channels |
+| Muse 2 / Muse S | 4-channel EEG, no EMG channel | BrainFlow, or LSL (muse-lsl, BlueMuse) | Blink and jaw clench |
+| NeuroSky ThinkGear (MindWave) | One forehead electrode, raw serial | `thinkgear:<port>`, raw signal only | Blink only. The headset's attention scores are not used. |
+| PLUX BITalino (r)evolution | EMG, EEG or EOG sensor | Serial (`bitalino:<port>`) | Squeeze or blink, depending on the sensor |
+| Myo armband (discontinued, still owned in labs) | 8-channel forearm EMG at 200 Hz, Bluetooth LE | `myo:<address>`, raw counts | Squeeze |
+| OYMotion gForce Pro / Dual, ANT Neuro eego 8, Mentalab Explore | EMG or ExG | BrainFlow (gForce: Windows only, preview) | Squeeze from EMG channels; blink or jaw clench from frontal or temporal ExG channels |
+| Meta Neural Band | sEMG, but no raw EMG for third parties | Not readable | None |
+
+None of these has been tested with YazSes on real hardware yet. Each source was built from the
+vendor's published protocol or through BrainFlow or LSL, and tested on synthetic data. The
+[hardware guide](../how-to/biosignal-hardware.md) gives the source string for each family.
+
 ## Open questions
 
 **[Discuss →](https://github.com/MSKazemi/yazses/discussions)**
@@ -313,8 +333,10 @@ until an intent-carrying source exists.
 !!! tip "If you build the rig, we'll help"
 
     A MyoWare 2.0 or BioAmp EXG Pill plus any microcontroller that can speak
-    the YESP serial protocol is enough to drive YazSes today
-    (`[emg] device_port`). Post your build and your false-activation numbers in
+    the YESP serial protocol is one way to drive YazSes today
+    (`[emg] device_port`). A BrainFlow board or a Lab Streaming Layer stream
+    can also feed it; see the [hardware guide](../how-to/biosignal-hardware.md).
+    Post your build and your false-activation numbers in
     a Discussion — hardware reports are the contribution this page most needs.
 
 ## References
@@ -460,7 +482,7 @@ and the [research index](index.md) for how these channels compare on bandwidth.*
 
 *Added 2026-10-29.* The page above is the reasoning; part of it is now software. YazSes has an opt-in
 **biosignal switch** (`[biosignal]`, off by default) that reads raw electrode samples from a BrainFlow
-board (or a replay file) and reports a squeeze, a blink or double
+board, a Lab Streaming Layer stream or another supported device (or a replay file), and reports a squeeze, a blink or double
 blink, or a jaw clench, behind a signal-quality gate and a false-positive budget it measures on your
 own machine. See [Use a muscle, blink or jaw-clench switch](../how-to/biosignal-switch.md).
 

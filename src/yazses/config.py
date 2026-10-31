@@ -1061,10 +1061,15 @@ class BiosignalConfig:
     enabled: bool = False
     # Where samples come from. Empty = no source = nothing starts, even with `enabled`.
     # `synthetic` is a built-in generator that needs no hardware (for `yazses biosignal
-    # monitor`/`doctor` and for trying the pipeline); `file:<path>` replays a recording;
+    # monitor`/`doctor` and for trying the pipeline); `file:<path>` replays a recording
+    # (CSV, .npz, EDF/EDF+/BDF, or XDF with the `xdf` extra);
     # `brainflow:<board_id>[:<serial port>]` opens a BrainFlow board by its integer id,
     # e.g. `brainflow:0:/dev/ttyUSB0` for an OpenBCI Cyton (needs the `brainflow` package;
     # run `yazses biosignal doctor` to see what is installed and which ports are visible).
+    # `lsl:<stream name>` or `lsl:type=EEG` reads a Lab Streaming Layer stream published
+    # on this machine only (`lsl` extra); `thinkgear:<port>` a NeuroSky headset and
+    # `bitalino:<port>` a BITalino board (`emg` extra); `myo:<address>` a Myo armband's raw
+    # EMG over Bluetooth LE (`ble` extra).
     source: str = ""
     # Powerline frequency, 50 or 60 Hz: the notch the filters place on the mains hum that
     # otherwise swamps microvolt signals. 50 is the default because most of the world

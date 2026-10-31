@@ -1557,12 +1557,13 @@ Muscle-squeeze, blink and jaw-clench switches read from an EEG/EMG/EOG board (`[
 | `yazses biosignal monitor` | Live signal quality and detections, with your last few events (accepted or dropped, and why). Ctrl-C to stop; `--seconds` limits it. |
 | `yazses biosignal replay` | Run a recording through the pipeline and print the detections and the false-positive summary. |
 | `yazses biosignal report` | Your own measured activation and cancel rate, with its confidence interval and the note that cancels are a proxy for false positives. |
-| `yazses biosignal record` | Record a session to a CSV or `.npz` file (mode 0600). Refuses to overwrite without `--force`. |
-| `yazses biosignal evaluate` | Score the detectors against scripted events: precision, recall, latency and phantom triggers per hour. Synthetic by default, or `--file` with `--truth`. |
+| `yazses biosignal record` | Record a session to a CSV, `.npz`, `.edf` or `.bdf` file (mode 0600). EDF+/BDF+ open in EDFbrowser and MNE. Refuses to overwrite without `--force`. |
+| `yazses biosignal evaluate` | Score the detectors against scripted events: precision, recall, latency and phantom triggers per hour. Synthetic by default, or `--file` with `--truth`; an EDF+ or XDF file's own annotations are used when there is no `--truth`. |
 | `yazses biosignal field-test` | Guided test of how often the switches fire by mistake: prompts you to sit still, talk, chew, type and look around, then reports phantom activations per hour for each activity. `--minutes N` sets the length, `--json` prints one object, `--out FILE` also keeps the counts (owner-only, never overwrites). Counts only, never the signal. |
 | `yazses biosignal profile` | Which board and channels your calibration profile is for, and how old it is. Never prints an amplitude. |
 | `yazses biosignal profile-clear` | Delete the calibration profile (asks first; `--yes` skips the question). |
 | `yazses biosignal boards` | The boards the switches are known to work with, and the `source` string for each. |
+| `yazses biosignal check-source` | Open a source for a few seconds (`--seconds`) and check the stream is well-formed: start/stop, channels, sample rate, timestamps, gaps. For bringing up a new board or driver; exit 1 if a check fails. |
 
 ```bash
 yazses biosignal doctor --source synthetic     # no hardware needed

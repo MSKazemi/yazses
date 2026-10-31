@@ -9,7 +9,9 @@ one place that fixes their *order*, because the order is the safety argument:
 2. **quality gate** — a lifted electrode or a mains-saturated channel produces confident
    nonsense, so while the monitor says BAD no *new* event is accepted. This is a gate on
    the output of the detectors, not on their input: their internal state keeps tracking so
-   that they are not mid-burst and confused when the signal comes back.
+   that they are not mid-burst and confused when the signal comes back. An event is judged
+   by the time it happened as well as the block that reported it, because a detector can
+   report late, after the gate has reopened.
 3. **detect** — every detector sees every block, in a fixed order.
 4. **govern** — the ledger records what was accepted; the governor compares the recent
    cancelled-activation rate against the configured budget and may *desensitize* (demand
@@ -102,6 +104,17 @@ _SQUEEZE_EVENTS = (EventKind.SQUEEZE_ON, EventKind.SQUEEZE_OFF)
 # Status
 
 
+# How far back an event can still be judged against a closed gate, in stream seconds, and how
+# many closed stretches are kept. Design choices: longer than any detector's report delay
+# (a double blink's is about 1.3 s, a clench's about 1.6 s). When the list is full the oldest
+# stretch goes first, and that one is the least likely to matter.
+_CLOSED_SPAN_HISTORY_S = 10.0
+_CLOSED_SPANS_MAX = 256
+_QUALITY_REASON = "signal quality bad"
+# integrity.IntegrityReport.reason() starts with this; it decides the refusal's tally.
+_STREAM_REASON = "stream integrity"
+
+
 @dataclass(frozen=True)
 class PipelineStatus:
     """Snapshot of the pipeline for IPC / CLI. Immutable, safe to hand to another thread."""
@@ -116,7 +129,7 @@ class PipelineStatus:
     accepted: int = 0
     dropped: int = 0                  # events a gate refused
     detectors: int = 0                # live detectors (failed ones are removed)
-    # Why the gates refused events: quality | governor | confidence (pipeline level only;
+    # Why the gates refused events: quality | stream | governor | confidence (pipeline level only;
     # detector-internal suppressions are reported by ``BiosignalPipeline.detector_suppressed``).
     dropped_by_reason: Mapping[str, int] = field(default_factory=dict)
     # ok | stale | mismatch | missing | unchecked (no block seen yet), with a plain-language
@@ -404,6 +417,11 @@ class BiosignalPipeline:
         self._factor = 1.0                    # desensitize factor in force
         self._suspended = False
         self._reason = ""
+        self._gate_reason = ""                # why the gate is closed for the latest block
+        # Stream time the gate was closed for, as (start, end, why), oldest first. A detector
+        # can emit long after what it saw (a double blink about 1.3 s after the second
+        # blink), so an event is judged by when it happened as well as when it arrived.
+        self._closed_spans: deque[tuple[float, float, str]] = deque(maxlen=_CLOSED_SPANS_MAX)
         self._quality = "unknown"
         self._blocks = 0
         self._accepted = 0
@@ -434,7 +452,7 @@ class BiosignalPipeline:
             quality=self._quality.lower(),
             rate_per_hour=self._rate_per_hour(),
             suspended=self._suspended,
-            reason=self._reason,
+            reason=self._reason or self._gate_reason,
             desensitized=self._factor,
             squeeze_active=self._squeeze_active,
             blocks=self._blocks,
@@ -528,6 +546,8 @@ class BiosignalPipeline:
                 if lost > 0:
                     self._banked[reason] = self._banked.get(reason, 0) + lost
         self._safe(self._parts.quality, "reset")
+        self._gate_reason = ""
+        self._closed_spans.clear()
         self._squeeze_active = False
         self._squeeze_owner = None
         self._recent.clear()
@@ -607,6 +627,8 @@ class BiosignalPipeline:
 
         filtered = self._filter(block)
         gate_closed, gate_reason = self._quality_gate(block)
+        self._gate_reason = gate_reason if gate_closed else ""
+        self._note_gate(block, gate_closed, gate_reason)
         # Which detectors the calibration check holds off (empty when it is fine or absent).
         cal_blocked = self._calibration_gate(block)
         self._account_exposure(gate_closed or self._suspended)
@@ -760,7 +782,36 @@ class BiosignalPipeline:
         # feeds 12 s at a time, and "GOOD at the end" is not "GOOD throughout").
         closed = (overall == "BAD" or bool(getattr(report, "suppress_events", False))
                   or bool(getattr(report, "bad_during_update", False)))
-        return closed, ("signal quality bad" if closed else "")
+        # A closed stream-integrity gate (integrity.IntegrityGate) names its own reason, so
+        # status says "stream gap" rather than blaming the electrodes.
+        why = str(getattr(report, "integrity_reason", "") or "") or _QUALITY_REASON
+        return closed, (why if closed else "")
+
+    def _note_gate(self, block: SampleBlock, closed: bool, why: str) -> None:
+        """Remember the stream time this block's gate was closed for, and forget what is too
+        old for any detector to still be reporting (or ahead of a clock that stepped back)."""
+        spans = self._closed_spans
+        start, end = float(block.t0), float(block.t0 + block.duration)
+        while spans and (spans[0][1] < end - _CLOSED_SPAN_HISTORY_S or spans[0][0] > end):
+            spans.popleft()
+        while spans and spans[-1][0] > end:
+            spans.pop()
+        if closed:
+            spans.append((start, end, why))
+
+    def _closed_when_it_happened(self, event: BioEvent) -> str | None:
+        """Why the gate was closed over ``event``'s own time span, or None if it was open.
+
+        A double blink spans both blinks (``detail["interval_s"]`` back from its timestamp):
+        a pair whose first half fell in a closed stretch is not a pair anyone can trust.
+        """
+        end = _float(event.t, 0.0)
+        interval = (event.detail or {}).get("interval_s", 0.0)
+        start = end - max(_float(interval, 0.0), 0.0)
+        for span_start, span_end, why in self._closed_spans:
+            if span_start <= end and start < span_end:
+                return why
+        return None
 
     def _run_detector(self, det: StreamDetector, block: SampleBlock) -> list[BioEvent]:
         key = f"detector:{type(det).__name__}:{id(det)}"
@@ -800,9 +851,10 @@ class BiosignalPipeline:
         if self._suspended:
             self._refuse(event, "governor", dropped)
             return None
-        if gate_closed:
-            self._refuse(event, "quality", dropped)
-            log.debug("Biosignal event %s dropped: %s", event.kind.value, gate_reason)
+        why = gate_reason if gate_closed else self._closed_when_it_happened(event)
+        if why is not None:
+            self._refuse(event, "stream" if why.startswith(_STREAM_REASON) else "quality", dropped)
+            log.debug("Biosignal event %s dropped: %s", event.kind.value, why)
             return None
         floor = self._confidence_floor(scaled)
         if event.kind is EventKind.SQUEEZE_ON and held:

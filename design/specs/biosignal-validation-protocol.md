@@ -57,7 +57,8 @@ follow `yazses.biosignal.fieldtest`, which is the authority for how each number 
   hands are busy) are the population that matters most and are asked for specifically, but are never
   asked for health information; the protocol records none.
 - **Hardware recorded** (written by hand beside the shared file, free text, no photographs): board and
-  BrainFlow id (or "serial YESP sensor"), electrode type, placement in words (for example "left
+  BrainFlow id, or the source kind for a non-BrainFlow device (`lsl:` with the publishing app,
+  `thinkgear:`, `bitalino:` with the sensor per input, `myo:`), or "serial YESP sensor"; electrode type, placement in words (for example "left
   forearm, flexor side"), sampling rate, the `mains_hz` setting, operating system, the yazses version, and
   which of squeeze, double blink and jaw clench were enabled (the standard session cues all three gestures; a switch that was off cannot fire and its row is to be ignored). The report file does not carry these.
 - **A configuration is a unit of evidence.** The same person on a different board, a different electrode
@@ -71,12 +72,17 @@ follow `yazses.biosignal.fieldtest`, which is the authority for how each number 
 1. `yazses biosignal doctor` reports no failing check for the source, and its closing `Verdict:` line is
    read before starting. A failing doctor is a result in its own right: record it, do not run phases
    through it.
-2. A calibration profile made for this configuration exists (`yazses biosignal calibrate`). The wall-clock
+2. For any source other than `synthetic` or a BrainFlow board already in `yazses biosignal boards`,
+   `yazses biosignal check-source <source> --seconds 30` passes on the participant's machine. A failing
+   clause (gaps, rate drift, stalls) is recorded as a result and the session does not start: the
+   integrity gate would close the switch during the phases and the rates would describe the transport,
+   not the detectors.
+3. A calibration profile made for this configuration exists (`yazses biosignal calibrate`). The wall-clock
    time from starting `calibrate` to a written profile, the number of attempts, and whether it succeeded
    are noted by the participant (gate A3). The command does not time the person, only the data.
-3. Defaults are the defaults. A participant may run with their own `[biosignal]` values, but then the
+4. Defaults are the defaults. A participant may run with their own `[biosignal]` values, but then the
    result describes those values.
-4. For the evaluation rounds the participant does not edit thresholds, the budget or the mapping. A
+5. For the evaluation rounds the participant does not edit thresholds, the budget or the mapping. A
    retune is allowed only between *rounds* (see "Tuning rounds").
 
 ## Phases
@@ -234,6 +240,37 @@ always the **safe** behaviour, and for every case a hold, if one is open, is clo
 
 A stress run **fails** on any stuck-mic event, any activation emitted from an untrusted window, or any
 exception that reaches the daemon. A fix restarts the whole list on the new code.
+
+## Relationship to the HCI × Hugging Face EEG/EOG feasibility protocol
+
+A separate research track (epic #692, draft PR #711, `design/hci-huggingface/EEG_EOG_FEASIBILITY_PROTOCOL.md`
+on branch `feat/hci-research-metrics`; **not yet on `main`**, so it is cited by name and not linked) asks
+the same question from the research side: can EEG or EOG give a coarse, deliberate activation whose
+false-activation behaviour is comparable to the switches YazSes already studies? The two documents are
+meant to be read together. Nothing was merged between the branches; this section is the agreed mapping,
+written on this side only.
+
+| Topic | That protocol | This protocol | How they line up |
+|---|---|---|---|
+| Stages | P0 synthetic baseline, P1 injected artifacts, P2 human hardware pilot (gated) | The synthetic suite, `evaluate` and `evaluate_idle` are P0/P1; `field-test` on real hardware is P2 | Same ladder. P0/P1 results here prove the logic only. |
+| Gate for people | P2 needs independent ethics review, informed consent, a privacy and retention plan, owner approval and a safety fallback | `field-test` run by one person on their own device is self-measurement. **Pooling reports from several participants is a human pilot** | That gate applies to any pooled multi-participant use of this protocol. Nothing here replaces it. |
+| Core metric | "False activations per hour": activations on control blocks and idle time over scored exposure time | "Phantom activations per hour": activations in no-intent phases over usable (quality-gated) exposure | The same quantity under two names. Both exclude time with no usable signal. |
+| When an hourly figure is shown | Only when scored exposure reaches a minimum frozen before the run (the repository's provisional `DEFAULT_MIN_EXPOSURE_S`, 600 s in `yazses.eyeeval.analysis`); below it, the count and the exposure | A phase is conclusive at 30 s of usable signal (a design default), and every rate is shown with a one-sided Poisson upper bound | **Not yet aligned.** See the open question below. |
+| Misses and latency | Missed switches over intended events; latency p50 and p95 | Hit rate with a Wilson bound; median cue-to-event latency in the field test, p95 in `evaluate` | Same content, different spelling. |
+| Artifact classes | Per-class fraction of artifacts wrongly passed as an activation | The synthetic suite checks the classes it injects (DC step, pop, motion, speech, chewing); the reports do not break results out per class | Gap on this side; planned, not done. |
+| Reporting failures | Every configuration that failed, reported next to the ones that worked | Adopted here as a rule: a tuning round that did not help is reported with the ones that did (see "Tuning rounds") | Aligned. |
+| Flicker stimuli | None (SSVEP-style paradigms) until a photosensitivity review | SSVEP stays rejected (ADR-v2-129, ADR-v2-152); the field test shows no stimulus at all | Aligned. |
+| Claims | A list of allowed and disallowed statements ("On synthetic signals the pipeline separated injected artifacts with these counts"; never "EEG can control a computer", never thought, emotion or attention inference, never medical effectiveness) | The "Minimum evidence for a claim" table above | Adopt that list as a ceiling: nothing written from this protocol may exceed it. |
+| Data class | Real biosignals are raw sensor data (the programme's Class D): not collected centrally, not attached to issues, not shared without a separate ethics decision | `record` files and calibration profiles are the same class; reports hold aggregate counts only | Aligned. A recording is never to be attached to an issue or a PR. |
+| Runtime adapter | "Needs its own approved ADR and evidence from real users" | The adapter exists in code, dormant (`[biosignal] enabled = false`) behind ADR-v2-152, which is **Proposed** | Said plainly: code was written ahead of that evidence. Nothing enables it for anyone, and the acceptance gates in ADR-v2-152 are the evidence still owed. |
+
+Open question (for the maintainer, shared with that protocol): the minimum exposure before an hourly
+rate is printed at all. Their provisional value is 600 s of scored exposure per rate. Here the report
+already carries the upper bound that makes a short session honest, but it still prints a rate figure for
+a phase with 30 s of usable signal. Adopting their rule would mean showing the count and the exposure
+below the minimum and the bounded rate only above it. That is a small change to `format_report` and
+`report_to_dict` in `fieldtest.py`, not made in this round; it should wait until the number is frozen on
+their side so the two stay one definition.
 
 ## What the existing suite pins, and what it cannot
 

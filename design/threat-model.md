@@ -317,6 +317,8 @@ lock-out.
 | **Malicious recording file** | Supplies a crafted file to `replay`, `evaluate` or a `file:<path>` source | Parser abuse (pickled arrays, huge files), or a replay that triggers real actions if a recording is used as a live source. |
 | **Replayed or injected signal** | Same-uid process, or physical access, feeding samples through a file source or a rogue source string | Triggers the switch without the person. Equivalent in authority to a same-uid process pressing the hotkey. |
 | **Malicious calibration, ledger or profile file** | Same-uid process writes the user's profile or counters file | A profile with absurd thresholds makes the switch fire constantly or never; a counters file with forged totals makes the governor suspend (denial of service) or hides a high cancelled rate. |
+| **Hostile device bytes** | A malfunctioning or malicious serial/BLE device (or a spoofed Bluetooth peripheral) sends crafted frames to the ThinkGear, BITalino or Myo parser | Parser abuse (oversized lengths, garbage between packets, forged sequence numbers), or a stream that looks healthy while carrying crafted samples that trigger the switch. |
+| **Local LSL publisher** | Any same-machine process can publish a Lab Streaming Layer stream with the name or type the `lsl:` source asks for | Triggers the switch without the person, the same authority as the replayed-signal row; a wider LSL scope would let a machine on the LAN do it too. |
 | **Compromised board driver / BrainFlow** | Native code in the BrainFlow library or a vendor driver | Arbitrary code with the user's privileges (outside this package's control), or a stream that reports healthy data while delivering stale or crafted samples. |
 | **Covert physiological monitoring** | A modified build or a user with ill intent keeps recording and analyses signal for health, emotion or identity | The feature becomes a surveillance channel, in particular for a third party's body (an employer, a partner, a caregiver). |
 | **Disclosure by sharing** | The user attaches a recording, profile or screenshot to a public issue | Biometric-adjacent data published, irreversibly. |
@@ -330,10 +332,13 @@ motivated adversary or on real signal.
 
 - **Off by default and lazy.** Nothing is imported or started until `enabled` is true *and* a `source`
   is named; no source means nothing starts. The default daemon never imports the package.
-- **No network.** The package opens no socket and makes no network call; sources are a local serial
-  port, a local BrainFlow device, a named file, or the synthetic generator. The repository-wide
-  `tests/test_egress_inventory.py` fails the build if any module gains an unregistered outbound
-  primitive; this package needs no registration because it has none (ADR-v2-152, "Egress"). The field-test summary is
+- **No network.** The package opens no socket of its own and sends nothing; sources are a local serial
+  port, a local BrainFlow device, a Myo over Bluetooth LE, an LSL stream on this machine, a named
+  file, or the synthetic generator. The repository-wide `tests/test_egress_inventory.py` fails the
+  build if any module gains an unregistered outbound primitive; `biosignal/myo.py` is registered as
+  `LOCAL_BOUND` (a radio, not an address). liblsl under `biosignal/lsl_source.py` does open sockets: its
+  discovery is pinned to this machine before the first call, a stream from another host is refused,
+  and a test fails if the pin goes (ADR-019, ADR-v2-152 "Egress"). The field-test summary is
   written to a local file and shared only by hand.
 - **Aggregate-only ledger.** The counters file holds totals, not signals and not a per-event record. It is
   written atomically with mode `0600`, size-limited on read, and a corrupt or hostile file is treated as
@@ -343,7 +348,18 @@ motivated adversary or on real signal.
 - **Tolerant loaders that fail closed.** A missing, truncated, oversized, wrong-schema or
   implausible-valued profile loads as "none"; without a profile the muscle-squeeze switch stays off.
   A profile made for a different channel set or sampling rate is refused with a reason. Replay files
-  that contain pickled object arrays are refused, and file sizes are bounded.
+  that contain pickled object arrays are refused, and file sizes are bounded. The EDF/BDF reader caps
+  the file size, checks every header field and record count, and raises on a malformed file instead of
+  allocating from it; XDF goes through `pyxdf`, which loads the whole file.
+- **Bounded device parsers.** The ThinkGear parser rejects a bad checksum or length and resynchronises;
+  the BITalino parser checks the CRC-4 and the sequence number and needs two consecutive valid frames
+  before it trusts the stream again; the Myo source's queue is bounded and drops the oldest packet with
+  a counter. A rejected packet is counted, never filled in with invented samples. Vendor-computed scores
+  (NeuroSky "attention", "blink strength") are never used as events.
+- **Stream-integrity gate.** Every source the daemon opens is wrapped in `IntegrityGuard`: a gap,
+  overlap, backwards timestamp, rate drift, stall, channel change or non-finite sample closes the event
+  gate until one second of clean stream. It does not authenticate a device: a well-formed forged stream
+  passes it.
 - **Fail-closed gates.** An untrusted signal (flat, clipped, mains-dominated, drifting, gappy) produces
   silence, never a trigger. A speech guard source that raises counts as "speaking". A global-pause
   gate that raises is a refusal. A runner whose status call raises does not feed the gate. A hold that

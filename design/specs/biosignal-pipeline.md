@@ -30,12 +30,14 @@ enforced on the user's own machine.
 
 ```mermaid
 flowchart LR
-    subgraph SRC[Sources - sources.py]
+    subgraph SRC[Sources - sources.py open_source]
         S1[SyntheticSource]
-        S2[FileReplaySource]
+        S2[FileReplaySource<br/>CSV, npz, EDF/BDF, XDF]
         S3[BrainFlowBlockSource<br/>lazy brainflow import]
+        S4[LSL / ThinkGear / BITalino / Myo<br/>lazy pylsl, pyserial, bleak]
     end
-    SRC -->|SampleBlock| P
+    SRC --> IG[IntegrityGuard - integrity.py<br/>gaps, drift, stalls, layout]
+    IG -->|SampleBlock| P
 
     subgraph P[BiosignalPipeline - pipeline.py]
         F[filters.py<br/>notch + band-pass,<br/>streaming state] --> Q[quality.py<br/>quality gate]
@@ -97,7 +99,13 @@ activation sources receive.
 | `evaluate.py` | Evaluation harness: scores detectors or a pipeline against a recording with scripted events (recall, precision, latency; per-kind one-to-one matching inside a tolerance) and counts phantom activations per hour on an idle stream, with Wilson and Poisson intervals. Prints a synthetic-data caveat on every report. | pure |
 | `fieldtest.py` | In-situ field test: a guided session (rest, speech, chew, typing and mouse, movement, then a deliberate gesture per switch) that counts phantom activations per usable hour by activity and the hit rate on cue, with one-sided Poisson upper bounds and Wilson intervals; `FieldTestAggregate` merges reports; reports hold counts and whole-second durations only. Clock-injected and deterministic. See the validation protocol. | pure |
 | `boards.py` | Table of known boards with their BrainFlow ids and electrode hints; advice only, never opens a device or imports `brainflow`. | pure |
-| `sources.py` | `SyntheticSource`, `FileReplaySource`, `BrainFlowBlockSource`, and `open_source('synthetic' \| 'file:<path>' \| 'brainflow:<id>')`. | backend; BrainFlow imported lazily |
+| `sources.py` | `SyntheticSource`, `FileReplaySource` (CSV, `.npz`, EDF/BDF, XDF), `BrainFlowBlockSource`, and `open_source` for `synthetic`, `file:<path>`, `brainflow:<id>`, `lsl:`, `thinkgear:`, `bitalino:`, `myo:`. | backend; every device library imported lazily |
+| `lsl_source.py` | Lab Streaming Layer inlet, machine-only discovery, foreign hosts refused. | backend (`pylsl`) |
+| `thinkgear.py`, `bitalino.py` | Pure parsers + pyserial transports for NeuroSky ThinkGear and PLUX BITalino. | pure parser / backend transport |
+| `myo.py` | Myo raw EMG over BLE (counts, not µV). | backend (`bleak`) |
+| `edf.py`, `xdf.py` | EDF/EDF+/BDF reader/writer (pure); XDF reader (`pyxdf`). | pure / backend |
+| `integrity.py` | `IntegrityGuard` (a `BlockSource` wrapper) and `IntegrityGate` (a drop-in for the quality monitor): transport-contract breaches close the event gate. | pure |
+| `conformance.py` | `check_source`: drives any source and grades 18 contract clauses. | pure |
 | `pipeline.py` | `BiosignalPipeline`: wires filters, gate, detectors; blocks in, events out. No I/O, no threads. | pure |
 | `runner.py` | `BiosignalRunner`: the polling thread, the mode and intent mapping, the stuck-hold watchdog thread, lifecycle, status snapshot. `build_runner_from_config` builds it from `[biosignal]` and hands the daemon's `speech_active` callable to the jaw detector. | backend (thread) |
 | `cli_impl.py` | The `yazses biosignal` command bodies, the `BiosignalActivationSource` adapter the daemon starts, and persistence of the ledger counters. | backend (file I/O) |
@@ -356,6 +364,47 @@ table has been exercised on a real person.**
 de-duplication stop being the merger's job); a protocol-file option on `field-test`; an
 instrumented-dictation phase that could observe a stuck microphone; a warning when the live baseline has
 drifted far from the profile's; a re-baseline shorter than the full calibration.
+
+## Round-4 status: market devices and stream integrity
+
+Built and tested against published protocol documents and independent implementations, never on
+real hardware or a real person.
+
+| Item | State |
+|---|---|
+| `lsl:` source (Lab Streaming Layer), machine-only discovery pinned and guarded by `test_egress_inventory` | present (`lsl_source.py`; fake `pylsl` in tests) |
+| EDF/EDF+/BDF reader and writer, XDF reader; file annotations as `evaluate` ground truth; `record --out *.edf` | present (`edf.py`, `xdf.py`; cross-checked against pyedflib 0.1.42 and pyxdf 1.18.0) |
+| NeuroSky ThinkGear and BITalino (r)evolution serial sources | present (`thinkgear.py`, `bitalino.py`; frames built from the datasheets, CRC checked against PLUX's own APIs) |
+| Myo armband raw EMG over BLE | present (`myo.py`; fixtures from `myohw.h`, fake bleak) |
+| BrainFlow EMG presets: gForce Pro/Dual, ANT Neuro eego 8, Mentalab Explore 4/8 | present (`boards.py`; ids from BrainFlow 5.23.0) |
+| Stream-integrity guard on every daemon source and in `monitor`; integrity reason in `status`; `check-source` command | present (`integrity.py`, `conformance.py`, `runner.py`, `cli_impl.py`) |
+| Events judged by when they happened: a detector reporting late (a double blink about 1.3 s after its second blink) cannot slip past a gate that has reopened; a pair is judged over both blinks; refusals tally as `stream` or `quality` | present (`pipeline.py`; `test_biosignal_integrity_e2e.py` drives it through the real runner, with a no-gate control) |
+| LSL, NeuroSky, BITalino and Myo listed by `yazses biosignal boards` | present (`boards.py`) |
+
+Known limits from this round:
+
+- **Low-rate EMG (Myo 200 Hz, Ganglion 200 Hz).** The 20–450 Hz band silently becomes 20–90 Hz with
+  the mains notch inside it. Measured on synthetic signal only, 200 seeds per cell (2026-10-31):
+  no squeeze was missed at 200, 250, 500 or 1000 Hz. A genuine squeeze is sometimes *cut short* by the
+  mean-shift test at its 4-sample floor: 2 of 200 at 200 Hz with a white-noise burst, 8 of 200 with
+  an int8 8-channel burst. A 50 ms step window removes those cuts but is **not** adopted: a
+  200 µV, 40 ms rectangular bump, rejected every time today (0 of 200), then fires every time
+  (200 of 200) at both 200 and 250 Hz. An early release is the cheaper error, so the default stays.
+- **Artifacts that do fire the squeeze switch** (false ON, synthetic, 200 seeds). A 1000 µV step with a
+  25 ms rise: 192 at 200 Hz, 172 at 250 Hz, 181 at 500 Hz, 130 at 1000 Hz, so not a low-rate problem.
+  Below 500 Hz only: a 15 ms bump (66 of 200 at 200 µV, 200 Hz) and a 1000 µV single-sample pop
+  (20 of 200, 200 Hz). None has been compared with what a real electrode does; a jolted cable on real
+  skin is the measurement that would say whether these shapes matter.
+- **The gate reads as a stretch of time, so a noisy quality monitor costs more events.** On the clean
+  synthetic EOG stream with its default 10 µV hum the quality monitor already drops most double blinks
+  (seen while writing the end-to-end tests, not investigated). Judging events by when they happened
+  can only increase that. Worth measuring before reading blink rates from that fixture.
+- **Counts, not microvolts.** Myo (int8) and the gForce boards report ADC counts. Relative thresholds
+  work after calibration on the same stream, but `quality.py`'s µV limits (flatline 0.5/0.1 µV, EMG
+  saturation 10 000 µV, drift 50 µV) do not mean what they say there. An 8-bit band also clips during
+  an ordinary hard squeeze, so its rail must not be used as `rail_limit_uv`.
+- **LSL** holds its machine-only pin only if YazSes makes the first liblsl call in the process.
+- **Integrity thresholds** (gap tolerance, 1 s recovery, rate-drift window) are untuned design choices.
 
 ## Acceptance criteria
 

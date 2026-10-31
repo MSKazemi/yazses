@@ -10,18 +10,22 @@ import sys
 
 import pytest
 
+from yazses.biosignal.bitalino import BITalinoSource
 from yazses.biosignal.boards import (
     BRAINFLOW_SYNTHETIC_ID,
     BoardPreset,
     known_boards,
     preset_for,
 )
+from yazses.biosignal.lsl_source import LSLBlockSource
+from yazses.biosignal.myo import MyoSource
 from yazses.biosignal.sources import (
     SYNTHETIC_BOARD_ID,
     BrainFlowBlockSource,
     SyntheticSource,
     open_source,
 )
+from yazses.biosignal.thinkgear import ThinkGearSource
 
 ALL = known_boards()
 BRAINFLOW_BOARDS = [b for b in ALL if b.board_id is not None]
@@ -138,7 +142,9 @@ def test_windows_port_survives_the_round_trip():
 @pytest.mark.parametrize("preset", ALL, ids=lambda b: b.name)
 def test_every_nonempty_spec_is_accepted_by_open_source(preset: BoardPreset):
     spec = preset.source_spec()
-    if spec:
+    # A template still holding its placeholder (`thinkgear:<port>`, `myo:<address>`) is not
+    # a spec a user can open as written; the real-value tests below cover those.
+    if spec and "<" not in spec:
         open_source(spec)
 
 
@@ -148,9 +154,128 @@ def test_parsing_specs_never_imports_brainflow(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setitem(sys.modules, "brainflow.board_shim", None)
     for preset in ALL:
         spec = preset.source_spec()
-        if spec:
+        if spec and "<" not in spec:
             open_source(spec)
-        assert preset_for(spec or preset.name) is not None
+        # preset_for reads only BrainFlow and synthetic specs; the other sources are found
+        # by their name.
+        lookup = spec if spec.startswith(("brainflow:", "synthetic")) else preset.name
+        assert preset_for(lookup) is not None
+
+
+NON_BRAINFLOW = [b for b in ALL if b.spec_template]
+NON_BRAINFLOW_NAMES = ("lsl-stream", "neurosky-thinkgear", "bitalino", "myo")
+REAL_PORT = "/dev/ttyUSB0"
+REAL_MYO_ADDRESS = "AA:BB:CC:DD:EE:FF"
+
+
+def test_non_brainflow_presets_are_exactly_the_four_new_sources():
+    assert tuple(b.name for b in NON_BRAINFLOW) == NON_BRAINFLOW_NAMES
+    for b in NON_BRAINFLOW:
+        assert b.board_id is None
+        assert b.spec_template.split(":", 1)[0] in ("lsl", "thinkgear", "bitalino", "myo")
+
+
+def test_non_brainflow_presets_follow_the_brainflow_rows():
+    """Hardware-free and BrainFlow rows come first; the new sources are appended after."""
+    index = {b.name: i for i, b in enumerate(ALL)}
+    last_brainflow = max(i for i, b in enumerate(ALL) if b.board_id is not None)
+    assert min(index[n] for n in NON_BRAINFLOW_NAMES) > last_brainflow
+
+
+@pytest.mark.parametrize(
+    ("name", "extra"),
+    [
+        ("lsl-stream", "`lsl` extra"),
+        ("neurosky-thinkgear", "`emg` extra"),
+        ("bitalino", "`emg` extra"),
+        ("myo", "`ble` extra"),
+    ],
+)
+def test_non_brainflow_notes_name_their_extra(name: str, extra: str):
+    preset = preset_for(name)
+    assert preset is not None
+    assert extra in preset.notes
+    assert "emg-band" not in preset.notes
+
+
+def test_lsl_stream_spec_is_the_fixed_type_query():
+    preset = preset_for("lsl-stream")
+    assert preset is not None
+    assert preset.kind_hint == "mixed"
+    assert preset.serial_required is False
+    assert preset.source_spec() == "lsl:type=EEG"
+    assert preset.source_spec("/dev/ttyUSB0") == "lsl:type=EEG"
+
+
+@pytest.mark.parametrize(
+    ("name", "template"),
+    [
+        ("neurosky-thinkgear", "thinkgear:<port>"),
+        ("bitalino", "bitalino:<port>"),
+    ],
+)
+def test_serial_templates_substitute_the_port(name: str, template: str):
+    preset = preset_for(name)
+    assert preset is not None
+    assert preset.serial_required is True
+    assert preset.spec_template == template
+    # No port: the placeholder stays, which is what `yazses biosignal boards` prints.
+    assert preset.source_spec() == template
+    assert preset.source_spec("") == template
+    assert preset.source_spec("<port>") == template
+    # A real-looking port is substituted, stripped of surrounding whitespace.
+    assert preset.source_spec(f"  {REAL_PORT} ") == template.replace("<port>", REAL_PORT)
+    assert preset.source_spec("COM3") == template.replace("<port>", "COM3")
+
+
+def test_myo_template_keeps_its_address_placeholder():
+    preset = preset_for("myo")
+    assert preset is not None
+    assert preset.serial_required is False
+    assert preset.kind_hint == "emg"
+    assert preset.spec_template == "myo:<address>"
+    assert preset.source_spec() == "myo:<address>"
+    assert preset.source_spec("  ") == "myo:<address>"
+
+
+@pytest.mark.parametrize("name", NON_BRAINFLOW_NAMES)
+def test_non_brainflow_specs_open_with_real_values_without_hardware(
+    name: str, monkeypatch: pytest.MonkeyPatch,
+):
+    """Built with a real port/address, each spec parses to its source class; pylsl, serial
+    and bleak are made un-importable, so construction cannot touch them."""
+    for mod in ("pylsl", "serial", "bleak"):
+        monkeypatch.setitem(sys.modules, mod, None)
+    preset = preset_for(name)
+    assert preset is not None
+    if name == "myo":
+        spec = preset.spec_template.replace("<address>", REAL_MYO_ADDRESS)
+    else:
+        spec = preset.source_spec(REAL_PORT)
+    expected = {
+        "lsl-stream": LSLBlockSource,
+        "neurosky-thinkgear": ThinkGearSource,
+        "bitalino": BITalinoSource,
+        "myo": MyoSource,
+    }[name]
+    src = open_source(spec)                           # parse only: start() is never called
+    assert isinstance(src, expected)
+
+
+def test_real_port_reaches_the_bitalino_and_thinkgear_sources():
+    src = open_source(preset_for("bitalino").source_spec(REAL_PORT))  # type: ignore[union-attr]
+    assert isinstance(src, BITalinoSource)
+    assert src.port == REAL_PORT
+    tg = open_source(preset_for("neurosky-thinkgear").source_spec(REAL_PORT))  # type: ignore[union-attr]
+    assert isinstance(tg, ThinkGearSource)
+    assert tg.port == REAL_PORT
+
+
+def test_real_myo_address_reaches_the_source():
+    spec = preset_for("myo").spec_template.replace("<address>", REAL_MYO_ADDRESS)  # type: ignore[union-attr]
+    assert spec == f"myo:{REAL_MYO_ADDRESS}"
+    src = open_source(spec)
+    assert isinstance(src, MyoSource)
 
 
 # ------------------------------------------------------------------ preset_for

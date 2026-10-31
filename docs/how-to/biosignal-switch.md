@@ -27,7 +27,8 @@ Pick one. Both are read locally; nothing is sent anywhere.
 |---|---|---|
 | **A muscle sensor on a microcontroller**: MyoWare 2.0 or a BioAmp EXG Pill | The existing serial path (`[emg] device_port`, the YESP protocol). The microcontroller does the detection and sends `HOLD_START` / `HOLD_END`. See [the YESP spec](https://github.com/MSKazemi/yazses/blob/main/design/emg-protocol.md). | A squeeze as push-to-talk, cheapest, most reliable. |
 | **A board BrainFlow supports**, such as an OpenBCI board or a Muse headband | BrainFlow streams raw samples to YazSes, which does the detection itself (the `emg-band` extra). | Raw-signal control, blink and jaw-clench switches, and measuring your own false-positive rate. |
-| **No hardware** | The built-in `synthetic` source and `replay` of a recording file. | Trying the commands and learning the output. |
+| **Other devices**: a Lab Streaming Layer app (OpenBCI GUI, muse-lsl), a NeuroSky headset, a BITalino kit, a Myo armband | YazSes reads the raw samples directly (`lsl:`, `thinkgear:`, `bitalino:`, `myo:` sources) and does the detection itself. | The same as a BrainFlow board, with the device you already own. See [the hardware guide](biosignal-hardware.md#other-devices-and-recordings). |
+| **No hardware** | The built-in `synthetic` source and `replay` of a recording file (CSV, `.npz`, EDF/BDF or XDF). | Trying the commands and learning the output. |
 
 Put the electrode on the muscle you want to use, if you can. The research page explains why: a blink or
 jaw clench seen through an EEG headband is the same activity measured through the skull, noisily, and a
@@ -38,7 +39,9 @@ a medical device.
 ## Install what it needs
 
 The serial path needs the `emg` extra (`pyserial`); the BrainFlow path needs the `emg-band` extra
-(`brainflow`). With nothing installed the feature is simply off and the rest of YazSes is unchanged. For
+(`brainflow`). The other devices need: `lsl` for an `lsl:` stream, `emg` for a NeuroSky or BITalino
+(`thinkgear:`, `bitalino:`), `ble` for a Myo armband (`myo:`), and `xdf` to replay an `.xdf`
+recording. EDF and BDF files need nothing. With nothing installed the feature is simply off and the rest of YazSes is unchanged. For
 the BrainFlow boards, install the extra into the environment YazSes runs from, using the command that
 matches how you installed it:
 
@@ -91,7 +94,10 @@ yazses restart
 `source` is empty by default, and with no source nothing starts even when `enabled` is true. A BrainFlow
 source is `brainflow:<board_id>` with an optional serial port, where the board id is BrainFlow's integer
 id for your board, for example `brainflow:0:/dev/ttyUSB0` for an OpenBCI Cyton. `yazses biosignal doctor`
-shows what it can see, and `yazses biosignal boards` lists the boards. An event
+shows what it can see, and `yazses biosignal boards` lists the boards. The other source kinds
+(`lsl:`, `thinkgear:`, `bitalino:`, `myo:`) are listed in
+[the hardware guide](biosignal-hardware.md#other-devices-and-recordings); run
+`yazses biosignal check-source <source>` once to see that a new device streams cleanly. An event
 left out of `mode_map` or `intent_map` does nothing. The values in the example are the shipped defaults
 except `source` and `enabled`; they are starting points, not tuned recommendations. Nobody has measured
 any of them on a real person yet, which is why the next sections show you how to measure your own.

@@ -39,6 +39,9 @@ class BoardPreset:
     ``channels_hint`` is the channel count, sampling rate and any electrode names the
     package reports; ``serial_required`` is whether a serial port (a USB dongle or the
     device's own port) has to be given; ``notes`` is one line of plain advice.
+    ``spec_template`` is the ``[biosignal] source`` string for a path that is not a
+    BrainFlow board (``lsl:``, ``thinkgear:``, ``bitalino:``, ``myo:``); ``<port>`` in it
+    is replaced by the serial port when one is given. Empty for every other preset.
     """
 
     name: str
@@ -47,16 +50,22 @@ class BoardPreset:
     channels_hint: str
     serial_required: bool
     notes: str = ""
+    spec_template: str = ""
 
     def source_spec(self, serial_port: str = "") -> str:
         """The ``[biosignal] source`` string for this preset, or ``""`` when it has none.
 
         ``synthetic`` for the built-in generator; ``brainflow:<id>[:<port>]`` for a
         BrainFlow board (the port is added only when given -- a preset that needs one
-        still produces a string without it, and ``serial_required`` says so). The DIY
+        still produces a string without it, and ``serial_required`` says so). A preset
+        with a ``spec_template`` returns it with ``<port>`` replaced by the stripped
+        ``serial_port``; with no port the placeholder stays in the string. The DIY
         serial device is not a biosignal source: it is configured under ``[emg]`` and
         returns ``""``.
         """
+        if self.spec_template:
+            port = serial_port.strip()
+            return self.spec_template.replace("<port>", port) if port else self.spec_template
         if self.board_id is None:
             return "synthetic" if self.name == "synthetic" else ""
         port = serial_port.strip()
@@ -148,6 +157,57 @@ _BOARDS: tuple[BoardPreset, ...] = (
         notes="Neurotech Callibri electrode in EMG mode over Bluetooth LE: a ready-made "
               "single-muscle squeeze switch. " + _EXTRA_NOTE + ".",
     ),
+    # EMG armbands and amplifiers. Ids and channel layouts checked against BrainFlow 5.23.0's
+    # BoardShim.get_board_descr and its Supported Boards page (2026-10-30). Only boards
+    # BrainFlow reaches over a local link are listed: Wi-Fi/UDP boards (OpenBCI Galea,
+    # BioListener) would put the stream on the network and wait on an ADR-019 decision.
+    BoardPreset(
+        name="gforce-pro",
+        board_id=16,
+        kind_hint="emg",
+        channels_hint="8 EMG channels at 500 Hz",
+        serial_required=False,
+        notes="OYMotion gForce Pro armband. Windows only (BrainFlow loads OYMotion's SDK "
+              "library). Reports ADC values, not microvolts: calibrate on the same stream. "
+              + _EXTRA_NOTE + ".",
+    ),
+    BoardPreset(
+        name="gforce-dual",
+        board_id=19,
+        kind_hint="emg",
+        channels_hint="2 EMG channels at 500 Hz",
+        serial_required=False,
+        notes="OYMotion gForce Dual. Windows only; ADC values, not microvolts. "
+              + _EXTRA_NOTE + ".",
+    ),
+    BoardPreset(
+        name="ant-neuro-ee410",
+        board_id=24,
+        kind_hint="emg",
+        channels_hint="8 EMG channels at 2000 Hz",
+        serial_required=False,
+        notes="ANT Neuro eego 8-channel amplifier (lab grade). Windows/Linux; BrainFlow loads "
+              "ANT's eego SDK library. " + _EXTRA_NOTE + ".",
+    ),
+    BoardPreset(
+        name="mentalab-explore-4",
+        board_id=44,
+        kind_hint="emg+eeg",
+        channels_hint="4 ExG channels at 250 Hz",
+        serial_required=False,
+        notes="Mentalab Explore over classic Bluetooth (pair it first). Windows/macOS find it "
+              "themselves; on Linux BrainFlow needs a MAC address this spec cannot carry yet. "
+              + _EXTRA_NOTE + ".",
+    ),
+    BoardPreset(
+        name="mentalab-explore-8",
+        board_id=45,
+        kind_hint="emg+eeg",
+        channels_hint="8 ExG channels at 250 Hz",
+        serial_required=False,
+        notes="Mentalab Explore 8-channel; same pairing note as `mentalab-explore-4`. "
+              + _EXTRA_NOTE + ".",
+    ),
     BoardPreset(
         name="muse-2",
         board_id=38,
@@ -184,13 +244,60 @@ _BOARDS: tuple[BoardPreset, ...] = (
         notes="Muse S through a BLED112 USB dongle, for a computer whose own Bluetooth does "
               "not work with `muse-s`. " + _EXTRA_NOTE + ".",
     ),
+    # Sources that are not BrainFlow boards. Each is a `[biosignal] source` spec opened by
+    # yazses.biosignal.sources.open_source. The channel and rate figures are the defaults the
+    # device modules set (thinkgear.py THINKGEAR_FS, bitalino.py fs and channels defaults,
+    # myo.py MYO_EMG_FS); an LSL stream reports its own.
+    BoardPreset(
+        name="lsl-stream",
+        board_id=None,
+        kind_hint="mixed",
+        channels_hint="as the publishing app declares them (channels, rate and kind come "
+                      "from the stream)",
+        serial_required=False,
+        notes="Any app on this computer that publishes a Lab Streaming Layer stream; only "
+              "this computer is searched. Needs the `lsl` extra (pylsl).",
+        spec_template="lsl:type=EEG",
+    ),
+    BoardPreset(
+        name="neurosky-thinkgear",
+        board_id=None,
+        kind_hint="eeg",
+        channels_hint="1 channel at 512 Hz (Fp1)",
+        serial_required=True,
+        notes="NeuroSky ThinkGear headset (the MindWave family) over its serial port. Needs "
+              "the `emg` extra (pyserial).",
+        spec_template="thinkgear:<port>",
+    ),
+    BoardPreset(
+        name="bitalino",
+        board_id=None,
+        kind_hint="emg",
+        channels_hint="up to 6 analog channels at up to 1000 Hz (A1 by default)",
+        serial_required=True,
+        notes="PLUX BITalino (r)evolution over its serial port. Streams A1 as EMG unless "
+              "options pick other inputs or a lower rate. Needs the `emg` extra (pyserial).",
+        spec_template="bitalino:<port>",
+    ),
+    BoardPreset(
+        name="myo",
+        board_id=None,
+        kind_hint="emg",
+        channels_hint="8 EMG channels at 200 Hz, as counts (not microvolts)",
+        serial_required=False,
+        notes="Thalmic Myo armband over Bluetooth LE, by its address. Values are raw counts, "
+              "so calibrate on the same stream. Needs the `ble` extra (bleak).",
+        spec_template="myo:<address>",
+    ),
 )
 
 
 def known_boards() -> tuple[BoardPreset, ...]:
-    """Every preset, in a stable order: no-hardware options first, then boards grouped by
-    vendor (OpenBCI, g.tec, Neurotech, Muse). Within a group the order is the table's, not
-    sorted by BrainFlow id."""
+    """Every preset, in a stable order: no-hardware options first (the generator, the DIY
+    serial device, BrainFlow's synthetic board), then BrainFlow boards grouped by vendor
+    (OpenBCI, g.tec, Neurotech, the EMG armbands and amplifiers, Muse), then the non-BrainFlow
+    sources (``lsl:``, ``thinkgear:``, ``bitalino:``, ``myo:``). Within a group the order is
+    the table's, not sorted by BrainFlow id."""
     return _BOARDS
 
 

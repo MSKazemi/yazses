@@ -218,13 +218,20 @@ accrue as ledger exposure and cannot dilute the measured rate.
 
 ## Egress
 
-**No new egress path exists.** The package opens no socket and makes no network call. Sources are
-a local serial port, a local BrainFlow device (USB/Bluetooth to the machine, not the network), a
-file the user names, or a synthetic generator. Recordings, profiles and the ledger are written to
-local disk only. Nothing is added to the nine registered egress paths of ADR-019, and
-`tests/test_egress_inventory.py` must continue to pass with no new registration. If a BrainFlow
-board type that streams over a network socket is ever supported, that is a new egress decision
-under ADR-019 and needs its own review. (BrainFlow's synthetic board and the in-package synthetic
+**No new egress path exists.** Nothing the package reads is sent anywhere. Sources are a local
+serial port (BITalino, NeuroSky ThinkGear), a local BrainFlow device (USB/Bluetooth to the machine,
+not the network), a Myo armband over Bluetooth LE, a Lab Streaming Layer stream published on this
+machine, a file the user names, or a synthetic generator. Recordings, profiles and the ledger are
+written to local disk only. Nothing is added to the nine registered egress paths of ADR-019.
+
+Two entries in ADR-019 are about this package, and neither is an egress path. `biosignal/myo.py`
+imports `asyncio` to drive a Bluetooth LE radio, recorded as `LOCAL_BOUND` beside the existing
+BLE backend. `biosignal/lsl_source.py` opens no socket itself, but liblsl under it does: discovery
+is pinned to this machine (`ResolveScope = machine`, loopback only, TTL 0) before the first liblsl
+call, a stream from another host is refused, and a test fails if the pin is removed (ADR-019,
+"Reached through a dependency's own sockets"). If a board that streams over a network socket is
+ever supported (OpenBCI Galea and BioListener in BrainFlow are UDP/Wi-Fi), that is a new egress
+decision under ADR-019 and needs its own review. (BrainFlow's synthetic board and the in-package synthetic
 source need no hardware.)
 
 ## Open questions / known limits
@@ -251,7 +258,11 @@ What is still unmeasured or unproven, stated plainly so no page overstates it:
   the intended users can perform the calibration gestures is unmeasured. A blink-detector warm-up
   defect found in review is fixed (see the spec).
 - **Hardware coverage.** Only the synthetic source runs without hardware. BrainFlow boards are
-  reached through BrainFlow's own support and are not individually verified here.
+  reached through BrainFlow's own support and are not individually verified here. The LSL, ThinkGear,
+  BITalino and Myo sources and the EDF/BDF/XDF readers were built from published protocol documents
+  and tested with byte-level fixtures, fakes and two independent implementations (pyedflib, pyxdf);
+  none has run against a real device. Myo and the gForce boards report counts, not microvolts, so the
+  quality gate's microvolt limits do not hold there.
 - **Time-of-day, fatigue and electrode drift** over a workday are not modelled; a re-seated
   electrode needs a new calibration.
 
@@ -369,6 +380,20 @@ field measurement exists; an item here can be present in code and still be unmea
 | Calibrated blink/clench detectors with a runtime sensitivity scale, and the blink warm-up fix | present (synthetic-signal validation only); the spec's "Round-2 status" table is the authority |
 | Round-3 hardening: squeeze artifact blanking and channel agreement; block-size-independent jaw timing and an opt-in chew hold-off; per-hop quality evaluation with lead-off, common-mode and contact score; calibration provenance enforcement (`calibration_max_age_days`); `reset(keep_governor_state=...)`; release survives one evaluation; accounting pause/resume; richer `status()`; `watchdog_seconds` and `min_event_confidence`; daemon status block and ordered shutdown | present (synthetic-signal validation only); the spec's "Round-3 status" table is the authority |
 | `fieldtest.py` and `yazses biosignal field-test`, the doctor `Verdict:` line, and the validation protocol | present as tooling and a written protocol. **No field-test result exists.** The gates above are unmet; the status stays Proposed. |
+
+## Related work in the repository
+
+The HCI × Hugging Face research track (epic #692, draft PR #711, `design/hci-huggingface/EEG_EOG_FEASIBILITY_PROTOCOL.md`
+on branch `feat/hci-research-metrics`, not yet on `main`) specifies a staged feasibility study of the same
+kind of switch: synthetic baseline, injected artifacts, then a gated human pilot. This ADR and that
+protocol agree on the measure that matters (false activations per hour over scored exposure) and on the
+limits (artifact-grade activation only; no thought, emotion or attention inference; no flicker stimuli).
+The mapping, and the one definition still to be aligned (the minimum exposure before an hourly rate is
+shown), is in `design/specs/biosignal-validation-protocol.md`. That protocol states that a runtime
+adapter needs its own approved ADR and real-user evidence; this ADR is that ADR and it is **Proposed**,
+with the adapter present in code but dormant and off by default. The acceptance gates above are the
+evidence still owed, and the "human pilot" gate there applies to any pooled multi-participant use of the
+field test.
 
 ## Not decided here
 

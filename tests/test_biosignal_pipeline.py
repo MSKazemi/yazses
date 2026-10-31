@@ -1017,3 +1017,95 @@ def test_built_pipeline_is_usable_on_a_synthetic_block():
     block = SampleBlock(data=rng.normal(0, 1, (1, 100)), fs=FS, channels=CH, t0=0.0)
     result = BiosignalPipeline(parts).process(block)
     assert result.status.blocks == 1
+
+
+# ---------------------------------------------------------------------------
+# An event is judged by when it happened, not only by the block that reported it
+
+
+class ScriptedQuality(FakeQuality):
+    """BAD for the block numbers in ``bad``, GOOD otherwise."""
+
+    def __init__(self, bad=()):
+        super().__init__()
+        self.bad = set(bad)
+
+    def update(self, block):
+        self.overall = "BAD" if len(self.seen) in self.bad else "GOOD"
+        return super().update(block)
+
+
+def _run(script, bad, starts=None):
+    pipe = make(FakeDetector(script), quality=ScriptedQuality(bad))
+    blocks = [blk(i) for i in (starts if starts is not None else range(len(script)))]
+    return pipe, [pipe.process(b) for b in blocks]
+
+
+def test_an_event_reported_after_the_gate_reopened_is_refused_if_it_happened_while_closed():
+    """A double blink is reported about 1.3 s late. Block 1 was bad, block 3 is fine, and the
+    event in block 3 happened during block 1."""
+    pipe, results = _run([[], [], [], [ev(EventKind.DOUBLE_BLINK, t=1.5)]], bad={1})
+    assert kinds(results[3]) == []
+    assert results[3].dropped[0].reason == "quality"
+    assert pipe.status.dropped_by_reason == {"quality": 1}
+
+
+def test_a_pair_whose_first_blink_fell_in_a_closed_stretch_is_refused():
+    late_second = ev(EventKind.DOUBLE_BLINK, t=2.2, interval_s=0.8)
+    _, results = _run([[], [], [late_second]], bad={1})
+    assert kinds(results[2]) == []
+
+
+def test_a_pair_entirely_after_the_closed_stretch_is_accepted():
+    pair = ev(EventKind.DOUBLE_BLINK, t=2.5, interval_s=0.3)
+    _, results = _run([[], [], [pair]], bad={1})
+    assert kinds(results[2]) == [EventKind.DOUBLE_BLINK]
+
+
+def test_an_event_just_after_the_closed_stretch_is_accepted():
+    """The stretch ends at 2.0 s; an event at that instant belongs to the clean block."""
+    _, results = _run([[], [], [ev(EventKind.BLINK, t=2.0)]], bad={1})
+    assert kinds(results[2]) == [EventKind.BLINK]
+
+
+def test_a_squeeze_off_is_never_held_back_by_a_past_closed_stretch():
+    """The release must always get through, or a hold could stay open."""
+    script = [[ev(ON, t=0.5)], [], [ev(OFF, t=1.5)]]
+    _, results = _run(script, bad=set())
+    assert kinds(results[2]) == [OFF]
+    # ON accepted, then a bad block force-releases it; the detector's own late OFF is an
+    # orphan and is dropped silently, never refused as a gate decision.
+    pipe, results = _run(script, bad={1})
+    assert kinds(results[1]) == [OFF]
+    assert kinds(results[2]) == []
+    assert pipe.status.dropped == 0
+
+
+def test_a_closed_stretch_is_forgotten_after_the_history_window():
+    n = int(pl._CLOSED_SPAN_HISTORY_S) + 3
+    script = [[] for _ in range(n)] + [[ev(EventKind.BLINK, t=1.5)]]
+    _, results = _run(script, bad={1})
+    assert kinds(results[-1]) == [EventKind.BLINK]
+
+
+def test_a_clock_that_steps_back_does_not_keep_stale_closed_stretches():
+    """Stream time restarts near 0: a stretch recorded at 50 s must not shadow later time."""
+    script = [[], [], [], [ev(EventKind.BLINK, t=50.5)]]
+    _, results = _run(script, bad={0}, starts=[50, 0, 1, 50])
+    assert kinds(results[3]) == [EventKind.BLINK]
+
+
+def test_the_status_says_why_the_gate_is_closed_only_while_it_is():
+    pipe = make(FakeDetector(), quality=ScriptedQuality({0}))
+    pipe.process(blk(0))
+    assert pipe.status.reason == "signal quality bad"
+    pipe.process(blk(1))
+    assert pipe.status.reason == ""
+
+
+def test_a_reset_forgets_the_closed_stretches():
+    pipe = make(FakeDetector([[], [], [ev(EventKind.BLINK, t=0.5)]]), quality=ScriptedQuality({0}))
+    pipe.process(blk(0))
+    pipe.reset()
+    pipe.process(blk(1))
+    assert kinds(pipe.process(blk(2))) == [EventKind.BLINK]

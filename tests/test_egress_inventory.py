@@ -79,6 +79,10 @@ LOCAL_BOUND = {
         "network and no socket is opened. Declared rather than excluded, for the reason "
         "given above `_NETWORK_ROOTS`"
     ),
+    "biosignal/myo.py": (
+        "imports `asyncio` to run bleak for a Myo armband's raw EMG over Bluetooth LE; "
+        "the same radio-not-network case as `platform/emg/ble_backend.py`"
+    ),
 }
 
 #: Reaches the network by HANDING A URL TO ANOTHER PROGRAM. The fourth mechanism, found
@@ -458,13 +462,28 @@ def test_the_remote_agent_listens_only_on_loopback():
         )
 
 
-def test_the_ble_backend_opens_no_socket():
+@pytest.mark.parametrize("module", ["platform/emg/ble_backend.py", "biosignal/myo.py"])
+def test_the_ble_backend_opens_no_socket(module: str):
     """`asyncio` here drives a radio, not an address. If that stops being true, say so."""
-    source = (SRC / "platform/emg/ble_backend.py").read_text(encoding="utf-8")
+    source = (SRC / module).read_text(encoding="utf-8")
     for primitive in ("start_server", "open_connection", "AF_INET", "import socket"):
         assert primitive not in source, (
-            f"platform/emg/ble_backend.py now uses {primitive} — it is no longer "
+            f"{module} now uses {primitive} — it is no longer "
             f"local-by-construction and needs a real inventory row"
+        )
+
+
+def test_the_lsl_source_pins_liblsl_to_this_machine():
+    """`biosignal/lsl_source.py` imports no network module, so the scan above cannot see
+    it -- but liblsl opens UDP/TCP sockets of its own. Staying on this machine rests on
+    the config text it pins before the first liblsl call (ADR-019, "Reached through a
+    dependency's own sockets"). A stated limitation is not a guard; this is the guard."""
+    source = (SRC / "biosignal/lsl_source.py").read_text(encoding="utf-8")
+    for pin in ("ResolveScope = machine", "MachineAddresses = {127.0.0.1}",
+                "TTLOverride = 0", "set_config_content", "LSLAPICFG"):
+        assert pin in source, (
+            f"biosignal/lsl_source.py no longer pins {pin!r}: LSL discovery may reach the "
+            f"LAN. That is a new egress decision under ADR-019, not a refactor"
         )
 
 
