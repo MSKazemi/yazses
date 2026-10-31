@@ -23,10 +23,9 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.46.0](v2.46.0.md)** — a Settings window you can actually see. The window is now a sidebar of
-pages, so the Features list gets the whole window with a search box and per-category counts, a dot marks pages
-with changes you have not applied, and "Apply and restart" from the tray or Settings no longer leaves the
-daemon stopped on a systemd install.
+**[YazSes 2.47.0](v2.47.0.md)** — updates that actually apply. "Install now" works again on a pipx install whose
+source folder is gone, the Windows installer can replace a running YazSes, `doctor --mic` measures the microphone you
+pinned, and a fresh `pip install` can transcribe a file again.
 
 Install it with:
 
@@ -37,6 +36,7 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.47.0](v2.47.0.md) — updates that actually apply: "Install now" on a pipx install, the Windows installer over a running YazSes, `doctor --mic` on the pinned microphone, and `transcribe` on a fresh pip install
 - [v2.46.0](v2.46.0.md) — a Settings window you can actually see: a sidebar of pages with a full-height Features list and search, a dot on pages with unapplied changes, and a restart from the tray or Settings that no longer leaves the daemon stopped
 - [v2.45.0](v2.45.0.md) — your words no longer go missing: Windows administrator windows, crash restarts on pip/pipx/uv installs and `scoop update` autostart are fixed, failed Spoken Edit, Punch-In and proofreading corrections give your words back, `yazses status` names the engine actually decoding (#644), camera features download OpenCV once, and the new off-by-default "send to Claude" and a one-click MCP bundle.
 - [v2.44.0](v2.44.0.md) — your words land where you meant them: dictation over `yazses remote` reaches the remote host, the Windows keyboard no longer lags during a transcription, a non-English language on an English-only model is refused instead of typed as English (#515), `yazses gitvoice` refuses a force push it cannot read, `yazses stop` stays stopped on Windows, and experimental features (all off by default) can be switched on.
