@@ -21,7 +21,7 @@
 # is enabled for this directory so the digest is bumped like any other dependency
 # rather than frozen -- pinning without an updater trades a reproducibility problem
 # for a patching one.
-FROM python:3.14-slim@sha256:cae66f2ef0ec51a9891263eeee7f987dacf0a9879e8aa9353d5606e0530619a5 AS build
+FROM python:3.15-slim@sha256:94d3426f1def7db4a106a232ac121bfd975393e5dfd40a619b955fae45fe7913 AS build
 
 # Version to install. Pinned by CI to the tag being built so the image and the
 # release cannot disagree about what is inside it; defaults to the newest release.
@@ -80,7 +80,7 @@ RUN set -eu; \
 # Same digest as the build stage above, deliberately: two stages resolving the same
 # tag at different moments is how a build ends up with one interpreter compiling the
 # wheels and a different one running them.
-FROM python:3.14-slim@sha256:cae66f2ef0ec51a9891263eeee7f987dacf0a9879e8aa9353d5606e0530619a5
+FROM python:3.15-slim@sha256:94d3426f1def7db4a106a232ac121bfd975393e5dfd40a619b955fae45fe7913
 
 LABEL org.opencontainers.image.title="YazSes" \
       org.opencontainers.image.description="Offline speech-to-text and speaker diarization. Transcribe a file with no cloud, no account and no network." \
