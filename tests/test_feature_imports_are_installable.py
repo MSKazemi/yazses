@@ -43,6 +43,12 @@ BACKEND_CHOICES: dict[tuple[str, str], str] = {
         "inside Meeting Mode (the `silero` extra)",
     ("cocktail", "resemblyzer"): "`[voiceprint] backend = \"resemblyzer\"`, an alternative "
         "speaker embedder (the `voiceprint-resemblyzer` extra)",
+    ("biosignal", "brainflow"): "only a `[biosignal] source = \"brainflow:<id>\"` board needs it; "
+        "the synthetic and replay sources need nothing (the `emg-band` extra)",
+    ("biosignal", "serial"): "only a `thinkgear:` or `bitalino:` source needs it (the `emg` extra)",
+    ("biosignal", "bleak"): "only a `myo:` source needs it (the `ble` extra)",
+    ("biosignal", "pylsl"): "only an `lsl:` source needs it (the `lsl` extra)",
+    ("biosignal", "pyxdf"): "only replaying an `.xdf` recording needs it (the `xdf` extra)",
 }
 
 

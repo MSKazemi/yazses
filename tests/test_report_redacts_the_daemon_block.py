@@ -86,7 +86,7 @@ _USER_TEXT = frozenset({"preview"})
 #: release, time since it), or None while the key is 0. It has no string field at all,
 #: which `tests/test_status_stt_residency.py` pins.
 _MACHINE_FACTS = frozenset({
-    "acoustic", "audio_level", "bursts", "command_mode", "commands_enabled", "confidence_enabled",
+    "acoustic", "audio_level", "biosignal", "bursts", "command_mode", "commands_enabled", "confidence_enabled",
     "decode_latency", "enabled", "engine", "engine_fallback", "engine_model", "handsfree", "headpointer", "hotkey", "injection_backend", "input_device",
     "last_error", "last_good_device", "low_confidence_last", "meeting_active",
     "meeting_enabled", "meeting_finalizing", "modality_roles", "model", "morse", "mouthswitch",

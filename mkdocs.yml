@@ -331,6 +331,7 @@ nav:
       - Control your computer by voice: use-cases/voice-commands.md
       - Dictating code and technical vocabulary: use-cases/dictating-code.md
       - Accessibility & RSI: use-cases/accessibility-rsi-hands-free.md
+      - Muscle, blink or jaw-clench switch: use-cases/biosignal-hands-free.md
       - Transcribe recordings offline: use-cases/transcribe-audio-offline.md
       - Research interviews & ethics approval: use-cases/research-interview-transcription.md
       - Meeting notes & minutes: meeting-notes-offline.md
@@ -363,6 +364,8 @@ nav:
       - Jump to a symbol by voice: how-to/editor-jump.md
       - Glance-Type (look to pane): how-to/gaze-look-to-pane.md
       - Set up hands-free input: how-to/hands-free-setup.md
+      - Muscle, blink or jaw-clench switch: how-to/biosignal-switch.md
+      - Biosignal switch hardware: how-to/biosignal-hardware.md
       - Stop hands-free input by voice: how-to/hands-free-voice-stop.md
       - Click anywhere by voice (mouse grid): how-to/voice-mouse-grid.md
       - Transcribe recordings: tutorials/transcribe-recordings.md
@@ -454,6 +457,7 @@ nav:
           - Release validation and evidence standard: contribute/validation.md
           - The start-up budget: contribute/startup-budget.md
           - macOS validation campaign: contribute/macos-validation.md
+          - Add a biosignal device driver: contribute/biosignal-device-driver.md
           - Persian injection matrix: contribute/persian-injection-matrix.md
           - What contributors built: contribute/built.md
           - Share your contribution: contribute/share.md

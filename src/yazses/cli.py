@@ -7983,6 +7983,333 @@ def gesture_resume() -> None:
     typer.echo("Gesture Chords resumed.")
 
 
+biosignal_app = typer.Typer(
+    name="biosignal",
+    help="EEG/EMG/EOG switches: muscle squeeze, double blink, jaw clench -- check, calibrate, watch, measure.",
+    context_settings=CONTEXT_SETTINGS,
+    no_args_is_help=True,
+)
+app.add_typer(biosignal_app, rich_help_panel=_SETUP)
+
+
+def _biosignal_context():
+    """The loaded config and data directory every `biosignal` command works from."""
+    platform = get_platform()
+    from yazses.config import load_config
+
+    return load_config(platform.paths.config_file), platform.paths.data_dir
+
+
+@biosignal_app.command(
+    "doctor",
+    epilog=_examples(
+        "yazses biosignal doctor            what this machine has, plus a no-hardware self-check",
+        "yazses biosignal doctor --boards   list every board BrainFlow supports",
+    ),
+)
+def biosignal_doctor(
+    boards: bool = typer.Option(False, "--boards", help="List every BrainFlow board id, not just the relevant ones."),
+    source: str = typer.Option("", "--source", help="Check this source instead of [biosignal] source."),
+) -> None:
+    """Check BrainFlow, serial ports, your calibration, and run a synthetic self-check.
+
+    Needs no hardware: the self-check pushes scripted blinks through the real filters,
+    quality gate and detector. A missing board is reported, not an error; the exit code is
+    1 only when the self-check itself fails. The last line is a verdict: ready, or the one
+    thing to do next.
+    """
+    from yazses.biosignal.cli_impl import run_doctor
+
+    cfg, data_dir = _biosignal_context()
+    raise typer.Exit(run_doctor(cfg, data_dir, boards=boards, source=source))
+
+
+@biosignal_app.command(
+    "calibrate",
+    epilog=_examples(
+        "yazses biosignal calibrate                 guided: relax, squeeze light, squeeze hard, blink...",
+        "yazses biosignal calibrate --no-blink      skip the blink step",
+        "yazses biosignal calibrate --clench --yes  include jaw clenches, start without waiting",
+    ),
+)
+def biosignal_calibrate(
+    source: str = typer.Option("", "--source", help="Calibrate on this source instead of [biosignal] source."),
+    blink: bool | None = typer.Option(None, "--blink/--no-blink", help="Include the blink step (default: [biosignal] double_blink)."),
+    clench: bool | None = typer.Option(None, "--clench/--no-clench", help="Include the jaw-clench step (default: [biosignal] jaw_clench)."),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Start without waiting for Enter."),
+) -> None:
+    """Guided calibration: learn YOUR resting level and your squeeze, blink and clench size.
+
+    Thresholds come from your own signal, never a population average. Prompts appear on
+    screen; follow them. Only the derived thresholds are saved (owner-only file, see
+    `[biosignal] calibration_file`); no raw signal is stored. Without a profile the
+    muscle-squeeze switch stays off.
+    """
+    from yazses.biosignal.cli_impl import run_calibrate
+
+    cfg, data_dir = _biosignal_context()
+    raise typer.Exit(run_calibrate(cfg, data_dir, source=source, blink=blink, clench=clench, yes=yes))
+
+
+@biosignal_app.command(
+    "monitor",
+    epilog=_examples(
+        "yazses biosignal monitor                       live quality and detections from [biosignal] source",
+        "yazses biosignal monitor --source synthetic    no hardware: scripted gestures through the pipeline",
+        "yazses biosignal monitor --seconds 60          stop by itself after a minute",
+    ),
+)
+def biosignal_monitor(
+    source: str = typer.Option("", "--source", help="Watch this source instead of [biosignal] source (synthetic | file:<path> | brainflow:<id>[:<port>])."),
+    seconds: float = typer.Option(0.0, "--seconds", min=0.0, help="Stop after this long (0 = until Ctrl-C)."),
+    interval: float = typer.Option(1.0, "--interval", min=0.1, max=60.0, help="Seconds between status lines."),
+    emg: bool | None = typer.Option(None, "--emg/--no-emg", help="Override [biosignal] emg for this run."),
+    blink: bool | None = typer.Option(None, "--blink/--no-blink", help="Override [biosignal] double_blink for this run."),
+    clench: bool | None = typer.Option(None, "--clench/--no-clench", help="Override [biosignal] jaw_clench for this run."),
+) -> None:
+    """Watch signal quality and detections live. Nothing is typed or acted on.
+
+    Prints a per-channel quality table whenever the overall quality changes (with the fix
+    for each problem), a status line every interval, and each detection as it happens.
+    Ctrl-C ends it with a count of what was detected and your measured activation rate.
+    """
+    from yazses.biosignal.cli_impl import run_monitor
+
+    cfg, data_dir = _biosignal_context()
+    raise typer.Exit(run_monitor(
+        cfg, data_dir, source=source, seconds=seconds, interval=interval,
+        emg=emg, blink=blink, clench=clench))
+
+
+@biosignal_app.command(
+    "replay",
+    epilog=_examples(
+        "yazses biosignal replay session.csv                run a recording through the pipeline",
+        "yazses biosignal replay session.npz --clench --json   try the jaw-clench switch, machine-readable",
+    ),
+)
+def biosignal_replay(
+    file: str = typer.Argument(..., help="A recording: CSV, or .npz with data/fs/channels."),
+    emg: bool | None = typer.Option(None, "--emg/--no-emg", help="Override [biosignal] emg for this run."),
+    blink: bool | None = typer.Option(None, "--blink/--no-blink", help="Override [biosignal] double_blink for this run."),
+    clench: bool | None = typer.Option(None, "--clench/--no-clench", help="Override [biosignal] jaw_clench for this run."),
+    as_json: bool = typer.Option(False, "--json", help="Print one JSON object instead of a table."),
+) -> None:
+    """Run a recording through the pipeline and print each detection and the false-positive summary.
+
+    The way to judge a switch before turning it on: replay a stretch of normal work
+    (typing, talking, chewing) and count what fires. Processed faster than real time, but
+    rates are per hour of recorded signal.
+    """
+    from yazses.biosignal.cli_impl import run_replay
+
+    cfg, data_dir = _biosignal_context()
+    raise typer.Exit(run_replay(cfg, data_dir, file, emg=emg, blink=blink, clench=clench, as_json=as_json))
+
+
+@biosignal_app.command(
+    "report",
+    epilog=_examples(
+        "yazses biosignal report          your activations per hour and how many you cancelled",
+        "yazses biosignal report --json   the same, machine-readable",
+    ),
+)
+def biosignal_report(
+    as_json: bool = typer.Option(False, "--json", help="Print one JSON object instead of a table."),
+) -> None:
+    """Show your own measured activation and cancel rate from the local counters.
+
+    The daemon keeps aggregate counters only (sessions, active time, activations and
+    cancellations per event kind) in your data directory; no signal and no timestamps.
+    A cancel is an "undo" you spoke soon after a switch fired, so treat the cancel rate as
+    a floor on the false-positive rate.
+    """
+    from yazses.biosignal.cli_impl import run_report
+
+    cfg, data_dir = _biosignal_context()
+    raise typer.Exit(run_report(cfg, data_dir, as_json=as_json))
+
+
+@biosignal_app.command(
+    "record",
+    epilog=_examples(
+        "yazses biosignal record --seconds 60 --out session.csv         60 s of [biosignal] source",
+        "yazses biosignal record --source synthetic --seconds 90 --out demo.csv --truth-out demo.json",
+        "yazses biosignal record --seconds 30 --out session.npz --force   replace an existing file",
+    ),
+)
+def biosignal_record(
+    out: str = typer.Option(..., "--out", "-o", help="File to write: .csv (streamed) or .npz."),
+    source: str = typer.Option("", "--source", help="Record this source instead of [biosignal] source (synthetic | file:<path> | brainflow:<id>[:<port>])."),
+    seconds: float = typer.Option(30.0, "--seconds", min=1.0, max=86400.0, help="How much signal to record."),
+    force: bool = typer.Option(False, "--force", help="Overwrite --out (and --truth-out) if it exists."),
+    seed: int = typer.Option(0, "--seed", min=0, help="Synthetic source only: seed for the scripted gestures and noise."),
+    truth_out: str = typer.Option("", "--truth-out", help="Synthetic source only: also write the scripted gestures as a truth file for `evaluate`."),
+    as_json: bool = typer.Option(False, "--json", help="Print one JSON object instead of text."),
+) -> None:
+    """Record raw signal to a local file, to replay or evaluate later.
+
+    A recording is raw biosignal data: sensitive, biometric-adjacent information about
+    you. It is written only to the file you name, owner-only (mode 0600), and never sent
+    anywhere. An existing file is never overwritten without --force. Ctrl-C stops early
+    and keeps what was captured. A synthetic source needs no hardware.
+    """
+    from yazses.biosignal.cli_impl import run_record
+
+    cfg, data_dir = _biosignal_context()
+    raise typer.Exit(run_record(
+        cfg, data_dir, source=source, seconds=seconds, out=out, force=force, seed=seed,
+        truth_out=truth_out, as_json=as_json))
+
+
+@biosignal_app.command(
+    "field-test",
+    epilog=_examples(
+        "yazses biosignal field-test                      guided: sit still, talk, chew, type, look around",
+        "yazses biosignal field-test --minutes 10         a longer, steadier measurement",
+        "yazses biosignal field-test --json --out ft.json   machine-readable, and keep the counts",
+    ),
+)
+def biosignal_field_test(
+    source: str = typer.Option("", "--source", help="Test this source instead of [biosignal] source (synthetic | file:<path> | brainflow:<id>[:<port>])."),
+    minutes: float = typer.Option(0.0, "--minutes", min=0.0, max=120.0, help="Stretch or shrink the test to about this long (0 = the standard length)."),
+    as_json: bool = typer.Option(False, "--json", help="Print one JSON object instead of text."),
+    out: str = typer.Option("", "--out", "-o", help="Also write the counts to this JSON file (owner-only; never overwrites)."),
+) -> None:
+    """Guided test of how often the switches fire by mistake during ordinary activity.
+
+    Prompts on screen ask you to sit still, talk, chew, type and look around while the
+    real detectors run on your signal. Afterwards you get the phantom activations per
+    hour for each activity: the number that decides whether a switch is safe to leave on.
+    Only those counts are reported or saved, never the signal. Nothing is typed or acted on.
+    """
+    from yazses.biosignal.cli_impl import run_field_test
+
+    cfg, data_dir = _biosignal_context()
+    raise typer.Exit(run_field_test(
+        cfg, data_dir, source=source, minutes=minutes, as_json=as_json, out=out))
+
+
+@biosignal_app.command(
+    "evaluate",
+    epilog=_examples(
+        "yazses biosignal evaluate                     scripted synthetic session, no hardware",
+        "yazses biosignal evaluate --seconds 300 --seed 7 --json",
+        "yazses biosignal evaluate --file session.csv --truth events.json   your own labelled recording",
+    ),
+)
+def biosignal_evaluate(
+    source: str = typer.Option("synthetic:mixed", "--source", help="synthetic[:emg|eeg|eog|mixed]; ignored with --file."),
+    seconds: float = typer.Option(120.0, "--seconds", min=30.0, max=86400.0, help="Length of the synthetic session."),
+    seed: int = typer.Option(0, "--seed", min=0, help="Seed for the scripted gestures and noise (same seed, same result)."),
+    file: str = typer.Option("", "--file", help="Score this recording (CSV or .npz) instead; needs --truth."),
+    truth: str = typer.Option("", "--truth", help='JSON list of events you labelled: [{"kind": "double_blink", "t": 12.3}].'),
+    tolerance: float = typer.Option(0.3, "--tolerance", min=0.05, max=5.0, help="Seconds a detection may differ from the true time and still count."),
+    emg: bool | None = typer.Option(None, "--emg/--no-emg", help="Include the muscle-squeeze switch (default on; needs a calibration profile)."),
+    blink: bool | None = typer.Option(None, "--blink/--no-blink", help="Include the double-blink switch (default on)."),
+    clench: bool | None = typer.Option(None, "--clench/--no-clench", help="Include the jaw-clench switch (default on)."),
+    as_json: bool = typer.Option(False, "--json", help="Print one JSON object instead of a table."),
+) -> None:
+    """Score the detectors against known events: precision, recall, latency, false alarms per hour.
+
+    Every detector is tested unless you turn it off (this ignores which are enabled in
+    [biosignal]). Synthetic numbers show the pipeline is wired correctly, not how it
+    will perform on your skin and electrodes; for that, use a labelled recording of
+    yourself or `yazses biosignal report`.
+    """
+    from yazses.biosignal.cli_impl import run_evaluate
+
+    cfg, data_dir = _biosignal_context()
+    raise typer.Exit(run_evaluate(
+        cfg, data_dir, source=source, seconds=seconds, seed=seed, file=file, truth=truth,
+        tolerance=tolerance, emg=emg, blink=blink, clench=clench, as_json=as_json))
+
+
+@biosignal_app.command(
+    "profile",
+    epilog=_examples(
+        "yazses biosignal profile          which board and channels, and how old",
+        "yazses biosignal profile --json   the same, machine-readable",
+    ),
+)
+def biosignal_profile(
+    as_json: bool = typer.Option(False, "--json", help="Print one JSON object instead of text."),
+) -> None:
+    """Show the saved calibration profile: board, channels, age. Never an amplitude.
+
+    The thresholds describe your body, so they are not printed (or logged) anywhere.
+    """
+    from yazses.biosignal.cli_impl import run_profile_show
+
+    cfg, data_dir = _biosignal_context()
+    raise typer.Exit(run_profile_show(cfg, data_dir, as_json=as_json))
+
+
+@biosignal_app.command(
+    "profile-clear",
+    epilog=_examples(
+        "yazses biosignal profile-clear          ask first, then delete the profile",
+        "yazses biosignal profile-clear --yes    delete without asking",
+    ),
+)
+def biosignal_profile_clear(
+    yes: bool = typer.Option(False, "--yes", "-y", help="Delete without asking."),
+) -> None:
+    """Delete the saved calibration profile.
+
+    The muscle-squeeze switch stays off until you run `yazses biosignal calibrate` again.
+    Only the profile file is removed; the activation counters used by `report` are kept.
+    """
+    from yazses.biosignal.cli_impl import run_profile_clear
+
+    cfg, data_dir = _biosignal_context()
+    raise typer.Exit(run_profile_clear(cfg, data_dir, yes=yes))
+
+
+@biosignal_app.command(
+    "check-source",
+    epilog=_examples(
+        "yazses biosignal check-source                       the configured source, 5 s",
+        "yazses biosignal check-source lsl:type=EEG -s 20    an LSL stream for 20 s",
+        "yazses biosignal check-source file:session.edf --json",
+    ),
+)
+def biosignal_check_source(
+    source: str = typer.Argument("", help="Source spec; defaults to [biosignal] source, else synthetic."),
+    seconds: float = typer.Option(5.0, "--seconds", "-s", help="How long to drive the source."),
+    as_json: bool = typer.Option(False, "--json", help="Print one JSON object instead of a report."),
+) -> None:
+    """Check that a device or recording keeps the source contract the detectors rely on.
+
+    Opens the source for a few seconds and checks start/stop, the declared channels and
+    sample rate, block shapes, timestamps, gaps and rate accuracy. Use it when bringing up
+    a new board or driver. Exit 1 if any check fails.
+    """
+    from yazses.biosignal.cli_impl import run_check_source
+
+    cfg, _data_dir = _biosignal_context()
+    raise typer.Exit(run_check_source(cfg, source=source, seconds=seconds, as_json=as_json))
+
+
+@biosignal_app.command(
+    "boards",
+    epilog=_examples(
+        "yazses biosignal boards          boards known to work, with their ids",
+        "yazses biosignal boards --json   the same, machine-readable",
+    ),
+)
+def biosignal_boards(
+    as_json: bool = typer.Option(False, "--json", help="Print one JSON object instead of a table."),
+) -> None:
+    """List the EEG/EMG boards the switches are known to work with and their BrainFlow ids.
+
+    Use the id in `[biosignal] source = "brainflow:<id>[:<serial port>]"`. Needs no hardware.
+    """
+    from yazses.biosignal.cli_impl import run_boards
+
+    raise typer.Exit(run_boards(as_json=as_json))
+
+
 @app.command(
     rich_help_panel=_LEARNING,
     epilog=_examples(
