@@ -129,9 +129,15 @@ def test_an_eeg_only_headset_needs_no_squeeze_calibration(tmp_path):
 
 def test_a_fresh_matching_profile_is_ok(tmp_path):
     _save(tmp_path, _profile("brainflow:0"))
-    row = _check(_cfg(enabled=True, source="brainflow:0:/dev"), tmp_path)
-    # the serial port /dev exists as a directory path, so only the calibration is in play
+    row = _check(_cfg(enabled=True, source="brainflow:0:COM3"), tmp_path)
+    # A port name is not looked up as a file, so only the calibration is in play on every OS.
     assert row[1] == "OK", row[2]
+
+
+def test_a_windows_com_port_is_not_mistaken_for_a_missing_file(tmp_path):
+    _save(tmp_path, _profile("brainflow:0"))
+    row = _check(_cfg(enabled=True, source="brainflow:0:COM3"), tmp_path)
+    assert "is not there" not in row[2]
 
 
 # ------------------------------------------------------------------------------ FAIL
@@ -235,7 +241,7 @@ def test_a_serial_port_that_exists_is_fine(tmp_path):
 
 
 def test_a_missing_profile_is_a_warning_naming_where_it_looked(tmp_path):
-    row = _check(_cfg(enabled=True, source="brainflow:0:/dev"), tmp_path)
+    row = _check(_cfg(enabled=True, source="brainflow:0:COM3"), tmp_path)
     assert row[1] == "WARN"
     assert "no calibration profile" in row[2]
     assert str(default_profile_path(tmp_path)) in row[2]
@@ -244,32 +250,32 @@ def test_a_missing_profile_is_a_warning_naming_where_it_looked(tmp_path):
 
 def test_a_missing_profile_is_a_warning_not_a_fail(tmp_path):
     """The blink switch needs none and the squeeze stays off: dormant, not broken."""
-    assert _check(_cfg(enabled=True, source="brainflow:0:/dev"), tmp_path)[1] != "FAIL"
+    assert _check(_cfg(enabled=True, source="brainflow:0:COM3"), tmp_path)[1] != "FAIL"
 
 
 def test_no_profile_is_fine_when_the_squeeze_detector_is_off(tmp_path):
-    row = _check(_cfg(enabled=True, source="brainflow:0:/dev", emg=False), tmp_path)
+    row = _check(_cfg(enabled=True, source="brainflow:0:COM3", emg=False), tmp_path)
     assert row[1] == "OK", row[2]
 
 
 def test_a_named_calibration_file_is_the_one_that_is_read(tmp_path):
     elsewhere = tmp_path / "mine.json"
     save_profile(_profile("brainflow:0"), elsewhere)
-    row = _check(_cfg(enabled=True, source="brainflow:0:/dev", calibration_file=str(elsewhere)),
+    row = _check(_cfg(enabled=True, source="brainflow:0:COM3", calibration_file=str(elsewhere)),
                  tmp_path)
     assert row[1] == "OK", row[2]
 
 
 def test_a_named_calibration_file_that_is_missing_names_that_path(tmp_path):
     missing = tmp_path / "absent.json"
-    row = _check(_cfg(enabled=True, source="brainflow:0:/dev", calibration_file=str(missing)),
+    row = _check(_cfg(enabled=True, source="brainflow:0:COM3", calibration_file=str(missing)),
                  tmp_path)
     assert row[1] == "WARN" and str(missing) in row[2]
 
 
 def test_a_stale_profile_is_a_warning(tmp_path):
     _save(tmp_path, _profile("brainflow:0", created=NOW - timedelta(days=31)))
-    row = _check(_cfg(enabled=True, source="brainflow:0:/dev"), tmp_path)
+    row = _check(_cfg(enabled=True, source="brainflow:0:COM3"), tmp_path)
     assert row[1] == "WARN"
     assert "calibration is old" in row[2] and "drift" in row[2]
     assert "yazses biosignal calibrate" in row[2]
@@ -277,17 +283,17 @@ def test_a_stale_profile_is_a_warning(tmp_path):
 
 def test_a_profile_from_just_inside_the_limit_is_not_stale(tmp_path):
     _save(tmp_path, _profile("brainflow:0", created=NOW - timedelta(days=29)))
-    assert _check(_cfg(enabled=True, source="brainflow:0:/dev"), tmp_path)[1] == "OK"
+    assert _check(_cfg(enabled=True, source="brainflow:0:COM3"), tmp_path)[1] == "OK"
 
 
 def test_a_profile_dated_in_the_future_is_treated_as_stale(tmp_path):
     _save(tmp_path, _profile("brainflow:0", created=NOW + timedelta(days=3)))
-    assert _check(_cfg(enabled=True, source="brainflow:0:/dev"), tmp_path)[1] == "WARN"
+    assert _check(_cfg(enabled=True, source="brainflow:0:COM3"), tmp_path)[1] == "WARN"
 
 
 def test_a_profile_for_another_board_is_a_warning_naming_both(tmp_path):
     _save(tmp_path, _profile("brainflow:1"))
-    row = _check(_cfg(enabled=True, source="brainflow:0:/dev"), tmp_path)
+    row = _check(_cfg(enabled=True, source="brainflow:0:COM3"), tmp_path)
     assert row[1] == "WARN"
     assert "'brainflow:1'" in row[2] and "'brainflow:0'" in row[2]
     assert "another board or placement" in row[2]
@@ -295,18 +301,18 @@ def test_a_profile_for_another_board_is_a_warning_naming_both(tmp_path):
 
 def test_the_board_id_ignores_the_serial_port_part_of_the_spec(tmp_path):
     _save(tmp_path, _profile("brainflow:0"))
-    assert _check(_cfg(enabled=True, source="brainflow:0:/dev"), tmp_path)[1] == "OK"
+    assert _check(_cfg(enabled=True, source="brainflow:0:COM3"), tmp_path)[1] == "OK"
 
 
 def test_a_wrong_board_profile_is_not_also_reported_stale(tmp_path):
     _save(tmp_path, _profile("brainflow:1", created=NOW - timedelta(days=90)))
-    row = _check(_cfg(enabled=True, source="brainflow:0:/dev"), tmp_path)
+    row = _check(_cfg(enabled=True, source="brainflow:0:COM3"), tmp_path)
     assert "another board" in row[2] and "calibration is old" not in row[2]
 
 
 def test_an_unreadable_profile_counts_as_missing(tmp_path):
     default_profile_path(tmp_path).write_text("{not json", encoding="utf-8")
-    row = _check(_cfg(enabled=True, source="brainflow:0:/dev"), tmp_path)
+    row = _check(_cfg(enabled=True, source="brainflow:0:COM3"), tmp_path)
     assert row[1] == "WARN" and "no calibration profile" in row[2]
 
 
