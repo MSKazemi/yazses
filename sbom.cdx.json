@@ -2927,23 +2927,23 @@
     {
       "type": "library",
       "name": "sherpa-onnx",
-      "version": "1.13.8",
-      "purl": "pkg:pypi/sherpa-onnx@1.13.8",
-      "bom-ref": "pkg:pypi/sherpa-onnx@1.13.8",
+      "version": "2.0.1",
+      "purl": "pkg:pypi/sherpa-onnx@2.0.1",
+      "bom-ref": "pkg:pypi/sherpa-onnx@2.0.1",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "68e638f745df120a7fae268b7bae0eaab2362b5ad76fe3389bece1d3cd63272c"
+          "content": "c3a41594d7b1a637f6e13d6935ebb93616fe0b01931ce4894c097e79a51f4927"
         }
       ]
     },
     {
       "type": "library",
       "name": "sherpa-onnx-core",
-      "version": "1.13.8",
-      "purl": "pkg:pypi/sherpa-onnx-core@1.13.8",
-      "bom-ref": "pkg:pypi/sherpa-onnx-core@1.13.8",
+      "version": "2.0.1",
+      "purl": "pkg:pypi/sherpa-onnx-core@2.0.1",
+      "bom-ref": "pkg:pypi/sherpa-onnx-core@2.0.1",
       "scope": "optional"
     },
     {
