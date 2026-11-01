@@ -460,3 +460,157 @@ def test_nothing_under_a_private_path_is_committed() -> None:
         if unexplained:
             leaked[path] = unexplained[:5]
     assert not leaked, f"committed under a path the contract calls private: {leaked}"
+
+
+# ---- search metadata: a description and a short title per page -------------
+#
+# A design page with no description of its own inherited the site-wide one, so about 380
+# of ~400 engineering pages told a search engine the same sentence (Bing reports that as
+# "identical meta descriptions"), and decision records whose H1 is a whole sentence made
+# `<title>` text of 100+ characters. These are derived from the document, never invented,
+# and an author's own front matter always wins.
+
+
+def test_a_short_title_is_left_alone(hook):
+    assert hook._short_title("Threat model") == "Threat model"
+
+
+def test_a_long_title_is_cut_at_the_clause_before_the_colon(hook):
+    title = "ADR-028 — Feature add-on packs: a frozen install fetches a feature's libraries when it is turned on"
+    assert hook._short_title(title) == "ADR-028 — Feature add-on packs"
+
+
+def test_a_long_title_without_a_colon_is_cut_at_a_word_never_inside_one(hook):
+    title = "ADR-026 — Remote coding agents use the existing task contract and tool identity is not authorship"
+    short = hook._short_title(title)
+    assert len(short) <= hook._TITLE_BUDGET
+    assert title.startswith(short), "the shortened title must be a prefix of the real one"
+    assert title[len(short)] == " ", f"cut inside a word: {short!r}"
+
+
+def test_a_title_is_never_shortened_to_nothing(hook):
+    assert hook._short_title("A" * 200)
+    assert hook._short_title("x: " + "y " * 80)
+
+
+def test_plain_strips_markdown_but_keeps_the_words(hook):
+    text = "See [`design/specs/x.md`](../specs/x.md) and [[adr-011]] for **why** — *nothing* leaves <b>the</b> machine."
+    assert hook._plain(text) == "See design/specs/x.md and adr-011 for why — nothing leaves the machine."
+
+
+def test_a_description_skips_the_metadata_block_and_headings(hook):
+    markdown = (
+        "# ADR-099 — A decision\n\n"
+        "**Status:** Accepted (2026-10-01)\n"
+        "**Deciders:** The owner\n\n"
+        "---\n\n"
+        "## Context\n\n"
+        "The daemon must never need the network to transcribe speech, and the packaging has to say so.\n\n"
+        "A second paragraph that must not be used.\n"
+    )
+    assert hook._describe(markdown) == (
+        "The daemon must never need the network to transcribe speech, and the packaging has to say so."
+    )
+
+
+def test_a_description_skips_tables_lists_and_code(hook):
+    markdown = (
+        "# Doc\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n- a bullet that is not prose\n\n"
+        "```\ncode\n```\n\nThis is the first sentence of real prose that a reader would meet first.\n"
+    )
+    assert hook._describe(markdown).startswith("This is the first sentence of real prose")
+
+
+def test_a_long_description_ends_at_a_sentence_or_a_word_within_the_budget(hook):
+    sentence = "This design record explains one decision in plain words. "
+    text = (sentence * 12).strip()
+    out = hook._describe(f"# T\n\n{text}\n")
+    assert len(out) <= hook._DESCRIPTION_BUDGET
+    assert out.endswith("."), f"expected a sentence end, got {out!r}"
+    nospace = hook._describe("# T\n\n" + "word " * 60 + "\n")
+    assert len(nospace) <= hook._DESCRIPTION_BUDGET + 1 and nospace.endswith("…")
+
+
+def test_a_document_with_no_prose_yields_no_description(hook):
+    assert hook._describe("# Only a heading\n\n| a | b |\n|---|---|\n") == ""
+
+
+class _MetaPage(_Page):
+    def __init__(self, src_uri: str, meta: dict | None = None) -> None:
+        super().__init__(src_uri)
+        self.meta = {} if meta is None else meta
+
+
+def test_a_design_page_gets_a_description_and_a_short_title(hook):
+    page = _MetaPage("design/adr/adr-099.md")
+    markdown = (
+        "# ADR-099 — A decision whose heading is a whole sentence about what must change next\n\n"
+        "The daemon must never need the network to transcribe speech.\n"
+    )
+    out = hook.on_page_markdown(markdown, page=page, config=CONFIG)
+    assert out == markdown, "the body must be untouched (it has no links to rewrite)"
+    assert page.meta["description"] == "The daemon must never need the network to transcribe speech."
+    assert len(page.meta["seo_title"]) <= hook._TITLE_BUDGET
+    # `title` would also relabel Material's header bar, which is visible UI.
+    assert "title" not in page.meta
+
+
+def test_front_matter_always_wins(hook):
+    page = _MetaPage("design/adr/adr-099.md", {"title": "Mine", "description": "Written by the author."})
+    hook.on_page_markdown(
+        "# A very long heading that would otherwise be shortened by the hook for the title\n\nSome prose that is long enough to be used.\n",
+        page=page, config=CONFIG,
+    )
+    assert page.meta == {"title": "Mine", "description": "Written by the author."}
+
+
+def test_pages_outside_design_are_not_touched(hook):
+    page = _MetaPage("how-to/x.md")
+    hook.on_page_markdown(
+        "# A very long heading that would otherwise be shortened by the hook for the title\n\nSome prose that is long enough to be used.\n",
+        page=page, config=CONFIG,
+    )
+    assert page.meta == {}
+
+
+def test_a_page_object_without_meta_is_tolerated(hook):
+    """MkDocs always provides `meta`; a stand-in that lacks it must not crash the build."""
+    assert hook.on_page_markdown("# T\n\nA paragraph that is long enough to describe.\n",
+                                 page=_Page("design/x.md"), config=CONFIG)
+
+
+def test_a_document_with_only_a_table_still_gets_a_title_based_description(hook):
+    page = _MetaPage("design/x.md")
+    hook.on_page_markdown("# Comparison matrix\n\n| a | b |\n|---|---|\n| 1 | 2 |\n", page=page, config=CONFIG)
+    assert page.meta["description"].startswith("Comparison matrix.")
+    assert len(page.meta["description"]) <= hook._DESCRIPTION_BUDGET
+
+
+def test_published_design_pages_no_longer_share_one_description(hook):
+    """The regression this exists for: ~380 pages with the same sentence.
+
+    Derived from the real published files, so it moves with the repository; the bound is
+    loose on purpose (a few documents legitimately open alike) and tight enough that
+    going back to one shared description fails it at once.
+    """
+    import collections
+
+    published = _publishable(hook)
+    assert published is not None
+    descriptions: collections.Counter[str] = collections.Counter()
+    checked = 0
+    for rel in sorted(p for p in published if p.endswith(".md")):
+        text = (ROOT / rel).read_text(encoding="utf-8")
+        if text.startswith("---\n"):
+            continue  # hand-written front matter: the author's own description or title wins
+        page = _MetaPage(rel)
+        hook.on_page_markdown(text, page=page, config=CONFIG)
+        if "description" in page.meta:
+            descriptions[page.meta["description"]] += 1
+            checked += 1
+            assert len(page.meta["description"]) <= hook._DESCRIPTION_BUDGET + 1, rel
+        if "seo_title" in page.meta:
+            assert len(page.meta["seo_title"]) <= hook._TITLE_BUDGET, rel
+    assert checked > 100, f"expected to derive descriptions for the design tier, got {checked}"
+    shared = sum(n for n in descriptions.values() if n > 1)
+    assert shared <= checked * 0.05, f"{shared} of {checked} pages share a description"
