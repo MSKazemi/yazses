@@ -321,7 +321,9 @@ How it meets the rest of §1 and §3:
   (`EnginePool.residency_snapshot()`: the extra model's name, beam size, seconds idle, the
   keep-alive, and a count of evictions), `null` while the key is `0`. `yazses status`
   prints it through `residency.describe_pool_residency` as one `memory:` line, only when an
-  extra model is loaded.
+  extra model is loaded. The tray appends the same phrase to its one residency line
+  (`tray/menu.py::residency_line`, fed by `TrayModel.latency_residency`), after the
+  speech-model phrase and never replacing it.
 - **The budget gate** is `scripts/check_runtime_budget.py`, a check of a
   measured-results JSON (no network, no model) against `scripts/runtime_budget.json`. It exits 1 on a breach or on
   a run that measured nothing. The `stt` and `latency` ceilings are the figures the ADR states;

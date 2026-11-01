@@ -20,7 +20,7 @@ background.
 - **What it does not touch:** the dictation engine. Its release is still `[stt] idle_unload_s`.
 - **Status:** `yazses status --json` carries `latency_residency` (`null` at `0`), and `yazses status`
   prints one line for the extra model: whether it is loaded, how long it has been idle, and the
-  keep-alive.
+  keep-alive. The tray shows the same phrase after its speech-model line.
 
 What was checked: unit tests for the eviction rule (idle time measured against an injected clock,
 the base engine never evicted, a reload after eviction), the snapshot, the config key and the
