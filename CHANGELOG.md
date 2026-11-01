@@ -125,6 +125,8 @@ intents through `activation/intent.py`; detectors never execute an action themse
   `design/specs/biosignal-pipeline.md`, `design/specs/biosignal-validation-protocol.md`, and an
   architecture row in `design/architecture.md`.
 
+## [2.47.0] - 2026-10-31
+
 ### Changed — the benchmark harness, the result files and their tests moved to the private research repository
 
 `paper/benchmark/` (the harness), `paper/results/` (the archived JSON and logs) and the 37 tests that guarded them are

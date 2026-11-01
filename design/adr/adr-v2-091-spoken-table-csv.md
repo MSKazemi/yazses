@@ -1,3 +1,8 @@
+---
+description: >-
+  Decision record for Spoken Table to CSV: an opt-in, off-by-default mode that turns row and cell dictation into delimited text and Tab/Enter keystrokes for spreadsheets and forms.
+---
+
 # ADR-v2-091 — Spoken Table → CSV / Field Data Entry
 
 **Status:** Accepted (2026-07-02) · Wave K

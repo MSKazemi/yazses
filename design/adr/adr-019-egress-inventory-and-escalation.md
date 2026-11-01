@@ -1,3 +1,8 @@
+---
+description: >-
+  Every way YazSes data can leave the machine, listed module by module, and the rule a new outbound path must pass. The record behind its offline-by-default claim.
+---
+
 # ADR-019 — The egress inventory: every way data can leave, and the rule for adding one
 
 **Status:** Accepted (2026-08-15)
