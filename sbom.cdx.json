@@ -225,14 +225,14 @@
     {
       "type": "library",
       "name": "av",
-      "version": "18.0.0",
-      "purl": "pkg:pypi/av@18.0.0",
-      "bom-ref": "pkg:pypi/av@18.0.0",
+      "version": "18.1.0",
+      "purl": "pkg:pypi/av@18.1.0",
+      "bom-ref": "pkg:pypi/av@18.1.0",
       "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "4ef7e72c3d3a872584a1215173b16e0226811037f40dcdbf75992631098df1ba"
+          "content": "47bfc286e1bc9de7ab4681fc2b575cd2460a66919d31ffe1bd5aa54fae531a28"
         }
       ]
     },
