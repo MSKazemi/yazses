@@ -298,12 +298,49 @@ what happened, not the configured keep-alive, which a late tick overshoots. The
 snapshot reads both stamps the same lock-free way, and it reads "how long ago" from the
 wrapper's clock directly, never through the tracker's monotonic check.
 
+**2026-11-01, step 2: `[residency] latency_keep_alive_s`.** The key exists
+(`ResidencyConfig.latency_keep_alive_s`, int seconds, default `0` = never released, so an
+existing install is unchanged). It governs the latency governor's second model. The
+`EnginePool` (`latency/pool.py`) loads a second Whisper model (`tiny.en`, about 116 MB
+RAM by the ADR's own figure) when the governor asks for one, and before this step it kept
+that model for the daemon's life. With the key positive, `EnginePool.evict_idle()` drops
+every non-base engine whose last use is at least that many seconds old, and the next `get`
+for it reloads it in the background. The base engine, the dictation engine, is never
+evicted by this key; `[stt] idle_unload_s` still governs it. The key does nothing unless
+`[latency]` is on.
+
+How it meets the rest of §1 and §3:
+
+- **The decision** is `EnginePool.evict_idle()`, which takes its clock from the caller and
+  returns the keys it dropped. The tick is `system/residency.py::unload_tick_s`, the same
+  rule step 1 uses.
+- **The tick** is a daemon thread, `latency-pool-evict`, started only when the key is
+  positive. It calls `evict_idle()`, runs `gc.collect()` when something was dropped, and
+  logs one INFO line on a tick that released something.
+- **The status** is the `status` reply's `latency_residency` key
+  (`EnginePool.residency_snapshot()`: the extra model's name, beam size, seconds idle, the
+  keep-alive, and a count of evictions), `null` while the key is `0`. `yazses status`
+  prints it through `residency.describe_pool_residency` as one `memory:` line, only when an
+  extra model is loaded.
+- **The budget gate** is `scripts/check_runtime_budget.py`, a check of a
+  measured-results JSON (no network, no model) against `scripts/runtime_budget.json`. It exits 1 on a breach or on
+  a run that measured nothing. The `stt` and `latency` ceilings are the figures the ADR states;
+  every other unit's ceiling is `null`, an unmeasured proposal that breaches nothing but still
+  fails the run when unmeasured. The gate takes measurements from a file and makes none itself,
+  so no nightly run feeds it yet.
+
+Not measured in this step: how much RSS an eviction returns. The ADR's question is the
+same one step 1 left open. CTranslate2 may keep its arena after a model is dropped, and no
+run has been made to check. Until the nightly job exists and feeds the budget gate, no
+figure for the released memory is claimed.
+
 Not done in this step and still open: `ResidencyBudget` and `[residency] max_resident`;
-`[residency] keep_alive_s` and the unload hooks for `latency`, `diarize`, `gaze`, `tts`,
-`llm` and `voiceprint`; the worker processes (§2); the nightly RSS, idle-CPU and
-release-after-unload jobs (§4); and the consent-time RAM figures (§5). Also open: how much
-RSS an `stt` unload actually returns. CTranslate2 may keep its arena, and the nightly
-"release" row is what measures that.
+`[residency] keep_alive_s` and the unload hooks for `diarize`, `gaze`, `tts`, `llm` and
+`voiceprint`; the worker processes (§2); the nightly RSS, idle-CPU and release-after-unload
+jobs (§4), which is the thing that would feed the budget gate real numbers; and the
+consent-time RAM figures (§5). Also open: how much RSS an `stt` unload, or a latency-pool
+eviction, actually returns. CTranslate2 may keep its arena, and the nightly "release" row is
+what measures that.
 
 ## Consequences
 

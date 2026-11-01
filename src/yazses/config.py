@@ -165,6 +165,19 @@ class SttConfig:
 
 
 @dataclass
+class ResidencyConfig:
+    # The latency governor's second model (ADR-029): with `[latency]` on, the daemon
+    # loads a lighter Whisper model when the CPU is busy and keeps it after. This is how
+    # many seconds that extra model stays in memory after its last use before it is
+    # released; the next time the governor wants it, it reloads in the background. 0
+    # (default) = never release, which is what the daemon did before this key existed,
+    # so an install that has not set it is unchanged. The dictation model is never
+    # released by this key: `[stt] idle_unload_s` owns that one. Values under a few
+    # minutes mean a busy spell pays the reload; the released memory is not yet measured.
+    latency_keep_alive_s: int = 0
+
+
+@dataclass
 class HotkeyConfig:
     # "auto" resolves to the platform's default hold-to-talk key (Linux:
     # right_alt, macOS: right_option, Windows: right_ctrl) — a modifier key, so
@@ -2270,6 +2283,7 @@ class InterpretConfig:
 @dataclass
 class Config:
     stt: SttConfig = field(default_factory=SttConfig)
+    residency: ResidencyConfig = field(default_factory=ResidencyConfig)
     hotkey: HotkeyConfig = field(default_factory=HotkeyConfig)
     audio: AudioConfig = field(default_factory=AudioConfig)
     injection: InjectionConfig = field(default_factory=InjectionConfig)

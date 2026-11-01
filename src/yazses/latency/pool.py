@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 from collections.abc import Callable
 
 log = logging.getLogger(__name__)
@@ -32,7 +33,15 @@ def _spawn(fn: Callable[[], None]) -> None:
 
 
 class EnginePool:
-    """Memoise one engine per ``(model, beam_size)`` the governor asks for."""
+    """Memoise one engine per ``(model, beam_size)`` the governor asks for.
+
+    **Keep-alive (ADR-029, opt-in).** With ``keep_alive_s > 0`` a non-base engine whose
+    last use is at least ``keep_alive_s`` seconds old is dropped by :meth:`evict_idle`,
+    so its memory is returned when the governor has stopped asking for it. A use is a
+    successful :meth:`get` or the completion of its load. The base engine is the
+    daemon's own dictation model and is never evicted. ``keep_alive_s == 0`` (the
+    default) keeps every engine for the life of the pool, exactly as before.
+    """
 
     def __init__(
         self,
@@ -41,15 +50,24 @@ class EnginePool:
         base_engine: object,
         *,
         spawn: Callable[[Callable[[], None]], None] = _spawn,
+        keep_alive_s: float = 0.0,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._build = build
         self._spawn = spawn
+        self._base_key = base_key
+        self._keep_alive_s = float(keep_alive_s)
+        self._clock = clock
         self._lock = threading.Lock()
         self._engines: dict[Key, object] = {base_key: base_engine}
         #: Keys whose load is in flight or has failed. Both belong here: a second
         #: request must not start a second load, and a model that cannot be loaded
         #: (no disk, no network, a bad name) must not be retried once per burst.
         self._pending: set[Key] = set()
+        #: Clock reading of the last use, per resident key.
+        self._last_used: dict[Key, float] = {}
+        #: Engines dropped by :meth:`evict_idle` since construction.
+        self._evicted_total = 0
 
     def get(self, model: str, beam_size: int) -> object | None:
         """The engine for this policy, or ``None`` if it is not resident yet.
@@ -61,6 +79,7 @@ class EnginePool:
         with self._lock:
             engine = self._engines.get(key)
             if engine is not None:
+                self._last_used[key] = self._clock()
                 return engine
             if key in self._pending:
                 return None
@@ -83,7 +102,62 @@ class EnginePool:
         with self._lock:
             self._engines[key] = engine
             self._pending.discard(key)
+            self._last_used[key] = self._clock()
         log.info("Latency governor loaded model %r (beam %d).", model, beam_size)
+
+    def evict_idle(self) -> list[Key]:
+        """Drop non-base engines idle for at least ``keep_alive_s``; return their keys.
+
+        A dropped key leaves ``_engines`` and ``_pending``, so the next :meth:`get` for
+        it starts a fresh background load. Does nothing when ``keep_alive_s <= 0``.
+        """
+        if self._keep_alive_s <= 0:
+            return []
+        evicted: list[Key] = []
+        with self._lock:
+            now = self._clock()
+            for key in sorted(self._engines):
+                if key == self._base_key:
+                    continue
+                last = self._last_used.get(key, now)
+                if now - last < self._keep_alive_s:
+                    continue
+                del self._engines[key]
+                self._pending.discard(key)
+                self._last_used.pop(key, None)
+                evicted.append(key)
+            self._evicted_total += len(evicted)
+        if evicted:
+            log.info("Latency governor released %d idle model(s).", len(evicted))
+        return evicted
+
+    def residency_snapshot(self) -> dict[str, object] | None:
+        """What is loaded and how long it has been idle, or ``None`` with no keep-alive.
+
+        Shape: ``{"keep_alive_s": float, "loaded": [{"model", "beam_size", "base",
+        "idle_s"}], "evicted_total": int}``. The base entry has ``idle_s`` ``None``.
+        """
+        if self._keep_alive_s <= 0:
+            return None
+        with self._lock:
+            now = self._clock()
+            loaded: list[dict[str, object]] = []
+            for key in sorted(self._engines):
+                is_base = key == self._base_key
+                idle: float | None = None
+                if not is_base:
+                    idle = max(0.0, now - self._last_used.get(key, now))
+                loaded.append({
+                    "model": key[0],
+                    "beam_size": key[1],
+                    "base": is_base,
+                    "idle_s": idle,
+                })
+            return {
+                "keep_alive_s": self._keep_alive_s,
+                "loaded": loaded,
+                "evicted_total": self._evicted_total,
+            }
 
     def resident(self) -> tuple[Key, ...]:
         """The keys currently loaded. For `yazses status` and for tests."""

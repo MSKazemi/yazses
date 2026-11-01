@@ -1,0 +1,45 @@
+{
+  "_comment": "Per-unit RSS ceilings for ADR-029 section 4. These are ceilings to be replaced by the nightly job's measurements (ADR-029 plans a runtime_sizes.json for them; it does not exist yet). Only the 'stt' and 'latency' figures are stated in the ADR (measured on origin/main fa058766, residency.MEASURED_FA058766_MB); every other unit is an unmeasured proposal with a null ceiling and must still be measured each night. Units with a null ceiling never breach, but an unmeasured unit fails the run.",
+  "stt": {
+    "peak_rss_mb": 343,
+    "idle_cpu_s_per_min": null,
+    "status": "baseline",
+    "note": "Dictation engine base.en: stt.base.en.load_peak 343 MB, measured on fa058766 (ADR-029 section 4). The steady-state figure is 216 MB after the first decode. A measured baseline used as a ceiling, not a target."
+  },
+  "latency": {
+    "peak_rss_mb": 116,
+    "idle_cpu_s_per_min": null,
+    "status": "baseline",
+    "note": "Governor's second model tiny.en: 116 MB, measured on fa058766 (ADR-029 section 4). The ADR records a resident figure, not a load peak, so this ceiling is provisional until the nightly job measures the peak."
+  },
+  "diarize": {
+    "peak_rss_mb": null,
+    "idle_cpu_s_per_min": null,
+    "status": "proposal",
+    "note": "Unmeasured. The ADR states no RSS figure for diarization; this unit is not budgeted until the nightly job measures it."
+  },
+  "gaze": {
+    "peak_rss_mb": null,
+    "idle_cpu_s_per_min": null,
+    "status": "proposal",
+    "note": "Unmeasured. The ADR states no RSS figure for the camera models (MediaPipe FaceLandmarker); this unit is not budgeted until the nightly job measures it."
+  },
+  "tts": {
+    "peak_rss_mb": null,
+    "idle_cpu_s_per_min": null,
+    "status": "proposal",
+    "note": "Unmeasured. The ADR states no RSS figure for read-back TTS; this unit is not budgeted until the nightly job measures it."
+  },
+  "llm": {
+    "peak_rss_mb": null,
+    "idle_cpu_s_per_min": null,
+    "status": "proposal",
+    "note": "Unmeasured. The ADR states no RSS figure for the LLM cleanup model; this unit is not budgeted until the nightly job measures it."
+  },
+  "voiceprint": {
+    "peak_rss_mb": null,
+    "idle_cpu_s_per_min": null,
+    "status": "proposal",
+    "note": "Unmeasured. The ADR states no RSS figure for the voiceprint (torch) stack; this unit is not budgeted until the nightly job measures it."
+  }
+}

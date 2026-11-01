@@ -6,6 +6,31 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the latency governor's second model can be released when idle (opt-in)
+
+With `[latency]` on, the governor can keep a second, smaller Whisper model (`tiny.en`, about 116 MB
+of RAM by ADR-029's figure) loaded beside the dictation engine. It used to stay loaded for the
+daemon's life. The new key `[residency] latency_keep_alive_s` releases that extra model after it
+has not been used for that many seconds. The next time the governor needs it, it reloads in the
+background.
+
+- **Default `0`:** nothing changes. The model stays loaded, as before.
+- **To turn it on:** set `latency_keep_alive_s = 600` (or any positive number of seconds) under
+  `[residency]`, and keep `[latency]` on. The key does nothing without the governor.
+- **What it does not touch:** the dictation engine. Its release is still `[stt] idle_unload_s`.
+- **Status:** `yazses status --json` carries `latency_residency` (`null` at `0`), and `yazses status`
+  prints one line for the extra model: whether it is loaded, how long it has been idle, and the
+  keep-alive.
+
+What was checked: unit tests for the eviction rule (idle time measured against an injected clock,
+the base engine never evicted, a reload after eviction), the snapshot, the config key and the
+status line. The tests run offline and do not load a real model.
+
+What was not checked: how much memory an eviction gives back. Nothing has been measured on a real
+machine, and CTranslate2 may keep its memory after a model is dropped. The new
+`scripts/check_runtime_budget.py` reads measured numbers against `scripts/runtime_budget.json`, but
+its budget rows are proposals from ADR-029, and no nightly job feeds it real numbers yet.
+
 ## [2.47.0] - 2026-10-31
 
 ### Changed — the benchmark harness, the result files and their tests moved to the private research repository

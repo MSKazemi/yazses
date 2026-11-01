@@ -115,6 +115,7 @@ SECTION_NAMES: frozenset[str] = frozenset({
     "redaction",
     "reflow",
     "remote",
+    "residency",
     "revise",
     "safeglyph",
     "screengrounded",
