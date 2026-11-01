@@ -476,7 +476,7 @@ docs = [
     # own `strict: false`), and `mkdocs build --strict` turns that into a failed Docs
     # job on two pages whose git history has non-monotonic author dates. 1.5.4 builds
     # clean. Lift this when the warning respects `strict` or the pages' history is fixed.
-    "mkdocs-git-revision-date-localized-plugin>=1.4.5,<1.6.0",
+    "mkdocs-git-revision-date-localized-plugin>=1.4.5,<1.7.0",
     "mkdocs-glightbox>=0.4.0",
     "mkdocs-rss-plugin>=1.19.0",
 ]
