@@ -85,7 +85,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           # `latest`, like every other workflow here. This was pinned to '0.5.x'
           # — a toolchain from December 2024 — and only in the two desktop-bundle
@@ -150,7 +150,7 @@ jobs:
         # `artifact-id` output, and a step with no id cannot be referenced.
         id: upload-unsigned
         if: steps.sign.outputs.sign == 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: unsigned-installer-${{ matrix.arch }}
           path: ${{ steps.locate.outputs.path }}
@@ -291,7 +291,7 @@ jobs:
         run: Get-ChildItem dist | Format-Table Name, Length, LastWriteTime
 
       - name: Upload installer (signed if applicable)
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: yazses-windows-${{ matrix.arch }}-${{ steps.sign.outputs.sign == 'true' && 'signed' || 'unsigned' }}-${{ github.sha }}
           path: dist/YazSes-*-windows-${{ matrix.arch }}.exe
@@ -318,7 +318,7 @@ jobs:
 
       - name: Upload add-on packs
         if: steps.packs.outputs.present == 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: yazses-windows-${{ matrix.arch }}-packs-${{ github.sha }}
           path: dist/packs/
