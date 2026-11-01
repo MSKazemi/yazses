@@ -515,6 +515,37 @@ def test_the_pin_happens_once_per_process(monkeypatch: pytest.MonkeyPatch) -> No
     assert lsl_source._pinned is True
 
 
+def test_a_failed_first_resolve_does_not_set_the_content_twice(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _install(monkeypatch, make_fake_pylsl([FakeInfo()]))
+    def boom(wait_time: float = 0.0) -> list:
+        raise RuntimeError("liblsl failed")
+    fake.resolve_streams = boom
+    with pytest.raises(RuntimeError):
+        list_lsl_streams(timeout_s=0.0)
+    assert lsl_source._pinned is True          # liblsl holds the content from here on
+    with pytest.raises(RuntimeError):
+        list_lsl_streams(timeout_s=0.0)
+    assert [c[0] for c in fake.calls].count("set_config_content") == 1
+
+
+def test_an_old_liblsl_is_pinned_again_after_a_failed_first_call(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """Without in-memory content the pin is a file that is deleted afterwards. If that first
+    call failed, nothing says liblsl read it, so the next call must not run without one."""
+    fake = _install(monkeypatch, make_fake_pylsl([FakeInfo()], with_content_setter=False))
+    seen: list[str | None] = []
+    def boom(wait_time: float = 0.0) -> list:
+        seen.append(os.environ.get("LSLAPICFG"))
+        raise RuntimeError("liblsl failed")
+    fake.resolve_streams = boom
+    for _ in range(2):
+        with pytest.raises(RuntimeError):
+            list_lsl_streams(timeout_s=0.0)
+    assert lsl_source._pinned is False
+    assert all(seen) and len(seen) == 2
+
+
 def test_list_lsl_streams_resolves_under_the_pin(monkeypatch: pytest.MonkeyPatch) -> None:
     fake = _install(monkeypatch, make_fake_pylsl([FakeInfo("Muse", source_id="M1")]))
     streams = list_lsl_streams(timeout_s=0.25)

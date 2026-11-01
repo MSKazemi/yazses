@@ -1145,6 +1145,14 @@ class BrainFlowBlockSource:
         board_factory: Callable[[], Any] | None = None,
         uv_scale: float = 1.0,
     ) -> None:
+        from yazses.biosignal.boards import is_known_brainflow_board
+
+        if not is_known_brainflow_board(int(board_id)):
+            raise ValueError(
+                f"BrainFlow board id {int(board_id)} is not one YazSes opens. "
+                "`yazses biosignal boards` lists the ones it does. Boards that stream over a "
+                "network are refused, because nothing may leave this machine; any other board "
+                "needs an entry in biosignal/boards.py first.")
         self._board_id = int(board_id)
         self._serial_port = serial_port
         self._channel_kinds = dict(channel_kinds) if channel_kinds else None

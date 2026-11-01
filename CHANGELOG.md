@@ -8,6 +8,11 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added — biosignal sources for market devices, and a stream-integrity guard
 
+- **`brainflow:<id>` opens only the boards `yazses biosignal boards` lists.** Any other id is refused,
+  including boards that stream over a network, because nothing may leave this machine.
+- **A long transcription no longer disarms the switch.** A squeeze's turn is transcribed on the
+  biosignal thread, and with `[handsfree_safety]` on, a transcription over about 1.5 s left blinks and
+  clenches dead until the next `yazses handsfree resume`.
 - **New `[biosignal] source` kinds**: `lsl:<stream>` reads a Lab Streaming Layer stream published
   on this computer (OpenBCI GUI, muse-lsl/BlueMuse and other vendor tools; `lsl` extra, liblsl
   pinned to machine-only discovery); `thinkgear:<port>` a NeuroSky headset and

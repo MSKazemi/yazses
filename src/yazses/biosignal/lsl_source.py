@@ -542,6 +542,15 @@ def _liblsl_confined() -> Iterator[Any]:
     Run the first resolve *inside* the ``with``: liblsl loads its configuration once, on
     first use. Afterwards ``LSLAPICFG`` is restored to the user's value (or unset) and the
     private file is removed; later calls just import (the singleton is already ours).
+
+    In-memory content that liblsl accepted holds from then on, so the pin counts as done at
+    once, even if the first resolve raises. The file fallback only holds if liblsl loaded it,
+    so an old liblsl counts as pinned only once a first call has finished; after a failed one
+    the next call pins again, which is the safe direction: pinning twice is harmless, and
+    calling liblsl unpinned is the thing this function exists to prevent.
+
+    This relies on YazSes making the process's first liblsl call. Nothing else in YazSes loads
+    liblsl, but a third-party plugin that did so first would have fixed the configuration.
     """
     global _pinned
     with _PIN_LOCK:
@@ -566,6 +575,7 @@ def _liblsl_confined() -> Iterator[Any]:
             if callable(setter):
                 try:
                     setter(LIBLSL_CONFIG)
+                    _pinned = True
                 except NotImplementedError:
                     log.debug("liblsl < 1.17.7: relying on LSLAPICFG for the machine scope")
             yield pylsl

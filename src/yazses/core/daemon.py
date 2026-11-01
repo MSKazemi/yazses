@@ -492,6 +492,9 @@ class Daemon:
     #: no. Flipped only on a transition (see `_biosignal_set_accounting`), so the watcher's
     #: 10 Hz poll does not hammer the runner. Guarded by `_biosignal_lock`.
     _biosignal_accounting_paused: bool = False
+    #: How many daemon callbacks are running on the runner's own thread right now.
+    #: See `_biosignal_runner_busy`. Guarded by `_biosignal_lock`.
+    _biosignal_callbacks: int = 0
     # The face switch's select/confirm/cancel outcome log and the actions bound to it
     # (facegesture/actions.py). None / empty until a face switch is built.
     _switch_outcomes = None
@@ -2285,6 +2288,13 @@ class Daemon:
         a headset that never connects cannot hold the global state at "not ready" for ever.
         A source with no intent labels is hold-only and may re-arm itself after a *stale*
         disarm (never after a pause or fault), exactly as the face switch's holds may.
+
+        A runner blocked in one of our own callbacks counts as alive. It transcribes a squeeze's
+        turn on its own thread, so no block is read meanwhile, and a source with intent labels
+        would otherwise go stale and stay dead until the next `yazses handsfree resume`, after
+        every long transcription. It cannot act while blocked, and when the callback returns
+        the age counts again, so a device that really died goes stale then. Only sampling is
+        affected: a pause or a fault still holds.
         """
         runner = self._biosignal_runner
         if runner is None:
@@ -2293,7 +2303,7 @@ class Daemon:
             age = runner.status().get("last_block_age_s")
         except Exception:
             return
-        if age is None or age > _BIOSIGNAL_FRESH_S:
+        if self._biosignal_callbacks <= 0 and (age is None or age > _BIOSIGNAL_FRESH_S):
             return
         gate.sample(_BIOSIGNAL_SAFETY_SOURCE)
         # Called from the watcher thread, the runner's thread (via the gate check) and the
@@ -2305,6 +2315,18 @@ class Daemon:
             self._biosignal_gate_armed = True
         if first and not tuple(getattr(runner, "vocabulary", ()) or ()):
             gate.allow_auto_rearm(_BIOSIGNAL_SAFETY_SOURCE, _BIOSIGNAL_REARM_AFTER_MS)
+
+    @contextlib.contextmanager
+    def _biosignal_runner_busy(self):
+        """Mark a slow daemon callback running on the runner's thread (see the heartbeat)."""
+        lock = self._biosignal_lock
+        with lock if lock is not None else contextlib.nullcontext():
+            self._biosignal_callbacks += 1
+        try:
+            yield
+        finally:
+            with lock if lock is not None else contextlib.nullcontext():
+                self._biosignal_callbacks -= 1
 
     def _biosignal_check_gate(self) -> bool:
         """May the biosignal source act? False while the global hands-free state forbids it.
@@ -2455,7 +2477,8 @@ class Daemon:
             with lock:
                 released = not self._biosignal_mode
             if released:
-                self._on_hold_end()
+                with self._biosignal_runner_busy():
+                    self._on_hold_end()
         # A pause that landed between the gate check above and the start: do not wait for
         # the next watcher tick (up to 100 ms) to close the microphone.
         self._biosignal_check_gate()
@@ -2469,7 +2492,8 @@ class Daemon:
             held, self._biosignal_mode = self._biosignal_mode, ""
             self._biosignal_latched = False
         if held:
-            self._on_hold_end()  # consumes `_command_mode` when the turn was a command
+            with self._biosignal_runner_busy():
+                self._on_hold_end()  # consumes `_command_mode` when the turn was a command
 
     def _biosignal_intent(self, intent) -> None:
         """A blink/clench label: validate, classify, gate on confidence x consequence, act.
@@ -2490,11 +2514,12 @@ class Daemon:
             from yazses.activation.pipeline import handle_intent
 
             threshold, floor = self._biosignal_policy()
-            outcome = handle_intent(
-                intent, source.vocabulary,
-                classify=self._gesture_classify, dispatch=self._gesture_dispatch,
-                threshold=threshold, floor=floor,
-            )
+            with self._biosignal_runner_busy():
+                outcome = handle_intent(
+                    intent, source.vocabulary,
+                    classify=self._gesture_classify, dispatch=self._gesture_dispatch,
+                    threshold=threshold, floor=floor,
+                )
             log.info("Biosignal intent %r -> %s", intent.label,
                      "done" if outcome.executed else "not run")
         except Exception:

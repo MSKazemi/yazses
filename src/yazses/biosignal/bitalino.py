@@ -491,8 +491,9 @@ class BITalinoSource:
         self._next_index = 0
         self._pending.clear()
         self.available = True
-        log.info("BITalino source streaming from %s (%d channel(s) at %g Hz%s).", self.port,
+        log.info("BITalino source streaming (%d channel(s) at %g Hz%s).",
                  len(self.channels), self.fs, ", simulated" if self.simulated else "")
+        log.debug("BITalino port: %s", self.port)
 
     def read(self) -> SampleBlock | None:
         """The next contiguous run of decoded samples, or None if there is none yet."""

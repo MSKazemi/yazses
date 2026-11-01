@@ -346,7 +346,30 @@ def test_preset_for_bool_is_not_an_id():
     assert preset_for(False) is None
 
 
-def test_unlisted_brainflow_id_still_opens_even_though_preset_for_says_none():
-    """The table is advice: an id it does not list may still be a valid board."""
+#: BrainFlow's boards that stream over a network socket, from `brainflow.board_shim.BoardIds`
+#: (read from brainflow on 2026-11-01): STREAMING -2, GALEA 3, GANGLION_WIFI 4, CYTON_WIFI 5,
+#: CYTON_DAISY_WIFI 6, NTL_WIFI 50, AAVAA_V3 53, BIOLISTENER 64.
+NETWORK_BOARD_IDS = (-2, 3, 4, 5, 6, 50, 53, 64)
+
+
+@pytest.mark.parametrize("board_id", NETWORK_BOARD_IDS)
+def test_a_network_board_is_refused_before_anything_opens(board_id):
+    with pytest.raises(ValueError, match="nothing may leave this machine"):
+        open_source(f"brainflow:{board_id}")
+
+
+def test_the_table_lists_no_network_board():
+    assert not {b.board_id for b in known_boards()} & set(NETWORK_BOARD_IDS)
+
+
+def test_an_unlisted_brainflow_id_is_refused():
     assert preset_for("brainflow:12345") is None
-    assert isinstance(open_source("brainflow:12345"), BrainFlowBlockSource)
+    with pytest.raises(ValueError, match="biosignal boards"):
+        open_source("brainflow:12345")
+
+
+def test_every_listed_brainflow_board_opens():
+    ids = [b.board_id for b in known_boards() if b.board_id is not None]
+    assert ids
+    for board_id in ids:
+        assert isinstance(open_source(f"brainflow:{board_id}"), BrainFlowBlockSource)

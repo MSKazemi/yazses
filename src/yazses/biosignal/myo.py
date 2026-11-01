@@ -361,8 +361,9 @@ class MyoSource:
             self.stop()
             return
         if self.available:
-            log.info("Myo %s streaming %s EMG (%d channel(s) at %g Hz).",
-                     self.address, self.emg_mode, len(self.channels), self.fs)
+            log.info("Myo streaming %s EMG (%d channel(s) at %g Hz).",
+                     self.emg_mode, len(self.channels), self.fs)
+            log.debug("Myo address: %s", self.address)
 
     def read(self) -> SampleBlock | None:
         """Every sample received since the last call (up to the next discontinuity), or None.

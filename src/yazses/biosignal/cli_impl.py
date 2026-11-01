@@ -1484,38 +1484,21 @@ def run_boards(*, as_json: bool = False) -> int:
     import textwrap
 
     rows: list[dict[str, Any]] = []
-    try:
-        from yazses.biosignal.boards import known_boards
+    from yazses.biosignal.boards import known_boards
 
-        for b in known_boards():
-            needs_port = bool(getattr(b, "serial_required", False))
-            spec = b.source_spec("<port>" if needs_port else "") if hasattr(b, "source_spec") else ""
-            rows.append({
-                "name": str(getattr(b, "name", "")),
-                "board_id": getattr(b, "board_id", None),
-                "source": spec,
-                "signals": str(getattr(b, "kind_hint", "") or ""),
-                "channels": str(getattr(b, "channels_hint", "") or ""),
-                "serial_port_required": needs_port,
-                "notes": str(getattr(b, "notes", "") or ""),
-            })
-        heading = "Boards known to work"
-    except ImportError:
-        heading = "Boards BrainFlow reports"
-        if _brainflow_state()[0]:
-            from brainflow.board_shim import BoardIds
-
-            from yazses.biosignal.sources import describe_board
-
-            for board_id in sorted({int(b.value) for b in BoardIds}):
-                d = describe_board(board_id)
-                if d.available:
-                    rows.append({
-                        "name": d.name or f"board {board_id}", "board_id": board_id,
-                        "source": f"brainflow:{board_id}", "signals": "",
-                        "channels": f"{len(d.channels)} ch, {d.fs:g} Hz",
-                        "serial_port_required": False, "notes": "",
-                    })
+    for b in known_boards():
+        needs_port = bool(getattr(b, "serial_required", False))
+        spec = b.source_spec("<port>" if needs_port else "") if hasattr(b, "source_spec") else ""
+        rows.append({
+            "name": str(getattr(b, "name", "")),
+            "board_id": getattr(b, "board_id", None),
+            "source": spec,
+            "signals": str(getattr(b, "kind_hint", "") or ""),
+            "channels": str(getattr(b, "channels_hint", "") or ""),
+            "serial_port_required": needs_port,
+            "notes": str(getattr(b, "notes", "") or ""),
+        })
+    heading = "Boards known to work"
     if as_json:
         _say(json.dumps({"boards": rows, "brainflow_installed": _brainflow_state()[0]}, indent=2))
         return OK

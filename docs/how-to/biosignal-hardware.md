@@ -28,7 +28,7 @@ person**. Treat everything here as a starting point and check it with `yazses bi
 
 | | DIY serial sensor | BrainFlow board |
 |---|---|---|
-| **Examples** | SparkFun MyoWare 2.0, BioAmp EXG Pill, on a microcontroller | An OpenBCI board, a Muse headband, or another board BrainFlow supports |
+| **Examples** | SparkFun MyoWare 2.0, BioAmp EXG Pill, on a microcontroller | An OpenBCI board, a Muse headband, or another board from `yazses biosignal boards` |
 | **Who does the detection** | The microcontroller. It sends `HOLD_START` / `HOLD_END` over USB serial (the YESP protocol). | YazSes. BrainFlow streams raw samples and the detectors run on your computer. |
 | **Config** | `[emg] device_port` (and `baud_rate`, `mode`) | `[biosignal] source = "brainflow:<board_id>[:<port>]"` |
 | **Extra to install** | `emg` | `emg-band` |

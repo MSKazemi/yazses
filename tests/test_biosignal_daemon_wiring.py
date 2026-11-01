@@ -517,6 +517,58 @@ def test_a_source_with_intent_labels_does_not_re_arm_itself(tmp_path):
     assert d._biosignal_check_gate() is False
 
 
+def _transcribing(d, runner, safety, clock, seconds: float):
+    """An `_on_hold_end` that holds the runner's thread: no block is read, the watcher ticks."""
+    def end() -> None:
+        for _ in range(int(seconds * 10)):
+            clock.advance(100)
+            runner.age += 0.1
+            d._biosignal_check_gate()
+            safety.poll()
+    d._on_hold_end = end
+
+
+def test_a_long_transcription_does_not_disarm_a_source_with_intent_labels(tmp_path):
+    """A squeeze's turn is transcribed on the runner's thread. Blinks and clenches must still
+    work after it, without another `yazses handsfree resume`."""
+    d, runner, safety, clock, _ = _armed(tmp_path, runner=FakeRunner(vocabulary=("undo",)))
+    d._biosignal_mode_start("full_text")
+    _transcribing(d, runner, safety, clock, seconds=5.0)
+    d._biosignal_mode_end()
+    assert d._biosignal_callbacks == 0
+    runner.age = 0.1                   # the first block after the callback returns
+    assert d._biosignal_check_gate() is True
+
+
+def test_a_device_that_died_during_the_turn_goes_stale_after_it(tmp_path):
+    d, runner, safety, clock, _ = _armed(tmp_path, runner=FakeRunner(vocabulary=("undo",)))
+    d._biosignal_mode_start("full_text")
+    _transcribing(d, runner, safety, clock, seconds=5.0)
+    d._biosignal_mode_end()
+    for _ in range(20):                # the runner is free now, and no block ever comes;
+        clock.advance(100)             # ticks this short leave no gap, so only the age decides
+        runner.age += 0.1
+        allowed = d._biosignal_check_gate()
+    assert allowed is False
+    runner.age = 0.1                   # intent labels: coming back does not re-arm it
+    clock.advance(100)
+    assert d._biosignal_check_gate() is False
+
+
+def test_a_pause_during_the_turn_still_holds(tmp_path):
+    d, runner, safety, clock, _ = _armed(tmp_path, runner=FakeRunner(vocabulary=("undo",)))
+    d._biosignal_mode_start("full_text")
+    _transcribing(d, runner, safety, clock, seconds=1.0)
+    end = d._on_hold_end
+    def paused_end() -> None:
+        safety.pause()
+        end()
+    d._on_hold_end = paused_end
+    d._biosignal_mode_end()
+    runner.age = 0.1
+    assert d._biosignal_check_gate() is False
+
+
 # ------------------------------------------------------------------------------ squeeze -> mode
 
 

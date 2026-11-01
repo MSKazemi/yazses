@@ -333,7 +333,8 @@ motivated adversary or on real signal.
 - **Off by default and lazy.** Nothing is imported or started until `enabled` is true *and* a `source`
   is named; no source means nothing starts. The default daemon never imports the package.
 - **No network.** The package opens no socket of its own and sends nothing; sources are a local serial
-  port, a local BrainFlow device, a Myo over Bluetooth LE, an LSL stream on this machine, a named
+  port, a BrainFlow device from the `biosignal/boards.py` table (other ids, network boards included,
+  are refused), a Myo over Bluetooth LE, an LSL stream on this machine, a named
   file, or the synthetic generator. The repository-wide `tests/test_egress_inventory.py` fails the
   build if any module gains an unregistered outbound primitive; `biosignal/myo.py` is registered as
   `LOCAL_BOUND` (a radio, not an address). liblsl under `biosignal/lsl_source.py` does open sockets: its

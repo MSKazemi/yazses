@@ -421,7 +421,8 @@ class ThinkGearSource:
         self._reported_lost = 0
         self.poor_signal = None
         self.available = True
-        log.info("ThinkGear source streaming from %s (1 channel at %g Hz).", self.port, self.fs)
+        log.info("ThinkGear source streaming (1 channel at %g Hz).", self.fs)
+        log.debug("ThinkGear port: %s", self.port)
 
     def read(self) -> SampleBlock | None:
         if not self.available or self._ser is None:

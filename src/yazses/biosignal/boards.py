@@ -301,6 +301,17 @@ def known_boards() -> tuple[BoardPreset, ...]:
     return _BOARDS
 
 
+def is_known_brainflow_board(board_id: int) -> bool:
+    """Is this a BrainFlow id the table lists? Everything else is refused (ADR-v2-152).
+
+    BrainFlow's enum also holds boards that stream over a network socket (the OpenBCI Wi-Fi
+    shields, Galea, BioListener, its own streaming board), and a network board is a new egress
+    decision under ADR-019. So the table is the allowlist, not advice: derived from it, it
+    cannot fall out of step with what `yazses biosignal boards` shows.
+    """
+    return board_id in {b.board_id for b in _BOARDS if b.board_id is not None}
+
+
 def _norm(text: str) -> str:
     return re.sub(r"[\s_]+", "-", text.strip().lower())
 

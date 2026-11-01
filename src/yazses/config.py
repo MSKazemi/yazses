@@ -1063,7 +1063,8 @@ class BiosignalConfig:
     # `synthetic` is a built-in generator that needs no hardware (for `yazses biosignal
     # monitor`/`doctor` and for trying the pipeline); `file:<path>` replays a recording
     # (CSV, .npz, EDF/EDF+/BDF, or XDF with the `xdf` extra);
-    # `brainflow:<board_id>[:<serial port>]` opens a BrainFlow board by its integer id,
+    # `brainflow:<board_id>[:<serial port>]` opens a board `yazses biosignal boards` lists
+    # (others are refused, network boards included),
     # e.g. `brainflow:0:/dev/ttyUSB0` for an OpenBCI Cyton (needs the `brainflow` package;
     # run `yazses biosignal doctor` to see what is installed and which ports are visible).
     # `lsl:<stream name>` or `lsl:type=EEG` reads a Lab Streaming Layer stream published

@@ -94,7 +94,8 @@ yazses restart
 `source` is empty by default, and with no source nothing starts even when `enabled` is true. A BrainFlow
 source is `brainflow:<board_id>` with an optional serial port, where the board id is BrainFlow's integer
 id for your board, for example `brainflow:0:/dev/ttyUSB0` for an OpenBCI Cyton. `yazses biosignal doctor`
-shows what it can see, and `yazses biosignal boards` lists the boards. The other source kinds
+shows what it can see, and `yazses biosignal boards` lists the boards. Only the listed boards open: any
+other id is refused, and that includes boards that stream over a network, such as OpenBCI's Wi-Fi shield. The other source kinds
 (`lsl:`, `thinkgear:`, `bitalino:`, `myo:`) are listed in
 [the hardware guide](biosignal-hardware.md#other-devices-and-recordings); run
 `yazses biosignal check-source <source>` once to see that a new device streams cleanly. An event

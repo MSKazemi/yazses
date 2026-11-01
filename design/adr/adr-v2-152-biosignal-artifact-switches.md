@@ -230,8 +230,12 @@ BLE backend. `biosignal/lsl_source.py` opens no socket itself, but liblsl under 
 is pinned to this machine (`ResolveScope = machine`, loopback only, TTL 0) before the first liblsl
 call, a stream from another host is refused, and a test fails if the pin is removed (ADR-019,
 "Reached through a dependency's own sockets"). If a board that streams over a network socket is
-ever supported (OpenBCI Galea and BioListener in BrainFlow are UDP/Wi-Fi), that is a new egress
-decision under ADR-019 and needs its own review. (BrainFlow's synthetic board and the in-package synthetic
+ever supported (OpenBCI Galea, the Wi-Fi shields and BioListener in BrainFlow are UDP/Wi-Fi), that
+is a new egress decision under ADR-019 and needs its own review. This is enforced, not assumed:
+`brainflow:<id>` opens only the ids listed in `biosignal/boards.py`, and refuses every other id with
+an error, so an unlisted Bluetooth or USB board needs an entry there too. The LSL pin holds only
+if YazSes makes the process's first liblsl call. Nothing else in YazSes loads liblsl, but a
+third-party plugin that did so first would have fixed the configuration. (BrainFlow's synthetic board and the in-package synthetic
 source need no hardware.)
 
 ## Open questions / known limits
