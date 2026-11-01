@@ -130,6 +130,17 @@ intents through `activation/intent.py`; detectors never execute an action themse
   `design/specs/biosignal-pipeline.md`, `design/specs/biosignal-validation-protocol.md`, and an
   architecture row in `design/architecture.md`.
 
+### Changed — every engineering page on the documentation site now has its own description, and a title that fits a search result
+
+The pages published from `design/` had no `description` of their own, so about 380 of roughly 400 of them carried the one
+site-wide sentence (Bing's webmaster report flags this as identical meta descriptions), and decision records, whose
+heading is a whole sentence, produced `<title>` text of 100 characters or more. `hooks/design_tier.py` now derives both
+from the document when its front matter does not set them: the description is the first real prose paragraph (skipping
+the `**Status:**` block, headings, tables, lists and code), cut at a sentence end within 155 characters; the `<title>`
+is the heading shortened at its first colon or semicolon, or at a word, to fit 60 characters with the site name (through a
+`seo_title` key that `overrides/main.html` reads for the `<title>` tag only). The page heading, the header-bar label and the
+body are unchanged, and front matter written by hand always wins. Nothing about which files are published changed.
+
 ## [2.47.0] - 2026-10-31
 
 ### Changed — the benchmark harness, the result files and their tests moved to the private research repository
