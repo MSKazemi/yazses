@@ -2941,9 +2941,9 @@
     {
       "type": "library",
       "name": "sherpa-onnx-core",
-      "version": "1.13.8",
-      "purl": "pkg:pypi/sherpa-onnx-core@1.13.8",
-      "bom-ref": "pkg:pypi/sherpa-onnx-core@1.13.8",
+      "version": "2.0.1",
+      "purl": "pkg:pypi/sherpa-onnx-core@2.0.1",
+      "bom-ref": "pkg:pypi/sherpa-onnx-core@2.0.1",
       "scope": "optional"
     },
     {
