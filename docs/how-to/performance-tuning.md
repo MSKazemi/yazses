@@ -88,7 +88,9 @@ Two features help when the CPU is busy:
   cores) it decodes the next utterance with `[latency] light_model` (default
   `tiny.en`) at a narrow beam, and otherwise with your normal model. The light model
   loads in the background the first time load is high and then stays resident
-  (~75 MB). POSIX only; on Windows it logs once that it is inactive. To turn it off,
+  (~75 MB) unless you set `[residency] latency_keep_alive_s`, which releases it after
+  that many idle seconds (see [the low-RAM guide](low-ram-models.md#the-latency-governors-second-model)).
+  POSIX only; on Windows it logs once that it is inactive. To turn it off,
   or back on:
 
   ```bash
