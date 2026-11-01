@@ -329,7 +329,7 @@ friendly CLI + `yazses update`). 586 tests.
   echo-loop interlock + barge-in (`[tts]` + `[accessibility] read_back`, `yazses
   say`). **Reliability:** single-instance lock kills the duplicate-daemon
   double-typing bug. **Infra:** PyPI publish CI fixed (`contents: read`), snap
-  publish hardened, and the Rust HCI rewrite archived on `archive/rust-hci-v1`.
+  publish hardened, and the Rust HCI rewrite archived (removed from `main` in `61025cca`).
 - Tagged `v1.0.0`. The 1.x line is now Part 1 (the Rust release workflow is archived).
 
 ### v0.9.0 — 2026-06-19
@@ -409,9 +409,10 @@ Three capabilities from the second SoA2Prod pipeline (`design/research/studies/y
 > [GitHub milestones](https://github.com/MSKazemi/yazses/milestones). The checkboxes
 > that used to be here are plain bullets on purpose: none of them is open work.
 >
-> The `archive/rust-hci-v1` branch named below is not published on this repository's
-> remote, and the commit IDs in the phase table come from that Rust history, so they do
-> not resolve here. They are kept for archaeology.
+> The `archive/rust-hci-v1` branch name that appears in older notes was never published on
+> this repository's remote. The Rust code is in `main`'s history at `61025cca^`; the commit
+> IDs in the phase table come from that Rust history, so they may not resolve here. They are
+> kept for archaeology.
 
 **Where the still-valid product ideas went.** Three items in the deferred backlog below
 describe the product rather than the Rust code. This is where each one stands on `main`:
@@ -427,10 +428,10 @@ Dependabot advisories on the old default branch, llama.cpp KV-cache tuning, a TO
 for the Rust core) belonged to the Rust code and ended with it. The Python app reads TOML
 config already.
 
-### v1.0 Rewrite (Rust core + Python plugins) — archived on `archive/rust-hci-v1`
+### v1.0 Rewrite (Rust core + Python plugins) — archived in git history (`61025cca^`)
 
-> **Status: paused / archived.** The Rust HCI rewrite was moved off `main` to the
-> `archive/rust-hci-v1` branch; `main` is the Python app (Part 1). The section
+> **Status: paused / archived.** The Rust HCI rewrite was removed from `main`
+> (the last commit that has it is `61025cca^`); `main` is the Python app (Part 1). The section
 > below describes the Rust exploration as it stood when it was parked.
 
 YazSes v1.0 is a ground-up Rust rewrite adopting the **Cognitive Exocortex**

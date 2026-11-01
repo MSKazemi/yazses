@@ -38,9 +38,9 @@ All production candidates must implement the existing `SttEngine` protocol behin
 
 Do not add model auto-selection by unmeasured RAM heuristics. If a probe wins, propose a **superseding ADR** with named hardware profiles, fallback behavior, weight hash, packaging proof and a migration plan. An isolated research adapter is not an endorsement.
 
-## Scorer and dataset contract (already implemented)
+## Scorer and dataset contract (as designed; the harness is no longer in this repository)
 
-The current scoring instrument is `benchmark/bench_mandarin.py` and pure `mandarin_metrics.py`. The schema is `yazses.bench.mandarin/1`; the evaluation normalization is **`zh-eval-v1`**. Its manifest mode requires per-row data provenance and declared checkpoint license, runs the shipping engine configured for `zh` with production script conversion disabled, and records four CER views:
+The scoring instrument was `benchmark/bench_mandarin.py` and pure `mandarin_metrics.py` (harness no longer in this repository; this section records the contract it implemented). The schema is `yazses.bench.mandarin/1`; the evaluation normalization is **`zh-eval-v1`**. Its manifest mode requires per-row data provenance and declared checkpoint license, runs the shipping engine configured for `zh` with production script conversion disabled, and records four CER views:
 
 1. `cer_raw` — exact code-point difference, including punctuation, spaces, and script mismatch;
 2. `cer_punct` — NFC, explicit width folding, Latin case folding and whitespace removal but **keeps** punctuation;
@@ -71,11 +71,12 @@ The initial **pilot** may reuse the small ASCEND probe solely to find pipeline i
 
 ## Execution steps and examples
 
+The harness is no longer part of this repository, so the commands below are kept as a record of the protocol and cannot be run from a clone of it.
+
 CI smoke, with no model, audio or network:
 
 ```sh
 uv run python benchmark/bench_mandarin.py --smoke --out /tmp/mandarin-smoke.json
-uv run python -m pytest tests/test_bench_mandarin.py -q
 ```
 
 A real authorized benchmark, run locally by an evaluator with lawful access to corpus audio, only **after** the manifest is reviewed:

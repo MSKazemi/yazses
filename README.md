@@ -572,9 +572,9 @@ sample_rate = 16000
 max_record_seconds = 300    # a single hold is cut at this many seconds
 
 [injection]
-backend = "auto"            # auto | type | ydotool | wtype | clipboard
-                            # ("xdotool" is not a token — on X11 `auto` already
-                            #  uses xdotool; asking for it on Wayland gets ydotool)
+backend = "auto"            # auto | type | ydotool | wtype | portal | unicode | clipboard | xdotool
+                            # (`auto` picks the right one for your session;
+                            #  `yazses doctor` names the one that will be used)
 
 [accessibility]
 vad_threshold = 0.01        # lower for quiet speech, raise if room noise triggers (yazses mic-level --set)
@@ -806,13 +806,14 @@ YazSes is offline-first. Please do not add network calls or telemetry.
 
 This repository holds **one product** with **two implementations**: two generations of the
 same idea, not two apps. The one you install and run is the **Python** implementation on
-`main`. An early-stage Rust rewrite lives on the **`archive/rust-hci-v1`** branch. Nothing
-here builds, installs or depends on it.
+`main`. An early-stage Rust rewrite survives in this repository's history, at the last commit
+before the Rust crates were removed (**`61025cca^`**). Nothing here builds, installs or
+depends on it.
 
 <details>
 <summary>How the two implementations compare</summary>
 
-| | **Python** · `main` | **Rust HCI exploration** · `archive/rust-hci-v1` |
+| | **Python** · `main` | **Rust HCI exploration** · `61025cca^` (last commit with the crates) |
 |---|---|---|
 | What it is | The shipping app — dictation, file transcription, Meeting Mode, voice commands, macros | An early-stage rewrite exploring deeper **human–computer interaction**: an on-device *agent* (LLM tool-use, personal memory, editor awareness) |
 | Status | ✅ **Active — current product** (v2.47.0, installed & maintained) | ⏸️ **Paused / archived** — not shipped, not installable |
@@ -830,7 +831,7 @@ Revisiting the Rust effort is a deliberate future decision, not part of day-to-d
 To look at it:
 
 ```bash
-git checkout archive/rust-hci-v1
+git checkout 61025cca^   # detached HEAD: the last commit before the Rust crates were removed
 cargo build && cargo test --workspace   # optional backends: whisper, moonshine, llama-cpp, ollama, silero
 ```
 

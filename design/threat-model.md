@@ -8,8 +8,8 @@
 
 > ## ⚠ Archived: this models an architecture that is not on `main`
 >
-> This document was written against the v1.0 Rust core, which was moved to the
-> `archive/rust-hci-v1` branch and paused — the same status
+> This document was written against the v1.0 Rust core, which was removed from
+> `main` (the last commit that has it is `61025cca^`) and paused — the same status
 > [`architecture.md`](architecture.md) carries. `main` is the Python app. It is kept
 > for reference and for the reasoning in it that still transfers, but **it must not be
 > read as a current statement of YazSes's security properties**, and it is not a

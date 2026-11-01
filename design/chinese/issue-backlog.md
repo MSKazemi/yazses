@@ -54,7 +54,8 @@ bounded tasks from this backlog.
 - `CHN-QA-CJK-CLEANER-001` — model-free CJK cleaner regression vectors.
 - `CHN-QA-HAN-SCRIPT-001` — mixed Han/ASCII/script-normalizer vectors.
 - `CHN-QA-MEETING-CJK-001` — minimal Meeting Mode Han-token counting reproducer.
-- `CHN-QA-CER-HARNESS-001` — common Mandarin CER scorer/harness.
+- `CHN-QA-CER-HARNESS-001` — common Mandarin CER scorer/harness (expired: the harness it
+  targeted is no longer in this repository).
 - `CHN-COMPAT-X11-001`, `CHN-COMPAT-WAYLAND-001`,
   `CHN-COMPAT-MACOS-001`, `CHN-COMPAT-WINDOWS-001` — real-platform Han injection evidence.
 

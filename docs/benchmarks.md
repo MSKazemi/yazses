@@ -1,12 +1,13 @@
 ---
 title: YazSes benchmarks — accuracy, latency and memory on CPU
-description: Measured word error rate, decode latency and memory for offline Whisper dictation on a laptop CPU, across tiny.en, base.en and small.en. Full method, hardware, and the commands to reproduce every number.
+description: Measured word error rate, decode latency and memory for offline Whisper dictation on a laptop CPU, across tiny.en, base.en and small.en. Full method, hardware, and the recipe each number was measured with.
 ---
 
 # Benchmarks
 
-Every number on this page was measured on real hardware with the shipping code, and
-every one can be reproduced with the commands at the bottom. Nothing here is
+Every number on this page was measured on real hardware with the shipping code, and the
+recipe for each is recorded here. The harness is no longer part of this repository, so the
+published figures stand as recorded on this page, with their dates. Nothing here is
 estimated, extrapolated, or measured on a machine chosen to flatter the result.
 
 These are the same measurements reported in the

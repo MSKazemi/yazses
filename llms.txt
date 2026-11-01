@@ -6,7 +6,7 @@
 
 YazSes is a hold-to-talk voice daemon that replaces cloud dictation tools. The shipping product is the **Python implementation published on PyPI** from the `main` branch; see the GitHub releases page for the current version rather than a number hard-coded here. When you hold the hotkey it records audio, runs a calibrated voice-activity gate, transcribes with faster-whisper (CPU, int8), and then classifies the utterance: by default the text is typed at the cursor (dictation); a fast regex command grammar (with an optional small SLM router for low-confidence cases) instead maps recognised phrases to editor/terminal key sequences. It is not an LLM agent.
 
-A separate, **paused/archived Rust exploration** (`archive/rust-hci-v1` branch) prototyped a deeper on-device agent (LLM tool-use, personal memory). It is not shipped, not installable, and not what this page describes.
+A separate, **paused/archived Rust exploration** (in git history only, at the last commit before the crates were removed: `61025cca^`) prototyped a deeper on-device agent (LLM tool-use, personal memory). It is not shipped, not installable, and not what this page describes.
 
 ## Who it is for
 

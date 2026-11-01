@@ -88,8 +88,8 @@ conversation we want to have.
 - **Reproducibility**: pinned Python dependencies, CPU-int8 inference,
   offline models — a described configuration re-runs bit-for-bit on commodity
   hardware. The benchmark harness ([#72](https://github.com/MSKazemi/yazses/issues/72))
-  shipped and is the home for shared methodology; its results are in
-  [Benchmarks](../benchmarks.md).
+  shipped but is no longer part of this repository; its published results, with
+  their method, are in [Benchmarks](../benchmarks.md).
 - **Study directions already grounded in the codebase**: multimodal input
   (gaze + voice + EMG), personal VAD and the cocktail-party problem on short
   windows, code-switching dictation ([Polyglot](../v2-features.md)),

@@ -341,6 +341,9 @@ prompt input and ignores this.)
 
 **Text injection** is how finished text reaches the focused window. Change it only
 if text arrives garbled or not at all.
+On Windows the box lists only `auto` and `clipboard`, the two values Windows acts on.
+If your config already holds another value (a file shared with a Linux machine can say
+`ydotool`), the box keeps showing it so that Apply does not silently rewrite it.
 
 **Nowhere to type** is what happens when you dictate with no editable field focused,
 so the words would land in the wrong place or nowhere at all — the state the
