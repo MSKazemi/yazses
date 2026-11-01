@@ -158,3 +158,21 @@ that triggered it.
 - **Freeze now, parking the in-flight hands-free work.** Rejected by the decider: the
   2026-10-22 wave was approved the same day, its capabilities are already designed and
   tested, and parking finished work costs more than landing it.
+
+## Amendment 2026-11-01: one named exception, the freeze stays
+
+**Decision by the owner:** the finished biosignal switch pipeline
+([[adr-v2-152-biosignal-artifact-switches]]) lands on `main` during the freeze. Section 3 would
+otherwise have kept it out: it adds one capability to the hands-free stack, and the trigger for
+lifting the freeze has not happened. No substantive issue from a non-contributor and no observed
+real hands-free user prompted this. The reason is maintenance: one main branch instead of a
+long-lived branch that keeps drifting from it.
+
+**Limits of the exception:**
+
+- The freeze is **not lifted**. Section 3 applies unchanged to everything else, including further
+  biosignal capabilities and new device families.
+- The feature stays off by default, experimental, and adds no base dependency. A default daemon
+  loads none of its code (`tests/test_biosignal_default_stays_out.py`).
+- ADR-v2-152 stays *Proposed* until a real-hardware field test. Nothing in it has been measured
+  on a real device or a real person, so landing it is not evidence that it works.

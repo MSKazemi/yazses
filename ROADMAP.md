@@ -37,8 +37,8 @@ Windows `.exe`, macOS `.dmg`, and Debian `.deb` installers attached to the GitHu
 release workflows fire on `v*` tags). The v2 line is delivered as a long series of research
 waves, each a fresh state-of-the-art sweep → ADRs → pure, 100%-covered, off-by-default cores.
 
-On `main` (v2.47.0 plus the unreleased frontier): **<!-- registry:total -->150<!-- /registry --> capabilities (<!-- registry:wired -->125<!-- /registry --> wired / <!-- registry:unwired -->25<!-- /registry --> honestly
-marked "planned")**, **14800+ tests green**, ADRs `adr-v2-001..151`, and the per-wave
+On `main` (v2.47.0 plus the unreleased frontier): **<!-- registry:total -->151<!-- /registry --> capabilities (<!-- registry:wired -->126<!-- /registry --> wired / <!-- registry:unwired -->25<!-- /registry --> honestly
+marked "planned")**, **14800+ tests green**, ADRs `adr-v2-001..153`, and the per-wave
 state-of-the-art research notes. The counts come from the feature registry
 (`yazses.system.features`) and from running the suite, not from counting by hand — every one
 of them had gone stale again by 2026-08-14, and again in the direction of understating what

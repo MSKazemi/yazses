@@ -80,7 +80,7 @@ flags take rather than inventing a second vocabulary. It changes visibility and
 nothing else: a hidden row keeps its staged edit, and both Apply and Restore
 defaults act on the whole model, never on what happens to be on screen.
 
-**A switch that cannot explain itself is not a setting.** With <!-- registry:total -->150<!-- /registry --> capabilities,
+**A switch that cannot explain itself is not a setting.** With <!-- registry:total -->151<!-- /registry --> capabilities,
 a checkbox and a tier tell the user nothing about what a row does, when to reach
 for it, or what ticking it writes. `settingsui/help.py` renders that from the same
 registry entries `yazses features info` prints — one source, three renderings: a

@@ -196,6 +196,7 @@ def _registry() -> list[_Def]:
     # Gaze: enabling also turns on routing, so the feature actually targets the
     # looked-at pane (enabled alone samples the camera but changes nothing).
     fg_on, fg_off = _bool("facegesture")
+    bio_on, bio_off = _bool("biosignal")
     g_on = (("gaze", "enabled", "true", False), ("gaze", "route_dictation", "true", False))
     g_off = (("gaze", "enabled", "false", False), ("gaze", "route_dictation", "false", False))
     pg_on, pg_off = _bool("polyglot")
@@ -1123,6 +1124,20 @@ def _registry() -> list[_Def]:
              "instead of a key — switch access for people who can speak but cannot "
              "press one. Needs a webcam; experimental. Off by default.",
              lambda c: c.facegesture.enabled, fg_on, fg_off),
+        _Def("biosignal", "Biosignal Switch (EEG/EMG/EOG)",
+             "[biosignal] — a muscle squeeze or double blink as a switch", EXPERIMENTAL,
+             "Reads an electrode board (OpenBCI, Muse and other BrainFlow boards, a Lab Streaming "
+             "Layer stream, a NeuroSky or BITalino device, a Myo armband), a recording (CSV, EDF/BDF, "
+             "XDF) or "
+             "the built-in synthetic generator and turns only the reliable things an electrode can "
+             "tell a computer — a muscle squeeze and its strength, a deliberate double blink, "
+             "optionally a jaw clench — into a switch press, for people who can speak but cannot "
+             "press a key. It never decodes thoughts. Needs `[biosignal] source` and a calibration "
+             "(`yazses biosignal calibrate`); a board needs the `emg-band` extra (BrainFlow), "
+             "the other devices need `lsl`, `emg` or `ble`, while the synthetic and replay sources "
+             "need nothing. Measure the false-positive "
+             "rate with `yazses biosignal report` first. Experimental; off by default.",
+             lambda c: c.biosignal.enabled, bio_on, bio_off),
         # The preset is a composition, not a capability of its own (ADR-v2-148): its one key
         # is expanded by the config loader into the rows above. It is a row so that the one
         # switch is reachable from `yazses features` and the settings window, and both route
@@ -1518,6 +1533,7 @@ _EXAMPLES: dict[str, str] = {
     "modality": "Route dictation vs commands to different targets by role.",
     "gaze": "Glance at a screen zone to choose where the next dictation lands.",
     "facegesture": "Open your jaw to start dictating, close it to stop — no key at all.",
+    "biosignal": "yazses biosignal doctor — then calibrate; squeeze a forearm muscle to start dictating, squeeze to stop.",
     "handsfree": (
         "yazses handsfree explain — read what it sets; yazses features enable handsfree "
         "--force, yazses restart, then yazses handsfree resume to arm it."
@@ -1688,6 +1704,7 @@ _USE_CASES: dict[str, str] = {
     "modality": "When you have EMG or gaze hardware and want each input assigned to its fastest role.",
     "gaze": "When you have several panes open and want dictation to land in whichever one you look at.",
     "facegesture": "When you cannot hold a key — a facial movement becomes the hotkey, using only the webcam.",
+    "biosignal": "When you cannot press a key but can squeeze a muscle or blink twice — an electrode board turns that into the hotkey, measured on your own signal.",
     "handsfree": "When you want voice, gaze, head pointer and a face switch working together, with one stop.",
     "self_repair": "When you catch a slip mid-sentence and naturally say 'no I mean X' instead of editing.",
     "corpus_scrub": "When you enable the learning corpus but want stored audio stripped of your voice identity.",
@@ -1759,7 +1776,7 @@ _CATEGORIES: dict[str, str] = {
     "overlay-reduced-motion": CAT_ACCESS,
     "readback_clone": CAT_ACCESS, "voicehealth": CAT_ACCESS, "loadguard": CAT_ACCESS,
     "voicetimer": CAT_ACCESS, "spatialvad": CAT_ACCESS, "modality": CAT_ACCESS,
-    "gaze": CAT_ACCESS, "mousegrid": CAT_ACCESS, "facegesture": CAT_ACCESS,
+    "gaze": CAT_ACCESS, "mousegrid": CAT_ACCESS, "facegesture": CAT_ACCESS, "biosignal": CAT_ACCESS,
     "handsfree": CAT_ACCESS,
     # Learning, memory & analytics.
     "learning": CAT_LEARN, "personalize": CAT_LEARN, "coach": CAT_LEARN,
@@ -2044,6 +2061,18 @@ def enable_caveat(slug: str, cfg) -> str | None:
         except Exception:
             pass
 
+    if slug == "biosignal":
+        # Enabling writes `[biosignal] enabled` only. With no source nothing starts, so the
+        # toggle would be a true key with no effect -- the "toggle that lies" shape.
+        source = (getattr(getattr(cfg, "biosignal", None), "source", "") or "").strip()
+        if not source:
+            return (
+                "Heads up: the biosignal switch does nothing until [biosignal] source names "
+                "where samples come from: `synthetic` (no hardware, to try it), "
+                "`file:<recording>`, or `brainflow:<board_id>[:<serial port>]` (needs the "
+                "`emg-band` extra). Run `yazses biosignal doctor`, then `yazses biosignal "
+                "calibrate`, then `yazses restart`."
+            )
     if slug == "proofback":
         # Proofreading interrupts the read-back; with read-back off there is nothing to
         # interrupt, and the toggle would be a true key with no effect.

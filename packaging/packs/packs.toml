@@ -133,6 +133,14 @@ reason = "No feature in _FEATURE_DEPS installs it (hardware input behind config)
 decision = "deferred"
 reason = "No feature in _FEATURE_DEPS installs it (hardware input behind config)."
 
+[extras.lsl]
+decision = "deferred"
+reason = "No feature in _FEATURE_DEPS installs it (biosignal hardware input behind config)."
+
+[extras.xdf]
+decision = "deferred"
+reason = "No feature in _FEATURE_DEPS installs it (a recording format for the biosignal replay)."
+
 [extras.ble]
 decision = "deferred"
 reason = "No feature in _FEATURE_DEPS installs it (hardware input behind config)."

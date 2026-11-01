@@ -74,6 +74,115 @@ Install and enable the login service, so YazSes is running when you sit down.
 
 Say whether YazSes will be running after the next reboot.
 
+## `yazses biosignal`
+
+EEG/EMG/EOG switches: muscle squeeze, double blink, jaw clench -- check, calibrate, watch, measure.
+
+### `yazses biosignal boards`
+
+List the EEG/EMG boards the switches are known to work with and their BrainFlow ids.
+
+- `--json` — Print one JSON object instead of a table.
+
+### `yazses biosignal calibrate`
+
+Guided calibration: learn YOUR resting level and your squeeze, blink and clench size.
+
+- `--source` — Calibrate on this source instead of [biosignal] source.
+- `--blink`, `--no-blink` — Include the blink step (default: [biosignal] double_blink).
+- `--clench`, `--no-clench` — Include the jaw-clench step (default: [biosignal] jaw_clench).
+- `--yes`, `-y` — Start without waiting for Enter.
+
+### `yazses biosignal check-source`
+
+Check that a device or recording keeps the source contract the detectors rely on.
+
+- **Arguments:** `source`
+- `--seconds`, `-s` — How long to drive the source.
+- `--json` — Print one JSON object instead of a report.
+
+### `yazses biosignal doctor`
+
+Check BrainFlow, serial ports, your calibration, and run a synthetic self-check.
+
+- `--boards` — List every BrainFlow board id, not just the relevant ones.
+- `--source` — Check this source instead of [biosignal] source.
+
+### `yazses biosignal evaluate`
+
+Score the detectors against known events: precision, recall, latency, false alarms per hour.
+
+- `--source` — synthetic[:emg|eeg|eog|mixed]; ignored with --file.
+- `--seconds` — Length of the synthetic session.
+- `--seed` — Seed for the scripted gestures and noise (same seed, same result).
+- `--file` — Score this recording (CSV or .npz) instead; needs --truth.
+- `--truth` — JSON list of events you labelled: [{"kind": "double_blink", "t": 12.3}].
+- `--tolerance` — Seconds a detection may differ from the true time and still count.
+- `--emg`, `--no-emg` — Include the muscle-squeeze switch (default on; needs a calibration profile).
+- `--blink`, `--no-blink` — Include the double-blink switch (default on).
+- `--clench`, `--no-clench` — Include the jaw-clench switch (default on).
+- `--json` — Print one JSON object instead of a table.
+
+### `yazses biosignal field-test`
+
+Guided test of how often the switches fire by mistake during ordinary activity.
+
+- `--source` — Test this source instead of [biosignal] source (synthetic | file:<path> | brainflow:<id>[:<port>]).
+- `--minutes` — Stretch or shrink the test to about this long (0 = the standard length).
+- `--json` — Print one JSON object instead of text.
+- `--out`, `-o` — Also write the counts to this JSON file (owner-only; never overwrites).
+
+### `yazses biosignal monitor`
+
+Watch signal quality and detections live. Nothing is typed or acted on.
+
+- `--source` — Watch this source instead of [biosignal] source (synthetic | file:<path> | brainflow:<id>[:<port>]).
+- `--seconds` — Stop after this long (0 = until Ctrl-C).
+- `--interval` — Seconds between status lines.
+- `--emg`, `--no-emg` — Override [biosignal] emg for this run.
+- `--blink`, `--no-blink` — Override [biosignal] double_blink for this run.
+- `--clench`, `--no-clench` — Override [biosignal] jaw_clench for this run.
+
+### `yazses biosignal profile`
+
+Show the saved calibration profile: board, channels, age. Never an amplitude.
+
+- `--json` — Print one JSON object instead of text.
+
+### `yazses biosignal profile-clear`
+
+Delete the saved calibration profile.
+
+- `--yes`, `-y` — Delete without asking.
+
+### `yazses biosignal record`
+
+Record raw signal to a local file, to replay or evaluate later.
+
+- `--out`, `-o` — File to write: .csv (streamed) or .npz.
+- `--source` — Record this source instead of [biosignal] source (synthetic | file:<path> | brainflow:<id>[:<port>]).
+- `--seconds` — How much signal to record.
+- `--force` — Overwrite --out (and --truth-out) if it exists.
+- `--seed` — Synthetic source only: seed for the scripted gestures and noise.
+- `--truth-out` — Synthetic source only: also write the scripted gestures as a truth file for `evaluate`.
+- `--json` — Print one JSON object instead of text.
+
+### `yazses biosignal replay`
+
+Run a recording through the pipeline and print each detection and the false-positive summary.
+
+- **Arguments:** `file`
+- `--emg`, `--no-emg` — Override [biosignal] emg for this run.
+- `--blink`, `--no-blink` — Override [biosignal] double_blink for this run.
+- `--clench`, `--no-clench` — Override [biosignal] jaw_clench for this run.
+- `--json` — Print one JSON object instead of a table.
+
+### `yazses biosignal report`
+
+Show your own measured activation and cancel rate from the local counters.
+
+- `--json` — Print one JSON object instead of a table.
+
 ## `yazses braille`
 
 Translate text to Unicode Braille (UEB subset) — fully offline.

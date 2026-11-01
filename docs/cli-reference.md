@@ -1549,6 +1549,38 @@ yazses handsfree enable --force   # compose gaze + head pointer + face switch + 
 yazses handsfree disable  # stop it; yazses restart releases the camera
 ```
 
+### `yazses biosignal`
+
+Muscle-squeeze, blink and jaw-clench switches read from an EEG/EMG/EOG board (`[biosignal] enabled`, off by default; see [Use a biosignal switch](how-to/biosignal-switch.md)). Every command works with no hardware through `--source synthetic`. Recordings and calibration profiles describe your body: they stay on this machine, in files only you can read.
+
+| Command | What it does |
+|---|---|
+| `yazses biosignal` | List the commands below. |
+| `yazses biosignal doctor` | Check the board, BrainFlow, serial ports and your calibration profile, then run a synthetic self-check and end with one `Verdict:` line (ready, or the next step). `--boards` lists every board BrainFlow supports. |
+| `yazses biosignal calibrate` | Guided calibration (relax, light squeeze, hard squeeze, blinks, clenches). Saves a profile; without one the squeeze switch stays off. |
+| `yazses biosignal monitor` | Live signal quality and detections, with your last few events (accepted or dropped, and why). Ctrl-C to stop; `--seconds` limits it. |
+| `yazses biosignal replay` | Run a recording through the pipeline and print the detections and the false-positive summary. |
+| `yazses biosignal report` | Your own measured activation and cancel rate, with its confidence interval and the note that cancels are a proxy for false positives. |
+| `yazses biosignal record` | Record a session to a CSV, `.npz`, `.edf` or `.bdf` file (mode 0600). EDF+/BDF+ open in EDFbrowser and MNE. Refuses to overwrite without `--force`. |
+| `yazses biosignal evaluate` | Score the detectors against scripted events: precision, recall, latency and phantom triggers per hour. Synthetic by default, or `--file` with `--truth`; an EDF+ or XDF file's own annotations are used when there is no `--truth`. |
+| `yazses biosignal field-test` | Guided test of how often the switches fire by mistake: prompts you to sit still, talk, chew, type and look around, then reports phantom activations per hour for each activity. `--minutes N` sets the length, `--json` prints one object, `--out FILE` also keeps the counts (owner-only, never overwrites). Counts only, never the signal. |
+| `yazses biosignal profile` | Which board and channels your calibration profile is for, and how old it is. Never prints an amplitude. |
+| `yazses biosignal profile-clear` | Delete the calibration profile (asks first; `--yes` skips the question). |
+| `yazses biosignal boards` | The boards the switches are known to work with, and the `source` string for each. |
+| `yazses biosignal check-source` | Open a source for a few seconds (`--seconds`) and check the stream is well-formed: start/stop, channels, sample rate, timestamps, gaps. For bringing up a new board or driver; exit 1 if a check fails. |
+
+```bash
+yazses biosignal doctor --source synthetic     # no hardware needed
+yazses biosignal calibrate                     # then set [biosignal] enabled = true
+yazses biosignal monitor --source synthetic --seconds 20
+yazses biosignal record --source synthetic --seconds 30 --out session.csv
+yazses biosignal replay session.csv            # what would have fired, and how often
+yazses biosignal evaluate --json               # precision, recall, latency, phantoms per hour
+yazses biosignal field-test                    # sit still, talk, chew, type: phantoms per hour
+yazses biosignal report                        # your own false-activation rate
+yazses biosignal profile                       # which board the profile was made for
+```
+
 ### `yazses gesture`
 
 Control Gesture Chords while they run (`yazses features enable gesture`, then bind chords under `[gesture.chords]`): see what is bound and why nothing fires, or stop them acting. Every subcommand is a single call to the daemon and takes no coordinate.

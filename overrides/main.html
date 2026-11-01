@@ -19,6 +19,19 @@
 -#}
 {% extends "base.html" %}
 
+{#- Only the `<title>` tag. A design page's heading can be a whole sentence (a decision
+    record's is), so `hooks/design_tier.py` derives a short `seo_title` for the page's
+    front-matter dictionary. Setting `title` instead would also relabel Material's header
+    bar, which is visible UI; this block changes the search-result text and nothing else.
+    `home.html` overrides this block again for its own reason. -#}
+{% block htmltitle %}
+  {% if page.meta and page.meta.seo_title %}
+  <title>{{ page.meta.seo_title }} - {{ config.site_name }}</title>
+  {% else %}
+  {{ super() }}
+  {% endif %}
+{% endblock %}
+
 {% block extrahead %}
   {{ super() }}
   {#- Explicit crawler directives. Without this no robots meta is emitted at all:

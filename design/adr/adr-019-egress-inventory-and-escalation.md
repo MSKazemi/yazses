@@ -115,6 +115,7 @@ Two more modules import `socket` and **cannot reach the network at all**, becaus
 | `ipc/server.py` | `AF_UNIX` stream socket, bound to that path |
 | `remote/agent.py` | `asyncio.start_server` bound to **127.0.0.1** — the far end of the user's own SSH tunnel |
 | `platform/emg/ble_backend.py` | `asyncio` driving a Bluetooth LE sensor; a radio, not an IP network |
+| `biosignal/myo.py` | `asyncio` running bleak for a Myo armband's raw EMG over Bluetooth LE; the same radio-not-network case |
 
 They are **recorded rather than excluded from the scan**, deliberately. "It's only IPC"
 is exactly the reasoning that would wave through an `AF_INET` socket added to the same
@@ -294,6 +295,29 @@ the set that load cache-first, so a **fourth** loader fails the build rather tha
 reintroducing the hang. It is also why the credentialed row above is now the request most
 likely never to be made — a diarization on a machine that has already downloaded the
 pipeline sends no token, because it sends nothing.
+
+## Reached through a dependency's own sockets, confined to this machine
+
+`biosignal/lsl_source.py` (2026-10-30, the `lsl:` biosignal source) imports no network
+module, so none of the scans above flag it. Its dependency does open sockets: liblsl, under
+`pylsl`, discovers streams by UDP multicast and moves samples over TCP, and its default
+discovery scope is the whole site. Recorded here for the reason the model-loader section
+gives -- a stated limitation is not a guard.
+
+What keeps it on this machine is configuration, not our code, so the configuration is what
+is pinned and tested: before the first liblsl call the module hands liblsl
+`ResolveScope = machine`, `MachineAddresses = {127.0.0.1}`, `TTLOverride = 0` and no
+`KnownPeers`, through `pylsl.set_config_content` (read before any config file) and a private
+`LSLAPICFG` file as the fallback for older liblsl. A user's own `LSLAPICFG` is overridden,
+not honoured: a wider scope would be a new egress decision, not a setting. A stream whose
+reported host is not this machine is refused as a second line.
+`test_the_lsl_source_pins_liblsl_to_this_machine` fails if any part of the pin goes.
+
+Two limits, stated so they are not mistaken for guarantees. liblsl reads its config once per
+process, so the pin holds only if YazSes makes the first liblsl call -- nothing else in
+YazSes imports `pylsl`. And the *publishing* program (OpenBCI GUI, BlueMuse and the like) runs
+its own liblsl and may announce its stream on the LAN; that is the vendor tool's traffic,
+not this process's. Nothing YazSes sends goes anywhere: the inlet only receives samples.
 
 ## Decision
 

@@ -20,6 +20,7 @@ SECTION_NAMES: frozenset[str] = frozenset({
     "audioguard",
     "autopair",
     "autostop",
+    "biosignal",
     "bookmarks",
     "brailleout",
     "breath",

@@ -4113,6 +4113,22 @@ crypto = [
 ]
 
 [[package]]
+name = "pylsl"
+version = "1.18.6"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/eb/b1/bb0c68594e055849ad6cec0573c0401c405809dc51c2ca4dc12b25c7160d/pylsl-1.18.6.tar.gz", hash = "sha256:f6eed95cc8eb75fe6bf2bcc1f5c1d91672b0cf56c528e93aca07569ffffe2be0", size = 48353, upload-time = "2026-10-14T21:40:06.142Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/79/13/21cc2b6ba0097db3f47b8e9561e791f2d8767e3de147ca763c76ba020a89/pylsl-1.18.6-py3-none-any.whl", hash = "sha256:dfc5046ed1cf2303814a0fdd7cd4c85c6db64409cf7fb9ccb558ebfb9e19a716", size = 50199, upload-time = "2026-10-14T21:39:59.794Z" },
+    { url = "https://files.pythonhosted.org/packages/6e/8c/a321631d26c9933ced7c51fd455e161481c3dd4e2d2c17820164104fa284/pylsl-1.18.6-py3-none-macosx_11_0_universal2.whl", hash = "sha256:0e98ead8a6a24db608074c986f720cd9c0727e9a798f0eb9369b90ab9367fcf0", size = 737284, upload-time = "2026-10-14T21:40:01.277Z" },
+    { url = "https://files.pythonhosted.org/packages/f1/a9/225d65b20dc80bad944d271354345e012d6666c72d5318b78e591a389997/pylsl-1.18.6-py3-none-manylinux_2_35_x86_64.whl", hash = "sha256:d184abba5318c85a456ff1ca88a1960e194ab7c7ac2f31b6d0a06726e36b91e1", size = 1302904, upload-time = "2026-10-14T21:40:02.628Z" },
+    { url = "https://files.pythonhosted.org/packages/e7/73/243cc433ac77607dea80b2df0a3eab9b424f779c633ae14bcc7a86f32dc0/pylsl-1.18.6-py3-none-win32.whl", hash = "sha256:2ab84a0591f2e35baff2305b51cf438db9078fc6ff6ac1fa0a4bac69a6d9c470", size = 301785, upload-time = "2026-10-14T21:40:03.781Z" },
+    { url = "https://files.pythonhosted.org/packages/3e/96/bf1454712d30c7ad69975fb72e18bab8666adb2e3baf1c4cccec549aff2e/pylsl-1.18.6-py3-none-win_amd64.whl", hash = "sha256:2ea0d831cc38653a2fc69a6242ffeb2315b82ab31719c255330afe3d6b7421dc", size = 340339, upload-time = "2026-10-14T21:40:05.049Z" },
+]
+
+[[package]]
 name = "pymdown-extensions"
 version = "11.0.1"
 source = { registry = "https://pypi.org/simple" }
@@ -4574,6 +4590,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/eb/61/caa39686032d2ebdd04ff0ab5cbe163126c0066d98e00c9018646e42393b/pywin32-312-cp315-cp315-win32.whl", hash = "sha256:5c1fbe4a937a73ae9297384a3da38518cbc694c68ad8a809b2e19acd350f03ed", size = 6471159, upload-time = "2026-06-04T07:49:50.035Z" },
     { url = "https://files.pythonhosted.org/packages/0f/cd/7e1de64a4a6f69c04214169657ccab0d93a670ea50e35eb8f489d7378249/pywin32-312-cp315-cp315-win_amd64.whl", hash = "sha256:c2f03a0f73f804a13c2735b99392b0cd426bb4f2c4d0178e5ac966a0f21618d5", size = 7025293, upload-time = "2026-06-04T07:49:54.857Z" },
     { url = "https://files.pythonhosted.org/packages/23/ed/4532e9388e65fa16b46776ef47ad631a64eda1631884488af707666350ed/pywin32-312-cp315-cp315-win_arm64.whl", hash = "sha256:a8597d28f267b39074aef51fa593530082b39cbe5a074226096857b1fed2dfb9", size = 6840337, upload-time = "2026-06-04T07:49:57.531Z" },
+]
+
+[[package]]
+name = "pyxdf"
+version = "1.18.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/9d/28/298505b91f5e6b9325f94e1cc25003fc3cc8dc7073506f30149dfe8bd247/pyxdf-1.18.0.tar.gz", hash = "sha256:9aa78f3c7c50020f0fa30a04f094d7966b3eefde570e488d3ddef40de5c00f31", size = 38003, upload-time = "2026-10-28T08:27:19.673Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/dc/f5/3466677c07801f6a8d7e845660b17b5093fe82f07129db75b7537799d15e/pyxdf-1.18.0-py3-none-any.whl", hash = "sha256:e78ca4c45fdb7f1e0c014f3c4501b5354fe5b8f8fd8ec427cfce577b2592b551", size = 20813, upload-time = "2026-10-28T08:27:18.739Z" },
 ]
 
 [[package]]
@@ -6740,9 +6768,11 @@ all = [
     { name = "praat-parselmouth" },
     { name = "pyannote-audio", marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
     { name = "pygls" },
+    { name = "pylsl" },
     { name = "pynvim" },
     { name = "pyserial" },
     { name = "pyside6" },
+    { name = "pyxdf" },
     { name = "sherpa-onnx" },
     { name = "sherpa-onnx-core" },
     { name = "silero-vad" },
@@ -6782,6 +6812,9 @@ emg-band = [
 gaze = [
     { name = "mediapipe" },
     { name = "opencv-contrib-python" },
+]
+lsl = [
+    { name = "pylsl" },
 ]
 lsp = [
     { name = "pygls" },
@@ -6825,6 +6858,9 @@ voiceprint = [
 ]
 voiceprint-resemblyzer = [
     { name = "resemblyzer" },
+]
+xdf = [
+    { name = "pyxdf" },
 ]
 
 [package.dev-dependencies]
@@ -6901,6 +6937,8 @@ requires-dist = [
     { name = "pyannote-audio", marker = "extra == 'diarization-pyannote'", specifier = ">=4.0.7" },
     { name = "pygls", marker = "extra == 'all'", specifier = ">=2.1.1" },
     { name = "pygls", marker = "extra == 'lsp'", specifier = ">=2.1.1" },
+    { name = "pylsl", marker = "extra == 'all'", specifier = ">=1.18.6" },
+    { name = "pylsl", marker = "extra == 'lsl'", specifier = ">=1.18.6" },
     { name = "pynvim", marker = "extra == 'all'", specifier = ">=0.6.0" },
     { name = "pynvim", marker = "extra == 'lsp'", specifier = ">=0.6.0" },
     { name = "pyobjc-framework-applicationservices", marker = "sys_platform == 'darwin'", specifier = ">=12.2.1" },
@@ -6915,6 +6953,8 @@ requires-dist = [
     { name = "pystray", marker = "sys_platform == 'win32'", specifier = ">=0.19.5" },
     { name = "python-xlib", marker = "platform_system == 'DragonFly' or platform_system == 'FreeBSD' or platform_system == 'NetBSD' or platform_system == 'OpenBSD' or sys_platform == 'linux'", specifier = ">=0.33" },
     { name = "pywin32", marker = "sys_platform == 'win32'", specifier = ">=312" },
+    { name = "pyxdf", marker = "extra == 'all'", specifier = ">=1.18.0" },
+    { name = "pyxdf", marker = "extra == 'xdf'", specifier = ">=1.18.0" },
     { name = "resemblyzer", marker = "extra == 'voiceprint-resemblyzer'", specifier = ">=0.1.4" },
     { name = "rumps", marker = "sys_platform == 'darwin'", specifier = ">=0.4.0" },
     { name = "sherpa-onnx", marker = "extra == 'all'", specifier = ">=1.13.6" },
@@ -6940,7 +6980,7 @@ requires-dist = [
     { name = "useful-moonshine-onnx", marker = "extra == 'all'", specifier = ">=20251121" },
     { name = "useful-moonshine-onnx", marker = "extra == 'moonshine'", specifier = ">=20251121" },
 ]
-provides-extras = ["slm", "lsp", "emg", "ble", "overlay", "desktop", "prosody", "chinese", "tts", "emg-band", "denoise", "voiceprint", "voiceprint-resemblyzer", "parakeet", "moonshine", "diarization", "diarization-pyannote", "notes", "silero", "agent", "gaze", "all"]
+provides-extras = ["slm", "lsp", "emg", "ble", "overlay", "desktop", "prosody", "chinese", "tts", "emg-band", "lsl", "xdf", "denoise", "voiceprint", "voiceprint-resemblyzer", "parakeet", "moonshine", "diarization", "diarization-pyannote", "notes", "silero", "agent", "gaze", "all"]
 
 [package.metadata.requires-dev]
 benchmark = [

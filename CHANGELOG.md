@@ -27,6 +27,141 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The translation status page said every row was a machine-assisted draft; it now says only
   `draft` rows are.
 
+### Added — biosignal sources for market devices, and a stream-integrity guard
+
+- **`brainflow:<id>` opens only the boards `yazses biosignal boards` lists.** Any other id is refused,
+  including boards that stream over a network, because nothing may leave this machine.
+- **A long transcription no longer disarms the switch.** A squeeze's turn is transcribed on the
+  biosignal thread, and with `[handsfree_safety]` on, a transcription over about 1.5 s left blinks and
+  clenches dead until the next `yazses handsfree resume`.
+- **New `[biosignal] source` kinds**: `lsl:<stream>` reads a Lab Streaming Layer stream published
+  on this computer (OpenBCI GUI, muse-lsl/BlueMuse and other vendor tools; `lsl` extra, liblsl
+  pinned to machine-only discovery); `thinkgear:<port>` a NeuroSky headset and
+  `bitalino:<port>` a BITalino kit (`emg` extra); `myo:<address>` a Myo armband's raw EMG over
+  Bluetooth LE (`ble` extra).
+- **Open file formats**: `file:` replays EDF, EDF+ and BDF with no extra library, and LabRecorder
+  `.xdf` with the new `xdf` extra. `yazses biosignal evaluate --file` uses an EDF+ file's
+  annotations or an XDF marker stream as labels, and `yazses biosignal record --out x.edf`
+  writes EDF+/BDF+ that EDFbrowser and MNE open.
+- **Board presets**: OYMotion gForce Pro and gForce Dual, ANT Neuro eego 8 and Mentalab Explore
+  4/8 in `yazses biosignal boards`.
+- **Stream-integrity guard**: every source the daemon opens is checked for dropped packets,
+  overlapping or backwards timestamps, sample-rate drift, stalls and channel changes; a breach
+  closes the switch until a second of clean stream, and `status` names the reason.
+  `yazses biosignal check-source` runs the same contract checks on a device or recording.
+- **Fixed: a double blink could fire after a bad stretch.** The detector reports a pair about
+  1.3 s late, so a pair made while the signal or stream was bad could arrive after the gate had
+  reopened and be accepted. Events are now judged by when they happened, across both blinks,
+  and `status` names the reason a gate is closed (`dropped_by_reason` gains `stream`).
+- `yazses biosignal monitor` now runs the stream checks too, and `yazses biosignal boards`
+  lists the LSL, NeuroSky, BITalino and Myo sources. A NeuroSky headset no longer asks for a
+  squeeze calibration, because it has no muscle channel.
+- None of the new devices has been used on real hardware yet: each was built against its
+  published protocol document and tested with byte-level fixtures and fakes.
+
+### Added — biosignal switches: artifact-grade EMG/EOG/EEG events under a false-positive budget (ADR-v2-152)
+
+A new opt-in `yazses.biosignal` package reads raw electrode samples (a synthetic source, a
+recording replay, or a BrainFlow board such as OpenBCI or Muse through the existing `emg-band` extra) and
+turns them into a small closed set of events: a graded squeeze, a blink or double blink, and a jaw clench.
+Events drive the same `on_mode_start` / `on_mode_end` callbacks as the EMG sources and send labels-only
+intents through `activation/intent.py`; detectors never execute an action themselves.
+
+- **A quality gate suppresses events.** Flatline, saturation, mains interference, baseline drift and
+  sample dropout each produce silence, never a trigger. A max-hold watchdog ends a hold that never
+  releases, and the jaw-clench detector carries a speech guard.
+- **The false-positive budget is enforced, not just reported.** Each activation goes in a local ledger;
+  the cancelled fraction (a proxy, shown with a Wilson confidence interval) feeds a governor that
+  desensitizes and then suspends the switch past `max_cancelled_per_hour`.
+- **Calibration is per person.** `yazses biosignal calibrate` records relax, light and hard squeeze,
+  blink and clench phases into a local `0600` profile with no raw samples.
+- **Off by default.** `[biosignal] enabled = false`; the new commands are `yazses biosignal doctor`,
+  `calibrate`, `monitor`, `replay` and `report`. Nothing is imported until you enable it, and no new
+  network path exists.
+- **Scope is narrow on purpose.** Blink and jaw clench are muscle and eye artifacts, not brain signals,
+  and talking confounds the jaw. This does not reverse ADR-v2-129: decoding thoughts, motor imagery,
+  SSVEP or P300 stays rejected. The thresholds are unmeasured design choices until field reports exist.
+- **The governor escalates in one order: desensitize, then suspend.** It acts on a conservative
+  lower bound of the cancelled rate with a minimum amount of evidence, not on the displayed
+  fraction; a suspension recovers by itself after a timer that grows on repeats, into the
+  desensitized state, and ends at once on a single release. Rates count active exposure time only.
+  Decision record: `design/adr/adr-v2-153-biosignal-false-positive-governor.md`.
+- **A speech guard for the jaw clench** (`biosignal/speechguard.py`) combines the dictation
+  recording flag with optional voice-activity and speech-playback flags, with a hangover tail and a
+  watchdog so a stuck flag cannot lock the switch out; a failing source counts as speaking.
+- **An evaluation harness** (`biosignal/evaluate.py`) scores detectors against scripted events
+  (recall, precision, latency) and counts phantom activations per hour on an idle stream, with
+  confidence intervals. Its reports say that synthetic results prove the logic, not real-world
+  accuracy.
+- Still unmeasured, and said so in the docs: the thresholds are untuned on real recordings, the
+  cancelled fraction is a proxy, and validation is synthetic only.
+- **The measurement survives a crash.** The activation counters are saved periodically
+  (`[biosignal] ledger_autosave_seconds`, default 60 s) and on stop, not only at a clean shutdown.
+- **The switch obeys the global hands-free pause** (ADR-v2-148): a squeeze held when a pause arrives
+  is released and stays off until the signal relaxes, and intents are ignored while paused. An
+  explicit Resume (`yazses handsfree resume`) lifts a false-positive suspension in one
+  action. New commands: `record`, `evaluate`, `boards`, `profile` and `profile-clear`; new key `speech_guard` (on by
+  default; it matters only when `jaw_clench` is on).
+- Calibrated blink and jaw-clench detectors (`from_calibration`, a runtime sensitivity scale the
+  governor drives) and the blink-detector warm-up fix are present, validated on synthetic signal only; the
+  spec's "Round-2 status" and "Round-3 status" tables list what exists.
+- **Hardening round 3: a dead, noisy or mis-calibrated signal fails closed.**
+  - The squeeze detector blanks itself on a DC step, a pop or (when the amplifier range is given) a
+    saturation, and a hold that is open at that moment is released. A share of channels must agree
+    (`min_channel_fraction`) before the mean envelope can cross a threshold.
+  - Jaw-clench event times no longer depend on how the stream was cut into blocks; an opt-in chew
+    hold-off (a detector constructor option, not a config key) can only remove events. Detectors report a
+    `health()` snapshot.
+  - The quality monitor judges every hop inside a large block, recognises a lifted electrode (an abrupt
+    step then a flat line) and movement shared by every channel, and scores electrode contact.
+  - **A calibration profile that is stale (`calibration_max_age_days`, default 30) or was made for another
+    board, channel set, signal kinds or sampling rate is not used.** The switches built from it are held
+    off, a held squeeze is released and the status says why; the squeeze, which has no built-in
+    defaults, stays off until `yazses biosignal calibrate` is run again. Profile ages are shown in words.
+  - A stream gap no longer erases the governor's verdict (`pipeline.reset(keep_governor_state=...)`),
+    and a user's release survives one evaluation, so dismissed cancellations cannot re-suspend the switch at
+    once. Paused time no longer counts as ledger exposure (`pause_accounting()` / `resume_accounting()`,
+    called by the daemon on the global hands-free pause).
+  - New `[biosignal]` keys `calibration_max_age_days` (30), `watchdog_seconds` (1.5, releases a squeeze when
+    samples stop arriving) and `min_event_confidence` (0, off). The runner gains `recent_events()` and a
+    richer `status()`; the daemon status payload gains an aggregate `biosignal` block and its shutdown is
+    ordered (release the squeeze, save the ledger, then join the threads).
+  - `yazses biosignal doctor` ends with a `Verdict:` line (ready, or the one next step), and the system
+    `yazses doctor` has a "Biosignal switch" row.
+  - The synthetic source gains `ground_truth(pairs=True)`, `schedule_motion_artifact` and `schedule_dc_step`.
+- **`yazses biosignal field-test`**: a guided, in-situ measurement of how often the switches fire when you
+  did not mean it. You sit, talk, chew, type and look around with the real detectors live (nothing is typed
+  or acted on, no signal is saved), then make each gesture on cue; the report gives phantom activations per
+  usable hour for each activity with one-sided upper bounds, the hit rate with a Wilson interval, and an
+  advisory verdict. `--minutes` stretches it, `--json` and `--out` write counts only (owner-only, never
+  over an existing file). `FieldTestAggregate` merges sessions so the bounds tighten. Every threshold and
+  verdict rung is a design choice and no real-hardware result has been collected.
+- **Evidence, acceptance criteria and kill criteria are written down.** ADR-v2-152 and ADR-v2-153 gain
+  "Evidence and what it does not show" (the cited literature supports the idea, not our numbers; Meta's
+  paper reports no false-activation rate; the best published blink switch is 0.10 false positives a
+  minute), falsifiable acceptance criteria that a real-hardware field test must meet before the status
+  moves from Proposed, and kill criteria. The new spec `design/specs/biosignal-validation-protocol.md`
+  defines the phases, how results aggregate, the minimum evidence for a claim, how to report back without
+  raw signal, and a stress-test list (cable pull, electrode pop, DC step, mains burst, dropped packets, USB
+  unplug mid-squeeze, daemon restart mid-hold). The threat model gains a "Biosignal switches" section.
+  The status stays Proposed: the switch is still unmeasured on any real person.
+- Docs: how-to `docs/how-to/biosignal-switch.md` (Use a muscle, blink or jaw-clench switch), the
+  decision records `design/adr/adr-v2-152-biosignal-artifact-switches.md` and
+  `design/adr/adr-v2-153-biosignal-false-positive-governor.md`, the spec
+  `design/specs/biosignal-pipeline.md`, `design/specs/biosignal-validation-protocol.md`, and an
+  architecture row in `design/architecture.md`.
+
+### Changed — every engineering page on the documentation site now has its own description, and a title that fits a search result
+
+The pages published from `design/` had no `description` of their own, so about 380 of roughly 400 of them carried the one
+site-wide sentence (Bing's webmaster report flags this as identical meta descriptions), and decision records, whose
+heading is a whole sentence, produced `<title>` text of 100 characters or more. `hooks/design_tier.py` now derives both
+from the document when its front matter does not set them: the description is the first real prose paragraph (skipping
+the `**Status:**` block, headings, tables, lists and code), cut at a sentence end within 155 characters; the `<title>`
+is the heading shortened at its first colon or semicolon, or at a word, to fit 60 characters with the site name (through a
+`seo_title` key that `overrides/main.html` reads for the `<title>` tag only). The page heading, the header-bar label and the
+body are unchanged, and front matter written by hand always wins. Nothing about which files are published changed.
+
 ## [2.47.0] - 2026-10-31
 
 ### Changed — the benchmark harness, the result files and their tests moved to the private research repository
