@@ -28,6 +28,9 @@ this guards our code, the container guards the whole process.
 from __future__ import annotations
 
 import ast
+import os
+import sys
+import types
 from pathlib import Path, PureWindowsPath
 
 import pytest
@@ -78,6 +81,10 @@ LOCAL_BOUND = {
         "imports `asyncio` to drive a Bluetooth LE muscle sensor; a radio is not an IP "
         "network and no socket is opened. Declared rather than excluded, for the reason "
         "given above `_NETWORK_ROOTS`"
+    ),
+    "biosignal/myo.py": (
+        "imports `asyncio` to run bleak for a Myo armband's raw EMG over Bluetooth LE; "
+        "the same radio-not-network case as `platform/emg/ble_backend.py`"
     ),
 }
 
@@ -458,13 +465,83 @@ def test_the_remote_agent_listens_only_on_loopback():
         )
 
 
-def test_the_ble_backend_opens_no_socket():
+@pytest.mark.parametrize("module", ["platform/emg/ble_backend.py", "biosignal/myo.py"])
+def test_the_ble_backend_opens_no_socket(module: str):
     """`asyncio` here drives a radio, not an address. If that stops being true, say so."""
-    source = (SRC / "platform/emg/ble_backend.py").read_text(encoding="utf-8")
+    source = (SRC / module).read_text(encoding="utf-8")
     for primitive in ("start_server", "open_connection", "AF_INET", "import socket"):
         assert primitive not in source, (
-            f"platform/emg/ble_backend.py now uses {primitive} — it is no longer "
+            f"{module} now uses {primitive} — it is no longer "
             f"local-by-construction and needs a real inventory row"
+        )
+
+
+#: The lines that keep liblsl on this machine, written out here rather than imported: a guard
+#: that reads the module's own constant would agree with whatever the module says.
+LSL_PIN_LINES = ("ResolveScope = machine", "MachineAddresses = {127.0.0.1}", "TTLOverride = 0",
+                 "KnownPeers = {}")
+
+
+def test_the_lsl_source_pins_liblsl_to_this_machine(monkeypatch):
+    """`biosignal/lsl_source.py` imports no network module, so the scan above cannot see
+    it -- but liblsl opens UDP/TCP sockets of its own. Staying on this machine rests on
+    the config it pins before the first liblsl call (ADR-019, "Reached through a
+    dependency's own sockets"). A stated limitation is not a guard; this is the guard.
+
+    Runs the code against a stand-in for pylsl and looks at what liblsl would have been
+    given when discovery started, by both routes: the in-memory content, and the private
+    file an older liblsl falls back on."""
+    from yazses.biosignal import lsl_source
+
+    given: dict[str, str] = {}
+
+    def set_config_content(text: str) -> None:
+        given["content"] = text
+
+    def resolve_streams(wait_time: float = 0.0) -> list:
+        path = os.environ.get("LSLAPICFG")
+        assert "content" in given and path, "liblsl was called before the pin was in place"
+        given["file"] = Path(path).read_text(encoding="utf-8")
+        return []
+
+    fake = types.SimpleNamespace(set_config_content=set_config_content,
+                                 resolve_streams=resolve_streams)
+    monkeypatch.setitem(sys.modules, "pylsl", fake)
+    monkeypatch.setattr(lsl_source, "_pinned", False)
+    monkeypatch.delenv("LSLAPICFG", raising=False)
+    lsl_source.list_lsl_streams(timeout_s=0.0)
+    assert set(given) == {"content", "file"}
+    for route, text in given.items():
+        lines = [line.strip() for line in text.splitlines()]
+        for pin in LSL_PIN_LINES:
+            assert pin in lines, (
+                f"liblsl is not given {pin!r} by the {route} route: LSL discovery may reach "
+                f"the LAN. That is a new egress decision under ADR-019, not a refactor"
+            )
+
+
+def test_every_lsl_discovery_call_runs_under_the_pin():
+    """Whichever discovery function the module adds next, it has to be inside the `with`."""
+    tree = ast.parse((SRC / "biosignal/lsl_source.py").read_text(encoding="utf-8"))
+    pinned: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.With) and any(
+            isinstance(item.context_expr, ast.Call)
+            and getattr(item.context_expr.func, "id", "") == "_liblsl_confined"
+            for item in node.items
+        ):
+            pinned.update(id(inner) for inner in ast.walk(node))
+    resolves = [
+        node for node in ast.walk(tree)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+        and node.func.attr.startswith("resolve")
+        and getattr(node.func.value, "id", "") == "pylsl"
+    ]
+    assert len(resolves) >= 2, "the module's discovery calls were not found; fix this guard"
+    for node in resolves:
+        assert id(node) in pinned, (
+            f"lsl_source.py line {node.lineno} calls pylsl.{node.func.attr} outside "
+            f"_liblsl_confined(): LSL discovery may reach the LAN (ADR-019)"
         )
 
 

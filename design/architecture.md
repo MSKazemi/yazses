@@ -810,6 +810,57 @@ repeats it. The scanner keeps the recent segments, so select-at-onset stays exac
 non-stale click. One click selects at most once. The scan stops on a pop, on pause or
 dictation, and after three passes with no selection, counted from the last one.
 
+### `src/yazses/biosignal/` (artifact-grade EMG/EOG/EEG switches, [ADR-v2-152](adr/adr-v2-152-biosignal-artifact-switches.md) — experimental, off by default)
+
+Raw electrode samples in, a closed set of events out (graded squeeze, blink, double blink, jaw
+clench), held to a measured false-positive budget. A fourth activation source beside the keyboard, the
+EMG/BrainFlow sources and the face-gesture switch: events feed the same `on_mode_start` /
+`on_mode_end` callbacks and, as labels only, `activation/intent.py`. Full design in
+[`specs/biosignal-pipeline.md`](specs/biosignal-pipeline.md); the governor's mechanism is
+[ADR-v2-153](adr/adr-v2-153-biosignal-false-positive-governor.md); how the numbers get measured on real
+hardware is [`specs/biosignal-validation-protocol.md`](specs/biosignal-validation-protocol.md). Thought,
+motor-imagery, SSVEP and P300 decoding stays rejected (ADR-v2-129); blink and jaw clench are artifacts,
+and the thresholds are unmeasured. Validation is synthetic only; no field-test result exists yet.
+
+| File | Role |
+|---|---|
+| `types.py` | The shared contract: `SignalKind`, `EventKind`, `ChannelInfo`, `SampleBlock`, `BioEvent`, and the `BlockSource` / `StreamDetector` Protocols. No behaviour. |
+| `filters.py` | Pure numpy streaming DSP (notch, band-pass); output independent of block size. |
+| `quality.py` | Per-window signal-quality gate (flatline, saturation, mains, drift, dropout); an untrusted channel emits no events. |
+| `emg_onset.py` | TKEO double-threshold onset/offset with a frozen baseline, a max-hold watchdog and graded light/hard squeeze. |
+| `artifacts.py` | `BlinkDetector` (with the double-blink gesture) and `JawClenchDetector` (with a speech guard). |
+| `calibration.py` | RELAX / SQUEEZE_LIGHT / SQUEEZE_HARD (+ optional BLINK_X3 / CLENCH_X3) session to a local `0600` JSON profile with no raw samples; the profile's `thresholds` map is the hook detectors are built from. |
+| `speechguard.py` | `SpeechGuard`: combines dictation-recording, VAD and TTS flags into the `speech_guard` callable the jaw-clench detector takes (hangover, stuck-source watchdog, fails closed). Audio-side state only. |
+| `fprate.py` | Activation ledger (per active exposure time), cancelled-fraction proxy with Wilson interval, budget governor: desensitize, then suspend, auto-recover with backoff, one-action `release()`; persists aggregate counters only ([ADR-v2-153](adr/adr-v2-153-biosignal-false-positive-governor.md)). |
+| `evaluate.py` | Evaluation harness: recall, precision and latency against scripted events, and phantom activations per hour on an idle stream, with intervals and a synthetic-data caveat. |
+| `fieldtest.py` | In-situ field test: a guided session of ordinary activity (rest, speech, chew, typing, movement, then a cued gesture per switch) that counts phantom activations per usable hour by activity and the hit rate, with Poisson upper bounds and Wilson intervals; `FieldTestAggregate` merges reports. Counts and whole-second durations only; clock-injected, no I/O. |
+| `boards.py` | A small table of known boards and their BrainFlow ids (advice for choosing `[biosignal] source`; stdlib only, opens nothing). |
+| `sources.py` | `SyntheticSource`, `FileReplaySource` (CSV, `.npz`, EDF/BDF, XDF), `BrainFlowBlockSource`, `RecordingTap`, and `open_source` for `synthetic`, `file:`, `brainflow:`, `lsl:`, `thinkgear:`, `bitalino:` and `myo:`; every device module is imported only for its own scheme. |
+| `lsl_source.py` | Lab Streaming Layer inlet; liblsl pinned to machine-only discovery before its first call, foreign hosts refused (ADR-019). `pylsl` lazy (`lsl` extra). |
+| `thinkgear.py`, `bitalino.py` | Pure packet/frame parsers (checksum, CRC-4, sequence gaps) for NeuroSky ThinkGear and PLUX BITalino, plus pyserial transports (`emg` extra). Vendor attention/blink scores are never used. |
+| `myo.py` | Myo armband raw EMG over Bluetooth LE (`myohw.h` protocol); bleak on a background thread behind a bounded drop-oldest queue (`ble` extra). |
+| `edf.py`, `xdf.py` | Pure EDF/EDF+/BDF reader and writer (annotations become ground-truth events); XDF via `pyxdf` (`xdf` extra). |
+| `integrity.py`, `conformance.py` | Stream-integrity guard wrapped round every daemon source (gaps, overlaps, rate drift, stalls, layout changes, non-finite samples close the gate until 1 s of clean stream), and the source conformance kit behind `yazses biosignal check-source`. |
+| `pipeline.py`, `runner.py` | `BiosignalPipeline` (pure: blocks in, events out) and `BiosignalRunner` (the thread, `mode_map` / `intent_map`, stuck-hold watchdog, status). |
+| `cli_impl.py` | The `yazses biosignal` command bodies, the `BiosignalActivationSource` adapter the daemon starts, and the ledger counters file. |
+
+**Invariant: an untrusted signal never produces an event, and a hold can never stay open.** The quality
+gate (judging every hop, with lead-off and common-mode checks) suppresses events from a flat, clipped,
+mains-dominated, drifting, gappy or lifted channel; the squeeze detector blanks itself on a DC step, pop
+or saturation; the max-hold watchdog, the runner's no-blocks watchdog (`watchdog_seconds`) and the
+stop/suspend/error path close any open hold. **A calibration profile for another board, channel set,
+rate or age is not used** (fail closed; the squeeze stays off until recalibrated). **The governor
+escalates in one order, desensitize then suspend, and a suspension heals itself or ends on one user
+action**; a stream gap does not erase its verdict. The ledger counters are autosaved periodically so a
+killed daemon keeps its measurement, and the daemon adapter enforces the global hands-free pause
+(ADR-v2-148) by releasing and latching a held squeeze and by pausing exposure accounting. The daemon
+status payload carries an aggregate `biosignal` block, and shutdown is ordered (release, save, then
+join). Every number is a design choice validated on synthetic signal; the spec's "Round-3 status" table
+is the authority for what is present.
+**No new egress path:** the package opens no socket and adds nothing to ADR-019's inventory;
+recordings, profiles and field-test reports are local-only, and the biometric-adjacent ones are never
+transmitted (threat model section 9).
+
 ### `src/yazses/overlay/` (voice-activity overlay, `yazses-overlay`)
 
 Standalone process (separate from the daemon, which is blocked by the hotkey

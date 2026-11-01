@@ -103,6 +103,15 @@ characters to the remote program exactly as if you had typed them. The remote
 machine needs no microphone, no GPU and no speech engine, and no audio ever
 leaves your laptop.
 
+## Can I control YazSes with a brain-sensing headset?
+
+Not by thinking words. Consumer EEG headsets do not read intended words, and YazSes does not
+try to. The experimental biosignal switch can use a muscle squeeze, a deliberate double blink or a
+jaw clench. These are muscle and eye signals that reach the headset's electrodes. The feature is
+experimental and off by default, and it has not yet been tested on real hardware. See
+[hands-free computing with a muscle, blink or jaw-clench switch](use-cases/biosignal-hands-free.md)
+and [muscle and brain control: what works](research/muscle-brain-control.md).
+
 ## Can YazSes run voice commands, not just dictation?
 
 Yes. A fast regex command grammar maps spoken phrases like *"undo that"*, *"save file"*, or

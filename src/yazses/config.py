@@ -1056,6 +1056,108 @@ class ActivationConfig:
 
 
 @dataclass
+class BiosignalConfig:
+    """Artifact-grade EEG/EMG/EOG switches (ADR-v2-152). OFF by default; EXPERIMENTAL.
+
+    A research-grade biosignal board (BrainFlow-compatible: OpenBCI, Muse, ...) feeds a
+    streaming pipeline that reports only the *reliable* things an electrode can tell a
+    computer -- a muscle squeeze (and how hard), a double blink, a jaw clench. It never
+    decodes "thoughts" (ADR-v2-129). Each detection is a switch press: it drives the same
+    hold-to-talk / hold-to-command callbacks as ``[emg]``, or a single command through the
+    activation confirmation gate (``[activation]``), so a mistaken press costs one
+    cancellable action rather than a typed paragraph.
+
+    Nothing here is imported, started or opened until ``enabled`` is true *and* ``source``
+    names a board, a recording or the synthetic generator. Measure your own false-positive
+    rate with `yazses biosignal report` before trusting a switch.
+    """
+    enabled: bool = False
+    # Where samples come from. Empty = no source = nothing starts, even with `enabled`.
+    # `synthetic` is a built-in generator that needs no hardware (for `yazses biosignal
+    # monitor`/`doctor` and for trying the pipeline); `file:<path>` replays a recording
+    # (CSV, .npz, EDF/EDF+/BDF, or XDF with the `xdf` extra);
+    # `brainflow:<board_id>[:<serial port>]` opens a board `yazses biosignal boards` lists
+    # (others are refused, network boards included),
+    # e.g. `brainflow:0:/dev/ttyUSB0` for an OpenBCI Cyton (needs the `brainflow` package;
+    # run `yazses biosignal doctor` to see what is installed and which ports are visible).
+    # `lsl:<stream name>` or `lsl:type=EEG` reads a Lab Streaming Layer stream published
+    # on this machine only (`lsl` extra); `thinkgear:<port>` a NeuroSky headset and
+    # `bitalino:<port>` a BITalino board (`emg` extra); `myo:<address>` a Myo armband's raw
+    # EMG over Bluetooth LE (`ble` extra).
+    source: str = ""
+    # Powerline frequency, 50 or 60 Hz: the notch the filters place on the mains hum that
+    # otherwise swamps microvolt signals. 50 is the default because most of the world
+    # (Europe, Africa, Asia, Oceania) runs 50 Hz mains; set 60 in the Americas, South
+    # Korea, Taiwan and western Japan. A wrong value leaves the real hum in the signal and
+    # raises the false-positive rate; `yazses biosignal monitor` reports hum it sees.
+    mains_hz: int = field(default=50, metadata={"min": 50, "max": 60})
+    # Which detectors run. Muscle squeeze needs an EMG channel (forearm, jaw or face).
+    emg: bool = True
+    # A deliberate double blink, read from a frontal EEG or an EOG channel. On because a
+    # single blink is involuntary (about 15 a minute), but two quick ones are a gesture
+    # almost no one makes by accident; still dormant until `enabled` and a source are set.
+    double_blink: bool = True
+    # A deliberate jaw clench, read from a temporal/frontal channel. Off by default: chewing,
+    # talking and yawning all clench the jaw, so it is the likeliest to fire by mistake and
+    # should be turned on only after `yazses biosignal replay`/`report` show a low rate.
+    jaw_clench: bool = False
+    # Squeeze strength -> what the squeeze does, using the same two modes as `[emg] mode`:
+    # command or full_text. A light squeeze types what you say; a hard one speaks a command.
+    # Keys are strength labels: light, hard, and on (a detector that reports a squeeze
+    # without a strength). A strength left out is ignored, so removing `hard` leaves a
+    # single-strength switch rather than guessing a mode for it.
+    mode_map: dict[str, str] = field(
+        default_factory=lambda: {"light": "full_text", "hard": "command"}
+    )
+    # Discrete events -> a command phrase the command grammar knows (not free text), run
+    # through the `[activation]` confirmation gate. Undo by default for a double blink,
+    # because undo is the one action that is always safe to run by mistake. Events left out
+    # (jaw_clench by default) do nothing.
+    intent_map: dict[str, str] = field(default_factory=lambda: {"double_blink": "undo"})
+    # False-positive budget: how many activations you may cancel (undo) per hour. Past it the
+    # guard first DESENSITIZES the detectors (they become harder to trigger); if the cancelled
+    # rate stays above the budget it then SUSPENDS them and says so. A suspended switch comes
+    # back with one action from you (`yazses handsfree resume`) or when its timer ends -- it
+    # never re-enables itself while the rate is still too high. A cancelled activation is the
+    # only false positive the system can observe directly, so this is the measured guard.
+    # 0 = no budget: the rate is still counted, nothing is ever desensitized or suspended.
+    max_cancelled_per_hour: float = 6.0
+    # How often the session's activation counters (the data behind `yazses biosignal report`)
+    # are written to disk while the daemon runs, in seconds. The counters are also written on
+    # a clean stop; the periodic write exists so a crash or power loss costs at most this
+    # much of the false-positive record.
+    ledger_autosave_seconds: float = field(default=60.0, metadata={"min": 5.0, "max": 3600.0})
+    # Suppress the jaw-clench detector while you are speaking (a dictation turn is being
+    # recorded, plus a short hangover after it). On by default because talking moves the jaw
+    # and the masseter/temporalis EMG with it: without the guard ordinary speech is the most
+    # likely thing to read as a clench. Turn it off only to measure the unguarded rate
+    # (`yazses biosignal report`); it has no effect while `jaw_clench` is off.
+    speech_guard: bool = True
+    # Path of the saved calibration profile (`yazses biosignal calibrate`); empty = the
+    # default file in the data directory. Thresholds come from your own signal, never a
+    # population average, which is why a switch without a profile stays conservative.
+    calibration_file: str = ""
+    # How old a saved calibration profile may be before the switches that depend on it
+    # (double blink, jaw clench) fall back to their conservative built-ins and say so. 30 days
+    # because skin impedance, electrode placement and fatigue drift over weeks, not hours: a
+    # month-old profile is usually still close, a quarter-old one is a guess. Recalibrating
+    # takes a minute (`yazses biosignal calibrate`). Bounds 1..365 days.
+    calibration_max_age_days: float = field(default=30.0, metadata={"min": 1.0, "max": 365.0})
+    # Stuck-key watchdog: if no sample block arrives for this long while a squeeze is held
+    # (cable pulled, Bluetooth stall, board crash) the held dictation turn is released. 1.5 s
+    # because a healthy board delivers a block every few tens to ~250 ms, so a gap of six
+    # times the slowest is a dead stream rather than jitter, yet a microphone left open by a
+    # vanished device never stays open for long. Bounds 0.5..30 seconds.
+    watchdog_seconds: float = field(default=1.5, metadata={"min": 0.5, "max": 30.0})
+    # Events whose confidence is below this are dropped before they become a switch press.
+    # 0.0 = accept whatever the detector reports (the detectors already apply the thresholds
+    # from your calibration); raise it to trade missed presses for fewer false ones. The
+    # false-positive guard (`max_cancelled_per_hour`) lifts the effective floor on its own
+    # when it desensitizes. Releasing a held squeeze is never gated by this. Bounds 0..1.
+    min_event_confidence: float = field(default=0.0, metadata={"min": 0.0, "max": 1.0})
+
+
+@dataclass
 class ModalityConfig:
     """v2.0.0 Wave C — sEMG Command Layer & Modality Role Router (ADR-v2-011).
 
@@ -2321,6 +2423,7 @@ class Config:
     pilot: PilotConfig = field(default_factory=PilotConfig)
     modality: ModalityConfig = field(default_factory=ModalityConfig)
     activation: ActivationConfig = field(default_factory=ActivationConfig)
+    biosignal: BiosignalConfig = field(default_factory=BiosignalConfig)
     continuum: ContinuumConfig = field(default_factory=ContinuumConfig)
     bridge: BridgeConfig = field(default_factory=BridgeConfig)
     translate: TranslateConfig = field(default_factory=TranslateConfig)
@@ -2568,6 +2671,7 @@ def load_config_checked(path: Path | None = None) -> LoadedConfig:
     config = Config(**sections)
     problems.extend(_chord_problems(config))
     problems.extend(_switch_problems(config))
+    problems.extend(_biosignal_problems(config))
     config = _apply_presets(config)
     # After the presets, so the pair judged is the one the daemon will build (#515).
     problems.extend(language_pairing_problems(config))
@@ -2598,6 +2702,88 @@ def _switch_problems(config: Config) -> list[ConfigProblem]:
     except Exception:  # a mapping check must never be what stops the daemon starting
         return []
     return [ConfigProblem("facegesture", "switches", reason, False) for reason in refused]
+
+
+#: The strength labels `[biosignal] mode_map` may name, and the modes they may map to.
+_BIOSIGNAL_STRENGTHS = ("light", "hard", "on")
+_BIOSIGNAL_MODES = ("command", "full_text")
+#: The discrete events `[biosignal] intent_map` may name.
+_BIOSIGNAL_EVENTS = ("double_blink", "jaw_clench")
+
+
+def _biosignal_problems(config: Config) -> list[ConfigProblem]:
+    """Why any ``[biosignal]`` map entry will not be used, found at load, not at fire time.
+
+    ``mode_map`` and ``intent_map`` are free tables, so the type check cannot see a
+    mistyped mode -- and a mistyped mode that fell through to the other branch would turn a
+    command squeeze into typed dictation (the `[emg] mode` failure, repeated per entry).
+    Entries are reported and then left to the runtime, which ignores what it cannot honour.
+    Reads plain data only: nothing from ``yazses.biosignal`` is imported, so a config that
+    never sets the section pays nothing. Never raises.
+    """
+    bio = config.biosignal
+    if not bio.enabled:
+        return []
+    problems: list[ConfigProblem] = []
+    try:
+        for strength, mode in bio.mode_map.items():
+            if strength not in _BIOSIGNAL_STRENGTHS:
+                problems.append(ConfigProblem(
+                    "biosignal", "mode_map",
+                    f"{strength!r} is not a squeeze strength ({', '.join(_BIOSIGNAL_STRENGTHS)}); ignored",
+                    False))
+            elif str(mode).strip().lower() not in _BIOSIGNAL_MODES:
+                problems.append(ConfigProblem(
+                    "biosignal", "mode_map",
+                    f"{strength} = {mode!r} is not a mode ({', '.join(_BIOSIGNAL_MODES)}); ignored",
+                    False))
+        for event, phrase in bio.intent_map.items():
+            if event not in _BIOSIGNAL_EVENTS:
+                problems.append(ConfigProblem(
+                    "biosignal", "intent_map",
+                    f"{event!r} is not an event ({', '.join(_BIOSIGNAL_EVENTS)}); ignored", False))
+            elif not str(phrase).strip():
+                problems.append(ConfigProblem(
+                    "biosignal", "intent_map", f"{event} has an empty command; ignored", False))
+        if bio.max_cancelled_per_hour < 0:
+            problems.append(ConfigProblem(
+                "biosignal", "max_cancelled_per_hour",
+                f"{bio.max_cancelled_per_hour} is negative; use 0 for no budget", False))
+        # The metadata bounds reject these at load; this names a value that is out of range
+        # (or NaN, which a plain comparison misses) in the same place as the map problems.
+        for key, low_b, high_b in (("calibration_max_age_days", 1.0, 365.0),
+                                   ("watchdog_seconds", 0.5, 30.0),
+                                   ("min_event_confidence", 0.0, 1.0)):
+            value = float(getattr(bio, key))
+            if not (low_b <= value <= high_b):
+                problems.append(ConfigProblem(
+                    "biosignal", key,
+                    f"{value} is outside {low_b:g}..{high_b:g}; the default is used instead",
+                    False))
+        if not (bio.emg or bio.double_blink or bio.jaw_clench):
+            problems.append(ConfigProblem(
+                "biosignal", "emg",
+                "emg, double_blink and jaw_clench are all off; no detector runs, so the "
+                "source streams but nothing can fire", False))
+        # The blink/clench intents go through the `[activation]` gate, whose two thresholds
+        # the daemon now reads for them: a floor above the threshold would reject every
+        # intent that should have asked for a confirmation, so say so at load.
+        act = config.activation
+        if act.enabled:
+            low, high = float(act.reject_floor), float(act.confirm_threshold)
+            if not (0.0 <= low <= 1.0 and 0.0 <= high <= 1.0):
+                problems.append(ConfigProblem(
+                    "activation", "confirm_threshold",
+                    "confirm_threshold and reject_floor are confidences and must be between "
+                    "0 and 1; biosignal intents use the built-in 0.90 / 0.50 instead", False))
+            elif low > high:
+                problems.append(ConfigProblem(
+                    "activation", "reject_floor",
+                    f"reject_floor {low} is above confirm_threshold {high}; biosignal "
+                    "intents use the built-in 0.90 / 0.50 instead", False))
+    except Exception:  # a map check must never be what stops the daemon starting
+        return []
+    return problems
 
 
 def _chord_problems(config: Config) -> list[ConfigProblem]:

@@ -313,6 +313,108 @@ def _generated(dest: str, content: str, config: Any):  # noqa: ANN401
 
 
 # --------------------------------------------------------------------------- #
+# Search metadata
+# --------------------------------------------------------------------------- #
+# A page with no `description` of its own inherits the site-wide one, so every
+# engineering page told a search engine the same thing: ~380 of the ~400 design pages
+# carried one identical description (Bing flags that as "identical meta descriptions"),
+# and the decision records, whose H1 is a full sentence, produced `<title>` text of 100+
+# characters. Both are derived here from the document itself, and only when the author
+# has not written one: front matter always wins, and the visible H1 is never changed.
+
+#: MkDocs Material appends " - YazSes" to the `<title>`; search results show about 60.
+_TITLE_BUDGET = 60 - len(" - YazSes")
+
+#: Search results show roughly 155-160 characters of a description.
+_DESCRIPTION_BUDGET = 155
+
+_H1 = re.compile(r"^#\s+(.+?)\s*$", re.M)
+_METADATA_LINE = re.compile(r"^\*\*[A-Za-z][A-Za-z ]{0,30}:\*\*")
+
+
+def _short_title(title: str, budget: int = _TITLE_BUDGET) -> str:
+    """*title*, shortened to *budget* characters without cutting a word in half.
+
+    Prefers the clause before the first ``: `` or ``; `` (decision-record titles read
+    ``ADR-028 — Feature add-on packs: a frozen install fetches ...``), falls back to the
+    last word that fits, and never returns an empty string.
+    """
+    title = " ".join(title.split())
+    if len(title) <= budget:
+        return title
+    for separator in (": ", "; "):
+        head, found, _rest = title.partition(separator)
+        # `>= 12` keeps a leading "ADR-028:" from being taken as the whole title.
+        if found and 12 <= len(head) <= budget:
+            return head
+    cut = title[: budget + 1].rsplit(" ", 1)[0].rstrip(" ,;:—-")
+    return cut if len(cut) >= 12 else title[:budget].rstrip(" ,;:—-")
+
+
+def _plain(text: str) -> str:
+    """Markdown inline syntax removed, for use in a meta description."""
+    text = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", text)              # images
+    text = re.sub(r"\[\[([^\]|]+)(?:\|[^\]]*)?\]\]", r"\1", text)  # [[wiki]] links
+    text = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", text)           # [text](url)
+    text = re.sub(r"<[^>]+>", "", text)                            # raw HTML
+    text = re.sub(r"[`*_]{1,3}", "", text)                         # code and emphasis marks
+    return " ".join(text.split())
+
+
+def _fit(text: str, budget: int = _DESCRIPTION_BUDGET) -> str:
+    """*text* cut to *budget* characters, at a sentence end when one is near enough."""
+    if len(text) <= budget:
+        return text
+    window = text[: budget + 1]
+    ends = [m.end() for m in re.finditer(r"[.!?](?=\s)", window)]
+    if ends and ends[-1] >= 70:
+        return window[: ends[-1]].rstrip()
+    return window[:budget].rsplit(" ", 1)[0].rstrip(" ,;:—-") + "…"
+
+
+def _describe(markdown: str) -> str:
+    """A description from the document's first real prose paragraph, or ``""``.
+
+    Skips headings, tables, lists, quotes, code, admonitions and the ``**Status:**``-style
+    metadata block that decision records open with, so the text is what a reader would
+    meet first, not the bookkeeping.
+    """
+    for block in re.split(r"\n\s*\n", markdown):
+        block = block.strip()
+        if not block or block.startswith(("#", "|", ">", "```", "---", "<", "!", "-", "+", "1.", ":")):
+            continue
+        if _METADATA_LINE.match(block):
+            continue
+        text = _plain(block)
+        if len(text) >= 40:
+            return _fit(text)
+    return ""
+
+
+def _search_metadata(markdown: str, page: Any) -> None:  # noqa: ANN401 - mkdocs passes its own types
+    """Fill in a description and a short `<title>` (`seo_title`) for a design page that has neither."""
+    meta = getattr(page, "meta", None)
+    if not isinstance(meta, dict):
+        return
+    heading = _H1.search(markdown)
+    full = _plain(heading.group(1)) if heading else ""
+    if not meta.get("description"):
+        described = _describe(markdown)
+        if not described and full:
+            # No prose paragraph to quote (a document that opens with a table, say):
+            # a description built from the title still beats the site-wide one.
+            described = _fit(f"{_short_title(full, 90)}. Part of the YazSes engineering and science documentation.")
+        if described:
+            meta["description"] = described
+    if full and not meta.get("title"):
+        shortened = _short_title(full)
+        if shortened != full:
+            # `seo_title`, not `title`: `title` would also relabel Material's header bar.
+            # `overrides/main.html` reads this key for the `<title>` tag only.
+            meta["seo_title"] = shortened
+
+
+# --------------------------------------------------------------------------- #
 # Link rewriting
 # --------------------------------------------------------------------------- #
 # A file under `design/` is written to be read on GitHub, where `../../docs/x.md`
@@ -335,6 +437,8 @@ def on_page_markdown(markdown: str, page: Any = None, config: Any = None, **_: A
     src = getattr(getattr(page, "file", None), "src_uri", "") or ""
     if not src.startswith("design/"):
         return markdown
+
+    _search_metadata(markdown, page)
 
     repo_url = (config or {}).get("repo_url", "https://github.com/MSKazemi/yazses").rstrip("/")
 

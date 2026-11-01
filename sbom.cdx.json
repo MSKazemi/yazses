@@ -2256,6 +2256,20 @@
     },
     {
       "type": "library",
+      "name": "pylsl",
+      "version": "1.18.6",
+      "purl": "pkg:pypi/pylsl@1.18.6",
+      "bom-ref": "pkg:pypi/pylsl@1.18.6",
+      "scope": "optional",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f6eed95cc8eb75fe6bf2bcc1f5c1d91672b0cf56c528e93aca07569ffffe2be0"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "name": "pymdown-extensions",
       "version": "11.0.1",
       "purl": "pkg:pypi/pymdown-extensions@11.0.1",
@@ -2629,6 +2643,20 @@
       "purl": "pkg:pypi/pywin32@312",
       "bom-ref": "pkg:pypi/pywin32@312",
       "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "pyxdf",
+      "version": "1.18.0",
+      "purl": "pkg:pypi/pyxdf@1.18.0",
+      "bom-ref": "pkg:pypi/pyxdf@1.18.0",
+      "scope": "optional",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "9aa78f3c7c50020f0fa30a04f094d7966b3eefde570e488d3ddef40de5c00f31"
+        }
+      ]
     },
     {
       "type": "library",

@@ -74,6 +74,8 @@ EXTRA_MODULES: dict[str, tuple[str, ...]] = {
     "desktop": ("PySide6",),
     "denoise": ("noisereduce",),
     "emg-band": ("brainflow",),
+    "lsl": ("pylsl",),
+    "xdf": ("pyxdf",),
     "diarization": ("sherpa_onnx",),
     # The alternative diarizer. Mapped by its dotted name rather than the bare
     # `pyannote` namespace, which is shared with pyannote.core/pyannote.database

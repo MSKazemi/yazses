@@ -32,6 +32,8 @@ NOT_A_TOGGLE: dict[str, str] = {
            "`yazses doctor`'s EMG BLE row names the install",
     "emg": "USB EMG, selected by `[emg] device_port`, not a toggle",
     "emg-band": "the brainflow band source for EMG, a hardware choice, not a toggle",
+    "lsl": "the Lab Streaming Layer biosignal source, a hardware choice, not a toggle",
+    "xdf": "replays LabRecorder .xdf files for the biosignal switch, a file format, not a toggle",
     "lsp": "the `yazses lsp` editor server, a command rather than a capability toggle",
     "silero": "`[meeting] vad_backend = \"silero\"`, a backend choice inside Meeting Mode",
     "voiceprint-resemblyzer": "an alternative `[voiceprint] backend`; its probe names "
