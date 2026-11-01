@@ -13,9 +13,11 @@ site-wide sentence (Bing's webmaster report flags this as identical meta descrip
 heading is a whole sentence, produced `<title>` text of 100 characters or more. `hooks/design_tier.py` now derives both
 from the document when its front matter does not set them: the description is the first real prose paragraph (skipping
 the `**Status:**` block, headings, tables, lists and code), cut at a sentence end within 155 characters; the `<title>`
-is the heading shortened at its first colon or semicolon, or at a word, to fit 60 characters with the site name (through a
-`seo_title` key that `overrides/main.html` reads for the `<title>` tag only). The page heading, the header-bar label and the
-body are unchanged, and front matter written by hand always wins. Nothing about which files are published changed.
+is the heading shortened to fit 60 characters with the site name, ending at the last clause boundary that fits (a colon,
+a semicolon, a parenthesis, a dash or a comma) or, failing that, at a word, and never on an open parenthesis or a
+dangling word such as "a" or "with" (through a `seo_title` key that `overrides/main.html` reads for the `<title>` tag
+only). The page heading, the header-bar label and the body are unchanged, and front matter written by hand always wins.
+Nothing about which files are published changed.
 
 ## [2.47.0] - 2026-10-31
 
