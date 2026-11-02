@@ -6,6 +6,23 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — Persian dictation no longer loses words to the vocabulary corrector
+
+- **A Latin hotword deleted the Persian words after it.** `[stt] vocab_correction` joined a window
+  of tokens and matched it against a vocabulary term: "مهسا گفت Kubernetis را نصب کن" came out as
+  "مهسا گفت Kubernetes", with "را نصب کن" gone. Only Latin-script tokens can now take part in a match.
+- **Persian words were rewritten to unrelated Persian words.** The phonetic key encodes only Latin
+  consonant classes, so every Persian word with the same first letter shared one key: "خانه" became
+  "خانم" and "کتاب را" became "کتابی" when those were in the vocabulary. Persian tokens are no longer
+  candidates. Latin hotwords are still corrected, as before.
+- **The hallucination guard dropped Persian sentences that ended in an English outro.** Its check
+  erased every non-Latin letter before matching, so "این ویدیو را ببین thanks for watching" was
+  dropped as the bare ghost phrase. Text with a non-ASCII letter is now never judged a ghost phrase
+  or a repetition loop. English output is unchanged.
+- **Self-learning corrections rewrote the first half of a Persian compound.** A correction for "کتاب"
+  turned "کتاب‌ها" into "دفتر‌ها". A ZWNJ (U+200C) now counts as part of the word for the match
+  edges. Whole English words match as before.
+
 ## [2.48.0] - 2026-11-02
 
 ### Added — the latency governor's second model can be released when idle (opt-in)

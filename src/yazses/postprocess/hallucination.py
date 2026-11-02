@@ -9,8 +9,6 @@ from __future__ import annotations
 
 import re
 
-from yazses.postprocess.han_script import contains_han
-
 # Video-outro artefacts Whisper hallucinates on silence — phrases nobody dictates. Matched
 # ONLY against the entire cleaned transcript (never as substrings), so real speech is safe.
 _GHOST_PHRASES = frozenset(
@@ -32,14 +30,20 @@ def _norm(text: str) -> str:
     return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9 ]", " ", (text or "").lower())).strip()
 
 
+def _has_non_ascii_letter(text: str) -> bool:
+    """True when *text* holds a letter outside ASCII (Han, Arabic-script, Cyrillic, accents)."""
+    return any(not ch.isascii() and ch.isalpha() for ch in text)
+
+
 def is_ghost_phrase(text: str) -> bool:
     """True if the whole cleaned transcript is a known Whisper ghost/outro phrase. Pure.
 
-    Text holding Han characters is never a ghost phrase: ``_norm`` keeps only ``[a-z0-9 ]``,
-    so it would erase the Han words and judge the Latin remainder alone, dropping a real
-    sentence such as ``我们 thanks for watching 然后`` (#501).
+    Text holding a non-ASCII letter is never a ghost phrase: ``_norm`` keeps only ``[a-z0-9 ]``,
+    so it would erase those letters and judge the Latin remainder alone. A real sentence such as
+    ``我们 thanks for watching 然后`` (#501), or Persian ``این ویدیو را ببین thanks for watching``,
+    would be dropped as the bare English outro.
     """
-    if contains_han(text):
+    if _has_non_ascii_letter(text):
         return False
     return _norm(text) in _GHOST_PHRASES
 
@@ -62,11 +66,12 @@ def is_repetition_loop(text: str, min_repeats: int = 3) -> bool:
 
     The trailing remainder must be a **prefix of the unit**, which is what an interrupted
     repeat looks like; anything else is a different phrase and the text is left alone.
-    Pure. Text holding Han characters is never judged a loop (see :func:`is_ghost_phrase`):
+    Pure. Text holding a non-ASCII letter is never judged a loop (see :func:`is_ghost_phrase`):
     the Han words are erased by ``_norm``, so ``我们 no no no no no 然后`` would otherwise
-    be dropped as the English loop "no no no no no".
+    be dropped as the English loop "no no no no no". The same holds for any non-ASCII letter:
+    Persian ``no no no no روز`` keeps its Persian word, so it is not judged as a loop.
     """
-    if contains_han(text):
+    if _has_non_ascii_letter(text):
         return False
     words = _norm(text).split()
     n = len(words)
