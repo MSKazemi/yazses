@@ -1408,8 +1408,9 @@ uploaded.
 - **`wordfind`** ranks a small built-in lexicon by content-word overlap with your
   description; extend it with `--lexicon` (a JSON `{word: definition}` object).
 - **`cite`** parses a local `.bib`, matches a spoken `author year` query, and formats
-  the entry (`--style latex|plain|apa`: `\cite{key}`, `Vaswani et al. 2017`,
-  `Vaswani et al. (2017)`); an unknown style exits 2 and lists the valid ones. A `.bib`
+  the entry (`--style latex|plain|apa`: `\cite{key}` or `Vaswani et al. (2017)`; `plain`
+  currently prints the same as `apa`, its own format is undecided); an unknown style exits
+  2 and lists the valid ones. A `.bib`
   that is not UTF-8 is read as Latin-1. Exits non-zero if the file has no entries, the
   query is empty, or nothing matches confidently.
 - **`slotfill`** extracts structured fields from one utterance: each `--slot` is either

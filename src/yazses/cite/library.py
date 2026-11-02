@@ -94,9 +94,9 @@ def resolve_citation(query: str, entries):
 def format_citation(entry: Entry, style: str = "latex") -> str:
     """Format an :class:`Entry` as ``latex``, ``plain`` or ``apa``. Pure.
 
-    ``latex`` is ``\\cite{key}``; ``plain`` is ``Vaswani et al. 2017``; ``apa`` is
-    ``Vaswani et al. (2017)``. An unknown style raises ``ValueError`` rather than falling
-    through to one of them.
+    ``latex`` is ``\\cite{key}``. ``apa`` is ``Vaswani et al. (2017)``. ``plain`` currently
+    prints exactly the same as ``apa``: its own format is undecided, so it is not a separate
+    style yet. An unknown style raises ``ValueError`` rather than falling through.
     """
     if style not in CITATION_STYLES:
         raise ValueError(
@@ -108,6 +108,6 @@ def format_citation(entry: Entry, style: str = "latex") -> str:
     label = entry.authors.split(",")[0].split(" and ")[0].strip() if entry.authors else entry.key
     lead = label.split()[-1] if label and "," not in label else (label.split(",")[0] if label else entry.key)
     who = f"{lead} et al." if len(surnames) > 1 else lead
-    if style == "plain":
-        return f"{who} {entry.year}"
+    # "plain" is accepted and prints what it always printed (the APA form) until its own
+    # format is decided; see CHANGELOG.
     return f"{who} ({entry.year})"

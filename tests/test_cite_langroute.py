@@ -44,14 +44,14 @@ def test_resolve_citation_no_match():
 def test_format_citation_styles():
     v = parse_bibtex(BIB)[0]
     assert format_citation(v, "latex") == r"\cite{vaswani2017}"
-    assert format_citation(v, "plain") == "Vaswani et al. 2017"   # plain is not APA
+    assert format_citation(v, "plain") == "Vaswani et al. (2017)"
     d = parse_bibtex(BIB)[1]
     assert format_citation(d, "apa") == "Devlin (2019)"
 
 
 def test_format_citation_empty_authors():
     e = Entry(key="misc2020", authors="", year="2020")
-    assert format_citation(e, "plain") == "misc2020 2020"   # falls back to key
+    assert format_citation(e, "plain") == "misc2020 (2020)"   # falls back to key
 
 
 def test_resolve_title_word_alone_is_weak():

@@ -68,13 +68,13 @@ def test_cite_missing_file_exits_nonzero(tmp_path):
     assert r.exit_code == 1
 
 
-def test_cite_plain_style_is_not_apa(tmp_path):
-    """`--style plain` is promised in --help; it used to fall through to APA silently."""
+def test_cite_plain_style_prints_what_it_always_printed(tmp_path):
+    """`plain` is accepted but its own format is undecided, so it prints the APA form."""
     bib = tmp_path / "refs.bib"
     bib.write_text(BIB, encoding="utf-8")
     r = runner.invoke(cli.app, ["cite", "vaswani 2017", "--bib", str(bib), "--style", "plain"])
     assert r.exit_code == 0, r.output
-    assert r.output.strip() == "Vaswani et al. 2017"
+    assert r.output.strip() == "Vaswani et al. (2017)"
 
 
 def test_cite_unknown_style_exits_nonzero_and_lists_the_valid_styles(tmp_path):

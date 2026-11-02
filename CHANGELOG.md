@@ -8,8 +8,9 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed — `yazses cite` and `yazses vocab import` failed silently or with a traceback
 
-- `cite --style plain` printed APA output, and `--style bogus` also printed APA with exit 0.
-  `plain` is now `Vaswani et al. 2017`; an unknown style exits 2 and lists `latex, plain, apa`.
+- `cite --style bogus` printed APA output with exit 0. An unknown style now exits 2 and lists
+  `latex, plain, apa`. `--style plain` still prints the same as `apa` (`Vaswani et al. (2017)`):
+  its own format is undecided, so it is not yet a separate style.
 - A non-UTF-8 `.bib` passed to `cite` raised `UnicodeDecodeError`. It is now read as UTF-8,
   then Latin-1. A binary file passed to `vocab import` (or to `-` on stdin) now fails with a
   one-line message naming the file and that it is not UTF-8, exit 1, and writes nothing.
