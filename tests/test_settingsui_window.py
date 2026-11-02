@@ -653,3 +653,60 @@ def test_a_category_with_an_ampersand_is_titled_as_written(qapp):
     assert with_amp, "no category has an & any more -- this test guards nothing"
     for title in with_amp:
         assert "&&" in title and "& " not in title.replace("&&", ""), title
+
+
+# --- a pinned microphone the user did not touch ------------------------------
+#
+# A pin is a name fragment, and the device may be unplugged. If the dropdown has
+# no row carrying the pinned value it falls back to "Follow the system default",
+# and an untouched Apply then reads that as a change and erases the pin.
+
+
+def _pinned_window(qapp, monkeypatch, pinned, devices):
+    from yazses.settingsui import app as app_mod
+
+    rec = _Recorder()
+    controller = SettingsController(rec.load, rec.write, rec.probe)
+    cfg = Config()
+    cfg.audio.device = pinned
+    win = SettingsWindow(build_settings_model(cfg), controller)
+    monkeypatch.setattr(
+        app_mod.SettingsWindow, "_probe_devices", lambda self: (devices, None), raising=True
+    )
+    win._confirm_experimental = lambda row: True  # type: ignore[method-assign]
+    win._confirm_reset = lambda diff, labels: True  # type: ignore[method-assign]
+    win._warn = lambda title, body: None  # type: ignore[method-assign]
+    win._daemon_running = lambda: False  # type: ignore[method-assign]
+    win._daemon_status = lambda: None  # type: ignore[method-assign]
+    win._confirm_restart = lambda: False  # type: ignore[method-assign]
+    win._run_restart = lambda: (False, "not in a test")  # type: ignore[method-assign]
+    return win, rec
+
+
+def _mic_writes(rec):
+    return [w for w in rec.writes if w[:2] == ("audio", "device")]
+
+
+@pytest.mark.parametrize(
+    ("pinned", "devices"),
+    [
+        ("USB Audio", []),  # unplugged: no device matches at all
+        ("USB", ["USB Audio Device"]),  # a substring pin, device connected
+    ],
+)
+def test_an_untouched_apply_keeps_a_pinned_microphone(qapp, monkeypatch, pinned, devices):
+    from types import SimpleNamespace
+
+    win, rec = _pinned_window(
+        qapp, monkeypatch, pinned, [SimpleNamespace(name=n) for n in devices]
+    )
+    assert win._mic_box.currentData() == pinned, "the pin must be the selected row"
+    win._on_apply()
+    assert _mic_writes(rec) == [], "Apply with no change must not rewrite the pin"
+
+
+def test_choosing_follow_the_system_default_still_clears_a_pin(qapp, monkeypatch):
+    win, rec = _pinned_window(qapp, monkeypatch, "USB Audio", [])
+    win._mic_box.setCurrentIndex(0)  # "Follow the system default"
+    win._on_apply()
+    assert _mic_writes(rec) == [("audio", "device", "", True)]

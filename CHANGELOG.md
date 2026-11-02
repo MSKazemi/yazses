@@ -25,6 +25,17 @@ own `shutdown` calls, which this change does not touch.
 Not checked: a real tray on a real desktop session, and the macOS and Windows trays. The fix is
 covered by unit tests with a fake IPC client and a temporary data directory.
 
+### Fixed — Apply in Settings could erase a pinned microphone you never touched
+
+The microphone dropdown selects its row by value. A pinned `[audio] device` with no matching row
+(the device unplugged, or a substring pin such as `USB` that matches no device name exactly) fell
+back to "Follow the system default". Pressing Apply with nothing changed then read that as a
+change and wrote an empty device, clearing the pin and raising the restart prompt. Now the pinned
+value always has a row, labelled with a `not connected` (or `matches a connected device`) note,
+so an untouched Apply writes nothing for the microphone. Choosing "Follow the system default"
+still clears the pin. Not checked: a real desktop session and real audio hardware; the tests run
+offscreen with a stubbed device list.
+
 ### Fixed — the Arabic, Persian and Urdu pages showed their Markdown as raw text
 
 The right-to-left translated pages wrapped their body in a bare `<div dir="rtl">`, so headings,
