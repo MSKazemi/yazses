@@ -474,7 +474,11 @@ class SettingsWindow:
         about.setWordWrap(True)
         mute_label(about, "margin-bottom: 6px;")
         layout.addWidget(about)
-        layout.addWidget(self._build_handsfree_button())
+        # Left-aligned at its own size hint: stretched to the page, it was narrower than its
+        # text on Windows fonts at 2x ("&Open hands-free controls…" needed 624 px, had 614).
+        from PySide6.QtCore import Qt
+
+        layout.addWidget(self._build_handsfree_button(), 0, Qt.AlignmentFlag.AlignLeft)
         return page
 
     def _build_handsfree_button(self):

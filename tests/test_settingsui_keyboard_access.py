@@ -214,8 +214,13 @@ def test_no_label_or_button_is_narrower_than_its_text_on_any_page(qapp, scale):
                     else:
                         needed = metrics.horizontalAdvance(text)
                 else:
+                    # A button needs its own size hint (text, padding, and the mnemonic
+                    # handled as Qt draws it). The bare text width is kept as a floor.
                     available = widget.width()
-                    needed = metrics.horizontalAdvance(text)
+                    needed = max(
+                        widget.sizeHint().width(),
+                        metrics.horizontalAdvance(text.replace("&", "")),
+                    )
                 if needed > available:
                     problems.append(f"{spec.key}: {text[:40]!r} needs {needed}px, has {available}px")
         win._win.close()
