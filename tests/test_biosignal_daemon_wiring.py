@@ -986,3 +986,9 @@ def test_an_ordinary_squeeze_still_ends_once_on_release(tmp_path):
     assert ends == []
     d._biosignal_mode_end()
     assert ends == [1]
+
+
+def test_the_discard_count_is_on_the_status_allowlist():
+    from yazses.core.daemon import Daemon
+
+    assert "backlogs_discarded" in Daemon._BIOSIGNAL_STATUS_COUNTS

@@ -8899,7 +8899,7 @@ class Daemon:
 
     #: Counters `status` may carry from the biosignal runner: integers only, by name.
     _BIOSIGNAL_STATUS_COUNTS = ("blocks", "events", "intents", "accepted", "dropped",
-                                "watchdog_trips", "detectors")
+                                "watchdog_trips", "backlogs_discarded", "detectors")
 
     @staticmethod
     def _biosignal_label(value: object) -> str | None:

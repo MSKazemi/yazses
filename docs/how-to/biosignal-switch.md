@@ -109,11 +109,11 @@ Run `yazses biosignal --help` for exact options. The ones you will use first, in
 
 1. **`yazses biosignal doctor`** checks the chain before you trust it: the extra is installed, the source
    opens, samples arrive at the expected rate, `mains_hz` matches the interference it sees, the signal is
-   not flat or clipped, and a calibration profile exists and matches your channels. It takes the
+   not flat or clipped, and a calibration profile exists and matches your channels. It opens the
    `synthetic`, `file:` and `brainflow:` sources. For an `lsl:`, `thinkgear:`, `bitalino:` or `myo:` source
-   it reports "unknown source" and does not check the device; use `check-source` for those (see
-   [Other devices](biosignal-hardware.md#other-devices-and-recordings)) and the system-wide `yazses doctor`
-   row for their advice. Each problem comes with the reason and the fix, and the output ends with one
+   it describes the device without opening it and sends you to `check-source` (see
+   [Other devices](biosignal-hardware.md#other-devices-and-recordings)); the system-wide `yazses doctor`
+   row has their advice too. Each problem comes with the reason and the fix, and the output ends with one
    **`Verdict:`** line: either that you are ready, or the single most important next step (pick a source,
    install a library, calibrate). Read that line first. Once `[biosignal] enabled = true`, a ready verdict
    points you to `yazses biosignal field-test`; while the feature is off, it tells you to set
@@ -413,8 +413,7 @@ desensitized the switch, it raises its own effective floor on top of this.
   callback of 1 second or more on a live device, the runner discards what the device queued in the meantime
   and resets the detectors, so a gesture made during that time is ignored rather than acted on late. The
   daemon logs `discarded N queued block(s) after a slow callback`. This does not happen while a squeeze is
-  held. The count is `backlogs_discarded` in the runner's status snapshot; the `yazses status` output does
-  not show it yet. Lost serial bytes during that time are unmeasured on a real device.
+  held. The count is `backlogs_discarded` in the switch's status counts. Lost serial bytes during that time are unmeasured on a real device.
 - **Count-unit devices.** A Myo, or a gForce armband through BrainFlow, reports raw counts. The quality gate
   skips its microvolt limits for those (see [the hardware guide](biosignal-hardware.md)). Its thresholds for
   counts are untuned.

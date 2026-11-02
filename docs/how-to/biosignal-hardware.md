@@ -94,10 +94,9 @@ opens the device for a few seconds and checks that the stream is well-formed (no
 steady sample rate, consistent channels). While the switch runs, a stream that breaks those rules
 closes the switch the same way a bad electrode does.
 
-`yazses biosignal doctor` does not take these four device specs yet: it reports "unknown source" for them. Use
-`check-source` to test the stream, and the system-wide `yazses doctor` "Biosignal switch" row for what is
-missing (the extra to install, a placeholder that still needs a port, a stream name or an address). The
-`synthetic`, `file:` and `brainflow:` sources are the ones `yazses biosignal doctor` checks.
+`yazses biosignal doctor` describes these four device specs without opening them. Use `check-source` to test
+the stream, and the system-wide `yazses doctor` "Biosignal switch" row for what is missing (the extra to
+install, a placeholder that still needs a port, a stream name or an address).
 
 None of these devices has been tested with YazSes on real hardware yet. They were built and tested
 against their published protocol documents.

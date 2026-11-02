@@ -495,10 +495,18 @@ def run_doctor(cfg: Any, data_dir: Path, *, boards: bool = False, source: str = 
         if not boards:
             _say("  (`yazses biosignal doctor --boards` lists every board BrainFlow knows)")
 
-    if spec and scheme not in ("synthetic", "file", "brainflow"):
-        _warn(f"  [FAIL] unknown source {spec!r}; expected synthetic, file:<path> "
-              "or brainflow:<board_id>[:<port>]")
-        steps.insert(0, "fix the source: synthetic, file:<path> or brainflow:<board id>[:<port>]")
+    from yazses.biosignal.boards import preset_for
+
+    device = preset_for(spec) if ":" in spec and scheme in ("lsl", "thinkgear", "bitalino", "myo") else None
+    if device is not None:
+        _say(f"  source {spec!r}: {device.channels_hint}")
+        _say(f"  [--]   this check does not open the device; yazses biosignal check-source {spec} does")
+        steps.append(f"check the device itself: yazses biosignal check-source {spec}")
+    elif spec and scheme not in ("synthetic", "file", "brainflow"):
+        _warn(f"  [FAIL] unknown source {spec!r}; expected synthetic, file:<path>, "
+              "brainflow:<board_id>[:<port>], lsl:, thinkgear:, bitalino: or myo:")
+        steps.insert(0, "fix the source: synthetic, file:<path>, brainflow:<board id>[:<port>], "
+                        "lsl:, thinkgear:, bitalino: or myo:")
 
     _say()
     _say("Self-check (synthetic signal through the real pipeline):")
