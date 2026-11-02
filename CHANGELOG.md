@@ -6,6 +6,22 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — keyboard focus, Apply and large-font labels in the settings window
+
+- **The focused sidebar row and category row now show a 2 px ring.** Both lists had
+  `outline: 0`, which removed the only focus cue; the row's selection fill was the sole
+  indicator, and it says which page is open rather than where focus is. The ring uses the
+  window's text colour, which keeps at least 3:1 contrast against the window and the fill in
+  both light and dark themes.
+- **Ctrl+Return applies the staged changes** (Ctrl+Enter, the keypad's Enter, works too).
+  The comment and the Apply tooltip said "Enter applies", but a main window has no default
+  button, so Enter did nothing and Apply could sit a long way down the Tab order. A plain Enter
+  in a text field still does not apply anything.
+- **Labels no longer clip at a large font.** At 2x the Audio page's "Silence threshold:" label
+  was narrower than its text, its status line ran past the field, and the Features filter's
+  syntax hint ran past the window. The threshold row now puts its field under the label when
+  the window is too narrow, and the two text lines wrap instead of clipping.
+
 ### Fixed — the Arabic, Persian and Urdu pages showed their Markdown as raw text
 
 The right-to-left translated pages wrapped their body in a bare `<div dir="rtl">`, so headings,

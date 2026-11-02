@@ -13,18 +13,21 @@ from __future__ import annotations
 from typing import Any
 
 from yazses.settingsui.pages import PAGES, PageSpec, page_label
-from yazses.settingsui.theme import mute_label
+from yazses.settingsui.theme import FOCUS_RING_CSS, mute_label
 
 #: Sidebar width. Wide enough for "Hands-free •" at a large system font, narrow enough
 #: that the content area keeps most of a 760 px window.
 SIDEBAR_WIDTH = 168
 
+# No ``outline: 0`` here: that removed the focus cue entirely. The focused row gets a ring of
+# its own (``FOCUS_RING_CSS``) on top of its selection fill.
 _SIDEBAR_STYLE = (
-    "QListWidget { border: 0; background: transparent; outline: 0; padding-top: 8px; }"
+    "QListWidget { border: 0; background: transparent; padding-top: 8px; }"
     "QListWidget::item { padding: 9px 12px; border-radius: 6px; margin: 1px 4px; }"
     "QListWidget::item:selected { background: palette(highlight);"
     " color: palette(highlighted-text); }"
     "QListWidget::item:hover:!selected { background: palette(midlight); }"
+    f"QListWidget::item:focus {{ {FOCUS_RING_CSS} }}"
 )
 
 #: Text shown as the tooltip on a sidebar entry that holds unapplied changes.

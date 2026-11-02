@@ -33,6 +33,11 @@ AA_NORMAL = 4.5
 #: it is what makes the text read as secondary rather than merely dimmer.
 _MAX_BLEND = 0.55
 
+#: The focus ring around the focused row of a list. The text colour, not the accent: the ring
+#: must stand off the window *and* the selection fill, and the text colour does both on a
+#: light and a dark palette (checked in ``tests/test_settingsui_keyboard_access.py``).
+FOCUS_RING_CSS = "border: 2px solid palette(text);"
+
 
 def _channel(value: float) -> float:
     """sRGB channel → linear light, per WCAG's definition."""
