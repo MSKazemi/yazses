@@ -400,3 +400,36 @@ def test_a_row_that_cannot_detect_says_so_and_does_not_raise():
     name, status, message = _injection_layout_check(_cfg("fa"), detect=broken)
     assert (name, status) == ("Injection layout", "WARN")
     assert "could not be checked" in message
+
+
+# -- the LANG guess survives as the last resort ------------------------------------------------
+
+
+def _nothing(_argv):
+    return None
+
+
+@pytest.mark.parametrize(
+    ("lang", "layout"),
+    [("de_DE.UTF-8", "de"), ("sv_SE.UTF-8", "se"), ("fr_FR.UTF-8", "fr"),
+     ("es_ES.UTF-8", "es"), ("it_IT.UTF-8", "it"), ("pt_PT.UTF-8", "pt"), ("en_GB.UTF-8", "gb")],
+)
+def test_lang_is_still_the_last_resort_when_no_probe_answers(lang, layout):
+    got = unicode_mod.detect_layout(environ={"LANG": lang}, run=_nothing, which=lambda _n: "/bin/x")
+    assert got.active == layout
+    assert got.source.startswith("LANG=")
+
+
+def test_an_answering_probe_beats_lang():
+    def run(argv):
+        return "X11 Layout: ir\n" if argv[0] == "localectl" else None
+
+    got = unicode_mod.detect_layout(
+        environ={"LANG": "de_DE.UTF-8"}, run=run, which=lambda n: "/bin/x" if n == "localectl" else None
+    )
+    assert got.active == "ir"
+
+
+def test_english_with_nothing_reported_stays_us():
+    got = unicode_mod.detect_layout(environ={"LANG": "en_US.UTF-8"}, run=_nothing, which=lambda _n: None)
+    assert (got.active, got.source) == ("us", "default")

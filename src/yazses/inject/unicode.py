@@ -101,6 +101,17 @@ _SWAY_LAYOUT_CODES = {
 #: default, and the one an English machine uses.
 _DEFAULT_LAYOUT = "us"
 
+#: The guess from LANG when nothing else answers (the behaviour before layout probing).
+_LANG_LAYOUTS = (
+    ("sv", "se"),
+    ("de", "de"),
+    ("fr", "fr"),
+    ("es", "es"),
+    ("it", "it"),
+    ("pt", "pt"),
+    ("en_gb", "gb"),
+)
+
 #: Persian (and Arabic-script) letters only exist on these XKB layouts.
 PERSIAN_LAYOUT = "ir"
 
@@ -279,6 +290,14 @@ def detect_layout(
         layouts = parse_localectl_layouts(run(["localectl", "status"]) or "")
         if layouts:
             return LayoutDetection(layouts[0], layouts, "localectl")
+
+    # Last resort before "us", kept from the original guess: the language of the session
+    # for a handful of European layouts. A session that reports nothing (no env var, no
+    # gsettings, no sway, an unset localectl) used to get these and must still.
+    language = env.get("LANG", "").lower()
+    for prefix, layout in _LANG_LAYOUTS:
+        if language.startswith(prefix):
+            return LayoutDetection(layout, (layout,), f"LANG={env.get('LANG', '')}")
 
     return LayoutDetection(_DEFAULT_LAYOUT, (), "default")
 
