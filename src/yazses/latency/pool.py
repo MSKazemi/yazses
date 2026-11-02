@@ -61,8 +61,9 @@ class EnginePool:
         self._lock = threading.Lock()
         self._engines: dict[Key, object] = {base_key: base_engine}
         #: Keys whose load is in flight or has failed. Both belong here: a second
-        #: request must not start a second load, and a model that cannot be loaded
-        #: (no disk, no network, a bad name) must not be retried once per burst.
+        #: request must not start a second load. A key whose load failed stays here for
+        #: the life of the pool, so it is never retried (no disk, no network, a bad name)
+        #: and :meth:`evict_idle` never touches it.
         self._pending: set[Key] = set()
         #: Clock reading of the last use, per resident key.
         self._last_used: dict[Key, float] = {}
@@ -74,6 +75,8 @@ class EnginePool:
 
         Never blocks and never loads inline. ``None`` means "decode with the engine
         you already have"; a load for this key has been started if one was needed.
+        A hit records a use, which restarts that key's keep-alive clock; a miss is not
+        a use and does not touch any engine.
         """
         key = (model, int(beam_size or 0))
         with self._lock:
@@ -93,7 +96,7 @@ class EnginePool:
         try:
             engine = self._build(model, beam_size)
         except Exception:
-            # Stays in `_pending`, so this is logged once rather than per burst.
+            # Stays in `_pending` for the life of the pool: logged once, never retried.
             log.exception(
                 "Latency governor could not load model %r (beam %d); it will keep "
                 "using the engine already loaded", model, beam_size,
@@ -109,7 +112,9 @@ class EnginePool:
         """Drop non-base engines idle for at least ``keep_alive_s``; return their keys.
 
         A dropped key leaves ``_engines`` and ``_pending``, so the next :meth:`get` for
-        it starts a fresh background load. Does nothing when ``keep_alive_s <= 0``.
+        it starts a fresh background load. Dropping an engine returns its memory only
+        once no caller still holds a reference to it (a decode in progress keeps one).
+        Does nothing when ``keep_alive_s <= 0``.
         """
         if self._keep_alive_s <= 0:
             return []
@@ -119,11 +124,12 @@ class EnginePool:
             for key in sorted(self._engines):
                 if key == self._base_key:
                     continue
+                # Every resident non-base key has a last use: _load sets it in the same
+                # locked block that makes the engine resident.
                 last = self._last_used.get(key, now)
                 if now - last < self._keep_alive_s:
                     continue
                 del self._engines[key]
-                self._pending.discard(key)
                 self._last_used.pop(key, None)
                 evicted.append(key)
             self._evicted_total += len(evicted)

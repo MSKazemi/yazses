@@ -358,13 +358,19 @@ def describe_pool_residency(snapshot: object) -> str | None:
     if not isinstance(loaded, (list, tuple)):
         return None
     rows: list[tuple[float, str, int, str]] = []
-    for row in loaded[:_MAX_POOL_ROWS]:
+    for row in loaded:
+        if len(rows) >= _MAX_POOL_ROWS:
+            break
         if not isinstance(row, Mapping) or row.get("base") is not False:
             continue
         model = row.get("model")
-        if not isinstance(model, str) or not model.strip():
+        if not isinstance(model, str):
             continue
-        model = model.strip()[:64]
+        # Printable characters only: a newline or control byte in a name would split the
+        # one-line status and tray text. Capped so one name cannot fill the line.
+        model = "".join(ch for ch in model if ch.isprintable()).strip()[:64]
+        if not model:
+            continue
         beam = row.get("beam_size")
         beam_ok = isinstance(beam, int) and not isinstance(beam, bool) and beam >= 1
         raw_idle = row.get("idle_s")
@@ -380,7 +386,8 @@ def describe_pool_residency(snapshot: object) -> str | None:
         return None
     rows.sort(key=lambda r: (r[0], r[1], r[2]))
     parts = [r[3] for r in rows]
-    return "latency: " + "; ".join(parts) + f"; released after {keep:.0f} s idle"
+    released = f"{keep:.0f} s" if keep >= 1 else "under 1 s"
+    return "latency: " + "; ".join(parts) + f"; released after {released} idle"
 
 
 def unload_tick_s(keep_alive_s: float) -> float:

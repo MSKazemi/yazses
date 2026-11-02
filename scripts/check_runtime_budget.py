@@ -44,6 +44,8 @@ def _load_json(path: Path, what: str) -> object:
         text = path.read_text(encoding="utf-8")
     except OSError as exc:
         raise InputError(f"cannot read {what} {path}: {exc.strerror or exc}") from None
+    except UnicodeDecodeError as exc:
+        raise InputError(f"{what} {path} is not UTF-8 text: {exc.reason}") from None
     try:
         return json.loads(text)
     except json.JSONDecodeError as exc:

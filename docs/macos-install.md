@@ -266,8 +266,8 @@ Speech model: loaded, idle 45 s of 300 s
   [Release the model when idle](how-to/low-ram-models.md#release-the-model-when-idle)).
   It says whether the speech model is in memory.
   If you also set `[residency] latency_keep_alive_s` (off by default, and it only matters when
-  `[latency]` is on), `yazses status` prints one more line for the governor's extra model. This
-  has not been tested on a real Mac.
+  `[latency]` is on), the menu bar appends the governor's extra model to this same line, with
+  ` · `, while that model is loaded. Not yet tested on a real Mac.
 - The **third line** shows only the most important warning: why the daemon is in
   error, then a fallback engine, then a run of silent recordings.
 

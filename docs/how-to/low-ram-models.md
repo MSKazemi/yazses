@@ -132,7 +132,7 @@ Then `yazses restart`. The default of `0` keeps today's behaviour. The key only 
 `[latency]` is on. It does not touch the main speech model, which `[stt] idle_unload_s` still
 controls. When the governor needs the extra model again, it loads it in the background, the same
 way as above. `yazses status` shows one line for it, and `yazses status --json` carries it as
-`latency_residency` (`null` at `0`).
+`latency_residency` (`null` at `0`). The line appears only while the extra model is loaded.
 
 **How much memory comes back is not measured yet.** CTranslate2, the library that runs
 Whisper, may keep part of its memory after the model is released, so the drop you see in

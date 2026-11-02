@@ -117,6 +117,27 @@ def test_base_engine_is_never_evicted_even_if_idle_forever():
     assert BASE in h.pool.resident()
 
 
+def test_a_miss_for_another_key_does_not_postpone_eviction():
+    h = Harness(keep_alive_s=60.0)
+    h.load("tiny.en", 1)
+    h.clock.advance(50.0)
+    assert h.pool.get("tiny.en", 5) is None  # a miss: starts a load, is not a use
+    h.run_queued()
+    h.clock.advance(10.0)  # tiny.en/1 is now 60 s idle
+    assert h.pool.evict_idle() == [("tiny.en", 1)]
+
+
+def test_a_load_completion_counts_as_a_use():
+    h = Harness(keep_alive_s=60.0)
+    assert h.pool.get("tiny.en", 1) is None
+    h.clock.advance(50.0)
+    h.run_queued()  # the load completes at t+50, which is the last use
+    h.clock.advance(50.0)  # 100 s after the request, but only 50 s after completion
+    assert h.pool.evict_idle() == []
+    h.clock.advance(10.0)
+    assert h.pool.evict_idle() == [("tiny.en", 1)]
+
+
 def test_only_idle_non_base_engines_are_evicted():
     h = Harness(keep_alive_s=60.0)
     h.load("tiny.en", 1)

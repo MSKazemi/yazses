@@ -192,7 +192,7 @@ IDLE or PAUSED under `_lock`.
 
 **The latency governor's second model is released by pool eviction, not by the wrapper.** With
 `[residency] latency_keep_alive_s` positive (ADR-029 step 2, off at `0`), `EnginePool.evict_idle()`
-drops every non-base engine whose last `get` is at least that many seconds old, and removes it from
+drops every non-base engine whose last use is at least that many seconds old (a use is a `get` that returned the engine, or the end of its load; a `get` that found nothing is not a use), and removes it from
 both `_engines` and `_pending`, so the next `get` reloads it in the background. The base key is never
 evicted. The `latency-pool-evict` tick calls it, runs `gc.collect()` if anything was dropped, and logs
 one INFO line on a tick that released something. The `status` reply carries `latency_residency` (the pool's snapshot, `null`

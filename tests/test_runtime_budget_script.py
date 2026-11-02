@@ -127,6 +127,16 @@ def test_malformed_json_exits_two_with_a_message_not_a_traceback(crb, tmp_path, 
     assert "Traceback" not in captured.err
 
 
+def test_a_file_that_is_not_utf8_exits_two_not_a_traceback(crb, tmp_path, capsys) -> None:
+    path = tmp_path / "binary.json"
+    path.write_bytes(b"\xff\xfe{")
+    rc = crb.main(["--budget", str(_budget_file(tmp_path)), "--measured", str(path)])
+    assert rc == 2
+    captured = capsys.readouterr()
+    assert "not UTF-8" in captured.err
+    assert "Traceback" not in captured.err
+
+
 def test_a_missing_measured_file_exits_two(crb, tmp_path, capsys) -> None:
     rc = crb.main(["--budget", str(_budget_file(tmp_path)),
                    "--measured", str(tmp_path / "absent.json")])

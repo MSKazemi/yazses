@@ -19,8 +19,9 @@ background.
   `[residency]`, and keep `[latency]` on. The key does nothing without the governor.
 - **What it does not touch:** the dictation engine. Its release is still `[stt] idle_unload_s`.
 - **Status:** `yazses status --json` carries `latency_residency` (`null` at `0`), and `yazses status`
-  prints one line for the extra model: whether it is loaded, how long it has been idle, and the
-  keep-alive. The tray shows the same phrase after its speech-model line.
+  prints a `memory:` line for the extra model only while one is loaded: its name, beam width, how
+  long it has been idle, and the keep-alive. The tray appends the same phrase to its speech-model
+  line, separated by ` · `.
 
 What was checked: unit tests for the eviction rule (idle time measured against an injected clock,
 the base engine never evicted, a reload after eviction), the snapshot, the config key and the
@@ -29,7 +30,8 @@ status line. The tests run offline and do not load a real model.
 What was not checked: how much memory an eviction gives back. Nothing has been measured on a real
 machine, and CTranslate2 may keep its memory after a model is dropped. The new
 `scripts/check_runtime_budget.py` reads measured numbers against `scripts/runtime_budget.json`, but
-its budget rows are proposals from ADR-029, and no nightly job feeds it real numbers yet.
+its `stt` (343 MB) and `latency` (116 MB) ceilings are the ADR-029 baseline measured on `fa058766`,
+and its other five rows are unmeasured proposals (`null`). No nightly job feeds it real numbers yet.
 
 ### Added — biosignal sources for market devices, and a stream-integrity guard
 

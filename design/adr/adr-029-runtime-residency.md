@@ -36,7 +36,7 @@ install):
 | Fact | Figure | Where |
 |---|---|---|
 | The speech model loads at daemon start and is never unloaded | base.en: **188 MB** resident after load, **216 MB** after the first decode, **343 MB** peak during the load | `core/daemon.py::_build_pipeline` → `stt/factory.build_engine`; `stt/faster_whisper.py` has no unload |
-| The latency governor's second model loads once the CPU is busy and then stays | tiny.en: about **75 MB** download, about **116 MB** RAM | `latency/pool.py::EnginePool` memoises and never evicts; `latency` sits in the RECOMMENDED tier that first run switches on |
+| The latency governor's second model loads once the CPU is busy and then stays (until `[residency] latency_keep_alive_s` releases it, step 2) | tiny.en: about **75 MB** download, about **116 MB** RAM | `latency/pool.py::EnginePool` memoises, and evicts only when `keep_alive_s > 0`; `latency` is OPTIONAL (off by default, `system/features.py`) |
 | Base import weight | `import yazses.cli` 63–73 ms / 18 MB; `import yazses.core.daemon` 250–310 ms / 33 MB | — |
 | The import-time ceiling | baseline 1 172 375 µs × 1.5 tolerance ≈ **1.76 s**, about 6× the measured 0.30 s | `scripts/dependency_budget_baseline.json`, `scripts/check_dependency_budget.py` |
 | RAM or idle-CPU budget | none | `tests/` |
@@ -325,8 +325,10 @@ How it meets the rest of §1 and §3:
   (`tray/menu.py::residency_line`, fed by `TrayModel.latency_residency`), after the
   speech-model phrase and never replacing it.
 - **The budget gate** is `scripts/check_runtime_budget.py`, a check of a
-  measured-results JSON (no network, no model) against `scripts/runtime_budget.json`. It exits 1 on a breach or on
-  a run that measured nothing. The `stt` and `latency` ceilings are the figures the ADR states;
+  measured-results JSON file (no network, no model) against `scripts/runtime_budget.json`. It exits 1 on a breach or on
+  a budgeted unit the run did not measure or an empty measurement, and 2 on unreadable or
+  malformed input (including an unknown unit in the measured file). Its flags are `--budget`,
+  `--measured` and `--emit-template`, which prints a measured-file skeleton. The `stt` and `latency` ceilings are the figures the ADR states;
   every other unit's ceiling is `null`, an unmeasured proposal that breaches nothing but still
   fails the run when unmeasured. The gate takes measurements from a file and makes none itself,
   so no nightly run feeds it yet.

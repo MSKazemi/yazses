@@ -312,3 +312,23 @@ def test_an_old_daemon_without_the_key_still_renders_status(monkeypatch) -> None
 def test_status_survives_a_malformed_latency_block(monkeypatch) -> None:
     out = _status_output(monkeypatch, {**_REPLY, "latency_residency": "tiny.en"})
     assert "  backend:" in out and "latency" not in out
+
+
+def test_a_sub_second_keep_alive_is_not_printed_as_zero() -> None:
+    assert describe_pool_residency(_snap(*_ONE["loaded"], keep=0.3)).endswith(
+        "released after under 1 s idle"
+    )
+
+
+def test_control_characters_in_a_model_name_cannot_split_the_line() -> None:
+    row = {"model": "tiny\n.en\x00\t", "beam_size": 1, "base": False, "idle_s": 1.0}
+    line = describe_pool_residency(_snap(row))
+    assert line == "latency: tiny.en (beam 1) loaded, idle 1 s; released after 600 s idle"
+
+
+def test_a_base_row_does_not_use_up_one_of_the_bounded_slots() -> None:
+    base = [{"model": "base.en", "beam_size": 5, "base": True, "idle_s": None}] * 20
+    extra = [{"model": f"m{i}", "beam_size": 1, "base": False, "idle_s": float(i)}
+             for i in range(16)]
+    line = describe_pool_residency(_snap(*base, *extra))
+    assert line is not None and line.count(" loaded") == 16
