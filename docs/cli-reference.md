@@ -1556,9 +1556,9 @@ Muscle-squeeze, blink and jaw-clench switches read from an EEG/EMG/EOG board (`[
 | Command | What it does |
 |---|---|
 | `yazses biosignal` | List the commands below. |
-| `yazses biosignal doctor` | Check the board, BrainFlow, serial ports and your calibration profile, then run a synthetic self-check and end with one `Verdict:` line (ready, or the next step). `--boards` lists every board BrainFlow supports. |
+| `yazses biosignal doctor` | Check the board, BrainFlow, serial ports and your calibration profile, then run a synthetic self-check and end with one `Verdict:` line (ready, or the next step). `--boards` lists every board BrainFlow supports. Takes `synthetic`, `file:` and `brainflow:` sources; for `lsl:`, `thinkgear:`, `bitalino:` or `myo:` it reports "unknown source". Use `check-source` for those, and the system `yazses doctor` row for their advice. |
 | `yazses biosignal calibrate` | Guided calibration (relax, light squeeze, hard squeeze, blinks, clenches). Saves a profile; without one the squeeze switch stays off. |
-| `yazses biosignal monitor` | Live signal quality and detections, with your last few events (accepted or dropped, and why). Ctrl-C to stop; `--seconds` limits it. |
+| `yazses biosignal monitor` | Live signal quality and detections, with your last few events (accepted or dropped, and why). Ctrl-C to stop; `--seconds` limits it. While the stream itself is at fault it holds events and says why (`Events HELD`). |
 | `yazses biosignal replay` | Run a recording through the pipeline and print the detections and the false-positive summary. |
 | `yazses biosignal report` | Your own measured activation and cancel rate, with its confidence interval and the note that cancels are a proxy for false positives. |
 | `yazses biosignal record` | Record a session to a CSV, `.npz`, `.edf` or `.bdf` file (mode 0600). EDF+/BDF+ open in EDFbrowser and MNE. Refuses to overwrite without `--force`. |

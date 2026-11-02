@@ -59,8 +59,9 @@ flowchart LR
 ```
 
 A stream or electrode the checks recognise as bad produces silence, not a press, and a held squeeze
-is released when samples stop. The checks are not perfect: in synthetic tests a large, sudden jolt can
-still look like a squeeze, which is why you measure your own false-activation rate before relying on
+is released when samples stop. The checks are not perfect. On synthetic test signals a sudden step, such as
+an electrode shifting, no longer starts a squeeze. White noise is not muscle, though, and a jolted cable on
+real skin has not been measured, which is why you measure your own false-activation rate before relying on
 it. The switch never reads thoughts: it sees only the muscle and eye activity described above.
 
 ## How to start
@@ -72,8 +73,10 @@ it. The switch never reads thoughts: it sees only the muscle and eye activity de
    [hardware guide](../how-to/biosignal-hardware.md) compares them, and covers the mains setting and the
    safety rules. It is not a medical device, and electrodes must never be connected to mains-powered
    equipment.
-2. **Try it without hardware.** Set `source = "synthetic"` and run `yazses biosignal monitor` to see
-   scripted gestures go through the real detectors.
+2. **Try it without hardware.** Run `yazses biosignal monitor --source synthetic --clench` to see scripted
+   double blinks and jaw clenches go through the real detectors; no config change is needed. A squeeze cannot
+   be tried this way, because calibration needs a real board or a recording of a real calibration session.
+   The [walkthrough](../how-to/biosignal-switch.md#try-it-with-no-hardware) shows the real output.
 3. **Check the real signal.** `yazses biosignal doctor` checks the chain and ends with a `Verdict:` line
    telling you whether you are ready or what to fix first. Then `yazses biosignal calibrate` learns your
    relaxed level, a light and a hard squeeze, a blink and a clench. `yazses biosignal evaluate` scores the
