@@ -122,6 +122,9 @@ Run `yazses biosignal --help` for exact options. The ones you will use first, in
    nothing if the signal is bad, and it tells you which step failed.
 3. **`yazses biosignal monitor`** shows the live signal quality, the events as they are detected, and the
    state of the false-positive budget. Use it to see, before you rely on a switch, what makes it fire.
+   When the stream itself is at fault (a timestamp went backwards, a packet was lost or repeated, or the
+   stream stalled), it prints an `Events HELD` line with the reason and how much clean signal is still
+   needed, and a `cleared` line when the hold ends.
 4. **`yazses biosignal replay <recording>`** runs a saved recording through the same detectors with no
    hardware, so you can try a threshold change on yesterday's data or check a bug report.
 5. **`yazses biosignal report`** summarises how often each event fired and how often you cancelled it,

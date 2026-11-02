@@ -36,6 +36,23 @@ machine, and CTranslate2 may keep its memory after a model is dropped. The new
 its `stt` (343 MB) and `latency` (116 MB) ceilings are the ADR-029 baseline measured on `fa058766`,
 and its other five rows are unmeasured proposals (`null`). No nightly job feeds it real numbers yet.
 
+### Fixed — `biosignal monitor` shows when the stream-integrity gate is holding events
+
+- While the stream-integrity gate holds events (a timestamp went backwards, a packet was lost or
+  repeated, or the stream stalled), `yazses biosignal monitor` now prints an `Events HELD` line with
+  the reason and how much clean signal is still needed before it clears. It prints a `cleared` line
+  when the hold ends. Before, the only trace was a log line and a dropped-event reason.
+- The wording and keys match the `integrity` block of the daemon status, so the two read the same.
+- Not run on real hardware: the test covers a recorded-style fake source, not a live board.
+
+### Fixed — `doctor` no longer reports a Windows COM port as a missing file
+
+- `[emg] device_port = "COM3"` (also `com12`, and `\\.\COM3`) used to show `EMG serial port FAIL
+  COM3 not found` on a correct Windows config, because doctor checked it as a file path. It now shows
+  SKIP with "cannot be checked this way; it will be tried when YazSes starts". A POSIX path such as
+  `/dev/ttyUSB0` is still checked, and FAILs when it is missing.
+- Not tested on Windows: the check is covered by unit tests on the port's text, not on a Windows machine.
+
 ### Fixed — documentation that described the repository as it was before 2.47.0
 
 - The benchmark harness left this repository in 2.47.0, but a dozen pages still told readers to

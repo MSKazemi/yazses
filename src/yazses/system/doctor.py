@@ -10,6 +10,7 @@ from __future__ import annotations
 import importlib.util
 import os
 import platform as platform_module  # `platform` is a local in run_doctor (the Platform bundle)
+import re
 import shutil
 import sys
 from dataclasses import replace
@@ -1103,6 +1104,36 @@ _BIOSIGNAL_SCHEME_DEPS: dict[str, tuple[str, str, str]] = {
     "bitalino": ("serial", "emg", "a BITalino board"),
     "myo": ("bleak", "ble", "a Myo armband"),
 }
+
+
+#: A Windows serial port name as configs write it: ``COM3``, ``com12``, or the device
+#: namespace form ``\\.\COM3`` (one or two leading backslashes, any case).
+_COM_PORT_RE = re.compile(r"^(?:\\{1,2}\.\\)?com\d+$", re.IGNORECASE)
+
+
+def serial_port_status(port: str) -> tuple[str, str]:
+    """``(status, detail)`` for a configured serial port, without opening it.
+
+    A POSIX device path (``/dev/ttyUSB0``) is checked for existence, as before. A Windows
+    COM name is not a file, so a file lookup is the wrong question: ``Path("COM3").exists()``
+    is False on a correct Windows config. Its presence cannot be checked that way, so it is
+    SKIP ("will be tried at start"), never OK and never FAIL. Pure: no platform branch and
+    no pyserial import.
+    """
+    text = port.strip()
+    if _COM_PORT_RE.match(text):
+        return ("SKIP", f"{text} cannot be checked this way (a Windows COM port is not a "
+                        "file); it will be tried when YazSes starts")
+    found = Path(text).exists()
+    return ("OK" if found else "FAIL", f"{text} {'accessible' if found else 'not found'}")
+
+
+def _emg_port_check(port: str) -> _Check | None:
+    """The ``[emg] device_port`` row, or None when no port is configured."""
+    if not (port or "").strip():
+        return None
+    status, detail = serial_port_status(port)
+    return ("EMG serial port", status, detail)
 
 
 def _biosignal_check(
@@ -2433,13 +2464,9 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     try:
         if cfg is None:
             raise RuntimeError("config unavailable")
-        if cfg.emg.device_port:
-            port = Path(cfg.emg.device_port)
-            checks.append((
-                "EMG serial port",
-                "OK" if port.exists() else "FAIL",
-                f"{port} {'accessible' if port.exists() else 'not found'}",
-            ))
+        emg_port = _emg_port_check(cfg.emg.device_port)
+        if emg_port is not None:
+            checks.append(emg_port)
         if cfg.emg.ble_address:
             # This row used to print a flat OK for the configured address, which was
             # a claim about nothing: `_build_activation_sources` read only

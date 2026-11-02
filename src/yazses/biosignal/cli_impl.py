@@ -258,12 +258,15 @@ def format_event(event: Any) -> str:
 def _pump(
     source: Any, pipeline: Any, on_result: Callable[[Any, Any], None], *,
     sim_clock: list[float] | None = None, max_seconds: float = 0.0,
+    on_idle: Callable[[], None] | None = None,
 ) -> str:
     """Read a source to its end or the deadline, feeding the pipeline. Returns why it stopped.
 
     ``sim_clock[0]`` is set to the end of each block's data time before it is processed,
     for a ledger driven by recorded time. A source that cannot deliver (an unplugged
-    board) ends the loop with its own reason rather than waiting for ever.
+    board) ends the loop with its own reason rather than waiting for ever. ``on_idle`` runs
+    on each read that returned no block, so a stall (which the guard flags only on an empty
+    read) is shown while it is happening, not when data resumes.
     """
     deadline = time.monotonic() + max_seconds if max_seconds > 0 else None
     source.start()
@@ -280,6 +283,8 @@ def _pump(
             if block is None:
                 if getattr(source, "available", True) is False:
                     return str(getattr(source, "last_error", "") or "the source went away")
+                if on_idle is not None:
+                    on_idle()
                 time.sleep(0.005)
                 continue
             if sim_clock is not None:
@@ -303,6 +308,41 @@ def _counts_table(counts: dict[Any, int]) -> list[str]:
         return ["  (no detections)"]
     return [f"  {kind.value:<13} {n:>5}" for kind, n in sorted(
         counts.items(), key=lambda kv: kv[0].value)]
+
+
+def integrity_lines(status: dict[str, Any] | None, *, recover_s: float | None = None) -> list[str]:
+    """The stream-integrity gate in words, from the ``status["integrity"]`` shape.
+
+    ``status`` is what ``BiosignalRunner.status()`` exposes under ``"integrity"`` (that is
+    ``IntegrityReport.as_dict()``), so the monitor and the daemon status use the same keys
+    and the same reason text (``IntegrityReport.reason()``). Empty while no violation has
+    ever been seen. While the gate is closed, events are held: the lines say why and how
+    much clean signal is still needed before it clears. After it has cleared, one line says so.
+    """
+    if not status:
+        return []
+    counts = status.get("violations") or {}
+    total = sum(int(n) for n in counts.values()) if isinstance(counts, dict) else 0
+    if not status.get("gate_closed"):
+        if total == 0:
+            return []
+        return [f"  Stream integrity: cleared ({total} violation(s) so far). Events are "
+                "accepted again."]
+    if recover_s is None:
+        from yazses.biosignal.integrity import RECOVER_S
+
+        recover_s = RECOVER_S
+    last = status.get("last_violation") or {}
+    reason = f"{last.get('code', 'unknown')} ({last.get('detail', '')})"
+    clean = max(float(status.get("clean_s") or 0.0), 0.0)
+    to_go = max(recover_s - clean, 0.0)
+    lines = [f"  Events HELD: the stream-integrity gate is closed. Reason: {reason}."]
+    if status.get("stalled"):
+        lines.append("    The stream has stalled: no data is arriving, so nothing clears "
+                     "until it resumes.")
+    lines.append(f"    Cleared? not yet: {clean:.1f} of {recover_s:.1f} s of clean signal, "
+                 f"{to_go:.1f} s to go.")
+    return lines
 
 
 # ---------------------------------------------------------------------------
@@ -717,7 +757,7 @@ def run_monitor(
     counts: dict[Any, int] = {}
     started = time.monotonic()
     state: dict[str, Any] = {"next": started + max(interval, 0.1), "overall": "", "blocks": 0,
-                             "dropped": 0, "shown": ""}
+                             "dropped": 0, "shown": "", "integrity": (False, 0)}
     # What the pipeline did with each event, newest last. Used unless the pipeline can list
     # its own recent events itself.
     local_recent: list[tuple[float, str, bool, str]] = []
@@ -730,8 +770,18 @@ def run_monitor(
         return [describe_recent({"kind": k, "age_s": now - t, "accepted": ok, "reason": why_},
                                 now) for t, k, ok, why_ in local_recent[-_RECENT_N:]][::-1]
 
+    def check_integrity() -> None:
+        # Print the gate's state when it changes: closed, or a new violation, or cleared.
+        integ = guard.report.as_dict()
+        key = (bool(integ["gate_closed"]), sum(int(n) for n in integ["violations"].values()))
+        if key != state["integrity"]:
+            state["integrity"] = key
+            for line in integrity_lines(integ):
+                _say(line)
+
     def on_result(block: Any, result: Any) -> None:
         state["blocks"] += 1
+        check_integrity()
         for event in result.events:
             counts[event.kind] = counts.get(event.kind, 0) + 1
             _say("  " + format_event(event))
@@ -767,10 +817,14 @@ def run_monitor(
                 _say("  recent: " + "; ".join(lines[:_RECENT_N]))
 
     try:
-        why = _pump(guard, pipeline, on_result, max_seconds=seconds)
+        why = _pump(guard, pipeline, on_result, max_seconds=seconds, on_idle=check_integrity)
     except KeyboardInterrupt:
         why = "stopped"
     _say(f"\nStopped ({why}) after {time.monotonic() - started:.1f} s, {state['blocks']} blocks.")
+    if guard.gate_closed:
+        _say("Events were still held by the stream-integrity gate when the run stopped.")
+        for line in integrity_lines(guard.report.as_dict()):
+            _say(line)
     _say("Detections:")
     for row in _counts_table(counts):
         _say(row)

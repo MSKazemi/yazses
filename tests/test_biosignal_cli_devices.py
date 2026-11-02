@@ -125,3 +125,13 @@ def test_monitor_closes_the_gate_when_t0_goes_backwards(cfg, data_dir, monkeypat
     assert "stream integrity: t0_backwards" in caplog.text
     assert "events are held until the stream has been clean" in caplog.text
     assert "Detections:" in capsys.readouterr().out
+
+
+def test_monitor_shows_the_hold_and_its_clearing_on_the_display(cfg, data_dir, monkeypatch, capsys):
+    """While the gate holds events the display says so, and says when it has cleared."""
+    monkeypatch.setattr(cli_impl, "_open", lambda spec, realtime=False: TimedSource(_backwards_t0s()))
+    assert run_monitor(cfg, data_dir, source="fakejump:", seconds=0.0, interval=0.2) == OK
+    out = capsys.readouterr().out
+    assert "Events HELD" in out
+    assert "Reason: t0_backwards" in out
+    assert out.index("Events HELD") < out.index("Stream integrity: cleared")
