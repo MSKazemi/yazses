@@ -217,6 +217,33 @@ STT_UNIT = "stt"
 #: ``[residency] latency_keep_alive_s`` (see :func:`with_latency_keep_alive`).
 LATENCY_UNIT = "latency"
 
+#: The longest keep-alive the daemon will honour: one year of seconds. A config can hold
+#: any integer, including ones that no float can represent; a keep-alive that long means
+#: "never release" in practice, so it is clamped here instead of failing at startup.
+MAX_KEEP_ALIVE_S: float = 365 * 24 * 3600.0
+
+
+def keep_alive_seconds(value: object) -> float:
+    """A config keep-alive as a safe number of seconds: ``0.0`` (off) up to :data:`MAX_KEEP_ALIVE_S`.
+
+    Total, so the daemon can call it on whatever the TOML held. ``0``, negatives, NaN,
+    booleans and anything that is not a number give ``0.0`` (the pool then never evicts).
+    A value above the cap, an infinity, and an integer too large for a float (``float()``
+    raises ``OverflowError`` on 400 digits) give the cap. Integers are compared as
+    integers, so no huge value is ever converted.
+    """
+    if isinstance(value, bool):
+        return 0.0
+    if isinstance(value, int):
+        if value <= 0:
+            return 0.0
+        return MAX_KEEP_ALIVE_S if value >= int(MAX_KEEP_ALIVE_S) else float(value)
+    if isinstance(value, float):
+        if not value > 0:          # false for NaN too
+            return 0.0
+        return min(value, MAX_KEEP_ALIVE_S)
+    return 0.0
+
 
 def with_stt_idle_unload(
     idle_unload_s: float, policy: ResidencyPolicy = DEFAULT_POLICY,

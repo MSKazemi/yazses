@@ -17,6 +17,9 @@ background.
 - **Default `0`:** nothing changes. The model stays loaded, as before.
 - **To turn it on:** set `latency_keep_alive_s = 600` (or any positive number of seconds) under
   `[residency]`, and keep `[latency]` on. The key does nothing without the governor.
+- **If the model fails to reload:** with the key set, a failed load is tried again after 60 s instead of
+  disabling the model until restart. Without the key a failed load stays permanent, as before. A value
+  longer than a year is capped at a year, so an absurd number cannot stop the daemon starting.
 - **What it does not touch:** the dictation engine. Its release is still `[stt] idle_unload_s`.
 - **Status:** `yazses status --json` carries `latency_residency` (`null` at `0`), and `yazses status`
   prints a `memory:` line for the extra model only while one is loaded: its name, beam width, how

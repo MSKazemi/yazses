@@ -1570,16 +1570,32 @@ class Daemon:
         )
         return True
 
+    def _latency_keep_alive_s(self) -> float:
+        """``[residency] latency_keep_alive_s`` as safe seconds: 0.0 off, capped at a year.
+
+        Total on purpose: the TOML can hold an integer no float can represent, and a
+        startup that raised on it would take the daemon down even with ``[latency]`` off.
+        """
+        from yazses.system.residency import keep_alive_seconds
+
+        return keep_alive_seconds(getattr(self._config.residency, "latency_keep_alive_s", 0))
+
     def _start_latency_pool_evictor(self) -> None:
         """Release idle governor models on a tick. Dormant at the default.
 
         Started only when ``[residency] latency_keep_alive_s`` is positive and the
         governor exists; at 0 no thread starts and the pool keeps every model.
         """
-        keep_alive = float(self._config.residency.latency_keep_alive_s or 0)
+        from yazses.system.residency import MAX_KEEP_ALIVE_S, unload_tick_s
+
+        keep_alive = self._latency_keep_alive_s()
         if keep_alive <= 0 or self._governor is None:
             return
-        from yazses.system.residency import unload_tick_s
+        if keep_alive >= MAX_KEEP_ALIVE_S:
+            log.warning(
+                "[residency] latency_keep_alive_s = %r is longer than a year; using %d s.",
+                self._config.residency.latency_keep_alive_s, int(MAX_KEEP_ALIVE_S),
+            )
 
         tick = unload_tick_s(keep_alive)
 
@@ -1612,7 +1628,7 @@ class Daemon:
             "Latency governor released %s after at least %d s idle ([residency] "
             "latency_keep_alive_s); they reload when the CPU is busy again.",
             ", ".join(f"{model} (beam {beam})" for model, beam in evicted),
-            int(self._config.residency.latency_keep_alive_s),
+            int(self._latency_keep_alive_s()),
         )
         return [(str(model), int(beam)) for model, beam in evicted]
 
@@ -6788,7 +6804,7 @@ class Daemon:
         # release the extra ones after that many idle seconds.
         self._governor = EnginePool(
             build, base_key, self._engine,
-            keep_alive_s=float(self._config.residency.latency_keep_alive_s),
+            keep_alive_s=self._latency_keep_alive_s(),
         )
         log.info(
             "Adaptive Latency Governor on: %s below %.0f%% load, %s at or above %.0f%%.",

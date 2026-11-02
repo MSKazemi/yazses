@@ -774,7 +774,8 @@ def _registry() -> list[_Def]:
              "Adapts decoding to system load: while the 1-minute load average is at or above "
              "[latency] high_load it decodes with [latency] light_model at a greedy beam, and "
              "otherwise with your normal model. The light model loads in the background the first "
-             "time that happens and then stays resident (~75 MB for tiny.en). POSIX only — Windows "
+             "time that happens and then stays resident (~75 MB for tiny.en) unless [residency] "
+             "latency_keep_alive_s releases it after that many idle seconds. POSIX only — Windows "
              "exposes no load average, and there the governor says so and stays off. The "
              "speculative-decoding half of ADR-v2-073 is designed but not built. Off by default.",
              lambda c: c.latency.enabled, lat_on, lat_off),

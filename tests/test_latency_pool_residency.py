@@ -164,12 +164,15 @@ def test_failed_load_is_untouched_by_evict_idle():
     h = Harness(keep_alive_s=10.0, fail={"broken"})
     assert h.pool.get("broken", 1) is None
     h.run_queued()  # the load raised; the key stays in _pending
-    h.clock.advance(10**6)
-    assert h.pool.evict_idle() == []
-    # Still pending, so a repeat get does not start a second load.
+    h.clock.advance(5.0)
+    # Inside the retry backoff a repeat get does not start a second load.
     assert h.pool.get("broken", 1) is None
     assert h.queued == []
     assert h.builds.count(("broken", 1)) == 1
+    # Eviction never touches a failed key, however long ago it failed. (With a keep-alive the
+    # key may be retried once the backoff has passed -- tests/test_residency_review_fixes.py.)
+    h.clock.advance(10**6)
+    assert h.pool.evict_idle() == []
 
 
 def test_snapshot_is_none_without_keep_alive():

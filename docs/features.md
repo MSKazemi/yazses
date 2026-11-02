@@ -194,7 +194,7 @@ YazSes ships **151 capabilities**. All but the core are **off by default** — t
 ### Adaptive Latency Governor
 
 - **Toggle:** `latency`  ·  **Tier:** optional  ·  **Config:** `[latency] — load-aware decode`
-- **What it does:** Adapts decoding to system load: while the 1-minute load average is at or above [latency] high_load it decodes with [latency] light_model at a greedy beam, and otherwise with your normal model. The light model loads in the background the first time that happens and then stays resident (~75 MB for tiny.en). POSIX only — Windows exposes no load average, and there the governor says so and stays off. The speculative-decoding half of ADR-v2-073 is designed but not built. Off by default.
+- **What it does:** Adapts decoding to system load: while the 1-minute load average is at or above [latency] high_load it decodes with [latency] light_model at a greedy beam, and otherwise with your normal model. The light model loads in the background the first time that happens and then stays resident (~75 MB for tiny.en) unless [residency] latency_keep_alive_s releases it after that many idle seconds. POSIX only — Windows exposes no load average, and there the governor says so and stays off. The speculative-decoding half of ADR-v2-073 is designed but not built. Off by default.
 - **Use when:** When your CPU is busy and dictation lags, but you still want fast response when it's idle.
 - **Example:** Dictation stays snappy when your CPU is busy, faster when it's idle.
 - **Activate:** `yazses features enable latency` then `yazses restart`

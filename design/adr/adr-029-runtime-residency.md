@@ -333,6 +333,14 @@ How it meets the rest of §1 and §3:
   fails the run when unmeasured. The gate takes measurements from a file and makes none itself,
   so no nightly run feeds it yet.
 
+Two behaviours came from the independent review of this step. A load that fails stays pending, so a
+failure is never retried once per burst; with the key set it may be retried after 60 s
+(`latency.pool.RETRY_AFTER_FAILURE_S`), because an evicted model will be asked for again and a
+transient failure should not disable it until restart. Without the key a failure is permanent, as it
+was. The key is read through `residency.keep_alive_seconds`, which caps it at one year
+(`MAX_KEEP_ALIVE_S`) and treats anything that is not a positive number as 0, so a value no float can
+represent cannot stop the daemon starting.
+
 Not measured in this step: how much RSS an eviction returns. The ADR's question is the
 same one step 1 left open. CTranslate2 may keep its arena after a model is dropped, and no
 run has been made to check. Until the nightly job exists and feeds the budget gate, no

@@ -27,6 +27,9 @@ log = logging.getLogger(__name__)
 
 Key = tuple[str, int]
 
+#: With a keep-alive, how long a failed load waits before the next request may try again.
+RETRY_AFTER_FAILURE_S = 60.0
+
 
 def _spawn(fn: Callable[[], None]) -> None:
     threading.Thread(target=fn, name="latency-engine-load", daemon=True).start()
@@ -41,6 +44,11 @@ class EnginePool:
     successful :meth:`get` or the completion of its load. The base engine is the
     daemon's own dictation model and is never evicted. ``keep_alive_s == 0`` (the
     default) keeps every engine for the life of the pool, exactly as before.
+
+    A load that fails stays pending, so a failure is not retried once per burst. With a
+    keep-alive the key may be retried once ``retry_after_s`` has passed, because an
+    evicted model will be asked for again and one transient failure should not disable
+    it until restart; without a keep-alive a failure is permanent, as it always was.
     """
 
     def __init__(
@@ -52,12 +60,19 @@ class EnginePool:
         spawn: Callable[[Callable[[], None]], None] = _spawn,
         keep_alive_s: float = 0.0,
         clock: Callable[[], float] = time.monotonic,
+        retry_after_s: float = RETRY_AFTER_FAILURE_S,
     ) -> None:
         self._build = build
         self._spawn = spawn
         self._base_key = base_key
         self._keep_alive_s = float(keep_alive_s)
         self._clock = clock
+        self._retry_after_s = float(retry_after_s)
+        #: When each failed load failed. Used only with a keep-alive: an eviction means the
+        #: model will be asked for again, so one transient failure (a full disk, a busy
+        #: network drive) must not switch it off until restart. Without a keep-alive a
+        #: failure stays permanent, exactly as before.
+        self._failed_at: dict[Key, float] = {}
         self._lock = threading.Lock()
         self._engines: dict[Key, object] = {base_key: base_engine}
         #: Keys whose load is in flight or has failed. Both belong here: a second
@@ -85,8 +100,18 @@ class EnginePool:
                 self._last_used[key] = self._clock()
                 return engine
             if key in self._pending:
-                return None
-            self._pending.add(key)
+                failed = self._failed_at.get(key)
+                if (
+                    failed is None
+                    or self._keep_alive_s <= 0
+                    or self._clock() - failed < self._retry_after_s
+                ):
+                    return None
+                # A failed load, long enough ago: try once more. The key stays pending so
+                # a second request while this retry runs does not start a third load.
+                del self._failed_at[key]
+            else:
+                self._pending.add(key)
         self._spawn(lambda: self._load(key))
         return None
 
@@ -96,7 +121,10 @@ class EnginePool:
         try:
             engine = self._build(model, beam_size)
         except Exception:
-            # Stays in `_pending` for the life of the pool: logged once, never retried.
+            # Stays in `_pending`, so a failure is logged once per attempt, never per burst.
+            # With a keep-alive it is retried after `retry_after_s`; without one, never.
+            with self._lock:
+                self._failed_at[key] = self._clock()
             log.exception(
                 "Latency governor could not load model %r (beam %d); it will keep "
                 "using the engine already loaded", model, beam_size,
@@ -105,6 +133,7 @@ class EnginePool:
         with self._lock:
             self._engines[key] = engine
             self._pending.discard(key)
+            self._failed_at.pop(key, None)
             self._last_used[key] = self._clock()
         log.info("Latency governor loaded model %r (beam %d).", model, beam_size)
 
