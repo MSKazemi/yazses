@@ -32,6 +32,7 @@ _ALIASES = {
     "stt-moonshine": "stt",        # same selector, different engine
     "rewrite": "commands",         # Command Mode writes [commands] rewrite
     "chinese-script": "stt",       # Han-script selector writes [stt] chinese_script
+    "persian-normalisation": "stt",  # Persian selector writes [stt] persian_normalisation
 }
 
 

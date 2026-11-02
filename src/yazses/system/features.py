@@ -158,6 +158,7 @@ def _registry() -> list[_Def]:
     # script, which would be a different opinion, not an off switch.
     han_on = (("stt", "chinese_script", "simplified", True),)
     han_off = (("stt", "chinese_script", "", True),)
+    pers_on, pers_off = _bool("stt", "persian_normalisation")
     # STT engine is a string setting: enable selects Parakeet, disable restores
     # the faster-whisper default (stt/factory.py falls back safely either way).
     pk_on = (("stt", "engine", "parakeet", True),)
@@ -376,6 +377,16 @@ def _registry() -> list[_Def]:
              "multilingual model ([stt] model without the .en suffix) and "
              "language = \"zh\" — on an English-only model it can do nothing.",
              lambda c: bool(getattr(c.stt, "chinese_script", "")), han_on, han_off),
+        _Def("persian-normalisation", "Persian text (فارسی)", "[stt] persian_normalisation",
+             OPTIONAL,
+             "Writes Arabic Yeh (ي) and Kaf (ك) as the Persian letters ی and ک, collapses "
+             "runs of zero-width non-joiners and removes one at the start or end of the "
+             "text, and strips bidi override controls. Leaves URLs, emails, paths, version "
+             "numbers and Latin identifiers byte-for-byte. It is not a grammar corrector: it "
+             "does not change words, spelling, digits or punctuation. Only applies when "
+             "[stt] language is Persian (\"fa\"); on any other language it does nothing. "
+             "Off by default, so an upgrade does not change the text you already get.",
+             lambda c: bool(getattr(c.stt, "persian_normalisation", False)), pers_on, pers_off),
         _Def("mic-guard", "Mic-change guard", "[audio] device_change_notify", DEFAULT_ON,
              "Notifies + auto-heals when your microphone silently switches (e.g. a "
              "USB-C monitor stealing capture) so dictation never dies in silence. Keep on.",
@@ -1264,6 +1275,7 @@ _SLUG_PACKAGES: dict[str, tuple[str, ...]] = {
     "dictation": ("core",),
     "voice-punctuation": ("postprocess",),
     "chinese-script": ("postprocess",),  # postprocess/han_script.py
+    "persian-normalisation": ("postprocess",),  # postprocess/persian_text.py
     "undo": ("commands",),           # commands/revise.py, wired in daemon._on_hold_end
     "target-guard": ("inject",),     # inject/target.py
     "mic-guard": ("audio",),         # audio/device_monitor.py
@@ -1390,6 +1402,7 @@ _EXAMPLES: dict[str, str] = {
     "dysfluency": "Say 'b-b-because' → 'because' (stutters collapsed).",
     "punch-in": "Re-speak a phrase right after to correct the last one.",
     "chinese-script": "Dictating 简体中文 and getting 繁體字 back — this pins the script.",
+    "persian-normalisation": "Persian dictation whose Arabic-keyboard ي and ك come out as the Persian ی and ک.",
     "prosody": "Pause between thoughts → a new paragraph; stress a word → bold.",
     "ghost-ahead": "Nothing to do — the decoder pre-warms for faster first words.",
     "macros": "Say your trigger word to expand canned text (configure [macros]).",
@@ -1561,6 +1574,7 @@ _USE_CASES: dict[str, str] = {
     "dysfluency": "When you stutter, have dysarthria, or repeat words and want them cleaned to fluent text.",
     "punch-in": "When one phrase came out wrong and you'd rather re-say it than manually edit.",
     "chinese-script": "When you dictate Chinese and want it always written in your own script — Simplified on the mainland, Traditional in Taiwan or Hong Kong.",
+    "persian-normalisation": "When you dictate Persian and the text mixes Arabic and Persian letters that search and copy-paste treat as different characters.",
     "prosody": "When you want your natural pauses and emphasis to become paragraphs and bold automatically.",
     "ghost-ahead": "When first-word latency bugs you and you want the decoder warm before you speak.",
     "macros": "When you repeatedly type the same boilerplate and want a spoken shortcut for it.",
@@ -1741,6 +1755,7 @@ _CATEGORIES: dict[str, str] = {
     # Chinese script selection shapes how correct text is written, not what was
     # heard, so it belongs with formatting rather than accuracy.
     "chinese-script": CAT_FORMAT,
+    "persian-normalisation": CAT_LANG,
     "prosody": CAT_FORMAT, "prosodypunct": CAT_FORMAT, "itn": CAT_FORMAT,
     "markup": CAT_FORMAT, "sembr": CAT_FORMAT, "outline": CAT_FORMAT,
     "screenplay": CAT_FORMAT, "tablecsv": CAT_FORMAT, "spreadsheet": CAT_FORMAT,
@@ -1937,6 +1952,19 @@ def enable_caveat(slug: str, cfg) -> str | None:
                 "is held, and [hotkey] command_key is not set — so enabling it now "
                 "changes nothing you can trigger. Bind one first, e.g. "
                 "`yazses hotkey command right_ctrl`, then `yazses restart`."
+            )
+    if slug == "persian-normalisation":
+        # The toggle writes [stt] persian_normalisation only. The normaliser builds
+        # nothing unless [stt] language is Persian, so on any other language the
+        # feature reads ON in the list and changes no transcript.
+        from yazses.postprocess.persian_text import is_persian_language
+
+        language = getattr(getattr(cfg, "stt", None), "language", "")
+        if not is_persian_language(language):
+            return (
+                f"Heads up: [stt] language is {language or 'auto-detect'!r}, not Persian, "
+                "so enabling this changes nothing you dictate. Set Spoken language to Persian "
+                "in Settings, or [stt] language = \"fa\" in config.toml, then restart YazSes."
             )
     if slug == "gitvoice":
         # The toggle records a choice and nothing more: `yazses gitvoice` never consults

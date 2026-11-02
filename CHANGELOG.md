@@ -6,6 +6,20 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Persian text normalisation has a checkbox in Settings
+
+`[stt] persian_normalisation` could only be turned on by editing `config.toml`. It is now a
+checkbox on the Settings Features page, under Multilingual, labelled "Persian text (فارسی)". It is
+off by default, so an upgrade changes nothing. It only acts when `[stt] language` is Persian. Enabling
+it while the language is something else shows a warning and does nothing. It is not a grammar
+corrector.
+
+What was checked: unit tests for the control's group, its help text, its key, the default, the
+round trip (on and off move only that key) and the warning. The tests run offline and need no Qt.
+
+What was not checked: the checkbox was not rendered in a real Settings window, so its placement and
+wording have not been seen on screen.
+
 ## [2.48.0] - 2026-11-02
 
 ### Added — the latency governor's second model can be released when idle (opt-in)
