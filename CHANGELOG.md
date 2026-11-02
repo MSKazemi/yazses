@@ -6,6 +6,16 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the built-in English prompt is no longer sent to a non-English decode
+
+With `[stt] language` set to a language other than English (`fa`, `fa-IR`, `zh`, `de`, ...),
+the daemon still primed Whisper with the English sentence "The app is called YazSes.", so an
+English phrase conditioned Persian or Chinese dictation and could echo into it on noise (#598).
+That sentence is now withheld for any language other than English. It is still sent when the
+language is English, unset, or `""`/`"auto"`/`"translate"` (auto-detect). A prompt or personal
+vocabulary you wrote is sent exactly as before. Not measured on audio: no WER or latency change
+was measured for this.
+
 ## [2.48.0] - 2026-11-02
 
 ### Added — the latency governor's second model can be released when idle (opt-in)

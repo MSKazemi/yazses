@@ -1,4 +1,7 @@
-"""Built-in vocabulary always primed into Whisper's ``initial_prompt``.
+"""Built-in vocabulary primed into Whisper's ``initial_prompt`` for English decodes.
+
+Primed for English and auto-detect decodes only; with another ``[stt] language`` the
+English phrase is withheld (:func:`builtin_prompt_applies`).
 
 ``YazSes`` is a coined word the speech model has never seen in training, so it
 mis-transcribes the spoken name ("yes ses", "yaz says", "yacht says", ...).
@@ -43,17 +46,38 @@ BUILTIN_PROMPT = "The app is called YazSes."
 PROMPT_TOKEN_BUDGET = 223
 
 
-def merge_initial_prompt(*parts: str | None) -> str | None:
+def builtin_prompt_applies(language: str | None) -> bool:
+    """Whether the English :data:`BUILTIN_PROMPT` may condition a decode in *language*.
+
+    The phrase is English. It is written for decodes that are English, or whose
+    language the config does not pin: an unset language, ``""``/``"auto"`` (Whisper
+    detects it), and ``"translate"`` (which decodes the source language, not the
+    phrase). Any other configured language -- ``fa``, ``fa-IR``, ``zh``, ``de`` -- gets
+    no English sentence, because Whisper conditions on the prompt and an echo of it on
+    noise would put English into that language's transcript (#598).
+
+    The fold is :func:`yazses.language.capability.normalise_language`, the same one the
+    decoder pins its language with, so ``fa-IR`` here means exactly what it means there.
+    """
+    from yazses.language.capability import normalise_language
+
+    return normalise_language(language) in ("", "en")
+
+
+def merge_initial_prompt(*parts: str | None, language: str | None = None) -> str | None:
     """Compose the effective ``initial_prompt`` from any extra parts (configured
-    ``[stt] initial_prompt``, personal vocab) plus the built-in name vocabulary.
+    ``[stt] initial_prompt``, personal vocab) plus, when :func:`builtin_prompt_applies`
+    to *language*, the built-in name vocabulary.
 
     The built-in phrase always comes **last**, so it survives the decoder's
-    keep-the-tail truncation (:data:`PROMPT_TOKEN_BUDGET`); blank/``None`` parts
-    are dropped. Always returns a non-empty string (the built-in name is always
-    present), so callers never get ``None`` — but the signature mirrors the
-    optional prompts they pass in.
+    keep-the-tail truncation (:data:`PROMPT_TOKEN_BUDGET`); blank/``None`` parts are
+    dropped and the parts themselves are never altered by the language. ``language``
+    defaults to ``None`` (unset), which keeps the phrase: callers that do not pass a
+    language get the behaviour they always had. Returns ``None`` when nothing is left
+    to send, which for a non-English language with no user prompt is the normal case.
     """
     chunks: list[str] = [part.strip() for part in parts if part and part.strip()]
-    chunks.append(BUILTIN_PROMPT)
+    if builtin_prompt_applies(language):
+        chunks.append(BUILTIN_PROMPT)
     merged = " ".join(chunks).strip()
     return merged or None
