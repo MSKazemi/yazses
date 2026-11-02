@@ -143,8 +143,22 @@ def _without_possessive(token: str) -> str:
     return token
 
 
+def _has_latin_letter(text: str) -> bool:
+    """True when *text* contains an ASCII letter. Pure.
+
+    The key below encodes only the Latin consonant classes. Every other letter keeps its own
+    identity and contributes nothing else, so Persian words that share a first letter get the
+    same key: ``خانه`` and ``خانم`` both reduce to ``خ``. A Persian token must therefore never
+    be matched, or a window of Latin and Persian words joined into one term, which deleted the
+    Persian words after a Latin hotword ("Kubernetis را نصب کن" -> "Kubernetes").
+    """
+    return any("a" <= ch <= "z" or "A" <= ch <= "Z" for ch in text)
+
+
 def _is_close(heard: str, term: str, max_ratio: float) -> bool:
     """Both guards: identical phonetic key AND a small enough edit distance."""
+    if not (_has_latin_letter(heard) and _has_latin_letter(term)):
+        return False
     if len(heard.replace(" ", "")) < MIN_TOKEN_LENGTH:
         return False
     if phonetic_key(heard.replace(" ", "")) != phonetic_key(term.replace(" ", "")):
@@ -225,6 +239,9 @@ def correct(
             if width > 1 and any(
                 spans[i + k][2].lower() in _STOPWORDS for k in range(width)
             ):
+                continue
+            # Only Latin-script tokens can be mis-heard vocabulary (see _has_latin_letter).
+            if any(not _has_latin_letter(spans[i + k][2]) for k in range(width)):
                 continue
             heard = text[spans[i][0]:spans[i + width - 1][1]]
             if heard.lower() in known:
