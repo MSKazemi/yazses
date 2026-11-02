@@ -39,6 +39,22 @@ def parse_bibtex(text: str):
     return entries
 
 
+CITATION_STYLES = ("latex", "plain", "apa")
+
+
+def decode_bibtex(raw: bytes) -> str:
+    """Decode a ``.bib`` file: UTF-8 first, then Latin-1 as the documented fallback.
+
+    Latin-1 maps every byte, so this never fails. A file in another encoding (cp1252
+    quotes, say) can therefore show odd characters in a title, but it is still read and
+    the citation key and author resolve.
+    """
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw.decode("latin-1")
+
+
 def _surnames(authors: str):
     # "Vaswani, Ashish and Shazeer, Noam" → {"vaswani", "shazeer"}; also handles "Ashish Vaswani".
     out = set()
@@ -76,12 +92,22 @@ def resolve_citation(query: str, entries):
 
 
 def format_citation(entry: Entry, style: str = "latex") -> str:
-    """Format an :class:`Entry` in ``latex`` / ``plain`` / ``apa`` style. Pure."""
+    """Format an :class:`Entry` as ``latex``, ``plain`` or ``apa``. Pure.
+
+    ``latex`` is ``\\cite{key}``; ``plain`` is ``Vaswani et al. 2017``; ``apa`` is
+    ``Vaswani et al. (2017)``. An unknown style raises ``ValueError`` rather than falling
+    through to one of them.
+    """
+    if style not in CITATION_STYLES:
+        raise ValueError(
+            f"unknown citation style {style!r}; valid styles: {', '.join(CITATION_STYLES)}"
+        )
     if style == "latex":
         return f"\\cite{{{entry.key}}}"
     surnames = list(_surnames(entry.authors))
     label = entry.authors.split(",")[0].split(" and ")[0].strip() if entry.authors else entry.key
     lead = label.split()[-1] if label and "," not in label else (label.split(",")[0] if label else entry.key)
-    if len(surnames) > 1:
-        return f"{lead} et al. ({entry.year})"
-    return f"{lead} ({entry.year})"
+    who = f"{lead} et al." if len(surnames) > 1 else lead
+    if style == "plain":
+        return f"{who} {entry.year}"
+    return f"{who} ({entry.year})"

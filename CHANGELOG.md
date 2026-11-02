@@ -6,6 +6,17 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses cite` and `yazses vocab import` failed silently or with a traceback
+
+- `cite --style plain` printed APA output, and `--style bogus` also printed APA with exit 0.
+  `plain` is now `Vaswani et al. 2017`; an unknown style exits 2 and lists `latex, plain, apa`.
+- A non-UTF-8 `.bib` passed to `cite` raised `UnicodeDecodeError`. It is now read as UTF-8,
+  then Latin-1. A binary file passed to `vocab import` (or to `-` on stdin) now fails with a
+  one-line message naming the file and that it is not UTF-8, exit 1, and writes nothing.
+- `vocab import <directory>` said `No such file`. It now says the path is a directory.
+- `cite` on an empty `.bib` now says the bibliography file has no entries, and an empty query
+  says the query is empty, instead of `No confident citation match`.
+
 ### Fixed — the Arabic, Persian and Urdu pages showed their Markdown as raw text
 
 The right-to-left translated pages wrapped their body in a bare `<div dir="rtl">`, so headings,

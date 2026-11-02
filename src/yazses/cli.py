@@ -3219,14 +3219,32 @@ def vocab_import(
     """
     from yazses.system.vocabulary import import_vocab, vocab_path
 
+    not_utf8 = "is not UTF-8 text, so it cannot be imported. Re-save it as UTF-8 and try again."
     if source == "-":
-        text = sys.stdin.read()
+        try:
+            text = sys.stdin.read()
+        except UnicodeDecodeError:
+            typer.echo(f"stdin {not_utf8}", err=True)
+            raise typer.Exit(1)
     else:
         path = Path(source)
+        if path.is_dir():
+            typer.echo(
+                f"{source} is a directory, not a file. Name a file inside it, or use '-' for stdin.",
+                err=True,
+            )
+            raise typer.Exit(1)
         if not path.is_file():
             typer.echo(f"No such file: {source}", err=True)
             raise typer.Exit(1)
-        text = path.read_text(encoding="utf-8")
+        try:
+            text = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            typer.echo(f"{source} {not_utf8}", err=True)
+            raise typer.Exit(1)
+        except OSError as exc:
+            typer.echo(f"Could not read {source}: {exc.strerror or exc}", err=True)
+            raise typer.Exit(1)
 
     platform = get_platform()
     target = vocab_path(platform.paths.config_file.parent)
@@ -5782,16 +5800,35 @@ def cite(
 
     Use it when: you're writing and want the right citation key/label without leaving
     your flow — say the author and year, get the formatted citation. Exits non-zero if
-    the file can't be read or no entry matches confidently.
+    the file can't be read, has no entries, or no entry matches confidently. A .bib that
+    is not UTF-8 is read as Latin-1.
     """
-    from yazses.cite.library import format_citation, parse_bibtex, resolve_citation
+    from yazses.cite.library import (
+        CITATION_STYLES,
+        decode_bibtex,
+        format_citation,
+        parse_bibtex,
+        resolve_citation,
+    )
 
+    if not query.strip():
+        typer.echo("The query is empty. Try 'surname year', e.g. 'vaswani 2017'.", err=True)
+        raise typer.Exit(1)
+    if style not in CITATION_STYLES:
+        typer.echo(
+            f"Unknown --style {style!r}. Valid styles: {', '.join(CITATION_STYLES)}.", err=True
+        )
+        raise typer.Exit(2)
     try:
-        text = Path(bib).read_text(encoding="utf-8")
+        raw = Path(bib).read_bytes()
     except OSError as exc:
         typer.echo(f"Could not read --bib: {exc}", err=True)
         raise typer.Exit(1)
-    hit = resolve_citation(query, parse_bibtex(text))
+    entries = parse_bibtex(decode_bibtex(raw))
+    if not entries:
+        typer.echo(f"The bibliography file has no entries: {bib}", err=True)
+        raise typer.Exit(1)
+    hit = resolve_citation(query, entries)
     if hit is None:
         typer.echo("No confident citation match. Try 'surname year'.", err=True)
         raise typer.Exit(1)
