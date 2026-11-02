@@ -233,6 +233,51 @@ def _injection_readiness(
     return out
 
 
+def _injection_layout_check(cfg, *, detect=None) -> _Check:
+    """One row: the speech language, the XKB layout keys resolve against, and what Persian needs.
+
+    The Unicode injector sends keycodes and the compositor maps them with its own active
+    layout, so Persian letters are typed only while an ``ir`` layout is the one the
+    compositor is using. ``detect`` is injectable; the default is read-only and local.
+    Not verified against a live compositor: the row states what YazSes reads, not what
+    the windows receive.
+    """
+    from yazses.inject.unicode import PERSIAN_LAYOUT, detect_layout
+    from yazses.language.capability import normalise_language
+
+    try:
+        language = normalise_language(getattr(getattr(cfg, "stt", None), "language", "en"))
+        found = (detect or detect_layout)()
+    except Exception as exc:  # noqa: BLE001 - a diagnostic never raises
+        return ("Injection layout", "WARN", f"could not be checked ({exc})")
+
+    listed = ", ".join(found.listed) or "none reported"
+    facts = (
+        f"speech language {language}; keys resolve against layout {found.active!r} "
+        f"(from {found.source}); layouts the session lists: {listed}"
+    )
+    if language != "fa":
+        return ("Injection layout", "OK", facts)
+    if found.active == PERSIAN_LAYOUT:
+        return (
+            "Injection layout", "OK",
+            f"{facts}. Persian letters can be typed while the compositor is on the "
+            f"{PERSIAN_LAYOUT!r} layout. Not verified against a live compositor.",
+        )
+    also = (
+        f" The session also lists {PERSIAN_LAYOUT!r}, but YazSes uses the layout the "
+        f"session reports as active, so Persian typing needs {PERSIAN_LAYOUT!r} to be "
+        "the active layout."
+        if PERSIAN_LAYOUT in found.listed else ""
+    )
+    return (
+        "Injection layout", "WARN",
+        f"{facts}. Persian letters need an active Persian ({PERSIAN_LAYOUT!r}) layout in "
+        "the compositor. Otherwise YazSes pastes the text through the clipboard instead "
+        f"(the fallback).{also}",
+    )
+
+
 def _prosody_check(enabled: bool) -> _Check | None:
     """Report whether the optional ``prosody`` extra (parselmouth) is importable.
 
@@ -2415,6 +2460,7 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
 
         configured = getattr(getattr(cfg, "injection", None), "backend", "auto")
         checks.extend(_injection_readiness(is_wayland, is_x11, configured))
+        checks.append(_injection_layout_check(cfg))
 
         # Whether "focus the browser" can work here. Wayland cannot, by design.
         window_focus = _window_focus_check(is_wayland, is_x11, cfg)
