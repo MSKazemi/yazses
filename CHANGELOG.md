@@ -6,6 +6,25 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the tray's "Stop daemon" stays stopped, and its menu actions report the real outcome
+
+Was: on Linux, "Stop daemon" sent only the `shutdown` request. The stop note that `yazses stop`
+leaves was never written, so the tray relaunched the daemon about five seconds later and undid the
+stop. The microphone pin, the re-calibrate and the stop handlers announced success whatever the
+daemon answered, and dropped the daemon's own words on failure. Meeting Mode's notification and the
+re-calibrate failure showed "That did not work." or "Could not re-calibrate right now." when the
+daemon had given a reason or an error.
+
+Now: "Stop daemon" leaves the same stop note before it sends `shutdown`, so the tray closes instead
+of relaunching; if the stop is refused, the note is removed and the tray's normal recovery applies.
+A failed microphone pin, re-calibrate or stop shows the daemon's `reason` or `error`; "Pinned to"
+and "Stopping the daemon…" appear only when the daemon accepted the request. `yazses restart` still
+writes no note. Only the Linux tray calls this path; the macOS and Windows trays quit through their
+own `shutdown` calls, which this change does not touch.
+
+Not checked: a real tray on a real desktop session, and the macOS and Windows trays. The fix is
+covered by unit tests with a fake IPC client and a temporary data directory.
+
 ### Fixed — the Arabic, Persian and Urdu pages showed their Markdown as raw text
 
 The right-to-left translated pages wrapped their body in a bare `<div dir="rtl">`, so headings,
