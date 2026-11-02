@@ -32,6 +32,7 @@ import pathlib
 
 import pytest
 
+from tests.decoder_stack import needs_faster_whisper
 from yazses.meeting.finalize import finalize_meeting
 
 SPEECH = pathlib.Path(__file__).resolve().parent.parent / "data/librispeech-sample/jfk.wav"
@@ -82,6 +83,7 @@ def _audio():
     return _speech()
 
 
+@needs_faster_whisper
 def test_the_transcript_survives_a_notes_explosion(monkeypatch) -> None:
     """The guard this file exists for: `generate_minutes` itself raising.
 
@@ -105,6 +107,7 @@ def test_the_transcript_survives_a_notes_explosion(monkeypatch) -> None:
     assert result.minutes is None
 
 
+@needs_faster_whisper
 def test_a_broken_llm_never_even_reaches_the_boundary() -> None:
     """Recorded because it is why the guard looks unnecessary until it is not.
 
@@ -122,6 +125,7 @@ def test_a_broken_llm_never_even_reaches_the_boundary() -> None:
     assert result.minutes is None
 
 
+@needs_faster_whisper
 def test_the_failure_leaves_no_half_built_minutes() -> None:
     """Better nothing than a partial set presented as the meeting's decisions."""
 
@@ -134,6 +138,7 @@ def test_the_failure_leaves_no_half_built_minutes() -> None:
     assert result.minutes is None
 
 
+@needs_faster_whisper
 def test_working_notes_are_still_produced() -> None:
     """A guard that swallowed everything would pass both tests above."""
 
@@ -148,6 +153,7 @@ def test_working_notes_are_still_produced() -> None:
     assert result.minutes.decisions == ["ship on Friday"]
 
 
+@needs_faster_whisper
 def test_notes_off_means_no_minutes_and_no_llm_call() -> None:
     class _Off(_Cfg):
         notes = False
