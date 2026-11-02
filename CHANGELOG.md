@@ -6,6 +6,17 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the Unicode injector resolves keys against the layout the session reports (Linux)
+
+- The layout was guessed from `XKB_DEFAULT_LAYOUT` / `LANG` and defaulted to `us`, so Persian
+  letters (none on `us`) always fell back to the clipboard. It now reads, in order: the XKB
+  environment variables, sway's active layout, GNOME's `mru-sources` then `sources`, `localectl`,
+  then `us`. Every probe is read-only, local, under 1 s, and ignored when it fails. Unverified on
+  a live Wayland compositor with a Persian layout.
+- The missing-character error names the layout that was consulted, and `yazses doctor` gains an
+  `Injection layout` row: STT language, the detected layout and its source, and that Persian
+  letters need an active `ir` layout or YazSes pastes instead.
+
 ## [2.48.0] - 2026-11-02
 
 ### Added — the latency governor's second model can be released when idle (opt-in)
