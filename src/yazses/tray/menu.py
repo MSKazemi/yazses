@@ -126,16 +126,23 @@ def build_menu_model(
 def residency_line(status: dict) -> str | None:
     """The speech model's residency as one tray line, or None when there is nothing to say.
 
-    Only under `[stt] idle_unload_s` (ADR-029): the daemon then reports whether the model
-    is in memory, and the first press after an unload is slow, so the tray says why
+    Only under `[stt] idle_unload_s` or `[residency] latency_keep_alive_s` (ADR-029): the
+    daemon then reports whether the speech model is in memory (the governor's extra model,
+    when that key is set, is appended), and the first press after an unload is slow, so the tray says why
     before the user wonders. ``None`` at the default of ``0``, on an older daemon, and for
     any shape the shared phrase builder does not recognise. The phrase is the one
     `yazses status` prints, from `system/residency.py`, so the two cannot disagree.
     """
-    from yazses.system.residency import describe_stt_residency
+    from yazses.system.residency import describe_pool_residency, describe_stt_residency
 
     phrase = describe_stt_residency(status.get("stt_residency"))
-    return f"Speech model: {phrase}" if phrase is not None else None
+    stt = f"Speech model: {phrase}" if phrase is not None else None
+    # `[residency] latency_keep_alive_s` (ADR-029 step 2): the governor's extra model, in
+    # the words `yazses status` uses. Appended, never replacing the speech-model phrase.
+    pool = describe_pool_residency(status.get("latency_residency"))
+    if stt is None:
+        return pool
+    return f"{stt} · {pool}" if pool is not None else stt
 
 
 def header_line(status: dict) -> str:
@@ -490,6 +497,8 @@ def status_from_model(model: TrayModel) -> dict:
         # `[stt] idle_unload_s` (ADR-029): the tooltip and the menu read it through
         # `residency_line`. In the shared bridge for the reason the meeting keys are.
         "stt_residency": model.stt_residency,
+        # `[residency] latency_keep_alive_s` (ADR-029 step 2), read through `residency_line`.
+        "latency_residency": model.latency_residency,
         # The decoder that came up and the reason for any fallback (#644), plus the
         # daemon's error text: the static menus' status lines read them through
         # `status_lines`. In the shared bridge for the reason the meeting keys are.

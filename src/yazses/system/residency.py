@@ -213,6 +213,37 @@ DEFAULT_POLICY = ResidencyPolicy(
 #: The dictation engine's residency unit, named once for the daemon and the engine wrapper.
 STT_UNIT = "stt"
 
+#: The latency governor's residency unit: its extra models are released after
+#: ``[residency] latency_keep_alive_s`` (see :func:`with_latency_keep_alive`).
+LATENCY_UNIT = "latency"
+
+#: The longest keep-alive the daemon will honour: one year of seconds. A config can hold
+#: any integer, including ones that no float can represent; a keep-alive that long means
+#: "never release" in practice, so it is clamped here instead of failing at startup.
+MAX_KEEP_ALIVE_S: float = 365 * 24 * 3600.0
+
+
+def keep_alive_seconds(value: object) -> float:
+    """A config keep-alive as a safe number of seconds: ``0.0`` (off) up to :data:`MAX_KEEP_ALIVE_S`.
+
+    Total, so the daemon can call it on whatever the TOML held. ``0``, negatives, NaN,
+    booleans and anything that is not a number give ``0.0`` (the pool then never evicts).
+    A value above the cap, an infinity, and an integer too large for a float (``float()``
+    raises ``OverflowError`` on 400 digits) give the cap. Integers are compared as
+    integers, so no huge value is ever converted.
+    """
+    if isinstance(value, bool):
+        return 0.0
+    if isinstance(value, int):
+        if value <= 0:
+            return 0.0
+        return MAX_KEEP_ALIVE_S if value >= int(MAX_KEEP_ALIVE_S) else float(value)
+    if isinstance(value, float):
+        if not value > 0:          # false for NaN too
+            return 0.0
+        return min(value, MAX_KEEP_ALIVE_S)
+    return 0.0
+
 
 def with_stt_idle_unload(
     idle_unload_s: float, policy: ResidencyPolicy = DEFAULT_POLICY,
@@ -231,6 +262,27 @@ def with_stt_idle_unload(
         return policy
     entries = tuple(
         replace(e, keep_alive_s=seconds) if e.feature == STT_UNIT else e
+        for e in policy.entries
+    )
+    return ResidencyPolicy(entries=entries, max_resident=policy.max_resident)
+
+
+def with_latency_keep_alive(
+    keep_alive_s: float, policy: ResidencyPolicy = DEFAULT_POLICY,
+) -> ResidencyPolicy:
+    """*policy* with the latency governor's extra-model keep-alive from ``[residency]``.
+
+    The ``latency`` row's keep-alive is the seconds a governor-loaded extra model stays
+    after its last use (``[residency] latency_keep_alive_s``, ADR-029 step 2). ``0`` is
+    "never release" and returns *policy* unchanged, which is the default and today's
+    behaviour. A positive value replaces that row's keep-alive. Negative, NaN and
+    infinite values raise, like every other number here.
+    """
+    seconds = _finite_non_negative(keep_alive_s, "[residency] latency_keep_alive_s")
+    if seconds == 0:
+        return policy
+    entries = tuple(
+        replace(e, keep_alive_s=seconds) if e.feature == LATENCY_UNIT else e
         for e in policy.entries
     )
     return ResidencyPolicy(entries=entries, max_resident=policy.max_resident)
@@ -296,6 +348,73 @@ def describe_stt_residency(block: object) -> str | None:
     if isinstance(idle, (int, float)) and not isinstance(idle, bool) and math.isfinite(idle):
         return f"loaded, idle {max(0.0, idle):.0f} s of {keep:.0f} s"
     return f"loaded, released after {keep:.0f} s idle"
+
+
+#: Cap on how many pool rows are read from one status reply. The pool holds a handful of
+#: engines (the base plus the governor's two or three); the cap only bounds a malformed
+#: reply, never a real one.
+_MAX_POOL_ROWS = 16
+
+
+def describe_pool_residency(snapshot: object) -> str | None:
+    """The latency governor's extra models as one line, for `yazses status`.
+
+    *snapshot* is the daemon's ``latency_residency`` status field, the pool's
+    ``residency_snapshot()``: ``{"keep_alive_s": float, "loaded": [{"model": str,
+    "beam_size": int, "base": bool, "idle_s": float | None}, ...], "evicted_total": int}``,
+    or ``None`` while ``[residency] latency_keep_alive_s`` is ``0``. Only rows with
+    ``base`` false count: the dictation engine is already described by ``stt_residency``.
+
+    Returns ``None`` -- print nothing -- for ``None``, a daemon too old to send the key,
+    a keep-alive that is not a positive finite number, or no extra model loaded. Any
+    other malformed row is skipped; a bad row never raises and never hides the good ones.
+
+    Rows are ordered by idle time, least idle first, with an unknown idle first and ties
+    by model name then beam, so the same reply always prints the same line. Example::
+
+        latency: tiny.en (beam 1) loaded, idle 42 s; released after 600 s idle
+    """
+    if not isinstance(snapshot, Mapping):
+        return None
+    keep = snapshot.get("keep_alive_s")
+    if not isinstance(keep, (int, float)) or isinstance(keep, bool):
+        return None
+    if not math.isfinite(keep) or keep <= 0:
+        return None
+    loaded = snapshot.get("loaded")
+    if not isinstance(loaded, (list, tuple)):
+        return None
+    rows: list[tuple[float, str, int, str]] = []
+    for row in loaded:
+        if len(rows) >= _MAX_POOL_ROWS:
+            break
+        if not isinstance(row, Mapping) or row.get("base") is not False:
+            continue
+        model = row.get("model")
+        if not isinstance(model, str):
+            continue
+        # Printable characters only: a newline or control byte in a name would split the
+        # one-line status and tray text. Capped so one name cannot fill the line.
+        model = "".join(ch for ch in model if ch.isprintable()).strip()[:64]
+        if not model:
+            continue
+        beam = row.get("beam_size")
+        beam_ok = isinstance(beam, int) and not isinstance(beam, bool) and beam >= 1
+        raw_idle = row.get("idle_s")
+        # A negative idle is malformed, not "0 s": _seconds would clamp it, so refuse it first.
+        negative = isinstance(raw_idle, (int, float)) and not isinstance(raw_idle, bool) and raw_idle < 0
+        idle = None if negative else _seconds(raw_idle)
+        text = model + (f" (beam {beam})" if beam_ok else "") + " loaded"
+        if idle is not None:
+            text += f", idle {idle:.0f} s"
+        beam_key = beam if isinstance(beam, int) and not isinstance(beam, bool) and beam >= 1 else 0
+        rows.append((-1.0 if idle is None else idle, model, beam_key, text))
+    if not rows:
+        return None
+    rows.sort(key=lambda r: (r[0], r[1], r[2]))
+    parts = [r[3] for r in rows]
+    released = f"{keep:.0f} s" if keep >= 1 else "under 1 s"
+    return "latency: " + "; ".join(parts) + f"; released after {released} idle"
 
 
 def unload_tick_s(keep_alive_s: float) -> float:

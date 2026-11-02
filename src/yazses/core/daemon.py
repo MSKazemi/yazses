@@ -911,6 +911,7 @@ class Daemon:
             self._warm_portal_session()
             self._start_portal_idle_reaper()
             self._start_stt_idle_unloader()
+            self._start_latency_pool_evictor()
             self._start_headpointer()
             self._start_gesture()
             self._start_morsevox()
@@ -1568,6 +1569,83 @@ class Daemon:
             int(round(engine.idle_unload_s)),
         )
         return True
+
+    def _latency_keep_alive_s(self) -> float:
+        """``[residency] latency_keep_alive_s`` as safe seconds: 0.0 off, capped at a year.
+
+        Total on purpose: the TOML can hold an integer no float can represent, and a
+        startup that raised on it would take the daemon down even with ``[latency]`` off.
+        """
+        from yazses.system.residency import keep_alive_seconds
+
+        return keep_alive_seconds(getattr(self._config.residency, "latency_keep_alive_s", 0))
+
+    def _start_latency_pool_evictor(self) -> None:
+        """Release idle governor models on a tick. Dormant at the default.
+
+        Started only when ``[residency] latency_keep_alive_s`` is positive and the
+        governor exists; at 0 no thread starts and the pool keeps every model.
+        """
+        from yazses.system.residency import MAX_KEEP_ALIVE_S, unload_tick_s
+
+        keep_alive = self._latency_keep_alive_s()
+        if keep_alive <= 0 or self._governor is None:
+            return
+        if keep_alive >= MAX_KEEP_ALIVE_S:
+            log.warning(
+                "[residency] latency_keep_alive_s = %r is longer than a year; using %d s.",
+                self._config.residency.latency_keep_alive_s, int(MAX_KEEP_ALIVE_S),
+            )
+
+        tick = unload_tick_s(keep_alive)
+
+        def _loop() -> None:
+            while not self._stop_event.wait(tick):
+                try:
+                    self._latency_pool_evict_tick()
+                except Exception:  # noqa: BLE001 — housekeeping outlives its errors
+                    log.debug("latency pool evict tick failed", exc_info=True)
+
+        threading.Thread(target=_loop, name="latency-pool-evict", daemon=True).start()
+
+    def _latency_pool_evict_tick(self) -> list[tuple[str, int]]:
+        """Drop the governor models idle past the keep-alive. Returns the evicted keys.
+
+        The pool holds its own lock; nothing here takes ``self._lock``, so a press never
+        waits on an eviction. The memory is returned by a ``gc.collect`` only when
+        something actually went.
+        """
+        pool = self._governor
+        if pool is None:
+            return []
+        evicted = pool.evict_idle()
+        if not evicted:
+            return []
+        import gc
+
+        gc.collect()
+        log.info(
+            "Latency governor released %s after at least %d s idle ([residency] "
+            "latency_keep_alive_s); they reload when the CPU is busy again.",
+            ", ".join(f"{model} (beam {beam})" for model, beam in evicted),
+            int(self._latency_keep_alive_s()),
+        )
+        return [(str(model), int(beam)) for model, beam in evicted]
+
+    def _latency_residency_payload(self) -> dict[str, object] | None:
+        """The governor pool's residency for `status`, or None when there is no pool.
+
+        None at ``latency_keep_alive_s = 0`` as well: the pool reports None then, so the
+        reply shape matches `stt_residency` -- null when nothing is tracked.
+        """
+        pool = self._governor
+        if pool is None:
+            return None
+        try:
+            return pool.residency_snapshot()
+        except Exception:  # noqa: BLE001 — a status reply must not fail on a status row
+            log.debug("latency residency snapshot failed", exc_info=True)
+            return None
 
     def _prefetch_stt_engine(self) -> None:
         """At a press: restart the keep-alive, or start the reload if the model is out.
@@ -6721,7 +6799,13 @@ class Daemon:
             # the language check and the Han-script wrapper all still apply.
             return build_engine(dataclasses.replace(stt, model=model, beam_size=beam_size))
 
-        self._governor = EnginePool(build, base_key, self._engine)
+        # `[residency] latency_keep_alive_s` (ADR-029): 0 keeps every governor model for
+        # the life of the daemon, as before; a positive value lets the evictor thread
+        # release the extra ones after that many idle seconds.
+        self._governor = EnginePool(
+            build, base_key, self._engine,
+            keep_alive_s=self._latency_keep_alive_s(),
+        )
         log.info(
             "Adaptive Latency Governor on: %s below %.0f%% load, %s at or above %.0f%%.",
             stt.model, self._config.latency.high_load,
@@ -8699,6 +8783,9 @@ class Daemon:
                 # up, this says whether it is resident, and the later ADR-029 units
                 # (`latency`, `tts`, ...) report residency facts of the same kind.
                 "stt_residency": self._stt_residency_payload(),
+                # `[residency] latency_keep_alive_s` (ADR-029): the governor pool's loaded
+                # models and idle times; null when there is no pool or keep-alive is 0.
+                "latency_residency": self._latency_residency_payload(),
                 "hotkey": self._resolved_hotkey(),
                 "injection_backend": self._injection_backend_name(),
                 "last_error": self._state.last_error,

@@ -36,7 +36,7 @@ install):
 | Fact | Figure | Where |
 |---|---|---|
 | The speech model loads at daemon start and is never unloaded | base.en: **188 MB** resident after load, **216 MB** after the first decode, **343 MB** peak during the load | `core/daemon.py::_build_pipeline` → `stt/factory.build_engine`; `stt/faster_whisper.py` has no unload |
-| The latency governor's second model loads once the CPU is busy and then stays | tiny.en: about **75 MB** download, about **116 MB** RAM | `latency/pool.py::EnginePool` memoises and never evicts; `latency` sits in the RECOMMENDED tier that first run switches on |
+| The latency governor's second model loads once the CPU is busy and then stays (until `[residency] latency_keep_alive_s` releases it, step 2) | tiny.en: about **75 MB** download, about **116 MB** RAM | `latency/pool.py::EnginePool` memoises, and evicts only when `keep_alive_s > 0`; `latency` is OPTIONAL (off by default, `system/features.py`) |
 | Base import weight | `import yazses.cli` 63–73 ms / 18 MB; `import yazses.core.daemon` 250–310 ms / 33 MB | — |
 | The import-time ceiling | baseline 1 172 375 µs × 1.5 tolerance ≈ **1.76 s**, about 6× the measured 0.30 s | `scripts/dependency_budget_baseline.json`, `scripts/check_dependency_budget.py` |
 | RAM or idle-CPU budget | none | `tests/` |
@@ -298,12 +298,61 @@ what happened, not the configured keep-alive, which a late tick overshoots. The
 snapshot reads both stamps the same lock-free way, and it reads "how long ago" from the
 wrapper's clock directly, never through the tracker's monotonic check.
 
+**2026-11-01, step 2: `[residency] latency_keep_alive_s`.** The key exists
+(`ResidencyConfig.latency_keep_alive_s`, int seconds, default `0` = never released, so an
+existing install is unchanged). It governs the latency governor's second model. The
+`EnginePool` (`latency/pool.py`) loads a second Whisper model (`tiny.en`, about 116 MB
+RAM by the ADR's own figure) when the governor asks for one, and before this step it kept
+that model for the daemon's life. With the key positive, `EnginePool.evict_idle()` drops
+every non-base engine whose last use is at least that many seconds old, and the next `get`
+for it reloads it in the background. The base engine, the dictation engine, is never
+evicted by this key; `[stt] idle_unload_s` still governs it. The key does nothing unless
+`[latency]` is on.
+
+How it meets the rest of §1 and §3:
+
+- **The decision** is `EnginePool.evict_idle()`, which takes its clock from the caller and
+  returns the keys it dropped. The tick is `system/residency.py::unload_tick_s`, the same
+  rule step 1 uses.
+- **The tick** is a daemon thread, `latency-pool-evict`, started only when the key is
+  positive. It calls `evict_idle()`, runs `gc.collect()` when something was dropped, and
+  logs one INFO line on a tick that released something.
+- **The status** is the `status` reply's `latency_residency` key
+  (`EnginePool.residency_snapshot()`: the extra model's name, beam size, seconds idle, the
+  keep-alive, and a count of evictions), `null` while the key is `0`. `yazses status`
+  prints it through `residency.describe_pool_residency` as one `memory:` line, only when an
+  extra model is loaded. The tray appends the same phrase to its one residency line
+  (`tray/menu.py::residency_line`, fed by `TrayModel.latency_residency`), after the
+  speech-model phrase and never replacing it.
+- **The budget gate** is `scripts/check_runtime_budget.py`, a check of a
+  measured-results JSON file (no network, no model) against `scripts/runtime_budget.json`. It exits 1 on a breach or on
+  a budgeted unit the run did not measure or an empty measurement, and 2 on unreadable or
+  malformed input (including an unknown unit in the measured file). Its flags are `--budget`,
+  `--measured` and `--emit-template`, which prints a measured-file skeleton. The `stt` and `latency` ceilings are the figures the ADR states;
+  every other unit's ceiling is `null`, an unmeasured proposal that breaches nothing but still
+  fails the run when unmeasured. The gate takes measurements from a file and makes none itself,
+  so no nightly run feeds it yet.
+
+Two behaviours came from the independent review of this step. A load that fails stays pending, so a
+failure is never retried once per burst; with the key set it may be retried after 60 s
+(`latency.pool.RETRY_AFTER_FAILURE_S`), because an evicted model will be asked for again and a
+transient failure should not disable it until restart. Without the key a failure is permanent, as it
+was. The key is read through `residency.keep_alive_seconds`, which caps it at one year
+(`MAX_KEEP_ALIVE_S`) and treats anything that is not a positive number as 0, so a value no float can
+represent cannot stop the daemon starting.
+
+Not measured in this step: how much RSS an eviction returns. The ADR's question is the
+same one step 1 left open. CTranslate2 may keep its arena after a model is dropped, and no
+run has been made to check. Until the nightly job exists and feeds the budget gate, no
+figure for the released memory is claimed.
+
 Not done in this step and still open: `ResidencyBudget` and `[residency] max_resident`;
-`[residency] keep_alive_s` and the unload hooks for `latency`, `diarize`, `gaze`, `tts`,
-`llm` and `voiceprint`; the worker processes (§2); the nightly RSS, idle-CPU and
-release-after-unload jobs (§4); and the consent-time RAM figures (§5). Also open: how much
-RSS an `stt` unload actually returns. CTranslate2 may keep its arena, and the nightly
-"release" row is what measures that.
+`[residency] keep_alive_s` and the unload hooks for `diarize`, `gaze`, `tts`, `llm` and
+`voiceprint`; the worker processes (§2); the nightly RSS, idle-CPU and release-after-unload
+jobs (§4), which is the thing that would feed the budget gate real numbers; and the
+consent-time RAM figures (§5). Also open: how much RSS an `stt` unload, or a latency-pool
+eviction, actually returns. CTranslate2 may keep its arena, and the nightly "release" row is
+what measures that.
 
 ## Consequences
 

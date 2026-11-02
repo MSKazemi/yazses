@@ -4524,6 +4524,13 @@ def status(
 
     for line in render_engine_status_lines(info):
         typer.echo(line)
+    # The latency governor's extra models (ADR-029 step 2). Absent at the default keep-alive
+    # of 0 (the daemon sends null) and on a daemon too old to send the key.
+    from yazses.system.residency import describe_pool_residency
+
+    pool_line = describe_pool_residency(info.get("latency_residency"))
+    if pool_line is not None:
+        typer.echo(f"  memory:   {pool_line}")
     typer.echo(f"  backend:  {info.get('injection_backend')}")
     # Whether dictation is leaving this machine. The daemon has published
     # `remote_connected` all along and nothing read it -- not `status`, not the tray -- so

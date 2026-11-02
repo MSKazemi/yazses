@@ -126,6 +126,10 @@ class TrayModel:
     # tooltip and menu line. Left out of the generated hash because a dict cannot be
     # hashed; equality still compares it.
     stt_residency: dict[str, Any] | None = field(default=None, hash=False)
+    # `[residency] latency_keep_alive_s` (ADR-029 step 2): the daemon's `latency_residency`
+    # block -- the governor's extra models and how long each has been idle -- or None at the
+    # default of 0 and on an older daemon. `residency_line` appends it to the same line.
+    latency_residency: dict[str, Any] | None = field(default=None, hash=False)
     # The decoder actually running (#644): `engine` and `engine_model` name it, and
     # `engine_fallback` ({"from", "reason"}) says why the configured one is not it. None
     # while the model loads and on an older daemon. The tray menus' status line reads

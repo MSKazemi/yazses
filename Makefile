@@ -18,7 +18,8 @@ LOG_FILE := $(HOME)/.local/state/yazses/log/daemon.log
 .PHONY: all install check test lint lint-fix types docs docs-serve man inbox \
         feature-sizes research-watch adr-index icons store-art tray-states store-check \
         start stop restart status logs doctor overlay build clean help \
-        hygiene campaign campaign-generate campaign-stats campaign-queue campaign-validate
+        hygiene campaign campaign-generate campaign-stats campaign-queue campaign-validate \
+        runtime-budget-template
 
 all: check
 
@@ -56,6 +57,11 @@ lint-fix:
 hygiene:
 	@echo "▶  Checking repo hygiene (file sizes)…"
 	uv run python scripts/check_repo_size.py
+
+# ADR-029 §4: the measured-file skeleton the nightly RSS job fills in. Prints only; the
+# verdict is `scripts/check_runtime_budget.py --measured FILE`.
+runtime-budget-template:
+	uv run python scripts/check_runtime_budget.py --emit-template
 
 # Contributor task inventory. `tests/test_campaign.py` runs the same check, so this is
 # for working on the inventory itself rather than an extra gate.
@@ -268,6 +274,7 @@ help:
 	@echo "    make feature-sizes  reprice every feature's dependency closure (slow)"
 	@echo "    make store-check     diff the live Snap Store page against snapcraft.yaml"
 	@echo "    make research-watch sweep arXiv into a dated digest under design/research/"
+	@echo "    make runtime-budget-template  print the measured-file skeleton (it checks nothing; the check is scripts/check_runtime_budget.py)"
 	@echo ""
 	@echo "  Daemon"
 	@echo "    make start       start the daemon"
