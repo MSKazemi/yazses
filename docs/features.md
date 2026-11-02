@@ -876,7 +876,7 @@ YazSes ships **152 capabilities**. All but the core are **off by default** — t
 ### Persian text (فارسی)
 
 - **Toggle:** `persian-normalisation`  ·  **Tier:** optional  ·  **Config:** `[stt] persian_normalisation`
-- **What it does:** Writes Arabic Yeh (ي) and Kaf (ك) as the Persian letters ی and ک, collapses runs of zero-width non-joiners and removes one at the start or end of the text, and strips bidi override controls. Leaves URLs, emails, paths, version numbers and Latin identifiers byte-for-byte. It is not a grammar corrector: it does not change words, spelling, digits or punctuation. Only applies when [stt] language is Persian ("fa"); on any other language it does nothing. Off by default, so an upgrade does not change the text you already get.
+- **What it does:** Writes Arabic Yeh (ي), Alef Maksura (ى) and Arabic Kaf (ك) as the Persian letters ی and ک, composes the text to Unicode NFC, collapses runs of zero-width non-joiners and removes one at the start or end of the text, and strips bidi override controls. Leaves URLs, emails, paths, version numbers and Latin identifiers byte-for-byte. It is not a grammar corrector: it does not change words, spelling, digits or punctuation. Only applies when [stt] language is Persian ("fa"); on any other language it does nothing. Off by default, so an upgrade does not change the text you already get.
 - **Use when:** When you dictate Persian and the text mixes Arabic and Persian letters that search and copy-paste treat as different characters.
 - **Example:** Persian dictation whose Arabic-keyboard ي and ك come out as the Persian ی and ک.
 - **Activate:** `yazses features enable persian-normalisation` then `yazses restart`

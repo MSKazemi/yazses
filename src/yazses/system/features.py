@@ -379,8 +379,9 @@ def _registry() -> list[_Def]:
              lambda c: bool(getattr(c.stt, "chinese_script", "")), han_on, han_off),
         _Def("persian-normalisation", "Persian text (فارسی)", "[stt] persian_normalisation",
              OPTIONAL,
-             "Writes Arabic Yeh (ي) and Kaf (ك) as the Persian letters ی and ک, collapses "
-             "runs of zero-width non-joiners and removes one at the start or end of the "
+             "Writes Arabic Yeh (ي), Alef Maksura (ى) and Arabic Kaf (ك) as the Persian "
+             "letters ی and ک, composes the text to Unicode NFC, collapses runs of "
+             "zero-width non-joiners and removes one at the start or end of the "
              "text, and strips bidi override controls. Leaves URLs, emails, paths, version "
              "numbers and Latin identifiers byte-for-byte. It is not a grammar corrector: it "
              "does not change words, spelling, digits or punctuation. Only applies when "
