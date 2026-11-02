@@ -36,7 +36,7 @@ Lần chạy đầu tiên tải về một mô hình giọng nói (khoảng 148 
 ## Nó làm được gì
 
 - **Đọc chính tả** — Giữ phím, nói, thả ra. Văn bản được gõ vào cửa sổ đang hoạt động.
-- **Lệnh thoại** — Nói “lưu tệp” hoặc “tới dòng 40” và nó thực hiện, thay vì gõ ra những chữ đó.
+- **Lệnh thoại** — Lệnh thoại (ví dụ “save file” hoặc “go to line 40”) hiện chỉ có bằng tiếng Anh và tiếng Quan Thoại. Một câu bằng ngôn ngữ của bạn sẽ được gõ ra như văn bản thường, không chạy như lệnh. Đọc chính tả bằng ngôn ngữ của bạn vẫn dùng được: đặt `[stt] language` và dùng mô hình đa ngôn ngữ.
 - **Cuộc họp và bản ghi** — Chuyển một tệp âm thanh thành văn bản, hoặc ghi lại cả cuộc họp kèm nhãn người nói — tất cả đều ngoại tuyến.
 
 ## Quyền riêng tư

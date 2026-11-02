@@ -36,7 +36,7 @@ Le premier lancement télécharge un modèle vocal une seule fois (environ 148 M
 ## Ce qu'il fait
 
 - **Dictée** — Maintenez la touche, parlez, relâchez. Le texte est saisi dans la fenêtre active.
-- **Commandes vocales** — Dites « enregistrer le fichier » ou « aller à la ligne 40 » et il agit, au lieu d'écrire les mots.
+- **Commandes vocales** — Les commandes vocales (comme « save file » ou « go to line 40 ») n'existent pour l'instant qu'en anglais et en mandarin. Une phrase dans votre langue est saisie comme du texte ordinaire, pas exécutée comme une commande. La dictée dans votre langue fonctionne toutefois : réglez `[stt] language` et utilisez un modèle multilingue.
 - **Réunions et enregistrements** — Transcrivez un fichier audio, ou capturez une réunion entière avec identification des intervenants — entièrement hors ligne.
 
 ## Confidentialité

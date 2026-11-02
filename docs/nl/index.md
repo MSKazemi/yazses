@@ -36,7 +36,7 @@ De eerste keer wordt eenmalig een spraakmodel gedownload (ongeveer 148 MB). Daar
 ## Wat het doet
 
 - **Dictaat** — Houd de toets vast, spreek, laat los. De tekst wordt in het actieve venster getypt.
-- **Spraakopdrachten** — Zeg “bestand opslaan” of “ga naar regel 40” en het handelt, in plaats van de woorden te typen.
+- **Spraakopdrachten** — Spraakopdrachten (zoals “save file” of “go to line 40”) bestaan voorlopig alleen in het Engels en het Mandarijn. Een zin in je eigen taal wordt als gewone tekst getypt en niet als opdracht uitgevoerd. Dicteren in je eigen taal werkt wel: stel `[stt] language` in en gebruik een meertalig model.
 - **Vergaderingen en opnamen** — Transcribeer een audiobestand of neem een hele vergadering op met sprekerlabels — volledig offline.
 
 ## Privacy

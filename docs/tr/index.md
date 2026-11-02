@@ -30,7 +30,7 @@ yazses start
 ## Ne yapar
 
 - **Dikte** — Tuşu basılı tutun, konuşun, bırakın. Metin etkin pencereye yazılır.
-- **Sesli komutlar** — “dosyayı kaydet” ya da “40. satıra git” deyin; sözcükleri yazmak yerine işlemi yapar.
+- **Sesli komutlar** — Sesli komutlar (örneğin “save file” veya “go to line 40”) şimdilik yalnızca İngilizce ve Mandarin için var. Kendi dilinizdeki bir cümle komut olarak çalıştırılmaz, sıradan metin olarak yazılır. Kendi dilinizde dikte etmek yine de çalışır: `[stt] language` ayarını yapın ve çok dilli bir model kullanın.
 - **Toplantılar ve kayıtlar** — Bir ses dosyasını yazıya dökün ya da tüm bir toplantıyı konuşmacı etiketleriyle kaydedin — tamamen çevrimdışı.
 
 ## Gizlilik
