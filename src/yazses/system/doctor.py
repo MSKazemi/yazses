@@ -1342,6 +1342,7 @@ def _config_summary(
     # Every source `core/daemon.py::_effective_initial_prompt` merges, not just the
     # config key -- this row read "app name only" on a machine with 24 words in its
     # personal dictionary, all of them in use on every burst.
+    from yazses.stt.vocabulary import builtin_prompt_applies
     from yazses.system.vocabulary import load_vocab, prompt_summary, vocab_path
 
     words = load_vocab(vocab_path(config_file.parent))
@@ -1357,6 +1358,7 @@ def _config_summary(
             cfg.stt.initial_prompt, words, env_terms,
             mined=mined, context=bool(cfg.context.enabled),
             screen=bool(cfg.screengrounded.enabled),
+            app_name=builtin_prompt_applies(cfg.stt.language),
         ),
     ))
     return out
