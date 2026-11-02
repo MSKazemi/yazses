@@ -3,9 +3,9 @@
 **Status:** Proposed decision framework, current as of 2026-09-20  
 **P1 decision:** Keep the existing faster-whisper runtime and use multilingual `small` as the supported baseline candidate. Benchmark alternatives behind `SttEngine`; do not add a second mandatory runtime before it wins on measured product criteria.
 
-> **2026-10-29 as-built update:** The Mandarin benchmark *instrument* now
-> exists at `benchmark/bench_mandarin.py` with `zh-eval-v1` metrics,
-> schema validation and manifest/license checks. This is **not** a completed
+> **2026-10-29 as-built update:** The Mandarin benchmark *instrument*
+> existed at `benchmark/bench_mandarin.py` (harness no longer in this repository) with
+> `zh-eval-v1` metrics, schema validation and manifest/license checks. This is **not** a completed
 > release-quality corpus or model comparison. Consult
 > [the reproducible model protocol](2026-10-29-model-selection-protocol.md)
 > before running or promoting any checkpoint.

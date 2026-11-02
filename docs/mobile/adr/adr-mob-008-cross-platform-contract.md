@@ -181,7 +181,7 @@ code. Generate-and-guard, applied to behaviour instead of documentation, is the 
   language, a cross-compilation matrix (5 desktop targets × 4 Android ABIs), and an FFI
   boundary to every pure function, for logic that is a few hundred lines of string
   handling. It would also gut the contributor story: nobody fixes a spacing bug in Rust FFI
-  on a Saturday. The project already archived one Rust rewrite (`archive/rust-hci-v1`);
+  on a Saturday. The project already archived one Rust rewrite (removed from `main` in `61025cca`);
   this ADR declines to start a second.
 - **Transpiling or auto-generating Kotlin from Python.** Unmaintainable, unidiomatic,
   unreviewable.

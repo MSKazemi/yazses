@@ -435,11 +435,11 @@ costs time, not correctness. `tests/test_ci_composite_actions.py` fails if the c
 passes setup-uv any input besides `version` and `python-version`. Whoever changes that
 also updates this paragraph and the test together.
 
-**`actions/cache` steps** (3 on 2026-10-30, counted with `git grep`): the LibriSpeech
-corpus and the Whisper checkpoints in `benchmark.yml`, and the docs' mirrored web fonts
-in `docs.yml`. All three hold data, not built code. The corpus key has no OS because the
-corpus is immutable. The checkpoints key names `runner.os` and `runner.arch`. The font
-mirror runs on Linux only, and its restore-key prefix can only match that one family.
+**`actions/cache` steps** (1 on 2026-11-01, counted with `git grep`): the docs' mirrored
+web fonts in `docs.yml`. It holds data, not built code. The font mirror runs on Linux
+only, and its restore-key prefix can only match that one family. The LibriSpeech corpus
+and Whisper checkpoint caches that `benchmark.yml` held (3 steps on 2026-10-30) left with
+that workflow in 2.47.0.
 
 ### Artifact retention
 
@@ -502,14 +502,20 @@ git grep -hE '^\s*(- )?(run: )?uv sync' -- .github/workflows | wc -l   # command
 
 | Setup step | Before (4fda3403) | After | Status |
 |---|---:|---:|---|
-| `uses: ./.github/actions/setup-uv-python` | 3 lines, 2 files | 9 lines, 3 files | `test-linux`, `test`, the `docs` build, and now `repo-hygiene`, `gui`, `extras`, `benchmark-harness`, `windows-update-handoff` and `heavy-extras`. |
-| `uses: astral-sh/setup-uv@` | 16 lines, 9 files | 10 lines, 7 files | `test.yml` has none left. Each remaining job is listed with its reason in `DIRECT_SETUP_UV` in `tests/test_ci_composite_actions.py`: release and build lanes, `benchmark.yml` (its sync is conditional per leg), `macos-smoke.yml` (no sync step of its own), and `eye-eval-ci.yml` (its own test pins the setup step's shape; next to migrate). |
-| `uv sync` as a command | 12 lines, 6 files | 6 lines, 4 files | The rest are in `benchmark.yml`, `eye-eval-ci.yml`, `packs-spike.yml` and `release.yml`. |
+| `uses: ./.github/actions/setup-uv-python` | 3 lines, 2 files | 9 lines, 3 files | `test-linux`, `test`, the `docs` build, and now `repo-hygiene`, `gui`, `extras`, `windows-update-handoff` and `heavy-extras`. |
+| `uses: astral-sh/setup-uv@` | 16 lines, 9 files | 10 lines, 7 files | `test.yml` has none left. Each remaining job is listed with its reason in `DIRECT_SETUP_UV` in `tests/test_ci_composite_actions.py`: release and build lanes, `macos-smoke.yml` (no sync step of its own), and `eye-eval-ci.yml` (its own test pins the setup step's shape; next to migrate). |
+| `uv sync` as a command | 12 lines, 6 files | 6 lines, 4 files | The rest are in `eye-eval-ci.yml`, `packs-spike.yml` and `release.yml`. |
 | `uses: actions/checkout@` | 49 lines, 33 files | unchanged | Not extracted. `fetch-depth` and `filter` differ per job, and the comments beside them explain why. |
 | `sudo apt-get update` | 8 lines, 5 files | unchanged | Not extracted. Each job's package list differs. |
 | `sudo apt-get install` | 10 lines, 6 files | unchanged | Not extracted, for the same reason. |
 | `uses: actions/setup-python@` | 4 lines, 4 files | unchanged | Not extracted. These jobs (`fuzz`, `link-check`, `traceability`, `dependabot-sbom`) use pip or only the standard library, not uv. Moving them to uv would change behaviour, so it is not a setup extraction. |
 | `uses: actions/cache@` | 3 lines, 2 files | unchanged | Not extracted. Keys are job-specific and stay beside the job that uses them ("Caches" above). |
+
+The counts in this table are the 2026-10-30 measurement. `benchmark.yml` and the
+`benchmark-harness` job left the repository in 2.47.0 and are no longer named in the
+status column, so the "After" counts no longer hold. Run on 2026-11-01, the commands above give 10 lines in 4 files for the
+composite, 9 lines in 6 files for direct `astral-sh/setup-uv@`, 5 lines in 3 files for
+`uv sync` as a command, and 1 line in 1 file for `actions/cache@`.
 
 **Why the second batch is the same uv and the same interpreter.** Those six jobs passed no
 `version` to setup-uv, and five of them passed no `python-version` either. The composite
