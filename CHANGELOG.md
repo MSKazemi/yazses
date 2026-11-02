@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.48.0] - 2026-11-02
+
 ### Added — the latency governor's second model can be released when idle (opt-in)
 
 With `[latency]` on, the governor can keep a second, smaller Whisper model (`tiny.en`, about 116 MB
@@ -83,6 +85,22 @@ Nothing here adds a feature or a config key.
 Not fixed here: the English prompt sent with every decode, `condition_on_previous_text`, Wayland
 typing of Persian, and the missing Persian voice commands. Each needs a measurement or a native
 speaker, and is a separate change.
+
+### Changed — dependency updates (no user-visible change)
+
+- **sherpa-onnx 1.13.8 → 2.0.1** (a major version; `sherpa-onnx-core` moves with it). It is the speaker
+  labelling (diarization) behind file transcription and Meeting Mode. The API YazSes calls is
+  unchanged, and a recorded clip diarized with both versions gave identical segments.
+- **PyAV 18.1.0** (still below the `<19` ceiling that keeps `yazses transcribe` working) and the
+  python minor/patch group.
+- **PySide6 stays below 6.12 on purpose** (the three PySide6 extras in `pyproject.toml`, `install.sh` and the
+  feature pins). 6.12.0 adds `pyside6-webengine` (about 117 MB, a bundled Chromium nothing here uses) and
+  fails the dependency-review licence check. Lift the cap only after checking both.
+- **`mkdocs-git-revision-date-localized-plugin` stays below 1.6.0**: 1.6.x adds three warnings that fail
+  the strict documentation build.
+- GitHub Actions moved to their latest releases, each pinned SHA checked against its tag.
+- Not taken: a Python 3.15 base image. `onnxruntime` publishes no 3.15 wheel yet, so the image cannot
+  be built.
 
 ### Fixed — documentation that described the repository as it was before 2.47.0
 
