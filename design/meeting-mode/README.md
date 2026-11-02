@@ -71,7 +71,8 @@ the linked record states.
 
 - **Diarization accuracy, headset condition — measured.** ADR-v2-133 scores the shipped
   clustering against the AMI test split (16 recordings, 543.7 min; the headset mix, per
-  #502) with a VoxConverse cross-domain check, reproducible with `benchmark/bench_diarization.py`.
+  #502) with a VoxConverse cross-domain check; the figures stand as recorded in the ADR
+  (the harness is no longer part of this repository).
 - **Diarization accuracy, far-field condition — open.** A laptop/table microphone is closer to
   real Meeting Mode use than a headset mix:
   [#502](https://github.com/MSKazemi/yazses/issues/502), under the paper-v2 programme

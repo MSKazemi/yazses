@@ -6,6 +6,57 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the latency governor's second model can be released when idle (opt-in)
+
+With `[latency]` on, the governor can keep a second, smaller Whisper model (`tiny.en`, about 116 MB
+of RAM by ADR-029's figure) loaded beside the dictation engine. It used to stay loaded for the
+daemon's life. The new key `[residency] latency_keep_alive_s` releases that extra model after it
+has not been used for that many seconds. The next time the governor needs it, it reloads in the
+background.
+
+- **Default `0`:** nothing changes. The model stays loaded, as before.
+- **To turn it on:** set `latency_keep_alive_s = 600` (or any positive number of seconds) under
+  `[residency]`, and keep `[latency]` on. The key does nothing without the governor.
+- **If the model fails to reload:** with the key set, a failed load is tried again after 60 s instead of
+  disabling the model until restart. Without the key a failed load stays permanent, as before. A value
+  longer than a year is capped at a year, so an absurd number cannot stop the daemon starting.
+- **What it does not touch:** the dictation engine. Its release is still `[stt] idle_unload_s`.
+- **Status:** `yazses status --json` carries `latency_residency` (`null` at `0`), and `yazses status`
+  prints a `memory:` line for the extra model only while one is loaded: its name, beam width, how
+  long it has been idle, and the keep-alive. The tray appends the same phrase to its speech-model
+  line, separated by ` · `.
+
+What was checked: unit tests for the eviction rule (idle time measured against an injected clock,
+the base engine never evicted, a reload after eviction), the snapshot, the config key and the
+status line. The tests run offline and do not load a real model.
+
+What was not checked: how much memory an eviction gives back. Nothing has been measured on a real
+machine, and CTranslate2 may keep its memory after a model is dropped. The new
+`scripts/check_runtime_budget.py` reads measured numbers against `scripts/runtime_budget.json`, but
+its `stt` (343 MB) and `latency` (116 MB) ceilings are the ADR-029 baseline measured on `fa058766`,
+and its other five rows are unmeasured proposals (`null`). No nightly job feeds it real numbers yet.
+
+### Fixed — documentation that described the repository as it was before 2.47.0
+
+- The benchmark harness left this repository in 2.47.0, but a dozen pages still told readers to
+  re-run it or cited its files. They now say the harness is no longer here and that published
+  figures stand as recorded, with their dates (`docs/benchmarks.md`, `docs/architecture.md`,
+  `docs/research/`, `design/chinese/`, `design/meeting-mode/`, `.github/CI_POLICY.md`).
+- The README, `llms.txt`, the Russian and Hindi pages and four design pages sent readers to an
+  `archive/rust-hci-v1` branch that was never published, so the `git checkout` there failed. The
+  Rust code is in this repository's history, and they now say `git checkout 61025cca^`.
+- `docs/how-to/update-did-nothing.md` now covers the pipx "Unable to parse package spec" repair
+  and says the OpenCV protection arrived in 2.44.0 rather than "in the next release".
+- The Hands-free steps name the real button (**Open hands-free controls…** on the Hands-free
+  page), `docs/windows-install.md` says the installer closes a running YazSes first, the
+  Windows injection box is described, and `--force` on `stop` and `restart` is in the CLI
+  reference.
+- `docs/mobile/index.md` and `android/README.md` list the five `:core:*` modules that now have
+  real code; `docs/try-without-installing.md` no longer says the hosted demo gives the accuracy
+  you will get.
+- The translation status page said every row was a machine-assisted draft; it now says only
+  `draft` rows are.
+
 ### Added — biosignal sources for market devices, and a stream-integrity guard
 
 - **`brainflow:<id>` opens only the boards `yazses biosignal boards` lists.** Any other id is refused,
@@ -137,9 +188,11 @@ site-wide sentence (Bing's webmaster report flags this as identical meta descrip
 heading is a whole sentence, produced `<title>` text of 100 characters or more. `hooks/design_tier.py` now derives both
 from the document when its front matter does not set them: the description is the first real prose paragraph (skipping
 the `**Status:**` block, headings, tables, lists and code), cut at a sentence end within 155 characters; the `<title>`
-is the heading shortened at its first colon or semicolon, or at a word, to fit 60 characters with the site name (through a
-`seo_title` key that `overrides/main.html` reads for the `<title>` tag only). The page heading, the header-bar label and the
-body are unchanged, and front matter written by hand always wins. Nothing about which files are published changed.
+is the heading shortened to fit 60 characters with the site name, ending at the last clause boundary that fits (a colon,
+a semicolon, a parenthesis, a dash or a comma) or, failing that, at a word, and never on an open parenthesis or a
+dangling word such as "a" or "with" (through a `seo_title` key that `overrides/main.html` reads for the `<title>` tag
+only). The page heading, the header-bar label and the body are unchanged, and front matter written by hand always wins.
+Nothing about which files are published changed.
 
 ## [2.47.0] - 2026-10-31
 

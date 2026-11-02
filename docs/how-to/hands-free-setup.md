@@ -104,7 +104,7 @@ before you turn anything on, and any value you write yourself wins.
 
 6. **Arm it.** Hands-free starts **paused**, and the first arming needs a fresh signal from the camera,
    so nothing moves the instant the camera comes up. Re-arm from any terminal, or from Tray →
-   **Settings…** → **Hands-free controls…**:
+   **Settings…** → **Hands-free** page → **Open hands-free controls…**:
 
    ```bash
    yazses handsfree resume
@@ -122,7 +122,7 @@ also in the settings window (`yazses settings`), which shows the same panel as `
    and the message names the key. On a Python install (pip, pipx, uv) that lacks the camera libraries,
    Apply installs them (mediapipe and OpenCV) first; the winget and Homebrew app bundles cannot add them.
 3. Tray icon → **Restart daemon**.
-4. Tray icon → **Settings…** → **Hands-free controls…** → **Resume hands-free input** to arm it.
+4. Tray icon → **Settings…** → **Hands-free** page → **Open hands-free controls…** → **Resume hands-free input** to arm it.
 
 To turn it off the same way, untick **Hands-Free Preset**, click **Apply**, and restart the daemon from
 the tray. To stop what is moving *before* that restart, press **Pause** in the hands-free controls first.
@@ -145,7 +145,7 @@ set, and the pieces that depended on it are not left waiting for it.
 
 The preset's dictation switch is jaw-open. To use a deliberate eye closure instead, without editing any file:
 
-1. Tray icon → **Settings…** → **Hands-free controls…**
+1. Tray icon → **Settings…** → **Hands-free** page → **Open hands-free controls…**
 2. **Turn Face switch on**, answer **Yes** to the experimental warning, then **Apply staged changes**. On a Python
    install (pip, pipx, uv) that lacks the camera libraries, Apply installs them (mediapipe and OpenCV) first, as
    `yazses features enable` does; the app bundles from winget and Homebrew cannot add them — use
@@ -155,7 +155,7 @@ The preset's dictation switch is jaw-open. To use a deliberate eye closure inste
    **Set**. Mapping eyes closed also raises the hold before any face switch counts to 0.8 s, longer than a blink,
    and the panel says so.
 5. Tray icon → **Restart daemon**.
-6. Tray icon → **Settings…** → **Hands-free controls…** → **Resume hands-free input**. With the global stop on,
+6. Tray icon → **Settings…** → **Hands-free** page → **Open hands-free controls…** → **Resume hands-free input**. With the global stop on,
    every camera input starts paused after each start of YazSes and only an explicit Resume arms it — once the
    camera has delivered its first frame. The tray menu has no hands-free item; `yazses handsfree resume` does the
    same from a terminal. After that, looking away is fine: a switch bound only to dictation re-arms by itself

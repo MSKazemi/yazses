@@ -77,6 +77,14 @@ rights. `winget upgrade MSKazemi.YazSes` moves you to a new release later.
 5. Click **Install**, then **Finish** (leave the *"Launch YazSes now"* box
    checked).
 
+    !!! note "Installing over a running YazSes"
+
+        You do not need to quit YazSes first. When it finds an existing install, the
+        installer closes the tray and asks the daemon to stop before it replaces any
+        files, and it touches only the YazSes running from the folder it is replacing. If
+        the daemon will not stop (a meeting is still being written up), the install fails
+        as before and the installer starts the tray again, so YazSes is left running.
+
 ### From a package manager
 
 Prefer the terminal? The manifests live in this repo and track each release.
@@ -297,7 +305,11 @@ What to expect:
   machine with a published add-on.
 
 By hand, if you prefer: download the newest installer from the releases page and run it.
-It upgrades in place too.
+It upgrades in place too. It closes a running tray and daemon first, so you do not have to
+quit YazSes yourself. If it closed a tray during a silent upgrade (`winget upgrade`,
+`choco upgrade`, `scoop update`), it starts the tray again afterwards. The interactive
+installer leaves that to the *"Launch YazSes now"* box on its last page, and the one-click
+update restarts YazSes itself.
 
 ### Features that need extra libraries
 

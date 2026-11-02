@@ -33,11 +33,18 @@ below were written before that code, so that many people can build it at once.
   padding) with `:core:vad` (the silence gate) from
   [#88](https://github.com/MSKazemi/yazses/issues/88). `:core:contract-test` runs the
   same `contract/vectors/*.json` files the Python suite uses.
+- **More pure-Kotlin cores, tested on the JVM and not wired to anything:** `:core:stt`
+  (the `SttEngine` interface, `DecodeOptions`, `Transcript`, an engine factory and a
+  `DecodeDispatcher`; no engine sits behind it yet), `:core:session` (the hold-to-talk
+  state machine and activation sources), `:core:features` (the registry the settings
+  screen will be generated from), `:core:model` (the model catalogue, checksum check,
+  download policy and install ordering, with no network code) and `:core:bench` (the
+  benchmark result format, error-rate helpers and the Whisper English normaliser).
 - **Microphone capture, written but never run:** `:platform:audio` has the `AudioRecord`
   shim. It compiles and has not run on a device, which is why #88 is still open.
 - **Placeholders only:** `:app`, `:model`, `:bench`, every `:feature:*` module (including
-  the keyboard), both `:native:*` engines, and `:core:stt`, `:core:session`,
-  `:core:config` and `:core:features`. No speech engine is connected yet.
+  the keyboard), both `:native:*` engines, and `:core:config` (one placeholder class).
+  No speech engine is connected yet.
 
 ### Where each milestone stands
 
@@ -49,7 +56,7 @@ breakdown. No milestone has a date.
 | Milestone | Shipped | In progress | Remaining |
 |---|---|---|---|
 | **M0** Foundations | contract/ (#82), edge-case vectors (#83), Gradle skeleton (#84), privacy gate (#85) | — | the design review #98 is kept open in it (the epic #81 spans M0–M3, so it carries no milestone) |
-| **M1** It types what I say | `:core:postprocess` (#86) | capture and silence gate (#88): cores done, device check open | engine seam and whisper.cpp bridge (#87), keyboard (#89), model download (#90), onboarding (#91), `:bench` (#92) |
+| **M1** It types what I say | `:core:postprocess` (#86) | capture and silence gate (#88): cores done, device check open; engine seam (#87): `:core:stt` in, whisper.cpp bridge open; keyboard (#89): `:core:session` in, service and key bar open; model download (#90): `:core:model` in, download job open; `:bench` (#92): `:core:bench` in, on-device runner open | onboarding (#91) |
 | **M2** It's actually good | command grammar and personal dictionary (#94), ported ahead of M1 | — | `RecognitionService` (#93), generated settings (#95), F-Droid build and submission (#96) |
 | **M3** Beyond dictation | — | — | the meeting foreground-service spike (#97); the rest of M3 has no issue yet |
 

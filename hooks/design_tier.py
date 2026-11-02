@@ -332,23 +332,61 @@ _H1 = re.compile(r"^#\s+(.+?)\s*$", re.M)
 _METADATA_LINE = re.compile(r"^\*\*[A-Za-z][A-Za-z ]{0,30}:\*\*")
 
 
-def _short_title(title: str, budget: int = _TITLE_BUDGET) -> str:
-    """*title*, shortened to *budget* characters without cutting a word in half.
+#: Clause boundaries a title can end at. The first ``" — "`` of a decision-record title
+#: sits after the ADR number (``ADR-028 — Feature add-on packs``) and is too early to
+#: end on, which the `>= _MIN_TITLE` test below rules out.
+_TITLE_BREAKS_MAJOR = (": ", "; ")
+_TITLE_BREAKS_MINOR = (" (", " — ", " – ", " - ", ", ")
 
-    Prefers the clause before the first ``: `` or ``; `` (decision-record titles read
-    ``ADR-028 — Feature add-on packs: a frozen install fetches ...``), falls back to the
-    last word that fits, and never returns an empty string.
+#: Shortest title worth returning; keeps a leading "ADR-028:" from being the whole title.
+_MIN_TITLE = 12
+
+#: Words a title must not end on: cut there it reads as a fragment ("... Voice-Driven a").
+_DANGLING = frozenset({
+    "a", "an", "the", "of", "to", "in", "on", "at", "by", "for", "from", "with", "without",
+    "and", "or", "but", "as", "is", "are", "vs", "via", "into", "over", "per", "than",
+    "two", "three", "four", "five", "six", "one", "its", "their", "our", "your", "-", "—", "–", "+",
+})
+
+
+def _tidy_title(head: str) -> str:
+    """Drop what a cut leaves behind: an unclosed parenthesis, trailing punctuation and
+    function words, so the title ends on a content word."""
+    while True:
+        before = head
+        head = head.rstrip(" ,;:—–-")
+        if head.count("(") > head.count(")"):
+            head = head[: head.rfind("(")]
+        words = head.split()
+        if words and words[-1].lower() in _DANGLING:
+            head = " ".join(words[:-1])
+        if head == before:
+            return head
+
+
+def _short_title(title: str, budget: int = _TITLE_BUDGET) -> str:
+    """*title*, shortened to *budget* characters, ending at a clause where one fits.
+
+    Takes the longest head that ends at a clause boundary (``: ``, ``; ``, `` (``, a dash
+    or a comma) within the budget (decision-record titles read ``ADR-028 — Feature
+    add-on packs: a frozen install fetches ...``). With no boundary in range it cuts at
+    the last word that fits. Either way the result never ends on an open parenthesis or
+    a dangling word, never cuts a word in half, and is never empty.
     """
     title = " ".join(title.split())
     if len(title) <= budget:
         return title
-    for separator in (": ", "; "):
-        head, found, _rest = title.partition(separator)
-        # `>= 12` keeps a leading "ADR-028:" from being taken as the whole title.
-        if found and 12 <= len(head) <= budget:
-            return head
-    cut = title[: budget + 1].rsplit(" ", 1)[0].rstrip(" ,;:—-")
-    return cut if len(cut) >= 12 else title[:budget].rstrip(" ,;:—-")
+    window = title[: budget + 1]
+    best = -1
+    for breaks in (_TITLE_BREAKS_MAJOR, _TITLE_BREAKS_MINOR):
+        best = max(window.rfind(sep) for sep in breaks)
+        if best >= _MIN_TITLE:
+            break
+    cut = window[:best] if best >= _MIN_TITLE else window.rsplit(" ", 1)[0]
+    head = _tidy_title(cut[:budget])
+    if len(head) >= _MIN_TITLE:
+        return head
+    return title[:budget].rstrip(" ,;:—–-") or title[:budget]
 
 
 def _plain(text: str) -> str:

@@ -422,7 +422,7 @@ live dictation, which is a different job.
 
 These are read audiobook clips in clean conditions, so **your dictation WER will
 be worse**; treat them as a comparison between models, not a promise about your
-desk. Full method, hardware and the commands to reproduce every number are on the
+desk. Full method, hardware and the recipe each number was measured with are on the
 [benchmarks page](benchmarks.md).
 
 ### Your machine, not this one
@@ -870,8 +870,8 @@ same one `yazses features` prints), the generated
 [benchmarks page](benchmarks.md). It fails rather than guessing: if a benchmark
 table is reworded it stops, and if a label would overflow the shape holding it
 the figure is refused. So a figure claiming a capability is wired is making the
-same claim the CLI makes, and a figure quoting a latency is quoting a number you
-can reproduce with the commands on the benchmarks page.
+same claim the CLI makes, and a figure quoting a latency is quoting a number
+recorded on the benchmarks page.
 
 The figures are plain SVG with no script and no external reference — nothing is
 fetched from a third party when you load this page, which is the same commitment

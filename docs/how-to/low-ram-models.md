@@ -117,6 +117,23 @@ shows the measured time, not the setting. At the default of `0` the whole field 
 and no line is printed. On macOS the line appears near the top of the menu-bar menu,
 under the engine line (not yet tested on a real Mac).
 
+### The latency governor's second model
+
+If you turn on the latency governor (`[latency]`), it can load a second, smaller speech model
+beside the main one. Left alone, that second model stays in memory. To release it when it has
+not been used for a while, set this under `[residency]`:
+
+```toml
+[residency]
+latency_keep_alive_s = 600     # release the governor's extra model after 10 minutes unused; 0 = never (default)
+```
+
+Then `yazses restart`. The default of `0` keeps today's behaviour. The key only matters when
+`[latency]` is on. It does not touch the main speech model, which `[stt] idle_unload_s` still
+controls. When the governor needs the extra model again, it loads it in the background, the same
+way as above. `yazses status` shows one line for it, and `yazses status --json` carries it as
+`latency_residency` (`null` at `0`). The line appears only while the extra model is loaded.
+
 **How much memory comes back is not measured yet.** CTranslate2, the library that runs
 Whisper, may keep part of its memory after the model is released, so the drop you see in
 `ps` can be smaller than the figures in the table above. If you try it, please

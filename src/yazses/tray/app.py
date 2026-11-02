@@ -284,6 +284,13 @@ def run() -> None:
                             if isinstance(info.get("stt_residency"), dict)
                             else None
                         ),
+                        # `[residency] latency_keep_alive_s` (ADR-029 step 2): the same
+                        # shape rule; `residency_line` ignores anything but a dict.
+                        latency_residency=(
+                            info.get("latency_residency")
+                            if isinstance(info.get("latency_residency"), dict)
+                            else None
+                        ),
                         # The decoder that actually came up (#644), for the menus'
                         # status line. Never filled in from `model`: a status that
                         # repeats the config is what hid a failed Parakeet load.
