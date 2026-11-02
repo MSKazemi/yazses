@@ -139,7 +139,7 @@ def apply_corrections(text: str, table: dict) -> str:
         # ZWNJ (U+200C) is not a \w character, so a bare \b matches inside a Persian compound:
         # "کتاب‌ها" is one word, and a correction for "کتاب" must not rewrite its first half.
         # Both guards are inert for English, which never contains ZWNJ.
-        left = r"(?<!‌)\b" if key[:1].isalnum() else ""
-        right = r"\b(?!‌\w)" if key[-1:].isalnum() else ""
+        left = r"(?<!\u200c)\b" if key[:1].isalnum() else ""
+        right = r"\b(?!\u200c\w)" if key[-1:].isalnum() else ""
         out = re.sub(f"{left}{re.escape(key)}{right}", _literal(repl), out)
     return out
