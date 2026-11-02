@@ -6,6 +6,12 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the Arabic, Persian and Urdu pages showed their Markdown as raw text
+
+The right-to-left translated pages wrapped their body in a bare `<div dir="rtl">`, so headings,
+tables and lists rendered as literal `## ` and `|---|` characters. The wrapper now opts in to
+Markdown (`markdown="1"`), so the headings, tables and lists render. The text is unchanged.
+
 ## [2.48.0] - 2026-11-02
 
 ### Added — the latency governor's second model can be released when idle (opt-in)
