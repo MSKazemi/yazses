@@ -47,7 +47,10 @@ Connect the sensor to a microcontroller that speaks YESP, plug it in over USB, a
 device_port = "/dev/ttyUSB0"   # empty means disabled; a Windows port looks like COM3
 ```
 
-An empty `device_port` means the serial switch is off. Run `yazses restart` after you set it. This path is
+An empty `device_port` means the serial switch is off. Run `yazses restart` after you set it. On Windows a
+COM port such as `COM3` is not a file, so `yazses doctor` cannot check that it exists: its row shows SKIP
+and says the port will be tried when YazSes starts. A POSIX path such as `/dev/ttyUSB0` is checked for
+existence. This path is
 documented in [the configuration reference](../configuration.md) under `[emg]`. On Linux your user may
 need to be in the `dialout` group to open a serial port. The `yazses biosignal` commands do not read this
 path; they work on the BrainFlow, file and synthetic sources.
@@ -61,6 +64,16 @@ path; they work on the BrainFlow, file and synthetic sources.
    `yazses biosignal doctor`.
 
 A board that is unplugged or busy is logged and leaves the switch unavailable; YazSes carries on without it.
+
+Two families report raw ADC counts instead of microvolts: the Myo armband (below) and the OYMotion gForce Pro
+and Dual (Windows only). The `yazses biosignal boards` entry says so. For a count source the quality gate
+skips the checks whose limits are in microvolts (the flat-line level, saturation level, drift amplitude and
+EEG/EOG noise). A flat line is then only a channel with exactly zero variance. Still checked: missing samples,
+packet loss, mains hum, clipping plateaus, lead-off steps and movement shared by every channel. Once it has
+judged the signal, `monitor` says the absolute checks were skipped, and the system `yazses doctor` row says
+the same. On a synthetic count stream, a live channel
+of 0.4 counts was judged flat before this change and is good after it; a dead channel and a rail-clipped
+channel are still bad. No real armband has been measured, so the count thresholds are untuned.
 
 ### Other devices and recordings
 
@@ -80,6 +93,11 @@ vendor tools open. Before you rely on a new device, run `yazses biosignal check-
 opens the device for a few seconds and checks that the stream is well-formed (no dropped packets, a
 steady sample rate, consistent channels). While the switch runs, a stream that breaks those rules
 closes the switch the same way a bad electrode does.
+
+`yazses biosignal doctor` does not take these four device specs yet: it reports "unknown source" for them. Use
+`check-source` to test the stream, and the system-wide `yazses doctor` "Biosignal switch" row for what is
+missing (the extra to install, a placeholder that still needs a port, a stream name or an address). The
+`synthetic`, `file:` and `brainflow:` sources are the ones `yazses biosignal doctor` checks.
 
 None of these devices has been tested with YazSes on real hardware yet. They were built and tested
 against their published protocol documents.
@@ -118,6 +136,10 @@ Powerline hum is far larger than the signals YazSes wants, so the filters place 
 A wrong value leaves real hum in the signal and raises the false-positive rate. `yazses biosignal doctor`
 and `monitor` report interference they see, so if they flag mains noise on an electrode that is well seated,
 check `mains_hz` first. Keep leads away from power cables and power supplies.
+
+On a blink (EOG) channel the mains check reads the signal through the same low-pass the blink detector
+applies, so hum that the detector already removes is not counted against the channel. This is measured only
+on synthetic signals; see [Honest limitations](biosignal-switch.md#honest-limitations) on the switch page.
 
 ## Check it before you rely on it
 

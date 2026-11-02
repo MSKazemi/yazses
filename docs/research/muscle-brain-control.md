@@ -289,7 +289,7 @@ YazSes can read, the signal each one gives, and what that signal is good for as 
 | NeuroSky ThinkGear (MindWave) | One forehead electrode, raw serial | `thinkgear:<port>`, raw signal only | Blink only. The headset's attention scores are not used. |
 | PLUX BITalino (r)evolution | EMG, EEG or EOG sensor | Serial (`bitalino:<port>`) | Squeeze or blink, depending on the sensor |
 | Myo armband (discontinued, still owned in labs) | 8-channel forearm EMG at 200 Hz, Bluetooth LE | `myo:<address>`, raw counts | Squeeze |
-| OYMotion gForce Pro / Dual, ANT Neuro eego 8, Mentalab Explore | EMG or ExG | BrainFlow (gForce: Windows only, preview) | Squeeze from EMG channels; blink or jaw clench from frontal or temporal ExG channels |
+| OYMotion gForce Pro / Dual, ANT Neuro eego 8, Mentalab Explore | EMG or ExG | BrainFlow (gForce: Windows only; reports raw counts, not microvolts) | Squeeze from EMG channels; blink or jaw clench from frontal or temporal ExG channels |
 | Meta Neural Band | sEMG, but no raw EMG for third parties | Not readable | None |
 
 None of these has been tested with YazSes on real hardware yet. Each source was built from the
