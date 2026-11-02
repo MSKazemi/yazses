@@ -46,7 +46,14 @@ language the classifier treats the text as dictation. Both pages now say that vo
 exist in English and Mandarin only, that a sentence in their language is typed as text, and
 that dictation in the language still works with `[stt] language` and a multilingual model.
 The matching entries in `scripts/translations.py` carry the same wording. The same sentence
-still sits on the other translated pages and has not been checked or changed here.
+was on 20 more translated pages (ar, bn, cs, el, es, fa, fr, it, ja, ko, nl, pl, pt-BR, sv, te, th, tr,
+uk, ur, vi; 22 in all with the two above). Each now carries the same short statement, without local example
+phrases: voice commands such as “save file” exist in English and Mandarin only, a sentence in the reader's own
+language is typed as text, and dictation still works with `[stt] language` and a multilingual model. Only that one
+bullet changed on each page and the `yazses-l10n` metadata is untouched. The wording is not native-reviewed; the
+seven reviewed pages (es, it, ko, sv, te, th, tr) are listed in the pull request for their reviewers. The Hindi,
+Russian and Tamil pages quote the English phrases and make no claim about their own language, and the Chinese
+pages are accurate, so none of those changed.
 
 ### Fixed — Persian and other non-Latin text was silently damaged by English-shaped guards
 

@@ -36,7 +36,7 @@ Při prvním spuštění se jednou stáhne řečový model (asi 148 MB). Potom u
 ## Co umí
 
 - **Diktování** — Podržte klávesu, mluvte, pusťte. Text se napíše do aktivního okna.
-- **Hlasové příkazy** — Řekněte „ulož soubor“ nebo „jdi na řádek 40“ a provede to, místo aby slova napsal.
+- **Hlasové příkazy** — Hlasové příkazy (například „save file“ nebo „go to line 40“) zatím existují jen v angličtině a mandarínštině. Věta ve vašem jazyce se napíše jako běžný text a neprovede se jako příkaz. Diktování ve vašem jazyce ale funguje: nastavte `[stt] language` a použijte vícejazyčný model.
 - **Schůzky a nahrávky** — Přepište zvukový soubor nebo zaznamenejte celou schůzku s označením mluvčích — zcela offline.
 
 ## Soukromí

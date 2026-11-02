@@ -112,7 +112,7 @@ LOCALES: dict[str, dict] = {
         does_heading="O que ele faz", does_1_title="Ditado",
         does_1="Segure a tecla, fale e solte. O texto é digitado na janela em foco.",
         does_2_title="Comandos de voz",
-        does_2="Diga “salvar arquivo” ou “ir para a linha 40” e ele age, em vez de digitar as palavras.",
+        does_2="Os comandos de voz (como “save file” ou “go to line 40”) existem, por enquanto, apenas em inglês e mandarim. Uma frase no seu idioma é digitada como texto comum, não executada como comando. O ditado no seu idioma continua funcionando: defina `[stt] language` e use um modelo multilíngue.",
         does_3_title="Reuniões e gravações",
         does_3=("Transcreva um arquivo de áudio ou capture uma reunião inteira com "
                 "identificação de quem falou — tudo offline."),
@@ -138,7 +138,7 @@ LOCALES: dict[str, dict] = {
         does_heading="Ce qu'il fait", does_1_title="Dictée",
         does_1="Maintenez la touche, parlez, relâchez. Le texte est saisi dans la fenêtre active.",
         does_2_title="Commandes vocales",
-        does_2="Dites « enregistrer le fichier » ou « aller à la ligne 40 » et il agit, au lieu d'écrire les mots.",
+        does_2="Les commandes vocales (comme « save file » ou « go to line 40 ») n'existent pour l'instant qu'en anglais et en mandarin. Une phrase dans votre langue est saisie comme du texte ordinaire, pas exécutée comme une commande. La dictée dans votre langue fonctionne toutefois : réglez `[stt] language` et utilisez un modèle multilingue.",
         does_3_title="Réunions et enregistrements",
         does_3=("Transcrivez un fichier audio, ou capturez une réunion entière avec "
                 "identification des intervenants — entièrement hors ligne."),
@@ -193,7 +193,7 @@ LOCALES: dict[str, dict] = {
         does_heading="Cosa fa", does_1_title="Dettatura",
         does_1="Tieni premuto il tasto, parla, rilascia. Il testo viene scritto nella finestra attiva.",
         does_2_title="Comandi vocali",
-        does_2="Di' «salva il file» o «vai alla riga 40» e agisce, invece di scrivere le parole.",
+        does_2="I comandi vocali (come «save file» o «go to line 40») per ora esistono solo in inglese e in mandarino. Una frase nella tua lingua viene scritta come testo normale, non eseguita come comando. Dettare nella tua lingua funziona comunque: imposta `[stt] language` e usa un modello multilingue.",
         does_3_title="Riunioni e registrazioni",
         does_3=("Trascrivi un file audio, o registra un'intera riunione con l'indicazione "
                 "di chi ha parlato — tutto offline."),
@@ -219,7 +219,7 @@ LOCALES: dict[str, dict] = {
         does_heading="Wat het doet", does_1_title="Dictaat",
         does_1="Houd de toets vast, spreek, laat los. De tekst wordt in het actieve venster getypt.",
         does_2_title="Spraakopdrachten",
-        does_2="Zeg “bestand opslaan” of “ga naar regel 40” en het handelt, in plaats van de woorden te typen.",
+        does_2="Spraakopdrachten (zoals “save file” of “go to line 40”) bestaan voorlopig alleen in het Engels en het Mandarijn. Een zin in je eigen taal wordt als gewone tekst getypt en niet als opdracht uitgevoerd. Dicteren in je eigen taal werkt wel: stel `[stt] language` in en gebruik een meertalig model.",
         does_3_title="Vergaderingen en opnamen",
         does_3=("Transcribeer een audiobestand of neem een hele vergadering op met "
                 "sprekerlabels — volledig offline."),
@@ -245,7 +245,7 @@ LOCALES: dict[str, dict] = {
         does_heading="Co potrafi", does_1_title="Dyktowanie",
         does_1="Przytrzymaj klawisz, mów, puść. Tekst zostaje wpisany w aktywne okno.",
         does_2_title="Polecenia głosowe",
-        does_2="Powiedz „zapisz plik” albo „przejdź do linii 40”, a wykona to zamiast wpisywać słowa.",
+        does_2="Polecenia głosowe (np. „save file” czy „go to line 40”) istnieją na razie tylko po angielsku i mandaryńsku. Zdanie w Twoim języku jest wpisywane jako zwykły tekst, a nie wykonywane jako polecenie. Dyktowanie w Twoim języku nadal działa: ustaw `[stt] language` i użyj modelu wielojęzycznego.",
         does_3_title="Spotkania i nagrania",
         does_3=("Przepisz plik audio albo nagraj całe spotkanie z oznaczeniem mówiących — "
                 "w całości offline."),
@@ -271,7 +271,7 @@ LOCALES: dict[str, dict] = {
         does_heading="Co umí", does_1_title="Diktování",
         does_1="Podržte klávesu, mluvte, pusťte. Text se napíše do aktivního okna.",
         does_2_title="Hlasové příkazy",
-        does_2="Řekněte „ulož soubor“ nebo „jdi na řádek 40“ a provede to, místo aby slova napsal.",
+        does_2="Hlasové příkazy (například „save file“ nebo „go to line 40“) zatím existují jen v angličtině a mandarínštině. Věta ve vašem jazyce se napíše jako běžný text a neprovede se jako příkaz. Diktování ve vašem jazyce ale funguje: nastavte `[stt] language` a použijte vícejazyčný model.",
         does_3_title="Schůzky a nahrávky",
         does_3=("Přepište zvukový soubor nebo zaznamenejte celou schůzku s označením "
                 "mluvčích — zcela offline."),
@@ -297,7 +297,7 @@ LOCALES: dict[str, dict] = {
         does_heading="Vad den gör", does_1_title="Diktering",
         does_1="Håll ned tangenten, tala, släpp. Texten skrivs in i det aktiva fönstret.",
         does_2_title="Röstkommandon",
-        does_2="Säg ”spara filen” eller ”gå till rad 40” så utförs det, i stället för att orden skrivs.",
+        does_2="Röstkommandon (som ”save file” eller ”go to line 40”) finns än så länge bara på engelska och mandarin. En mening på ditt eget språk skrivs som vanlig text och utförs inte som kommando. Diktering på ditt språk fungerar ändå: ställ in `[stt] language` och använd en flerspråkig modell.",
         does_3_title="Möten och inspelningar",
         does_3=("Transkribera en ljudfil eller spela in ett helt möte med talaretiketter — "
                 "helt offline."),
@@ -323,7 +323,7 @@ LOCALES: dict[str, dict] = {
         does_heading="Τι κάνει", does_1_title="Υπαγόρευση",
         does_1="Κρατήστε το πλήκτρο, μιλήστε, αφήστε το. Το κείμενο γράφεται στο ενεργό παράθυρο.",
         does_2_title="Φωνητικές εντολές",
-        does_2="Πείτε «αποθήκευση αρχείου» ή «μετάβαση στη γραμμή 40» και εκτελείται, αντί να γραφτούν οι λέξεις.",
+        does_2="Οι φωνητικές εντολές (π.χ. «save file» ή «go to line 40») υπάρχουν προς το παρόν μόνο στα αγγλικά και στα μανδαρινικά. Μια φράση στη γλώσσα σας πληκτρολογείται ως απλό κείμενο και δεν εκτελείται ως εντολή. Η υπαγόρευση στη γλώσσα σας εξακολουθεί να λειτουργεί: ορίστε το `[stt] language` και χρησιμοποιήστε πολύγλωσσο μοντέλο.",
         does_3_title="Συσκέψεις και ηχογραφήσεις",
         does_3=("Απομαγνητοφωνήστε ένα αρχείο ήχου ή καταγράψτε μια ολόκληρη σύσκεψη με "
                 "σήμανση ομιλητών — όλα εκτός σύνδεσης."),
@@ -350,7 +350,7 @@ LOCALES: dict[str, dict] = {
         does_heading="Що він робить", does_1_title="Диктування",
         does_1="Утримуйте клавішу, говоріть, відпустіть. Текст вводиться в активне вікно.",
         does_2_title="Голосові команди",
-        does_2="Скажіть «зберегти файл» або «перейти до рядка 40» — і він виконає це, а не надрукує слова.",
+        does_2="Голосові команди (наприклад, «save file» чи «go to line 40») поки що існують лише англійською та китайською (мандаринською). Речення вашою мовою друкується як звичайний текст і не виконується як команда. Диктування вашою мовою все одно працює: задайте `[stt] language` і використовуйте багатомовну модель.",
         does_3_title="Наради та записи",
         does_3=("Розшифруйте аудіофайл або запишіть цілу нараду з позначенням мовців — "
                 "усе офлайн."),
@@ -376,7 +376,7 @@ LOCALES: dict[str, dict] = {
         does_heading="できること", does_1_title="音声入力",
         does_1="キーを押しながら話し、離します。文字はアクティブなウィンドウに入力されます。",
         does_2_title="音声コマンド",
-        does_2="「ファイルを保存」「40 行目へ移動」と言えば、その言葉を入力する代わりに実行します。",
+        does_2="音声コマンド（例：「save file」「go to line 40」）は現時点では英語と中国語（北京語）のみです。ご自身の言語で話した文はコマンドとして実行されず、通常のテキストとして入力されます。ご自身の言語での音声入力（ディクテーション）は引き続き使えます。`[stt] language` を設定し、多言語モデルを使ってください。",
         does_3_title="会議と録音",
         does_3=("音声ファイルを文字起こししたり、会議全体を話者ラベル付きで記録したり"
                 "できます。すべてオフラインです。"),
@@ -430,7 +430,7 @@ LOCALES: dict[str, dict] = {
         does_heading="Nó làm được gì", does_1_title="Đọc chính tả",
         does_1="Giữ phím, nói, thả ra. Văn bản được gõ vào cửa sổ đang hoạt động.",
         does_2_title="Lệnh thoại",
-        does_2="Nói “lưu tệp” hoặc “tới dòng 40” và nó thực hiện, thay vì gõ ra những chữ đó.",
+        does_2="Lệnh thoại (ví dụ “save file” hoặc “go to line 40”) hiện chỉ có bằng tiếng Anh và tiếng Quan Thoại. Một câu bằng ngôn ngữ của bạn sẽ được gõ ra như văn bản thường, không chạy như lệnh. Đọc chính tả bằng ngôn ngữ của bạn vẫn dùng được: đặt `[stt] language` và dùng mô hình đa ngôn ngữ.",
         does_3_title="Cuộc họp và bản ghi",
         does_3=("Chuyển một tệp âm thanh thành văn bản, hoặc ghi lại cả cuộc họp kèm nhãn "
                 "người nói — tất cả đều ngoại tuyến."),
@@ -456,7 +456,7 @@ LOCALES: dict[str, dict] = {
         does_heading="ทำอะไรได้บ้าง", does_1_title="การพิมพ์ด้วยเสียง",
         does_1="กดปุ่มค้างไว้ พูด แล้วปล่อย ข้อความจะถูกพิมพ์ลงในหน้าต่างที่กำลังใช้งาน",
         does_2_title="คำสั่งเสียง",
-        does_2="พูดว่า “บันทึกไฟล์” หรือ “ไปที่บรรทัด 40” แล้วมันจะทำให้ แทนที่จะพิมพ์คำเหล่านั้น",
+        does_2="คำสั่งเสียง (เช่น “save file” หรือ “go to line 40”) ตอนนี้มีเฉพาะภาษาอังกฤษและภาษาจีนกลางเท่านั้น ประโยคในภาษาของคุณจะถูกพิมพ์เป็นข้อความธรรมดา ไม่ได้ทำงานเป็นคำสั่ง การพิมพ์ตามเสียงพูดในภาษาของคุณยังใช้งานได้ โดยตั้งค่า `[stt] language` และใช้โมเดลหลายภาษา",
         does_3_title="การประชุมและไฟล์บันทึก",
         does_3=("ถอดความไฟล์เสียง หรือบันทึกการประชุมทั้งครั้งพร้อมป้ายชื่อผู้พูด "
                 "ทั้งหมดนี้ทำแบบออฟไลน์"),
@@ -505,7 +505,7 @@ LOCALES: dict[str, dict] = {
         does_heading="এটি যা করে", does_1_title="ডিকটেশন",
         does_1="কী চেপে ধরুন, বলুন, ছেড়ে দিন। লেখাটি সক্রিয় উইন্ডোতে টাইপ হয়ে যায়।",
         does_2_title="ভয়েস কমান্ড",
-        does_2="“ফাইল সেভ করো” বা “৪০ নম্বর লাইনে যাও” বললে সে কথাগুলো না লিখে কাজটাই করে।",
+        does_2="ভয়েস কমান্ড (যেমন “save file” বা “go to line 40”) আপাতত শুধু ইংরেজি ও ম্যান্ডারিনে আছে। আপনার নিজের ভাষার বাক্য কমান্ড হিসেবে চলে না, সাধারণ লেখা হিসেবে টাইপ হয়। নিজের ভাষায় ডিক্টেশন তবুও কাজ করে: `[stt] language` সেট করুন এবং একটি বহুভাষিক মডেল ব্যবহার করুন।",
         does_3_title="মিটিং ও রেকর্ডিং",
         does_3=("একটি অডিও ফাইল প্রতিলিপি করুন, বা পুরো মিটিং রেকর্ড করুন কে কী বলল তার "
                 "চিহ্নসহ — সবই অফলাইনে।"),
@@ -557,7 +557,7 @@ LOCALES: dict[str, dict] = {
         does_heading="ماذا يفعل", does_1_title="الإملاء",
         does_1="اضغط المفتاح مع الاستمرار، تكلّم، ثم اتركه. يُكتب النص في النافذة النشطة.",
         does_2_title="الأوامر الصوتية",
-        does_2="قل «احفظ الملف» أو «اذهب إلى السطر 40» فينفّذ ذلك بدل كتابة الكلمات.",
+        does_2="الأوامر الصوتية (مثل «save file» أو «go to line 40») متاحة حاليًا بالإنجليزية والصينية الماندرينية فقط. أما الجملة بلغتك فتُكتب كنص عادي ولا تُنفَّذ كأمر. ويبقى الإملاء بلغتك ممكنًا: اضبط `[stt] language` واستخدم نموذجًا متعدد اللغات.",
         does_3_title="الاجتماعات والتسجيلات",
         does_3=("فرِّغ ملفًا صوتيًا إلى نص، أو سجّل اجتماعًا كاملًا مع تمييز المتحدثين — "
                 "كل ذلك دون اتصال."),
@@ -583,7 +583,7 @@ LOCALES: dict[str, dict] = {
         does_heading="چه کاری انجام می‌دهد", does_1_title="دیکته",
         does_1="کلید را نگه دارید، حرف بزنید و رها کنید. متن در پنجرهٔ فعال تایپ می‌شود.",
         does_2_title="فرمان‌های صوتی",
-        does_2="بگویید «فایل را ذخیره کن» یا «برو به خط ۴۰»، و به‌جای نوشتن این کلمه‌ها همان کار را انجام می‌دهد.",
+        does_2="فرمان‌های صوتی (مانند «save file» یا «go to line 40») فعلاً فقط به انگلیسی و چینی ماندارین وجود دارند. جمله‌ای به زبان شما به‌صورت متن معمولی تایپ می‌شود و به‌عنوان فرمان اجرا نمی‌شود. دیکته به زبان شما همچنان کار می‌کند: `[stt] language` را تنظیم کنید و از مدل چندزبانه استفاده کنید.",
         does_3_title="جلسه‌ها و ضبط‌ها",
         does_3=("یک فایل صوتی را پیاده‌سازی کنید، یا کل یک جلسه را همراه با مشخص‌کردن "
                 "گویندگان ضبط کنید — همه به‌صورت آفلاین."),
@@ -609,7 +609,7 @@ LOCALES: dict[str, dict] = {
         does_heading="یہ کیا کرتا ہے", does_1_title="املا",
         does_1="کلید دبائے رکھیں، بولیں، چھوڑ دیں۔ متن فعال ونڈو میں لکھا جاتا ہے۔",
         does_2_title="آوازی کمانڈز",
-        does_2="کہیے «فائل محفوظ کرو» یا «لائن 40 پر جاؤ» — یہ الفاظ لکھنے کے بجائے کام کر دے گا۔",
+        does_2="آوازی کمانڈز (مثلاً “save file” یا “go to line 40”) فی الحال صرف انگریزی اور مینڈرن چینی میں ہیں۔ آپ کی اپنی زبان کا جملہ عام متن کے طور پر ٹائپ ہوتا ہے، کمانڈ کے طور پر نہیں چلتا۔ اپنی زبان میں ڈکٹیشن پھر بھی کام کرتی ہے: `[stt] language` سیٹ کریں اور کثیر لسانی ماڈل استعمال کریں۔",
         does_3_title="میٹنگز اور ریکارڈنگز",
         does_3=("کسی آڈیو فائل کو متن میں بدلیں، یا پوری میٹنگ بولنے والوں کی نشاندہی کے "
                 "ساتھ ریکارڈ کریں — سب آف لائن۔"),
