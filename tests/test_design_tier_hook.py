@@ -488,6 +488,49 @@ def test_a_long_title_without_a_colon_is_cut_at_a_word_never_inside_one(hook):
     assert title[len(short)] == " ", f"cut inside a word: {short!r}"
 
 
+def test_a_major_clause_break_beats_a_later_comma(hook):
+    title = "ADR-028 — Feature add-on packs: a frozen install, fetches libraries when it is turned on"
+    assert hook._short_title(title) == "ADR-028 — Feature add-on packs"
+
+
+def test_a_parenthetical_is_dropped_whole_not_cut_open(hook):
+    title = "ADR-v2-009 — Personal Speech Adapter (on-device LoRA fine-tuning for a single speaker)"
+    assert hook._short_title(title) == "ADR-v2-009 — Personal Speech Adapter"
+
+
+def test_a_title_never_ends_on_a_dangling_word(hook):
+    title = "Spec: Head-Pointer Runtime — Pose to Pointer with Recenter, Clutch and Dwell"
+    short = hook._short_title(title)
+    assert short == "Spec: Head-Pointer Runtime"
+    assert short.split()[-1].lower() not in hook._DANGLING
+    assert hook._tidy_title("Voice-Driven a") == "Voice-Driven"
+    assert hook._tidy_title("Personal Speech Adapter (two") == "Personal Speech Adapter"
+
+
+def test_long_published_titles_never_end_as_fragments(hook):
+    """The regression: ~48 of 158 shortened titles ended '(on-device', '(two' or '— a'."""
+    published = _publishable(hook)
+    assert published is not None
+    seen = 0
+    for rel in sorted(p for p in published if p.endswith(".md")):
+        text = (ROOT / rel).read_text(encoding="utf-8")
+        if text.startswith("---\n"):
+            continue
+        heading = hook._H1.search(text)
+        if not heading:
+            continue
+        full = hook._plain(heading.group(1))
+        if len(full) <= hook._TITLE_BUDGET:
+            continue
+        short = hook._short_title(full)
+        seen += 1
+        assert len(short) <= hook._TITLE_BUDGET, rel
+        assert short.count("(") <= short.count(")"), f"{rel}: open parenthesis in {short!r}"
+        assert short.split()[-1].lower() not in hook._DANGLING, f"{rel}: dangling word in {short!r}"
+        assert short[-1] not in ",;:—–-", f"{rel}: trailing punctuation in {short!r}"
+    assert seen > 50, f"expected many long titles in the design tier, saw {seen}"
+
+
 def test_a_title_is_never_shortened_to_nothing(hook):
     assert hook._short_title("A" * 200)
     assert hook._short_title("x: " + "y " * 80)
