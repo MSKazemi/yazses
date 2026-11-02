@@ -34,8 +34,9 @@ The peak figures above and the 2026-10-21 re-measurement on the
 taken on different machines, and agree within about 20 %. An older ~874 MB figure for
 `base.en` included an ~820 MB import baseline that the current code no longer has.
 
-**Resident memory is roughly twice the file on disk.** That surprises people who
-size a machine from the download.
+**Peak resident memory is 1.5 to 3.7 times the file on disk** (about 2.5 times for the
+default `base.en`; the ratio falls as the model grows, from the table above). That
+surprises people who size a machine from the download.
 
 ## What to pick
 
