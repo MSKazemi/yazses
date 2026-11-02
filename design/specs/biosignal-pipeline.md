@@ -399,10 +399,16 @@ Known limits from this round:
   synthetic EOG stream with its default 10 µV hum the quality monitor already drops most double blinks
   (seen while writing the end-to-end tests, not investigated). Judging events by when they happened
   can only increase that. Worth measuring before reading blink rates from that fixture.
-- **Counts, not microvolts.** Myo (int8) and the gForce boards report ADC counts. Relative thresholds
-  work after calibration on the same stream, but `quality.py`'s µV limits (flatline 0.5/0.1 µV, EMG
-  saturation 10 000 µV, drift 50 µV) do not mean what they say there. An 8-bit band also clips during
-  an ordinary hard squeeze, so its rail must not be used as `rail_limit_uv`.
+- **Counts, not microvolts.** Myo (int8) and the gForce boards report ADC counts. Their preset says
+  `unit = "counts"` (`boards.py`), and the pipeline's quality monitor then uses
+  `quality.thresholds_for_unit("counts")`: the µV-absolute limits (flatline 0.5/0.1 µV, EMG
+  saturation 10 000 µV, drift 50 µV, EEG/EOG noise sigma) are off, flatline is judged only as exactly
+  zero variance, and every report says so (`absolute_checks_skipped`). Still checked: non-finite
+  samples, packet loss, mains share, clipping plateaus, lead-off steps, shared movement. Measured on
+  synthetic count streams only (2026-11-02): a 0.4-count live channel was called flat before the
+  switch and is GOOD after it; a dead channel stays BAD; a rail-clipped one stays BAD. Not measured on
+  a real band, so the thresholds for counts are untuned design choices. An 8-bit band also clips
+  during an ordinary hard squeeze, so its rail must not be used as `rail_limit_uv`.
 - **LSL** holds its machine-only pin only if YazSes makes the first liblsl call in the process.
 - **Integrity thresholds** (gap tolerance, 1 s recovery, rate-drift window) are untuned design choices.
 

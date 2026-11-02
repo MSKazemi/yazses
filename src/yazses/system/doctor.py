@@ -1185,6 +1185,38 @@ def _biosignal_check(
                           "plug the board or its dongle in; on Linux your user may need to be in "
                           "the `dialout` group"))
 
+    # The device sources that are not BrainFlow boards, and the count-unit armbands: say what
+    # the spec does and does not yet carry, per device. Advice only; nothing is opened.
+    from yazses.biosignal.boards import preset_for, unit_of
+
+    preset = preset_for(spec) if spec else None
+    note_parts: list[str] = []
+    if preset is not None and preset.spec_template and scheme != "brainflow":
+        if "<" in spec:
+            example = (preset.source_spec("/dev/ttyUSB0") if preset.serial_required
+                       else preset.spec_template.replace("<address>", "AA:BB:CC:DD:EE:FF"))
+            what = {"lsl": "stream name", "myo": "Bluetooth address"}.get(scheme, "serial port")
+            warns.append((
+                f"the source still holds a placeholder ({spec}): no {what} is set",
+                f"write the real value in the spec, e.g. \"{example}\""))
+        elif preset.serial_required:
+            port = spec.partition(":")[2].partition(":")[0].strip()
+            if not port:
+                warns.append((
+                    f"{preset.name} needs a serial port and the source names none",
+                    f"write it after the scheme, e.g. \"{preset.source_spec('/dev/ttyUSB0')}\" "
+                    "(on Windows, COM3)"))
+            elif port.startswith("/") and not Path(port).exists():
+                warns.append((f"serial port {port} is not there",
+                              "plug the board or its dongle in; on Linux your user may need to "
+                              "be in the `dialout` group"))
+    if preset is not None and preset.spec_template:
+        note_parts.append(f"{preset.name}: {preset.channels_hint}.")
+    if unit_of(spec) == "counts":
+        note_parts.append("Its values are counts, not microvolts: absolute amplitude checks "
+                          "are skipped, so calibrate on the same stream.")
+    note = " ".join(note_parts)
+
     if scheme and scheme != "synthetic":
         from datetime import UTC, datetime
 
@@ -1209,10 +1241,12 @@ def _biosignal_check(
 
     if not fails and not warns:
         return ("Biosignal switch", "OK",
-                f"on, source {spec} -- no problems found. Nothing was opened; "
-                "`yazses biosignal doctor` runs a self-check and "
+                f"on, source {spec} -- no problems found. {note + ' ' if note else ''}"
+                "Nothing was opened; `yazses biosignal doctor` runs a self-check and "
                 "`yazses biosignal report` measures your false-positive rate")
     lines = [f"{text}\n    fix: {fix}" for text, fix in fails + warns]
+    if note:
+        lines.append(note)
     return ("Biosignal switch", "FAIL" if fails else "WARN", "\n  ".join(lines))
 
 

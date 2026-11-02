@@ -105,6 +105,7 @@ __all__ = [
     "saturation_fraction",
     "segment_excursions",
     "suppress_events",
+    "thresholds_for_unit",
 ]
 
 _EPS = 1e-12
@@ -134,6 +135,13 @@ class Reason:
     MOTION = "motion_artifact"
     TOO_FEW_CHANNELS = "too_few_channels"
     REQUIRED_MISSING = "required_channel_unusable"
+    # Not a fault: set on a report whose source reports counts, so the microvolt-absolute
+    # checks were skipped (see thresholds_for_unit). Never changes a verdict by itself.
+    ABSOLUTE_SKIPPED = "absolute_checks_skipped"
+
+
+#: The units a stream can declare. ``"uV"`` is the SampleBlock contract.
+_UNITS = ("uV", "counts")
 
 
 @dataclass(frozen=True)
@@ -239,7 +247,14 @@ class QualityThresholds:
     motion_frac_bad: float = 0.75
     motion_min_channels: int = 2
 
+    # --- unit of the stream -------------------------------------------------------
+    # "uV" (the default, and every µV board) or "counts" (raw ADC counts, a Myo or gForce).
+    # Set through thresholds_for_unit, which also neutralises the µV-absolute limits above.
+    unit: str = "uV"
+
     def __post_init__(self) -> None:
+        if self.unit not in _UNITS:
+            raise ValueError(f"unit must be one of {_UNITS}, got {self.unit!r}")
         if self.window_s <= 0 or self.hop_s <= 0 or self.min_fill_s <= 0:
             raise ValueError("window_s, hop_s and min_fill_s must be positive")
         if self.min_fill_s > self.window_s:
@@ -262,6 +277,44 @@ class QualityThresholds:
 
 
 DEFAULT_THRESHOLDS = QualityThresholds()
+
+
+def thresholds_for_unit(
+    unit: str, base: QualityThresholds | None = None
+) -> QualityThresholds:
+    """The thresholds for a stream whose samples are in ``unit``.
+
+    ``"uV"`` returns ``base`` (the defaults) unchanged, so every microvolt board runs exactly
+    as before. ``"counts"`` (a Myo or gForce: raw ADC counts, not microvolts) switches off the
+    checks whose limit is an absolute microvolt figure, because a count is not a microvolt
+    and the same number would mean something else:
+
+    * flatline is judged only as exactly zero variance (both limits 0), and the lead-off
+      flat tail uses the same zero (its step test is relative and stays);
+    * the absolute saturation level (``saturation_uv``) is off; a flat-topped plateau at the
+      rail is unit-free and still counts;
+    * the drift amplitude gate (``drift_min_p2p_uv``) is off, so drift is not graded;
+    * the EEG/EOG robust-sigma limits (``noise_sigma_uv``) are off, with the bursts and
+      kurtosis that ride on them.
+
+    Still checked, unit-free: non-finite samples, packet loss, mains-band share, shared
+    movement, and the lead-off step. The report carries :attr:`Reason.ABSOLUTE_SKIPPED`
+    so the skip is never silent. Raises ``ValueError`` for an unknown unit.
+    """
+    if unit not in _UNITS:
+        raise ValueError(f"unit must be one of {_UNITS}, got {unit!r}")
+    thr = base or DEFAULT_THRESHOLDS
+    if unit == "uV":
+        return thr
+    return replace(
+        thr,
+        unit="counts",
+        flat_degraded_uv=0.0,
+        flat_bad_uv=0.0,
+        saturation_uv={},
+        drift_min_p2p_uv=math.inf,
+        noise_sigma_uv={},
+    )
 
 
 @dataclass(frozen=True)
@@ -500,7 +553,9 @@ def lead_off_metrics(
         return 0.0, 0.0
     if float(np.median(sd[:live])) <= flat_uv:
         return 0.0, 0.0
-    sigma = max(robust_sigma(segs[:live].ravel()), flat_uv)
+    # The floor must stay positive: a count stream (flat_uv == 0) can have a live part whose
+    # MAD is exactly zero, and dividing by it would raise and disable the quality gate.
+    sigma = max(robust_sigma(segs[:live].ravel()), flat_uv, _EPS)
     ref = float(np.median(mu[max(0, live - 5) : live]))
     step = abs(float(mu[live:].mean()) - ref) / sigma
     return k * seg / fs, float(step)
@@ -985,6 +1040,8 @@ class SignalQualityMonitor:
             overall = QualityStatus.GOOD
         if any(Reason.MOTION in c.reasons for c in smoothed):
             reasons.append(Reason.MOTION)
+        if thr.unit != "uV":
+            reasons.append(Reason.ABSOLUTE_SKIPPED)
         return QualityReport(
             tuple(smoothed),
             overall,
@@ -1181,11 +1238,20 @@ def explain(report: QualityReport) -> list[str]:
     amplitudes appear (privacy rule). Intended for a doctor/CLI command.
     """
     lines: list[str] = []
+    skipped = (
+        "Absolute amplitude checks were skipped: this source reports counts, not microvolts, "
+        "so the microvolt limits (flatline except exactly zero, saturation level, drift "
+        "amplitude, EEG/EOG noise) do not apply. Missing samples, packet loss, mains hum, "
+        "clipping plateaus, lead-off steps and shared movement are still checked."
+    )
+    counts = Reason.ABSOLUTE_SKIPPED in report.reasons
     if report.overall is QualityStatus.GOOD:
         lines.append(
             f"Signal quality is good on all {len(report.channels)} channel(s); "
             "detectors are active."
         )
+        if counts:
+            lines.append(skipped)
         return lines
 
     if Reason.WARMING_UP in report.reasons:
@@ -1204,6 +1270,8 @@ def explain(report: QualityReport) -> list[str]:
         lines.append(
             "Signal is usable but degraded: expect more false triggers or missed events."
         )
+    if counts:
+        lines.append(skipped)
     if Reason.TOO_FEW_CHANNELS in report.reasons:
         lines.append(
             f"Only {len(report.usable_channels)} of {len(report.channels)} channel(s) are "
