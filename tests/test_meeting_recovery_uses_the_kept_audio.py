@@ -83,6 +83,7 @@ def _recording(d, audio=None):
 
 # --- what the listing can see -------------------------------------------------
 
+@needs_faster_whisper
 def test_a_meeting_with_only_a_recording_is_flagged(tmp_path):
     """The case that printed as a finished meeting: audio, no live transcript."""
     d = _recording(tmp_path / "20260820-100000")
@@ -108,6 +109,7 @@ def test_a_header_with_no_frames_is_not_called_a_recording(tmp_path):
     assert "audio_path" not in listed[0]
 
 
+@needs_faster_whisper
 def test_a_finished_meeting_that_retained_its_audio_is_not_flagged(tmp_path):
     """`[meeting] retain_audio` leaves the same file behind on a *successful* meeting."""
     d = _recording(tmp_path / "20260820-100000")
@@ -155,6 +157,7 @@ def test_every_line_is_indented_under_its_meeting():
 
 # --- the refusals -------------------------------------------------------------
 
+@needs_faster_whisper
 def test_a_finished_meeting_is_not_re_transcribed_over(tmp_path):
     """The completed transcript is the expensive artefact; a rerun would replace it."""
     d = _recording(tmp_path / "m")
@@ -174,12 +177,14 @@ def test_a_missing_directory_is_refused(tmp_path):
     assert reason and "No meeting directory" in reason
 
 
+@needs_faster_whisper
 def test_a_recoverable_meeting_is_not_refused(tmp_path):
     d = _recording(tmp_path / "m")
     assert recover.recovery_refusal(d, {"id": "m"}) is None
 
 
 # --- the recovery itself ------------------------------------------------------
+@needs_faster_whisper
 def test_the_listing_and_the_refusal_agree_on_what_a_recording_is(tmp_path):
     """One predicate, not two. The refusal used to carry its own literal 44, so a
     drift in either would offer a recovery the command then declines."""
@@ -198,6 +203,7 @@ def test_the_listing_and_the_refusal_agree_on_what_a_recording_is(tmp_path):
 
 
 
+@needs_faster_whisper
 def test_recovering_writes_the_same_outputs_a_finished_meeting_has(tmp_path):
     d = _recording(tmp_path / "20260820-100000")
     info = recover.recover_meeting(d, _Cfg(tmp_path), engine=_Engine())
@@ -212,6 +218,7 @@ def test_recovering_writes_the_same_outputs_a_finished_meeting_has(tmp_path):
     assert info["recovered"] is True and info["files"]
 
 
+@needs_faster_whisper
 def test_the_recording_is_not_truncated_by_recovering_it(tmp_path):
     """The hazard: `MeetingSession.__init__` opens this same path with `wb`."""
     d = _recording(tmp_path / "m")
@@ -238,6 +245,7 @@ def test_recovery_never_opens_the_recording_for_writing():
     assert "MeetingController" not in called, "the controller builds a session"
 
 
+@needs_faster_whisper
 def test_a_recovered_meeting_leaves_the_listing_clean(tmp_path):
     d = _recording(tmp_path / "20260820-100000")
     assert store.list_meetings(_Cfg(tmp_path))[0].get("recoverable") is True
@@ -278,6 +286,7 @@ def _invoke(monkeypatch, tmp_path, argv):
     return CliRunner().invoke(cli.app, argv, env={"COLUMNS": "220", "TERM": "dumb"})
 
 
+@needs_faster_whisper
 def test_the_listing_names_the_command_that_gets_the_meeting_back(monkeypatch, tmp_path):
     _recording(tmp_path / "20260820-100000")
     result = _invoke(monkeypatch, tmp_path, ["meeting", "list"])
@@ -285,6 +294,7 @@ def test_the_listing_names_the_command_that_gets_the_meeting_back(monkeypatch, t
     assert "yazses meeting recover 20260820-100000" in result.output
 
 
+@needs_faster_whisper
 def test_an_unfinished_meeting_is_not_described_as_a_speaker_count(monkeypatch, tmp_path):
     """`? speaker(s)` reads as "we counted and could not tell"."""
     _recording(tmp_path / "20260820-100000")
@@ -293,6 +303,7 @@ def test_an_unfinished_meeting_is_not_described_as_a_speaker_count(monkeypatch, 
     assert "unfinished" in result.output
 
 
+@needs_faster_whisper
 def test_the_command_recovers_the_meeting(monkeypatch, tmp_path):
     d = _recording(tmp_path / "20260820-100000")
     result = _invoke(monkeypatch, tmp_path, ["meeting", "recover", "20260820-100000"])

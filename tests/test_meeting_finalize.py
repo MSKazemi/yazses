@@ -6,6 +6,7 @@ import functools
 import json
 import pathlib
 
+from tests.decoder_stack import needs_faster_whisper
 from yazses.config import MeetingConfig
 from yazses.meeting.finalize import finalize_meeting
 from yazses.postprocess.prosody import Word
@@ -54,6 +55,7 @@ def _speech():
     return audio
 
 
+@needs_faster_whisper
 def test_finalize_diarizes_and_skips_notes_by_default():
     res = finalize_meeting(_audio(), _cfg(), engine=_FakeEngine(), diarizer=_FakeDiarizer())
     assert res.transcript.diarized is True
@@ -61,6 +63,7 @@ def test_finalize_diarizes_and_skips_notes_by_default():
     assert res.minutes is None
 
 
+@needs_faster_whisper
 def test_finalize_generates_notes_when_enabled():
     reply = json.dumps({"summary": "Shipped.", "decisions": ["ship"], "action_items": []})
     res = finalize_meeting(
@@ -71,6 +74,7 @@ def test_finalize_generates_notes_when_enabled():
     assert res.minutes.summary == "Shipped."
 
 
+@needs_faster_whisper
 def test_finalize_degrades_without_diarizer():
     res = finalize_meeting(_audio(), _cfg(diarize=False), engine=_FakeEngine(), diarizer=None)
     assert res.transcript.diarized is False
