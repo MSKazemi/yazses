@@ -234,14 +234,14 @@ def test_evicted_total_counts_across_evictions():
 
 def test_concurrent_get_and_evict_do_not_raise():
     h = Harness(keep_alive_s=0.001)
-    errors: list[BaseException] = []
+    errors: list[Exception] = []
     stop = threading.Event()
 
     def worker_get() -> None:
         try:
             for i in range(200):
                 h.pool.get("tiny.en", 1 + (i % 3))
-        except BaseException as exc:  # pragma: no cover - recorded for the assertion
+        except Exception as exc:  # pragma: no cover - recorded for the assertion
             errors.append(exc)
 
     def worker_evict() -> None:
@@ -249,7 +249,7 @@ def test_concurrent_get_and_evict_do_not_raise():
             while not stop.is_set():
                 h.pool.evict_idle()
                 h.pool.residency_snapshot()
-        except BaseException as exc:  # pragma: no cover
+        except Exception as exc:  # pragma: no cover
             errors.append(exc)
 
     getters = [threading.Thread(target=worker_get) for _ in range(4)]
