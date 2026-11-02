@@ -264,7 +264,9 @@ def render(code: str, spec: dict, sha: str) -> str:
         # rather than inside it — the switcher is language-neutral and the checker
         # looks for it before any prose. Everything after it is right-to-left.
         first, rest = body.split("\n", 1)
-        body = f'{first}\n\n<div dir="rtl">\n\n{rest}\n</div>\n'
+        # `markdown="1"` is required: md_in_html leaves a bare HTML block's body as
+        # raw text, so headings, tables and lists would render as literal markdown.
+        body = f'{first}\n\n<div dir="rtl" markdown="1">\n\n{rest}\n</div>\n'
     # Front matter is prepended last, after any RTL wrapping: it is YAML the docs
     # build parses, not prose, and wrapping it in a `dir="rtl"` div would leave the
     # page with no title, description or `alternates` at all.

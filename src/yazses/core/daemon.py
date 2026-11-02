@@ -6781,8 +6781,11 @@ class Daemon:
                         base = f"{base}. {extra}" if base else extra
                 except Exception:
                     log.debug("screen-grounded priming failed; ignoring", exc_info=True)
-        # Always prime the coined app name so Whisper spells "YazSes".
-        return merge_initial_prompt(base)
+        # Prime the coined app name so Whisper spells "YazSes" -- but only for decodes
+        # the English phrase is written for. With [stt] language set to another
+        # language, the English sentence would condition that decode (see
+        # `builtin_prompt_applies`); the user's own prompt and vocabulary are unaffected.
+        return merge_initial_prompt(base, language=self._config.stt.language)
 
     def _build_governor(self) -> None:
         """Stand up the Adaptive Latency Governor, or say why it cannot run.

@@ -6,6 +6,50 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the Arabic, Persian and Urdu pages showed their Markdown as raw text
+
+The right-to-left translated pages wrapped their body in a bare `<div dir="rtl">`, so headings,
+tables and lists rendered as literal `## ` and `|---|` characters. The wrapper now opts in to
+Markdown (`markdown="1"`), so the headings, tables and lists render. The text is unchanged.
+
+### Fixed — the built-in English prompt is no longer sent to a non-English decode
+
+With `[stt] language` set to a language other than English (`fa`, `fa-IR`, `zh`, `de`, ...),
+the daemon still primed Whisper with the English sentence "The app is called YazSes.", so an
+English phrase conditioned Persian or Chinese dictation and could echo into it on noise (#598).
+That sentence is now withheld for any language other than English. It is still sent when the
+language is English, unset, or `""`/`"auto"`/`"translate"` (auto-detect). A prompt or personal
+vocabulary you wrote is sent exactly as before. Not measured on audio: no WER or latency change
+was measured for this.
+
+### Fixed — Persian dictation no longer loses words to the vocabulary corrector
+
+- **A Latin hotword deleted the Persian words after it.** `[stt] vocab_correction` joined a window
+  of tokens and matched it against a vocabulary term: "مهسا گفت Kubernetis را نصب کن" came out as
+  "مهسا گفت Kubernetes", with "را نصب کن" gone. Only Latin-script tokens can now take part in a match.
+- **Persian words were rewritten to unrelated Persian words.** The phonetic key encodes only Latin
+  consonant classes, so every Persian word with the same first letter shared one key: "خانه" became
+  "خانم" and "کتاب را" became "کتابی" when those were in the vocabulary. Persian tokens are no longer
+  candidates. Latin hotwords are still corrected, as before.
+- **The hallucination guard dropped Persian sentences that ended in an English outro.** Its check
+  erased every non-Latin letter before matching, so "این ویدیو را ببین thanks for watching" was
+  dropped as the bare ghost phrase. Text with a non-ASCII letter is now never judged a ghost phrase
+  or a repetition loop. English output is unchanged.
+- **Self-learning corrections rewrote the first half of a Persian compound.** A correction for "کتاب"
+  turned "کتاب‌ها" into "دفتر‌ها". A ZWNJ (U+200C) now counts as part of the word for the match
+  edges. Whole English words match as before.
+
+### Fixed — the Unicode injector resolves keys against the layout the session reports (Linux)
+
+- The layout was guessed from `XKB_DEFAULT_LAYOUT` / `LANG` and defaulted to `us`, so Persian
+  letters (none on `us`) always fell back to the clipboard. It now reads, in order: the XKB
+  environment variables, sway's active layout, GNOME's `mru-sources` then `sources`, `localectl`,
+  then `us`. Every probe is read-only, local, under 1 s, and ignored when it fails. Unverified on
+  a live Wayland compositor with a Persian layout.
+- The missing-character error names the layout that was consulted, and `yazses doctor` gains an
+  `Injection layout` row: STT language, the detected layout and its source, and that Persian
+  letters need an active `ir` layout or YazSes pastes instead.
+
 ### Fixed — an electrode shift no longer starts dictation (biosignal switch, off by default)
 
 A band-passed edge kept the squeeze envelope over its threshold for the whole minimum burst. On synthetic

@@ -358,7 +358,8 @@ Stage by stage:
    whisper-large-v3's 3.23 % on 200 LibriSpeech utterances, at roughly twice
    whisper-small's CPU speed, and an eighth of large-v3's insertions
    ([benchmarks](benchmarks.md)). On the Whisper path an `initial_prompt` biases the model
-   toward the right words — the app name and your personal vocabulary.
+   toward the right words — your personal vocabulary, and for English and auto-detect the app name (the
+   English app-name phrase is withheld when `[stt] language` is another language).
    (An editor-context prefix was designed and is **not wired**: the daemon never
    constructs `LspContextProvider`, so nothing from your editor reaches the prompt.)
 6. **Text cleanup.** `clean_text()` strips Whisper artefacts such as
