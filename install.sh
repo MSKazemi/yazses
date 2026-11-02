@@ -188,7 +188,7 @@ fi
 # provisions a *desktop*, so the tray and the voice-activity overlay must still work
 # out of the box. uv resolves extras from `--from` git sources awkwardly, so the
 # requirement is named directly; keep it in step with the `desktop` extra in pyproject.
-run uv tool install --force --with "PySide6>=6.11.1" --from "git+${REPO}@${REF}" yazses \
+run uv tool install --force --with "PySide6>=6.11.1,<6.12" --from "git+${REPO}@${REF}" yazses \
   || error "Install failed. See the output above (need a compiler/Python? uv usually handles it)."
 
 # A dry run stops here: everything past this point drives the freshly installed binary,

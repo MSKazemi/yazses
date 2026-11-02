@@ -155,14 +155,14 @@
     {
       "type": "library",
       "name": "ast-serialize",
-      "version": "0.6.0",
-      "purl": "pkg:pypi/ast-serialize@0.6.0",
-      "bom-ref": "pkg:pypi/ast-serialize@0.6.0",
+      "version": "0.13.1",
+      "purl": "pkg:pypi/ast-serialize@0.13.1",
+      "bom-ref": "pkg:pypi/ast-serialize@0.13.1",
       "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "aadd3ffcf4858c9726bf3515f7b199c7eadbe504f96028e4a87172c0da65a8fe"
+          "content": "401cc84e8888d4d76f2c8d296fa006ed1a5ff993b6aff90dd777c03973efd025"
         }
       ]
     },
@@ -225,14 +225,14 @@
     {
       "type": "library",
       "name": "av",
-      "version": "18.0.0",
-      "purl": "pkg:pypi/av@18.0.0",
-      "bom-ref": "pkg:pypi/av@18.0.0",
+      "version": "18.1.0",
+      "purl": "pkg:pypi/av@18.1.0",
+      "bom-ref": "pkg:pypi/av@18.1.0",
       "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "4ef7e72c3d3a872584a1215173b16e0226811037f40dcdbf75992631098df1ba"
+          "content": "47bfc286e1bc9de7ab4681fc2b575cd2460a66919d31ffe1bd5aa54fae531a28"
         }
       ]
     },
@@ -471,14 +471,14 @@
     {
       "type": "library",
       "name": "cryptography",
-      "version": "50.0.1",
-      "purl": "pkg:pypi/cryptography@50.0.1",
-      "bom-ref": "pkg:pypi/cryptography@50.0.1",
+      "version": "50.0.2",
+      "purl": "pkg:pypi/cryptography@50.0.2",
+      "bom-ref": "pkg:pypi/cryptography@50.0.2",
       "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "5dd9bda1c12b4162f6ff568eeb5e0ff956c28d14406e875cfe8a63a2d414ff20"
+          "content": "7b46165bb56eb4704e2eaaf86f3c940d19154535d9b0ca7d6d590b04060e00d5"
         }
       ]
     },
@@ -959,14 +959,14 @@
     {
       "type": "library",
       "name": "hypothesis",
-      "version": "6.168.3",
-      "purl": "pkg:pypi/hypothesis@6.168.3",
-      "bom-ref": "pkg:pypi/hypothesis@6.168.3",
+      "version": "6.170.14",
+      "purl": "pkg:pypi/hypothesis@6.170.14",
+      "bom-ref": "pkg:pypi/hypothesis@6.170.14",
       "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "a43388f9067678fef6e13bdff325b6cfa6961a590498bb37f7ff31589c83bc75"
+          "content": "8272913eb34c4399a88cf8a9ecdb351c9ef8f621c061f2ac323362d4a66b755d"
         }
       ]
     },
@@ -1183,14 +1183,14 @@
     {
       "type": "library",
       "name": "librt",
-      "version": "0.13.0",
-      "purl": "pkg:pypi/librt@0.13.0",
-      "bom-ref": "pkg:pypi/librt@0.13.0",
+      "version": "0.16.0",
+      "purl": "pkg:pypi/librt@0.16.0",
+      "bom-ref": "pkg:pypi/librt@0.16.0",
       "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "1d2a610c14ac0d0750ee0a3ab8548e83155258387891caaca04def4bf7289781"
+          "content": "ac38d6d8d66bf3d744148dbbc0b8e193e195a51e364ed55e224631f5721891fc"
         }
       ]
     },
@@ -1225,14 +1225,14 @@
     {
       "type": "library",
       "name": "llama-cpp-python",
-      "version": "0.3.35",
-      "purl": "pkg:pypi/llama-cpp-python@0.3.35",
-      "bom-ref": "pkg:pypi/llama-cpp-python@0.3.35",
+      "version": "0.3.36",
+      "purl": "pkg:pypi/llama-cpp-python@0.3.36",
+      "bom-ref": "pkg:pypi/llama-cpp-python@0.3.36",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "1139dbb54509074b70893fab8554e3b079aa9f4d312058ce4018ef0019e3de12"
+          "content": "832db0699007f1be95a7e41ef12e88926b02ba836461e36a36372db2760c1a2e"
         }
       ]
     },
@@ -1337,28 +1337,28 @@
     {
       "type": "library",
       "name": "mcp",
-      "version": "2.2.0",
-      "purl": "pkg:pypi/mcp@2.2.0",
-      "bom-ref": "pkg:pypi/mcp@2.2.0",
+      "version": "2.3.0",
+      "purl": "pkg:pypi/mcp@2.3.0",
+      "bom-ref": "pkg:pypi/mcp@2.3.0",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "2dc37ecb1974becdcebdbf7561e7c15a07dbbf20ba21ba16c3593b3038b3afbd"
+          "content": "8b147a50441cf059dc88c684e0aeed3687f0aa0f39c6cde7b90330effd2b34d8"
         }
       ]
     },
     {
       "type": "library",
       "name": "mcp-types",
-      "version": "2.2.0",
-      "purl": "pkg:pypi/mcp-types@2.2.0",
-      "bom-ref": "pkg:pypi/mcp-types@2.2.0",
+      "version": "2.3.0",
+      "purl": "pkg:pypi/mcp-types@2.3.0",
+      "bom-ref": "pkg:pypi/mcp-types@2.3.0",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "d3ed53703ddd10d9c6399f29d322bb66f3f67ab41348ac8556ba23e07fedefad"
+          "content": "d1e46549edb35ee19a94940fcee6d1addd7e589ab7ea92dda83f5d84781fc362"
         }
       ]
     },
@@ -1379,9 +1379,9 @@
     {
       "type": "library",
       "name": "mediapipe",
-      "version": "1.0.1",
-      "purl": "pkg:pypi/mediapipe@1.0.1",
-      "bom-ref": "pkg:pypi/mediapipe@1.0.1",
+      "version": "1.2.0",
+      "purl": "pkg:pypi/mediapipe@1.2.0",
+      "bom-ref": "pkg:pypi/mediapipe@1.2.0",
       "scope": "optional"
     },
     {
@@ -1443,14 +1443,14 @@
     {
       "type": "library",
       "name": "mkdocs-glightbox",
-      "version": "0.5.2",
-      "purl": "pkg:pypi/mkdocs-glightbox@0.5.2",
-      "bom-ref": "pkg:pypi/mkdocs-glightbox@0.5.2",
+      "version": "0.5.3",
+      "purl": "pkg:pypi/mkdocs-glightbox@0.5.3",
+      "bom-ref": "pkg:pypi/mkdocs-glightbox@0.5.3",
       "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "c7622799347c32310878e01ccf14f70648445561010911c80590cec0353370ac"
+          "content": "e5af2b6d04494358d34e0c50f493a8fde88da5daac50a86227c2495b616b7a83"
         }
       ]
     },
@@ -1569,14 +1569,14 @@
     {
       "type": "library",
       "name": "mypy",
-      "version": "2.3.1",
-      "purl": "pkg:pypi/mypy@2.3.1",
-      "bom-ref": "pkg:pypi/mypy@2.3.1",
+      "version": "2.4.1",
+      "purl": "pkg:pypi/mypy@2.4.1",
+      "bom-ref": "pkg:pypi/mypy@2.4.1",
       "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "47c1b1207258513a9d93495f69c8be9de73916186f0e52703e8c461b7a623419"
+          "content": "63b590965691e540a335fa74dadf31a7069142f6b72e234689bbd244edf55623"
         }
       ]
     },
@@ -1963,14 +1963,14 @@
     {
       "type": "library",
       "name": "platformdirs",
-      "version": "4.12.1",
-      "purl": "pkg:pypi/platformdirs@4.12.1",
-      "bom-ref": "pkg:pypi/platformdirs@4.12.1",
+      "version": "4.14.3",
+      "purl": "pkg:pypi/platformdirs@4.14.3",
+      "bom-ref": "pkg:pypi/platformdirs@4.14.3",
       "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "38da801a4af303033cbffccb39030db22bf0473e6414309b02acebeee7ca8bf1"
+          "content": "021add1ab113483edbcd4694f5fbb2d688b893ea30d35e1155bb371cf4be0be8"
         }
       ]
     },
@@ -2499,14 +2499,14 @@
     {
       "type": "library",
       "name": "pytest",
-      "version": "9.1.1",
-      "purl": "pkg:pypi/pytest@9.1.1",
-      "bom-ref": "pkg:pypi/pytest@9.1.1",
+      "version": "9.2.0",
+      "purl": "pkg:pypi/pytest@9.2.0",
+      "bom-ref": "pkg:pypi/pytest@9.2.0",
       "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "1088fbde8f2b49d95a549a195707afa7a76a3ce9bcadc26b6d71f0ffda5fe313"
+          "content": "97c4f3b1f3c7414aa36465e09b8220f1d03627993bd51b1282e193753c80557b"
         }
       ]
     },
@@ -2527,14 +2527,14 @@
     {
       "type": "library",
       "name": "pytest-mock",
-      "version": "3.16.0",
-      "purl": "pkg:pypi/pytest-mock@3.16.0",
-      "bom-ref": "pkg:pypi/pytest-mock@3.16.0",
+      "version": "3.17.0",
+      "purl": "pkg:pypi/pytest-mock@3.17.0",
+      "bom-ref": "pkg:pypi/pytest-mock@3.17.0",
       "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "5a8395528b8f498205f3718f575228d0edaed7425fff638f87d1a6c3e0383636"
+          "content": "e36576e0985e01027e999891e7a966c67822d40c89ef1b4c8b6e22737e3590b4"
         }
       ]
     },
@@ -2815,14 +2815,14 @@
     {
       "type": "library",
       "name": "ruff",
-      "version": "0.16.9",
-      "purl": "pkg:pypi/ruff@0.16.9",
-      "bom-ref": "pkg:pypi/ruff@0.16.9",
+      "version": "0.17.3",
+      "purl": "pkg:pypi/ruff@0.17.3",
+      "bom-ref": "pkg:pypi/ruff@0.17.3",
       "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "12b625c6cfba78d285d9f48eda5f053374f1e53cb10ef17342a383750db99161"
+          "content": "a57049c8addb3662073859bb55a7ad35aa54f8a7c9ed268911d1333c5aadaaa9"
         }
       ]
     },
@@ -2955,23 +2955,23 @@
     {
       "type": "library",
       "name": "sherpa-onnx",
-      "version": "1.13.8",
-      "purl": "pkg:pypi/sherpa-onnx@1.13.8",
-      "bom-ref": "pkg:pypi/sherpa-onnx@1.13.8",
+      "version": "2.0.1",
+      "purl": "pkg:pypi/sherpa-onnx@2.0.1",
+      "bom-ref": "pkg:pypi/sherpa-onnx@2.0.1",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "68e638f745df120a7fae268b7bae0eaab2362b5ad76fe3389bece1d3cd63272c"
+          "content": "c3a41594d7b1a637f6e13d6935ebb93616fe0b01931ce4894c097e79a51f4927"
         }
       ]
     },
     {
       "type": "library",
       "name": "sherpa-onnx-core",
-      "version": "1.13.8",
-      "purl": "pkg:pypi/sherpa-onnx-core@1.13.8",
-      "bom-ref": "pkg:pypi/sherpa-onnx-core@1.13.8",
+      "version": "2.0.1",
+      "purl": "pkg:pypi/sherpa-onnx-core@2.0.1",
+      "bom-ref": "pkg:pypi/sherpa-onnx-core@2.0.1",
       "scope": "optional"
     },
     {
@@ -3083,14 +3083,14 @@
     {
       "type": "library",
       "name": "speechbrain",
-      "version": "1.1.1",
-      "purl": "pkg:pypi/speechbrain@1.1.1",
-      "bom-ref": "pkg:pypi/speechbrain@1.1.1",
+      "version": "1.1.2",
+      "purl": "pkg:pypi/speechbrain@1.1.2",
+      "bom-ref": "pkg:pypi/speechbrain@1.1.2",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "3b69d9341662478b3c564837613f7a87bfcfd40d88cd54b4d19d2cca31e3dd3d"
+          "content": "a49328b61f6e6caa0e01ab4e32bc15b564114953e30718b1379d2e1d764e426a"
         }
       ]
     },
@@ -3265,17 +3265,17 @@
     {
       "type": "library",
       "name": "torch",
-      "version": "2.14.1",
-      "purl": "pkg:pypi/torch@2.14.1",
-      "bom-ref": "pkg:pypi/torch@2.14.1",
+      "version": "2.15.0",
+      "purl": "pkg:pypi/torch@2.15.0",
+      "bom-ref": "pkg:pypi/torch@2.15.0",
       "scope": "optional"
     },
     {
       "type": "library",
       "name": "torch",
-      "version": "2.14.1+cpu",
-      "purl": "pkg:pypi/torch@2.14.1%2Bcpu",
-      "bom-ref": "pkg:pypi/torch@2.14.1%2Bcpu",
+      "version": "2.15.0+cpu",
+      "purl": "pkg:pypi/torch@2.15.0%2Bcpu",
+      "bom-ref": "pkg:pypi/torch@2.15.0%2Bcpu",
       "scope": "optional"
     },
     {
@@ -3309,17 +3309,17 @@
     {
       "type": "library",
       "name": "torchaudio",
-      "version": "2.11.0",
-      "purl": "pkg:pypi/torchaudio@2.11.0",
-      "bom-ref": "pkg:pypi/torchaudio@2.11.0",
+      "version": "2.11.1",
+      "purl": "pkg:pypi/torchaudio@2.11.1",
+      "bom-ref": "pkg:pypi/torchaudio@2.11.1",
       "scope": "optional"
     },
     {
       "type": "library",
       "name": "torchaudio",
-      "version": "2.11.0+cpu",
-      "purl": "pkg:pypi/torchaudio@2.11.0%2Bcpu",
-      "bom-ref": "pkg:pypi/torchaudio@2.11.0%2Bcpu",
+      "version": "2.11.1+cpu",
+      "purl": "pkg:pypi/torchaudio@2.11.1%2Bcpu",
+      "bom-ref": "pkg:pypi/torchaudio@2.11.1%2Bcpu",
       "scope": "optional"
     },
     {
@@ -3375,14 +3375,14 @@
     {
       "type": "library",
       "name": "typer",
-      "version": "0.27.2",
-      "purl": "pkg:pypi/typer@0.27.2",
-      "bom-ref": "pkg:pypi/typer@0.27.2",
+      "version": "0.27.3",
+      "purl": "pkg:pypi/typer@0.27.3",
+      "bom-ref": "pkg:pypi/typer@0.27.3",
       "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "269b7eb9d3c202ca84b4bc9618cb04ebb43d3d4d1e567e4c768607232c05f945"
+          "content": "d0396f770a560ab1b0a8504e13b5f254b728cedb05c61cf0359e944e50ce8901"
         }
       ]
     },
