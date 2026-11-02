@@ -257,14 +257,6 @@ def test_persian_without_zwnj_is_not_flagged_as_confusable() -> None:
     assert scan_confusables("سلام، حال شما چطور است؟") == []
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "src/yazses/safeglyph/confusables.py flags every ZWNJ as an 'invisible' glyph, so "
-        "ordinary Persian logs a SafeGlyph warning on each dictation. That module is outside "
-        "this change's scope, so it is reported, not fixed here."
-    ),
-)
 def test_zwnj_between_persian_letters_is_not_flagged_as_confusable() -> None:
     # A ZWNJ between two Persian letters is orthography, not a hidden character.
     assert scan_confusables("می‌خواهم کتاب‌ها را بخوانم.") == []
