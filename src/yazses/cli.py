@@ -5108,7 +5108,7 @@ def _calibrate_mic(*, seconds: float = 4.0, set_threshold: bool = False) -> bool
     if set_threshold:
         msg = update_threshold_in_config(platform.paths.config_file, rec)
         typer.echo(f"Applied: {msg}")
-        typer.echo("Restart to pick it up:  yazses stop && yazses start")
+        typer.echo("Restart to pick it up:  yazses restart")
     else:
         typer.echo("Re-run with --set to apply, or put in config.toml:")
         typer.echo(f"  [accessibility]\n  vad_threshold = {rec}")

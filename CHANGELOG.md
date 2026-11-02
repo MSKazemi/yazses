@@ -6,6 +6,15 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the advice after `yazses mic-level --set` now names one restart command that is true everywhere
+
+`mic-level --set` printed `yazses stop && yazses start`, the Linux install guide said
+`systemctl --user restart yazses.service`, and the getting-started page did not mention a restart at
+all. A daemon that is already running ignores a changed threshold until it is restarted. All three now
+say `yazses restart`, the command the silent-audio guide already used: it stops every daemon and
+starts exactly one, through the systemd unit when one is installed. Getting-started also says that on
+a first run nothing is running yet, so there is nothing to restart.
+
 ### Fixed — the Arabic, Persian and Urdu pages showed their Markdown as raw text
 
 The right-to-left translated pages wrapped their body in a bare `<div dir="rtl">`, so headings,
