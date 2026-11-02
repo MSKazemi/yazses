@@ -905,3 +905,92 @@ def test_graded_from_calibration_uses_shared_units_and_forwards_kwargs():
     assert det._smooth_s == 0.05
     with pytest.raises(ValueError):
         GradedEmgDetector.from_calibration(5.0, 5.0)
+
+
+# -- artifacts the band-pass rings on, and what must still confirm --------------------------
+
+
+def _edge(fs: float, n: int, at: int, shape: str, amp: float, ms: float) -> np.ndarray:
+    y = np.zeros(n)
+    w = max(1, int(ms / 1000.0 * fs))
+    if shape == "step":
+        y[at:at + w] = amp * (1.0 - np.cos(np.pi * np.arange(w) / w)) / 2.0
+        y[at + w:] = amp
+    elif shape == "bump":
+        y[at:at + w] = amp
+    else:
+        y[at] = amp
+    return y
+
+
+def _fires(fs: float, seed: int, **kw) -> int:
+    rng = np.random.default_rng(seed)
+    n = int(3.0 * fs)
+    at = int(1.5 * fs) + int(rng.integers(0, 3))
+    x = rng.normal(0.0, SIGMA0, (1, n))
+    if "shape" in kw:
+        x[0] += _edge(fs, n, at, kw["shape"], kw["amp"], kw["ms"])
+    else:
+        m = int(kw["burst_ms"] / 1000.0 * fs)
+        x[0, at:at + m] = rng.normal(0.0, SIGMA0 * kw["mult"], m)
+    det = EmgOnsetDetector(_thresholds(fs), **kw.get("det", {}))
+    events = _feed(det, x, fs, size=max(1, int(0.02 * fs)))
+    return sum(e.kind is EventKind.SQUEEZE_ON for e in events)
+
+
+@pytest.mark.parametrize("fs", [200.0, 250.0, 500.0, 1000.0])
+@pytest.mark.parametrize(
+    ("shape", "amp", "ms"),
+    [("step", 1000.0, 25.0), ("step", 1000.0, 60.0), ("step", -1000.0, 60.0),
+     ("step", 5000.0, 25.0), ("step", 1000.0, 200.0), ("bump", 200.0, 15.0), ("pop", 1000.0, 0.0)],
+)
+def test_a_ringing_edge_never_confirms_a_squeeze(fs, shape, amp, ms):
+    assert sum(_fires(fs, s, shape=shape, amp=amp, ms=ms) for s in range(12)) == 0
+
+
+@pytest.mark.parametrize("fs", [200.0, 500.0, 1000.0])
+def test_those_edges_did_fire_without_the_shape_tests(fs):
+    """The fixture is the case under test: the tests above are not green by being gentle."""
+    off = {"min_sustain_ratio": 0.0, "max_level_drift": 1.0}
+    fired = sum(_fires(fs, s, shape="step", amp=1000.0, ms=60.0, det=off) for s in range(12))
+    assert fired >= 3
+
+
+@pytest.mark.parametrize("fs", [200.0, 250.0, 500.0, 1000.0])
+@pytest.mark.parametrize("mult", [3.0, 5.0, 10.0])
+def test_a_held_contraction_still_confirms_every_time(fs, mult):
+    assert sum(_fires(fs, s, burst_ms=500.0, mult=mult) >= 1 for s in range(12)) == 12
+
+
+def test_the_shape_tests_add_no_latency_to_a_typical_contraction():
+    fs = 1000.0
+    lat = {}
+    for label, det in (("on", {}), ("off", {"min_sustain_ratio": 0.0, "max_level_drift": 1.0})):
+        out = []
+        for s in range(12):
+            rng = np.random.default_rng(s)
+            x = rng.normal(0.0, SIGMA0, (1, 3000))
+            x[0, 1500:2000] = rng.normal(0.0, SIGMA0 * 5.0, 500)
+            events = _feed(EmgOnsetDetector(_thresholds(fs), **det), x, fs, size=20)
+            out.append(next(e for e in events if e.kind is EventKind.SQUEEZE_ON).detail["latency_ms"])
+        lat[label] = float(np.median(out))
+    assert lat["on"] == pytest.approx(lat["off"], abs=1.0)
+
+
+def test_a_rejected_transient_is_counted_and_a_reset_clears_it():
+    fs = 1000.0
+    rng = np.random.default_rng(3)
+    x = rng.normal(0.0, SIGMA0, (1, 3000))
+    x[0] += _edge(fs, 3000, 1500, "step", 5000.0, 25.0)
+    det = EmgOnsetDetector(_thresholds(fs))
+    assert not [e for e in _feed(det, x, fs, size=20) if e.kind is EventKind.SQUEEZE_ON]
+    assert det.stats["rejected_transient"] >= 1
+    det.reset()
+    assert det.stats["rejected_transient"] == 0
+
+
+@pytest.mark.parametrize("kw", [{"min_sustain_ratio": -0.1}, {"max_level_drift": 0.0},
+                                {"max_level_drift": 1.5}])
+def test_shape_test_arguments_are_validated(kw):
+    with pytest.raises(ValueError):
+        EmgOnsetDetector(_thresholds(1000.0), **kw)
