@@ -36,13 +36,22 @@ def _show(rig, qapp, width: int, height: int = 800):
     return dialog
 
 
-def test_wide_window_is_two_columns_and_narrow_is_one(qapp):
+def _expected(dialog) -> QBoxLayout.Direction:
+    return (
+        QBoxLayout.Direction.LeftToRight
+        if dialog.width() >= TWO_COLUMN_MIN_PX
+        else QBoxLayout.Direction.TopToBottom
+    )
+
+
+def test_the_columns_follow_the_width_the_window_actually_has(qapp):
+    """The rule is about the real width: a platform may refuse to shrink a window below what its
+    fonts need (Windows did), so the test reads the width back instead of assuming the resize."""
     rig = _Rig(qapp)
-    _show(rig, qapp, TWO_COLUMN_MIN_PX + 200)
-    assert rig.panel._columns.direction() == QBoxLayout.Direction.LeftToRight
-    _show(rig, qapp, TWO_COLUMN_MIN_PX - 200)
-    assert rig.panel._columns.direction() == QBoxLayout.Direction.TopToBottom
-    _show(rig, qapp, TWO_COLUMN_MIN_PX + 200)
+    for width in (TWO_COLUMN_MIN_PX + 200, TWO_COLUMN_MIN_PX - 200, TWO_COLUMN_MIN_PX + 200):
+        dialog = _show(rig, qapp, width)
+        assert rig.panel._columns.direction() == _expected(dialog), dialog.width()
+    # the wide end of the range is two columns on every platform
     assert rig.panel._columns.direction() == QBoxLayout.Direction.LeftToRight
 
 

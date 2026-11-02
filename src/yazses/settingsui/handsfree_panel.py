@@ -512,6 +512,11 @@ class HandsFreePanel:
         def _widen_to_remove_sideways_scrolling(_low: int, high: int) -> None:
             if high <= 0:
                 return
+            if (
+                cols.direction() == QBoxLayout.Direction.LeftToRight
+                and self._dialog.width() < TWO_COLUMN_MIN_PX
+            ):
+                return  # two columns do not fit here: the layout is about to stack, not widen
             wanted = self._dialog.width() + high
             self._dialog.setMinimumWidth(max(self._dialog.minimumWidth(), wanted))
             self._dialog.resize(wanted, self._dialog.height())
