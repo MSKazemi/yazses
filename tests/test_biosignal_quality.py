@@ -30,6 +30,7 @@ from yazses.biosignal.quality import (
     robust_sigma,
     saturation_fraction,
     suppress_events,
+    thresholds_for_unit,
 )
 from yazses.biosignal.types import ChannelInfo, SampleBlock, SignalKind
 
@@ -1015,3 +1016,125 @@ def test_explain_never_raises_on_any_reason_combination():
     rep = QualityReport(chans, QualityStatus.BAD, (), (Reason.TOO_FEW_CHANNELS,), ("c0",), 0.5)
     lines = explain(rep)
     assert all(isinstance(ln, str) and ln for ln in lines)
+
+
+# --------------------------------------------------------------------------------------
+# Count-unit streams: a Myo or gForce reports ADC counts, not microvolts
+# --------------------------------------------------------------------------------------
+
+MYO_FS = 200.0
+MYO8 = _chans(*((f"EMG{i + 1}", SignalKind.EMG) for i in range(8)))
+MYO_SPEC = "myo:AA:BB:CC:DD:EE:FF"
+
+
+def _int8(x: np.ndarray) -> np.ndarray:
+    """What an 8-bit band delivers: whole counts clipped to the int8 range."""
+    return np.clip(np.round(x), -128, 127)
+
+
+def _pipeline_reports(spec: str, data: np.ndarray, fs: float, channels, tmp_path):
+    """Reports from the quality monitor the pipeline itself builds for ``spec``."""
+    from yazses.biosignal.pipeline import PartsRequest, build_parts
+
+    parts = build_parts(PartsRequest(
+        fs=fs, channels=channels, source_spec=spec,
+        calibration_file=str(tmp_path / "no-profile.json"),   # never read the host profile
+    ))
+    return _feed(parts.quality, data, fs, channels)
+
+
+def test_a_quiet_live_count_channel_is_not_called_flat_by_the_pipeline(tmp_path):
+    """Half a count of noise is a live channel. In microvolt terms the flatline limits (0.5 and
+    0.1) would call it flat; in counts they do not apply, so it must stay GOOD."""
+    rng = np.random.default_rng(7)
+    data = _int8(rng.normal(0.0, 0.4, (8, int(20 * MYO_FS))))
+    rep = _pipeline_reports(MYO_SPEC, data, MYO_FS, MYO8, tmp_path)[-1]
+    assert rep.overall is QualityStatus.GOOD
+    assert all(c.status is QualityStatus.GOOD for c in rep.channels), [
+        (c.name, c.reasons) for c in rep.channels]
+
+
+def test_a_count_stream_report_says_plainly_that_absolute_checks_were_skipped(tmp_path):
+    rng = np.random.default_rng(8)
+    data = _int8(rng.normal(0.0, 3.0, (8, int(20 * MYO_FS))))
+    rep = _pipeline_reports(MYO_SPEC, data, MYO_FS, MYO8, tmp_path)[-1]
+    text = " ".join(explain(rep))
+    assert "counts, not microvolts" in text
+    assert "skipped" in text
+    assert Reason.ABSOLUTE_SKIPPED in rep.reasons
+
+
+def test_a_dead_count_channel_is_still_bad(tmp_path):
+    """Exactly zero variance is unit-free and stays a flatline in counts."""
+    data = np.zeros((8, int(8 * MYO_FS)))
+    rep = _pipeline_reports(MYO_SPEC, data, MYO_FS, MYO8, tmp_path)[-1]
+    assert rep.overall is QualityStatus.BAD
+    assert all(c.status is QualityStatus.BAD and Reason.FLATLINE in c.reasons for c in rep.channels)
+
+
+def test_a_railed_count_channel_is_still_caught_by_its_clipping_plateau(tmp_path):
+    """The absolute saturation level is in microvolts and is off for counts, but a flat-topped
+    plateau at the int8 rail is unit-free and still fails the channel."""
+    t = np.arange(int(12 * MYO_FS)) / MYO_FS
+    railed = _int8(400.0 * np.sin(2 * np.pi * 3.0 * t))
+    data = np.tile(railed, (8, 1))
+    rep = _pipeline_reports(MYO_SPEC, data, MYO_FS, MYO8, tmp_path)[-1]
+    assert rep.overall is QualityStatus.BAD
+    assert Reason.SATURATION in rep.channels[0].reasons
+
+
+def test_mains_hum_is_still_caught_in_counts(tmp_path):
+    t = np.arange(int(20 * MYO_FS)) / MYO_FS
+    hum = 40.0 * np.sin(2 * np.pi * 50.0 * t)
+    data = np.tile(_int8(hum), (8, 1))
+    rep = _pipeline_reports(MYO_SPEC, data, MYO_FS, MYO8, tmp_path)[-1]
+    assert Reason.MAINS in rep.channels[0].reasons
+    assert rep.channels[0].status is not QualityStatus.GOOD
+
+
+def test_a_slow_wander_in_counts_is_not_judged_by_a_microvolt_amplitude_gate(tmp_path):
+    """A 60-count swing is not a 60 microvolt swing: the drift amplitude gate (50 uV) is
+    skipped for counts, so the wander is not reported as drift."""
+    rng = np.random.default_rng(9)
+    t = np.arange(int(20 * MYO_FS)) / MYO_FS
+    data = _int8(60.0 * np.sin(2 * np.pi * 0.05 * t)[None, :] + rng.normal(0, 3, (8, t.size)))
+    rep = _pipeline_reports(MYO_SPEC, data, MYO_FS, MYO8, tmp_path)[-1]
+    assert all(Reason.DRIFT not in c.reasons for c in rep.channels)
+
+
+def test_uv_thresholds_are_the_defaults_untouched():
+    """The switch must leave every microvolt stream exactly as it was."""
+    assert thresholds_for_unit("uV") == QualityThresholds()
+    assert thresholds_for_unit("uV") is not None
+
+
+def test_a_uv_stream_gives_identical_reports_with_and_without_the_unit_switch():
+    rng = np.random.default_rng(10)
+    x = 12.0 * rng.normal(size=(2, int(10 * FS)))
+    x[0, 500:900] += 300.0      # a step-like excursion, so several checks are exercised
+    chans = _chans(("A", SignalKind.EEG), ("B", SignalKind.EOG))
+    base = _feed(SignalQualityMonitor(), x, FS, chans)
+    unit = _feed(SignalQualityMonitor(thresholds_for_unit("uV")), x, FS, chans)
+    assert base == unit
+    assert all(Reason.ABSOLUTE_SKIPPED not in r.reasons for r in base)
+    assert "skipped" not in " ".join(explain(base[-1]))
+
+
+@pytest.mark.parametrize("seed", range(6))
+def test_count_streams_that_are_mostly_zero_never_raise(seed):
+    """Sparse +-1 blips on a zero baseline, then a flat tail: a zero MAD on the live part once
+    divided by zero, and the monitor raised (the pipeline would then switch the gate off)."""
+    rng = np.random.default_rng(seed)
+    n = int(12 * MYO_FS)
+    x = np.zeros((8, n))
+    blips = rng.random((8, n)) < 0.02
+    x[blips] = rng.choice([-1.0, 1.0], size=int(blips.sum()))
+    x[:, n // 2:] = 0.0 if seed % 2 == 0 else 5.0      # an abrupt step, then a flat tail
+    mon = SignalQualityMonitor(thresholds_for_unit("counts"))
+    reports = _feed(mon, x, MYO_FS, MYO8)
+    assert reports and all(isinstance(r, QualityReport) for r in reports)
+
+
+def test_an_unknown_unit_is_refused():
+    with pytest.raises(ValueError, match="unit"):
+        QualityThresholds(unit="mV")

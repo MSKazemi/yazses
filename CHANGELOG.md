@@ -6,6 +6,37 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a Myo or gForce stream is no longer judged against microvolt limits (biosignal switch, off by default)
+
+The signal-quality gate applied microvolt limits to raw ADC counts, which is what a Myo and a gForce
+report. A quiet, live Myo channel of about half a count of noise was called "flat" and graded degraded,
+because the flatline limit is 0.5 µV. Count-unit sources now skip the checks whose limits are in
+microvolts: flatline is judged only as exactly zero variance, and the saturation level, the drift
+amplitude gate and the EEG/EOG noise limits are off. Non-finite samples, packet loss, mains hum, clipping
+plateaus, lead-off steps and shared movement are still checked.
+
+- **Every such report says so.** The report carries the reason, and `yazses biosignal monitor` prints
+  "Absolute amplitude checks were skipped: this source reports counts, not microvolts", so the skip is
+  never silent.
+- **µV boards: nothing changes.** The defaults are the same object, and a test checks the reports are
+  identical with and without the switch.
+- **Not measured on hardware.** Checked on synthetic count streams only. The thresholds that remain for
+  counts are untuned design choices, and no real Myo or gForce has been run through this.
+
+### Fixed — `yazses doctor` advises on the LSL, ThinkGear, BITalino and Myo sources
+
+The biosignal row checked a serial port only for BrainFlow sources, and gave no advice for the four
+other `[biosignal] source` kinds. Now:
+
+- **A missing port is named:** `thinkgear:` or `bitalino:` with no port says so, and gives an example.
+- **A placeholder is named:** `thinkgear:<port>`, `bitalino:<port>` or `myo:<address>` left as written is
+  reported as a placeholder, with an example of the real spec.
+- **Each device's channel layout is on the OK line**, from the board table. For a Myo or gForce it says
+  the values are counts. LSL is described without a rate or signal kind, since the stream sets them.
+
+Nothing new is opened, and the BrainFlow allowlist is unchanged: these sources never resolve to a
+BrainFlow id.
+
 ### Added — the latency governor's second model can be released when idle (opt-in)
 
 With `[latency]` on, the governor can keep a second, smaller Whisper model (`tiny.en`, about 116 MB
