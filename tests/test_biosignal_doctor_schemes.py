@@ -127,3 +127,57 @@ def test_a_myo_address_that_is_wrong_rather_than_unfilled_still_fails(libs_prese
     status, detail = _row("myo:not-an-address", tmp_path)[1:3]
     assert status == "FAIL"
     assert "is not usable" in detail
+
+
+# -- a Windows port: the drive letter is not the port ----------------------------------------
+#
+# CI on windows-latest failed `...not_there_is_reported_for_thinkgear` because tmp_path there is
+# `C:\Users\...`, and the doctor split the spec at its FIRST colon, reading the port as `C`.
+# The source parsers split at the last colon (options are `key=value`), so they keep the drive
+# letter. These use literal Windows-style strings so the defect reproduces on any platform.
+
+WIN_MISSING = r"C:\yazses-no-such-dir\rfcomm9"
+
+
+@pytest.mark.parametrize("scheme", ["thinkgear", "bitalino"])
+def test_a_windows_drive_path_that_is_not_there_is_reported(libs_present, tmp_path, scheme):
+    status, detail = _row(f"{scheme}:{WIN_MISSING}", tmp_path)[1:3]
+    assert status == "WARN"
+    assert f"serial port {WIN_MISSING} is not there" in detail
+
+
+@pytest.mark.parametrize("scheme", ["thinkgear", "bitalino"])
+def test_options_after_a_windows_drive_path_do_not_hide_it(libs_present, tmp_path, scheme):
+    option = "baud=57600" if scheme == "thinkgear" else "baud=115200"
+    status, detail = _row(f"{scheme}:{WIN_MISSING}:{option}", tmp_path)[1:3]
+    assert status == "WARN"
+    assert f"serial port {WIN_MISSING} is not there" in detail
+
+
+@pytest.mark.parametrize("port", ["COM3", "com12", r"\\.\COM3"])
+@pytest.mark.parametrize("scheme", ["thinkgear", "bitalino"])
+def test_a_windows_com_name_is_not_called_missing(libs_present, tmp_path, scheme, port):
+    """A COM name is not a file; a file lookup would wrongly call it missing."""
+    detail = _row(f"{scheme}:{port}", tmp_path)[2]
+    assert "is not there" not in detail
+
+
+@pytest.mark.parametrize(
+    ("port", "expected"),
+    [("/dev/ttyUSB0", True), (r"C:\dev\x", True), ("c:/dev/x", True),
+     ("COM3", False), (r"\\.\COM3", False), ("", False), ("C", False)],
+)
+def test_which_ports_are_paths_whose_existence_can_be_checked(port, expected):
+    from yazses.system.doctor import port_is_a_path
+
+    assert port_is_a_path(port) is expected
+
+
+def test_the_doctor_reads_the_port_the_way_the_source_parser_does():
+    from yazses.biosignal.thinkgear import parse_thinkgear_spec
+    from yazses.system.doctor import _spec_port
+
+    spec = rf"thinkgear:{WIN_MISSING}:baud=57600"
+    assert _spec_port("thinkgear", spec) == parse_thinkgear_spec(spec)["port"] == WIN_MISSING
+    assert _spec_port("thinkgear", "thinkgear:/dev/ttyUSB0") == "/dev/ttyUSB0"
+    assert _spec_port("thinkgear", "thinkgear:") == ""            # unparsable: falls back, no raise

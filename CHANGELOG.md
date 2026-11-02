@@ -111,6 +111,11 @@ The biosignal row checked a serial port only for BrainFlow sources, and gave no 
 other `[biosignal] source` kinds. Now:
 
 - **A missing port is named:** `thinkgear:` or `bitalino:` with no port says so, and gives an example.
+- **A Windows drive path is read whole:** the row split the spec at its first colon, so
+  `thinkgear:C:\dev\rfcomm9` was read as port `C` and never checked. It now takes the port the source
+  parser does, and a path that does not exist is reported like a missing `/dev` port. A COM name
+  (`COM3`, `\\.\COM3`) is still not checked, since it is not a file. Found by the Windows CI leg on this
+  PR; tested with Windows-style strings on every platform, not run on Windows.
 - **A placeholder is named:** `thinkgear:<port>`, `bitalino:<port>` or `myo:<address>` left as written is
   reported as a placeholder, with an example of the real spec.
 - **Each device's channel layout is on the OK line**, from the board table. For a Myo or gForce it says

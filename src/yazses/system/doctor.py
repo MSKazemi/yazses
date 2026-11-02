@@ -1205,6 +1205,39 @@ def serial_port_status(port: str) -> tuple[str, str]:
     return ("OK" if found else "FAIL", f"{text} {'accessible' if found else 'not found'}")
 
 
+#: A port that is a path to a file: POSIX absolute (``/dev/rfcomm0``) or a Windows drive path
+#: (``C:\\dev\\x``, ``C:/dev/x``). Anything else (``COM3``, ``\\\\.\\COM3``) is a name the OS
+#: resolves, which a file lookup cannot answer.
+_PORT_PATH_RE = re.compile(r"^(?:/|[A-Za-z]:[\\/])")
+
+
+def port_is_a_path(port: str) -> bool:
+    """True when *port* names a file whose existence can be checked (not a COM name)."""
+    return bool(_PORT_PATH_RE.match((port or "").strip()))
+
+
+def _spec_port(scheme: str, spec: str) -> str:
+    """The serial port a ``thinkgear:`` or ``bitalino:`` spec names, as the source parses it.
+
+    The parsers split the port from its ``key=value`` options at the last colon, so a Windows
+    drive path (``thinkgear:C:\\dev\\x``) keeps its drive letter. Splitting at the first colon
+    here read that port as ``C`` and skipped the existence check. Falls back to the text after
+    the scheme when the spec does not parse (the row reports the parse error separately).
+    """
+    try:
+        if scheme == "thinkgear":
+            from yazses.biosignal.thinkgear import parse_thinkgear_spec
+
+            return str(parse_thinkgear_spec(spec).get("port", "")).strip()
+        if scheme == "bitalino":
+            from yazses.biosignal.bitalino import parse_bitalino_spec
+
+            return str(parse_bitalino_spec(spec).get("port", "")).strip()
+    except ValueError:
+        pass
+    return spec.partition(":")[2].partition(":")[0].strip()
+
+
 def _emg_port_check(port: str) -> _Check | None:
     """The ``[emg] device_port`` row, or None when no port is configured."""
     if not (port or "").strip():
@@ -1314,13 +1347,13 @@ def _biosignal_check(
                 f"the source still holds a placeholder ({spec}): no {what} is set",
                 f"write the real value in the spec, e.g. \"{example}\""))
         elif preset.serial_required:
-            port = spec.partition(":")[2].partition(":")[0].strip()
+            port = _spec_port(scheme, spec)
             if not port:
                 warns.append((
                     f"{preset.name} needs a serial port and the source names none",
                     f"write it after the scheme, e.g. \"{preset.source_spec('/dev/ttyUSB0')}\" "
                     "(on Windows, COM3)"))
-            elif port.startswith("/") and not Path(port).exists():
+            elif port_is_a_path(port) and not Path(port).exists():
                 warns.append((f"serial port {port} is not there",
                               "plug the board or its dongle in; on Linux your user may need to "
                               "be in the `dialout` group"))
