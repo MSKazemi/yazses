@@ -30,7 +30,7 @@ Beim ersten Start wird einmalig ein Sprachmodell heruntergeladen (etwa 148 MB). 
 ## Funktionalitäten
 
 - **Diktierfunktion** — Hotkey halten, sprechen, loslassen. Der Text wird dort eingefügt, wo Sie gerade schreiben.
-- **Sprachbefehle** — Sagen Sie beispielsweise „Datei speichern“ oder „gehe zu Zeile 40“, YazSes versteht den Befehl und führt ihn aus, anstatt den Text zu transkribieren.
+- **Sprachbefehle** — Sprachbefehle (etwa „save file“ oder „go to line 40“) gibt es derzeit nur auf Englisch und Chinesisch. Deutsche Sätze wie „Datei speichern“ oder „gehe zu Zeile 40“ werden noch nicht als Befehl erkannt, sondern als gewöhnlicher Text getippt. Diktieren auf Deutsch funktioniert trotzdem: Stellen Sie `[stt] language` ein und verwenden Sie ein mehrsprachiges Modell.
 - **Besprechungen und Aufnahmen** — Mit YazSes können Sie Audiodateien transkribieren oder ganze Besprechungen mit Sprecherkennung aufnehmen — vollständig offline.
 
 ## Datenschutz

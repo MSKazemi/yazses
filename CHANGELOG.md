@@ -36,6 +36,18 @@ machine, and CTranslate2 may keep its memory after a model is dropped. The new
 its `stt` (343 MB) and `latency` (116 MB) ceilings are the ADR-029 baseline measured on `fa058766`,
 and its other five rows are unmeasured proposals (`null`). No nightly job feeds it real numbers yet.
 
+### Fixed — the German and Indonesian pages promised voice commands that those languages do not have
+
+The German page said “Datei speichern” and “gehe zu Zeile 40” run as commands, and the
+Indonesian page said the same of “simpan berkas” and “ke baris 40”. Fed through the real
+command classifier (`yazses.commands.grammar.classify`) in each language, all four come back
+as plain dictation: only English and Mandarin have a Tier-1 command grammar, and with another
+language the classifier treats the text as dictation. Both pages now say that voice commands
+exist in English and Mandarin only, that a sentence in their language is typed as text, and
+that dictation in the language still works with `[stt] language` and a multilingual model.
+The matching entries in `scripts/translations.py` carry the same wording. The same sentence
+still sits on the other translated pages and has not been checked or changed here.
+
 ### Fixed — documentation that described the repository as it was before 2.47.0
 
 - The benchmark harness left this repository in 2.47.0, but a dozen pages still told readers to

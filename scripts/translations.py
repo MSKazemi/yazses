@@ -165,7 +165,9 @@ LOCALES: dict[str, dict] = {
         does_heading="Was es kann", does_1_title="Diktat",
         does_1="Taste halten, sprechen, loslassen. Der Text wird in das aktive Fenster geschrieben.",
         does_2_title="Sprachbefehle",
-        does_2="Sagen Sie „Datei speichern“ oder „gehe zu Zeile 40“ — es handelt, statt die Wörter zu tippen.",
+        does_2=("Sprachbefehle (etwa „save file“ oder „go to line 40“) gibt es derzeit nur auf Englisch und Chinesisch. "
+                "Deutsche Sätze wie „Datei speichern“ oder „gehe zu Zeile 40“ werden noch nicht als Befehl erkannt, sondern als gewöhnlicher Text getippt. "
+                "Diktieren auf Deutsch funktioniert trotzdem: Stellen Sie `[stt] language` ein und verwenden Sie ein mehrsprachiges Modell."),
         does_3_title="Besprechungen und Aufnahmen",
         does_3=("Transkribieren Sie eine Audiodatei oder nehmen Sie eine ganze Besprechung "
                 "mit Sprecherkennung auf — vollständig offline."),
@@ -400,7 +402,9 @@ LOCALES: dict[str, dict] = {
         does_heading="Apa yang dilakukannya", does_1_title="Dikte",
         does_1="Tahan tombolnya, bicaralah, lepaskan. Teks diketikkan ke jendela yang aktif.",
         does_2_title="Perintah suara",
-        does_2="Ucapkan “simpan berkas” atau “ke baris 40”, dan ia bertindak alih-alih mengetik kata-katanya.",
+        does_2=("Perintah suara (misalnya “save file” atau “go to line 40”) saat ini hanya tersedia dalam bahasa Inggris dan Mandarin. "
+                "Kalimat berbahasa Indonesia seperti “simpan berkas” belum dikenali sebagai perintah dan diketik sebagai teks biasa. "
+                "Dikte dalam bahasa Indonesia tetap bisa: atur `[stt] language` dan pakai model multibahasa."),
         does_3_title="Rapat dan rekaman",
         does_3=("Transkripsikan berkas audio, atau rekam seluruh rapat dengan penandaan "
                 "pembicara — semuanya luring."),

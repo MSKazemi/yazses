@@ -30,7 +30,7 @@ Saat pertama kali dijalankan, YazSes akan mengunduh model suara satu kali (sekit
 ## Apa yang Bisa Dilakukan
 
 - **Dikte** — Tahan tombol, bicaralah, lalu lepaskan. Teks diketik langsung ke jendela yang sedang aktif.
-- **Perintah suara** — Ucapkan “simpan berkas” atau “ke baris 40”, dan YazSes menjalankannya sebagai perintah, alih-alih mengetik kata-katanya.
+- **Perintah suara** — Perintah suara (misalnya “save file” atau “go to line 40”) saat ini hanya tersedia dalam bahasa Inggris dan Mandarin. Kalimat berbahasa Indonesia seperti “simpan berkas” belum dikenali sebagai perintah dan diketik sebagai teks biasa. Dikte dalam bahasa Indonesia tetap bisa: atur `[stt] language` dan pakai model multibahasa.
 - **Rapat dan rekaman** — Transkripsikan berkas audio, atau rekam seluruh rapat dengan penandaan pembicara — semuanya di perangkat Anda.
 
 ## Privasi
