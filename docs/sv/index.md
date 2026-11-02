@@ -30,7 +30,7 @@ Första exekveringen hämtar en talmodell (cirka 148 MB). Därefter behövs inge
 ## Vad den gör
 
 - **Diktering** - Håll ned tangenten, tala, släpp. Texten skrivs in i det aktiva fönstret.
-- **Röstkommandon** - Säg "spara filen" eller "gå till rad 40" så utförs det, i stället för att orden skrivs.
+- **Röstkommandon** - Röstkommandon (som ”save file” eller ”go to line 40”) finns än så länge bara på engelska och mandarin. En mening på ditt eget språk skrivs som vanlig text och utförs inte som kommando. Diktering på ditt språk fungerar ändå: ställ in `[stt] language` och använd en flerspråkig modell.
 - **Möten och inspelningar** - Transkribera en ljudfil eller spela in ett helt möte med talaretiketter - helt offline.
 
 ## Integritet

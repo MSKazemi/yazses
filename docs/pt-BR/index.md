@@ -37,7 +37,7 @@ A primeira execução baixa um modelo de fala uma única vez (cerca de 148 MB). 
 ## O que ele faz
 
 - **Ditado** — Segure a tecla, fale e solte. O texto é digitado na janela em foco.
-- **Comandos de voz** — Diga “salvar arquivo” ou “ir para a linha 40” e ele age, em vez de digitar as palavras.
+- **Comandos de voz** — Os comandos de voz (como “save file” ou “go to line 40”) existem, por enquanto, apenas em inglês e mandarim. Uma frase no seu idioma é digitada como texto comum, não executada como comando. O ditado no seu idioma continua funcionando: defina `[stt] language` e use um modelo multilíngue.
 - **Reuniões e gravações** — Transcreva um arquivo de áudio ou capture uma reunião inteira com identificação de quem falou — tudo offline.
 
 ## Privacidade

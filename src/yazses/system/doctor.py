@@ -811,6 +811,38 @@ def _speech_language_checks(cfg) -> list[_Check]:
     return [("Speech language", "OK", f"{head} — supported")]
 
 
+def _file_language_checks(cfg) -> list[_Check]:
+    """Warn when dictation is not English but files and meetings still decode as English.
+
+    ``[recimport] language`` and ``[meeting] language`` default to ``"en"`` and are
+    authoritative for ``yazses transcribe`` and Meeting Mode: they do not inherit
+    ``[stt] language``. A Persian user who set only ``[stt]`` therefore gets Persian
+    speech decoded as English, with a multilingual model and no error. Silent when the
+    two agree, so an English install sees nothing.
+    """
+    try:
+        from yazses.language.capability import normalise_language
+
+        dictation = normalise_language(getattr(getattr(cfg, "stt", None), "language", "en"))
+        if dictation in ("", "en"):
+            return []
+        stale = []
+        for table in ("recimport", "meeting"):
+            section = getattr(cfg, table, None)
+            if section is not None and normalise_language(getattr(section, "language", "en")) == "en":
+                stale.append(f"[{table}] language")
+    except Exception as exc:  # noqa: BLE001 — doctor must survive anything
+        return [("File transcription language", "WARN", f"could not be checked ({exc})")]
+    if not stale:
+        return []
+    return [(
+        "File transcription language", "WARN",
+        f"dictation is {dictation!r} but {' and '.join(stale)} is still 'en' (the default), so "
+        f"`yazses transcribe` / Meeting Mode decode speech as English. Set "
+        f"{' and '.join(stale)} = \"{dictation}\" (or \"\" to auto-detect)",
+    )]
+
+
 def _language_profile_checks(cfg) -> list[_Check]:
     """Report Mandarin profile coherence and language-specific degradations.
 
@@ -1295,6 +1327,7 @@ def _config_summary(
         ))
     out.extend(_config_validity(config_file))
     out.extend(_speech_language_checks(cfg))
+    out.extend(_file_language_checks(cfg))
     out.extend(_language_profile_checks(cfg))
     out.extend(_llm_endpoint_check(cfg))
     out.extend(_corpus_redaction_check(cfg))

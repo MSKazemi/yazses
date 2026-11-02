@@ -36,7 +36,7 @@ Pierwsze uruchomienie jednorazowo pobiera model mowy (około 148 MB). Potem sie�
 ## Co potrafi
 
 - **Dyktowanie** — Przytrzymaj klawisz, mów, puść. Tekst zostaje wpisany w aktywne okno.
-- **Polecenia głosowe** — Powiedz „zapisz plik” albo „przejdź do linii 40”, a wykona to zamiast wpisywać słowa.
+- **Polecenia głosowe** — Polecenia głosowe (np. „save file” czy „go to line 40”) istnieją na razie tylko po angielsku i mandaryńsku. Zdanie w Twoim języku jest wpisywane jako zwykły tekst, a nie wykonywane jako polecenie. Dyktowanie w Twoim języku nadal działa: ustaw `[stt] language` i użyj modelu wielojęzycznego.
 - **Spotkania i nagrania** — Przepisz plik audio albo nagraj całe spotkanie z oznaczeniem mówiących — w całości offline.
 
 ## Prywatność

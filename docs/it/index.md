@@ -30,7 +30,7 @@ Al primo avvio viene scaricato, una volta sola, un modello vocale (circa 148 MB)
 ## Cosa fa
 
 - **Dettatura** — Tieni premuto il tasto, parla e rilascia: il testo viene digitato nella finestra attiva.
-- **Comandi vocali** — Di' «salva il file» o «vai alla riga 40» e YazSes esegue il comando invece di scrivere le parole.
+- **Comandi vocali** — I comandi vocali (come «save file» o «go to line 40») per ora esistono solo in inglese e in mandarino. Una frase nella tua lingua viene scritta come testo normale, non eseguita come comando. Dettare nella tua lingua funziona comunque: imposta `[stt] language` e usa un modello multilingue.
 - **Riunioni e registrazioni** — Trascrivi un file audio o registra un'intera riunione distinguendo chi parla, tutto offline.
 
 ## Privacy

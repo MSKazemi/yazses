@@ -30,7 +30,7 @@ La primera ejecución descarga una vez un modelo de voz (unos 148 MB). Después 
 ## Qué hace
 
 - **Dictado** — Mantén la tecla, habla y suelta. El texto se escribe en la ventana activa.
-- **Comandos de voz** — Di «guardar archivo» o «ir a la línea 40» y lo ejecuta, en vez de escribir las palabras.
+- **Comandos de voz** — Los comandos de voz (como «save file» o «go to line 40») por ahora solo existen en inglés y mandarín. Una frase en tu idioma se escribe como texto normal, no se ejecuta como comando. Dictar en tu idioma sí funciona: configura `[stt] language` y usa un modelo multilingüe.
 - **Reuniones y grabaciones** — Transcribe un archivo de audio o graba una reunión entera con etiquetas de hablante, todo sin conexión.
 
 ## Privacidad

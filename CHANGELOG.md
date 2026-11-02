@@ -57,6 +57,25 @@ other `[biosignal] source` kinds. Now:
 Nothing new is opened, and the BrainFlow allowlist is unchanged: these sources never resolve to a
 BrainFlow id.
 
+### Fixed — `biosignal monitor` shows when the stream-integrity gate is holding events
+
+- While the stream-integrity gate holds events (a timestamp went backwards, a packet was lost or
+  repeated, or the stream stalled), `yazses biosignal monitor` now prints an `Events HELD` line with
+  the reason and how much clean signal is still needed before it clears. It prints a `cleared` line
+  when the hold ends. Before, the only trace was a log line and a dropped-event reason.
+- The wording and keys match the `integrity` block of the daemon status, so the two read the same.
+- Not run on real hardware: the test covers a recorded-style fake source, not a live board.
+
+### Fixed — `doctor` no longer reports a Windows COM port as a missing file
+
+- `[emg] device_port = "COM3"` (also `com12`, and `\\.\COM3`) used to show `EMG serial port FAIL
+  COM3 not found` on a correct Windows config, because doctor checked it as a file path. It now shows
+  SKIP with "cannot be checked this way; it will be tried when YazSes starts". A POSIX path such as
+  `/dev/ttyUSB0` is still checked, and FAILs when it is missing.
+- Not tested on Windows: the check is covered by unit tests on the port's text, not on a Windows machine.
+
+## [2.48.0] - 2026-11-02
+
 ### Added — the latency governor's second model can be released when idle (opt-in)
 
 With `[latency]` on, the governor can keep a second, smaller Whisper model (`tiny.en`, about 116 MB
@@ -87,22 +106,69 @@ machine, and CTranslate2 may keep its memory after a model is dropped. The new
 its `stt` (343 MB) and `latency` (116 MB) ceilings are the ADR-029 baseline measured on `fa058766`,
 and its other five rows are unmeasured proposals (`null`). No nightly job feeds it real numbers yet.
 
-### Fixed — `biosignal monitor` shows when the stream-integrity gate is holding events
+### Fixed — the German and Indonesian pages promised voice commands that those languages do not have
 
-- While the stream-integrity gate holds events (a timestamp went backwards, a packet was lost or
-  repeated, or the stream stalled), `yazses biosignal monitor` now prints an `Events HELD` line with
-  the reason and how much clean signal is still needed before it clears. It prints a `cleared` line
-  when the hold ends. Before, the only trace was a log line and a dropped-event reason.
-- The wording and keys match the `integrity` block of the daemon status, so the two read the same.
-- Not run on real hardware: the test covers a recorded-style fake source, not a live board.
+The German page said “Datei speichern” and “gehe zu Zeile 40” run as commands, and the
+Indonesian page said the same of “simpan berkas” and “ke baris 40”. Fed through the real
+command classifier (`yazses.commands.grammar.classify`) in each language, all four come back
+as plain dictation: only English and Mandarin have a Tier-1 command grammar, and with another
+language the classifier treats the text as dictation. Both pages now say that voice commands
+exist in English and Mandarin only, that a sentence in their language is typed as text, and
+that dictation in the language still works with `[stt] language` and a multilingual model.
+The matching entries in `scripts/translations.py` carry the same wording. The same sentence
+was on 20 more translated pages (ar, bn, cs, el, es, fa, fr, it, ja, ko, nl, pl, pt-BR, sv, te, th, tr,
+uk, ur, vi; 22 in all with the two above). Each now carries the same short statement, without local example
+phrases: voice commands such as “save file” exist in English and Mandarin only, a sentence in the reader's own
+language is typed as text, and dictation still works with `[stt] language` and a multilingual model. Only that one
+bullet changed on each page and the `yazses-l10n` metadata is untouched. The wording is not native-reviewed; the
+seven reviewed pages (es, it, ko, sv, te, th, tr) are listed in the pull request for their reviewers. The Hindi,
+Russian and Tamil pages quote the English phrases and make no claim about their own language, and the Chinese
+pages are accurate, so none of those changed.
 
-### Fixed — `doctor` no longer reports a Windows COM port as a missing file
+### Fixed — Persian and other non-Latin text was silently damaged by English-shaped guards
 
-- `[emg] device_port = "COM3"` (also `com12`, and `\\.\COM3`) used to show `EMG serial port FAIL
-  COM3 not found` on a correct Windows config, because doctor checked it as a file path. It now shows
-  SKIP with "cannot be checked this way; it will be tried when YazSes starts". A POSIX path such as
-  `/dev/ttyUSB0` is still checked, and FAILs when it is missing.
-- Not tested on Windows: the check is covered by unit tests on the port's text, not on a Windows machine.
+Found by running the real functions on Persian sentences (a read-only audit of Persian support).
+Nothing here adds a feature or a config key.
+
+- **`[compute]` (on for new installs) replaced Persian sentences with a number.** Its "this is
+  prose" guard looked for an ASCII letter, so "سال 1403 - 1404" was typed as `-1` and
+  "تخفیف 15% است" as `0.15`. Any letter now counts as prose; real arithmetic ("15% of 240",
+  "2 + 2") still computes. The same applied to Russian and Chinese.
+- **`[corrdict]` scored every non-Latin pair as a perfect mishearing.** Its similarity measure kept
+  only `[a-z0-9]`, so Persian, Russian and Chinese words all reduced to nothing and a plain rewording
+  (ارسال → بفرست) was mined as a correction. It now compares letters of any script; English scores
+  are unchanged.
+- **`[stt] language = "fa-IR"` passed the check and then failed at the first decode.** The check folds
+  it to `fa`; the engine and the file-transcription settings passed the raw string to faster-whisper,
+  which raises. Region tags (`fa-IR`, `pt-BR`, `zh-TW`) are now folded the same way everywhere.
+- **`yazses doctor` now says when files and meetings would decode as English.** `[recimport] language`
+  and `[meeting] language` default to `"en"` and do not follow `[stt] language`, so setting only
+  `[stt] language = "fa"` left `yazses transcribe` decoding Persian as English. A new row appears only
+  when the two disagree; an English install sees nothing. Behaviour is unchanged: it is a warning.
+- **The Arabic question mark `؟` now ends a sentence** for "delete the last sentence", `condense`,
+  `reflow` and `sembr`. Before, a paragraph of Persian questions was one sentence.
+- **The Persian normaliser no longer reads the slash in "و/یا" as a file path**, so the Arabic Yeh beside
+  it is corrected. Real paths, URLs and emails are still left byte for byte.
+
+Not fixed here: the English prompt sent with every decode, `condition_on_previous_text`, Wayland
+typing of Persian, and the missing Persian voice commands. Each needs a measurement or a native
+speaker, and is a separate change.
+
+### Changed — dependency updates (no user-visible change)
+
+- **sherpa-onnx 1.13.8 → 2.0.1** (a major version; `sherpa-onnx-core` moves with it). It is the speaker
+  labelling (diarization) behind file transcription and Meeting Mode. The API YazSes calls is
+  unchanged, and a recorded clip diarized with both versions gave identical segments.
+- **PyAV 18.1.0** (still below the `<19` ceiling that keeps `yazses transcribe` working) and the
+  python minor/patch group.
+- **PySide6 stays below 6.12 on purpose** (the three PySide6 extras in `pyproject.toml`, `install.sh` and the
+  feature pins). 6.12.0 adds `pyside6-webengine` (about 117 MB, a bundled Chromium nothing here uses) and
+  fails the dependency-review licence check. Lift the cap only after checking both.
+- **`mkdocs-git-revision-date-localized-plugin` stays below 1.6.0**: 1.6.x adds three warnings that fail
+  the strict documentation build.
+- GitHub Actions moved to their latest releases, each pinned SHA checked against its tag.
+- Not taken: a Python 3.15 base image. `onnxruntime` publishes no 3.15 wheel yet, so the image cannot
+  be built.
 
 ### Fixed — documentation that described the repository as it was before 2.47.0
 

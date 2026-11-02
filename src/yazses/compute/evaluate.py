@@ -100,7 +100,10 @@ def evaluate(text: str):
     # this transform does not mangle the text -- it discards it. So anything left over
     # after the lead-in words and the operator words have been consumed means this was
     # prose, and prose is returned untouched.
-    if re.search(r"[a-z]", t):
+    # ANY letter left over means prose, not only an ASCII one: with ``[a-z]`` a Persian,
+    # Russian or Chinese sentence carrying two numbers and a hyphen was replaced by its
+    # difference ("سال 1403 - 1404" typed as -1).
+    if any(ch.isalpha() for ch in t):
         return None
     expr = re.sub(r"[^0-9+\-*/().% ]", "", t).strip()
     if not re.search(r"\d", expr) or not re.search(r"[-+*/]", expr):

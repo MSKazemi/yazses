@@ -23,9 +23,9 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.47.0](v2.47.0.md)** — updates that actually apply. "Install now" works again on a pipx install whose
-source folder is gone, the Windows installer can replace a running YazSes, `doctor --mic` measures the microphone you
-pinned, and a fresh `pip install` can transcribe a file again.
+**[YazSes 2.48.0](v2.48.0.md)** — biosignal switches (off by default and not yet tried on real hardware), an
+opt-in setting that frees the latency model's memory when idle, fixes that stop Persian and other non-Latin text
+from being damaged, and corrected voice-command claims on 22 translated pages.
 
 Install it with:
 
