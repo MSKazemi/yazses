@@ -103,3 +103,25 @@ def test_an_english_user_prompt_still_gets_the_app_name_last(tmp_path) -> None:
     assert prompt is not None
     assert prompt.startswith("Kubernetes")
     assert prompt.endswith(BUILTIN_PROMPT)
+
+
+# -- the places that describe the prompt must agree with what is sent -------------------------
+
+
+def test_the_doctor_row_does_not_claim_the_app_name_for_persian():
+    from yazses.system.vocabulary import prompt_summary
+
+    assert prompt_summary("", [], [], app_name=False).startswith("nothing primed")
+    row = prompt_summary("", ["کوبرنتیس"], [], app_name=False)
+    assert "app name +" not in row and "withheld" in row
+    assert prompt_summary("", [], []).startswith("app name only")      # English unchanged
+
+
+def test_the_learning_analysis_sees_the_prompt_the_decoder_gets():
+    from yazses.config import Config
+    from yazses.learning.analysis import _primed_terms  # noqa: PLC2701
+
+    en, fa = Config(), Config()
+    fa.stt.language = "fa"
+    assert "yazses" in _primed_terms(en)
+    assert "yazses" not in _primed_terms(fa)

@@ -471,7 +471,7 @@ def _primed_terms(config: Config) -> set[str]:
     """
     from yazses.stt.vocabulary import merge_initial_prompt
 
-    return set(_tokens(merge_initial_prompt(config.stt.initial_prompt) or ""))
+    return set(_tokens(merge_initial_prompt(config.stt.initial_prompt, language=config.stt.language) or ""))
 
 
 #: Function words that are never worth priming. Whisper's language model already knows
