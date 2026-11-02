@@ -6,6 +6,22 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the architecture guide's capability table was 11 features behind the registry, and six other statements
+
+Found by checking the page against the code (the registry counted by running it; paths, packages and
+sizes by listing and reading them).
+
+- **Architecture, capability table:** it said 140 capabilities, 73 wired, 67 designed. The registry has 151, 126 wired,
+  25 designed, and the figure on the same page already said so. The per-category rows are replaced with the live
+  counts. The paragraph below it said accessibility is "almost entirely designed (2 of 20)"; it is 20 of 25 wired, and
+  the category furthest from done is now multilingual (5 of 7 designed).
+- **Architecture, smaller:** the Unicode injector is `inject/unicode.py` (not `unicode_injector.py`); 24 of the 151
+  rows need an optional Python package (not fifteen); Moonshine also pulls `librosa`, `numba` and `huggingface-hub`
+  (still no torch); the latency figure is 30 utterances per model, not one utterance measured 30 times;
+  `speechbrain` resolves to about 3.4 GB, not 3.1 GB (also in the CLI reference).
+- **Feature reference:** the intro said all but the core are off by default. The core and the capabilities marked
+  `recommended (on by default)` are on from the start. The sentence is in `scripts/gen-docs.py`; the page is regenerated.
+
 ### Fixed — the Arabic, Persian and Urdu pages showed their Markdown as raw text
 
 The right-to-left translated pages wrapped their body in a bare `<div dir="rtl">`, so headings,
