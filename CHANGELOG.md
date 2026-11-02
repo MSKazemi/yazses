@@ -6,6 +6,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — documentation that described the repository as it was before 2.47.0
+
+- The benchmark harness left this repository in 2.47.0, but a dozen pages still told readers to
+  re-run it or cited its files. They now say the harness is no longer here and that published
+  figures stand as recorded, with their dates (`docs/benchmarks.md`, `docs/architecture.md`,
+  `docs/research/`, `design/chinese/`, `design/meeting-mode/`, `.github/CI_POLICY.md`).
+- The README, `llms.txt`, the Russian and Hindi pages and four design pages sent readers to an
+  `archive/rust-hci-v1` branch that was never published, so the `git checkout` there failed. The
+  Rust code is in this repository's history, and they now say `git checkout 61025cca^`.
+- `docs/how-to/update-did-nothing.md` now covers the pipx "Unable to parse package spec" repair
+  and says the OpenCV protection arrived in 2.44.0 rather than "in the next release".
+- The Hands-free steps name the real button (**Open hands-free controls…** on the Hands-free
+  page), `docs/windows-install.md` says the installer closes a running YazSes first, the
+  Windows injection box is described, and `--force` on `stop` and `restart` is in the CLI
+  reference.
+- `docs/mobile/index.md` and `android/README.md` list the five `:core:*` modules that now have
+  real code; `docs/try-without-installing.md` no longer says the hosted demo gives the accuracy
+  you will get.
+- The translation status page said every row was a machine-assisted draft; it now says only
+  `draft` rows are.
+
 ### Added — biosignal sources for market devices, and a stream-integrity guard
 
 - **`brainflow:<id>` opens only the boards `yazses biosignal boards` lists.** Any other id is refused,

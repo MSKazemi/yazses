@@ -124,6 +124,8 @@ yazses start    # start dictating — hold the hotkey, speak, release
 Stop **all** daemons (including stray/detached ones) and start exactly one, then
 verify readiness (same as `start`). Use this if dictation is being typed twice (a
 sign of duplicate daemons). Same prerequisite warnings as `start`.
+While a meeting is still being written up, `restart` refuses and says so; add `--force`
+to restart anyway.
 
 ```bash
 yazses restart    # stop every daemon and start exactly one
@@ -134,6 +136,8 @@ yazses restart    # stop every daemon and start exactly one
 Stop the running daemon (SIGTERM). Dictation stays off until you `yazses start`
 again; to pick up a config or version change instead, use `yazses restart`. Exits
 non-zero (with "nothing to stop") when none is running.
+While a meeting is still being written up, `stop` refuses and says so; add `--force` to
+stop anyway.
 
 ```bash
 yazses stop    # dictation off until you start again

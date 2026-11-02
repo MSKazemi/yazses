@@ -79,8 +79,13 @@ placeholder test, so several people can start in parallel without colliding.
 **There is still no app.** Most modules are still placeholders. What works today is the
 structure, the rules it enforces, the contract harness, and the first pure-Kotlin ports of
 desktop logic in `:core:postprocess`, `:core:commands`, `:core:vocab`, `:core:audio` and
-`:core:vad`, which pass the shared contract vectors. `:platform:audio` compiles but has not
-run on a device.
+`:core:vad`, which pass the shared contract vectors. Five more `:core:*` modules have real
+code tested on the JVM and are not wired to anything: `:core:stt` (the speech-engine
+interface; no engine behind it yet), `:core:session` (the hold-to-talk state machine),
+`:core:features` (the feature registry), `:core:model` (the model catalogue and checksum
+check) and `:core:bench` (the benchmark result format and error-rate helpers).
+`:core:config` is still a placeholder. `:platform:audio` compiles but has not run on a
+device.
 
 ### What you need
 

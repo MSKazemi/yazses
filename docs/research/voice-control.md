@@ -189,7 +189,7 @@ an accessibility problem disguised as an engineering problem.
    faithful reimplementation cost?
 3. **Latency benchmarking as a feature — partly answered, and it cut against us.**
    We now publish measured speech-end→text times per model, fed at real time,
-   reproducible from the repo ([benchmarks](../benchmarks.md)). The result
+   with the method recorded ([benchmarks](../benchmarks.md)). The result
    contradicted the feature it was meant to justify: streaming makes the final
    text arrive **later** on every model but `tiny.en` (+32 % there, +56 % on the
    default `base.en`), and on `base.en` no partial was confirmed before key

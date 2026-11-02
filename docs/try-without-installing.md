@@ -11,8 +11,9 @@ that cost you nothing and leave nothing behind.
 
 !!! info "What you can and cannot try this way"
     These trials run the **file → text** side of YazSes (`yazses transcribe`). They use
-    the same local Whisper engine as live dictation, so the accuracy you see is the
-    accuracy you get.
+    the same local Whisper engine as live dictation, so they are a good indication of the
+    accuracy you will get. The hosted demo (trial 4) is the exception: it is not the same
+    pipeline, as that section explains.
 
     They **cannot** do hold-to-talk dictation. That needs a real microphone, the kernel
     input device for the hotkey, and the ability to type into whatever window you have

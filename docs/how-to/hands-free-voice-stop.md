@@ -77,7 +77,7 @@ separate risk, and a recogniser that mishears it would undo your stop. To resume
 yazses handsfree resume
 ```
 
-or Tray → **Settings…** → **Hands-free controls…** (the tray menu itself has no hands-free item).
+or Tray → **Settings…** → **Hands-free** page → **Open hands-free controls…** (the tray menu itself has no hands-free item).
 
 ## Limits you should know
 
@@ -86,6 +86,6 @@ or Tray → **Settings…** → **Hands-free controls…** (the tray menu itself
   longer starts a burst, so after a pause you resume with the commands above, not by voice.
 - Real speech recognition of the default phrase has not been measured. If it is often
   misheard in your setup, choose a phrase that your microphone and accent transcribe cleanly,
-  and keep `yazses handsfree pause` and Tray → **Settings…** → **Hands-free controls…** as
+  and keep `yazses handsfree pause` and Tray → **Settings…** → **Hands-free** page → **Open hands-free controls…** as
   your fallbacks.
 - Nothing about this leaves your machine: the phrase is matched on the transcript, locally.

@@ -25,7 +25,7 @@
 | G07 STT decode seams | batch/word-timestamps/streaming inherit configured language, detect actual decoded language | `tests/test_stt_language.py`, `test_cjk_transcripts.py`, `test_language_reaches_every_decoder.py` | no inserting whitespace inside Han across segment boundaries |
 | G08 transcripts & meetings | captions/MD/TXT/SRT/VTT/JSON, CJK token-count, notes windows | `tests/test_cjk_transcripts.py`, `test_meeting_cjk_word_count.py` | long unspaced turn and 4-byte Unicode |
 | G09 decoder compatibility | English-only checkpoints cannot silently decode Mandarin as English | `tests/test_language_capability.py`, `test_stt_factory.py` | specialized engine with conflicting language |
-| G10 scoring integrity | CER versions, S/D/I sum, no fake script-fold score, schema/license audit | `tests/test_bench_mandarin.py` | tampered number/revision or absent license fails |
+| G10 scoring integrity | CER versions, S/D/I sum, no fake script-fold score, schema/license audit | `tests/test_bench_mandarin.py` (no longer in this repository) | tampered number/revision or absent license fails |
 | G11 Settings | same plan/service, no second persistent state, offscreen Qt where available | `tests/test_settings_language_profiles.py` | consent decline, model install failure, quit mid-apply |
 | G12 default regression | English keyboard, command semantics, doc generator, egress and private-path constraints | `uv run python -m pytest tests/ -q` | Chinese module absent from base install |
 
@@ -47,8 +47,7 @@ uv run python -m pytest \
   tests/test_han_script.py \
   tests/test_cjk_text.py \
   tests/test_cjk_transcripts.py \
-  tests/test_meeting_cjk_word_count.py \
-  tests/test_bench_mandarin.py -v
+  tests/test_meeting_cjk_word_count.py -v
 uv run python -m pytest tests/ -q
 uv run ruff check src tests scripts
 uv run mypy src

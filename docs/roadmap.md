@@ -134,7 +134,7 @@ timeline
     section Perception — shipped, hands-free maturing
         v2.12 to v2.43 : Meeting Mode with speaker diarization : Parakeet TDT and Moonshine engines : Gaze deixis and EMG activation : Sotto-voce command channel : Head-Pointer, face switch and hands-free preset (experimental)
     section Understanding — under way
-        v2.19 onward : Offline command mode over selected text (shipped) : Settings that install what they enable (on main) : Windows add-on packs for Parakeet and diarization (on main) : Android dictation keyboard (M1) : Cited answers from your own notes
+        v2.19 onward : Offline command mode over selected text (shipped) : Settings that install what they enable (shipped) : Windows add-on packs for Parakeet and diarization (on main) : Android dictation keyboard (M1) : Cited answers from your own notes
     section Recall — the horizon
         v3 : Spoken recall over everything you ever dictated : Ambient scribe you control : A computer you talk with, that stays yours
 ```

@@ -130,8 +130,22 @@ detected.
 
 === "pipx / something else"
 
-    Reinstall the way you first installed it, then confirm with `yazses --version` in a
-    new terminal. If the number still does not move, that is worth
+    On a pipx install, `yazses update` and the tray's **Install update** normally run
+    `pipx upgrade yazses`. That fails with `Unable to parse package spec: <path>` and
+    changes nothing when the install was made from a folder that has since been deleted
+    (`pipx install /path/to/checkout`, for example a git worktree or a build directory),
+    because pipx remembers that folder as the package's source. From 2.47.0, YazSes reads pipx's
+    own record and, when the recorded source is a local path that no longer exists, runs
+    `pipx install --force yazses[<your extras>]` instead. That reinstalls from PyPI into the
+    same environment, keeps your extras, and leaves a `pipx upgrade` that works from then
+    on. It does not do this for a `--suffix` install or an environment outside the
+    `PIPX_HOME` pipx reports, where a reinstall would add a second copy; there, and on
+    any other install method, reinstall the way you first installed it. A version older
+    than 2.47.0 cannot do the repair for you, so run that `pipx install --force` command
+    yourself.
+
+    Then confirm with `yazses --version` in a new terminal. If the number still does not
+    move, that is worth
     [an issue](https://github.com/MSKazemi/yazses/issues/new/choose) — include the
     output of `yazses update --check`, which names the install method and the source it
     checked.
@@ -154,16 +168,15 @@ If YazSes says *"The upgrade to YazSes X finished, but OpenCV (cv2), which the c
 features use, does not load any more"*, the version did move. What broke is OpenCV.
 
 The camera features (gaze, face gestures, head pointer, hand gestures, hands-free)
-install two OpenCV builds today, `opencv-python` and `opencv-contrib-python`. They share
-the same `cv2/` folder. A future release will drop `opencv-python`; a `uv tool` upgrade
-to it removes that package, and removing it deletes the files the two builds shared.
+used to install two OpenCV builds, `opencv-python` and `opencv-contrib-python`. They
+share the same `cv2/` folder. Since 2.45.0 they install only `opencv-contrib-python`,
+but an environment set up before that still holds both. Upgrading it with `uv tool`
+removes `opencv-python`, and removing it deletes the files the two builds shared.
 `import cv2` still succeeds afterwards, but `cv2.VideoCapture` is missing.
 
-The protection below is not in 2.43.2. It ships in the first release after 2.43.2, one
-release ahead of that change, because an upgrade runs the YazSes you already have.
-From that release on, `yazses update`, the tray and the Settings window prevent this on a
-`uv tool` install:
-when both builds are present, they add `--reinstall-package opencv-contrib-python` to the
+`yazses update`, the tray and the Settings window prevent this on a `uv tool` install
+(the protection arrived in 2.44.0, ahead of the change in 2.45.0, because an upgrade
+runs the YazSes you already have): when both builds are present, they add `--reinstall-package opencv-contrib-python` to the
 upgrade command they show and run. After every `uv`, `pipx` or `pip` upgrade they also
 check that `cv2` still works. If it does not, they print the exact repair for your
 install.
