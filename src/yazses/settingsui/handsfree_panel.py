@@ -16,6 +16,10 @@ fails first.
   side: three long labels in a row overflow the window the moment the system font is enlarged
   (seen at 24 pt, where "Pause hands-free input" was cut to "se hands-free in"), and a
   stacked button always has the window's full width.
+* *Two columns when there is room, and the same order either way.* "Right now" (the state, the
+  three emergency buttons, the ways to stop, the health report) is on the left and "Set up" on the
+  right; below :data:`TWO_COLUMN_MIN_PX` they stack in that order. Weight and frames mark what to
+  read first -- no colour, no stylesheet (a test holds both).
 * *Text follows the system font.* Sizes are derived from the font the platform hands the
   application, in whichever unit it uses (points or pixels), never set to a fixed number.
 * *A screen reader hears the sentence, not a caption.* A label's accessible name is its own
@@ -74,12 +78,23 @@ from yazses.handsfree.panel_io import ActionResult
 
 log = logging.getLogger(__name__)
 
-__all__ = ["MIN_TARGET_PX", "HandsFreePanel", "apply_control", "mnemonic", "stop_routes_text"]
+__all__ = [
+    "MIN_TARGET_PX",
+    "TWO_COLUMN_MIN_PX",
+    "HandsFreePanel",
+    "apply_control",
+    "mnemonic",
+    "stop_routes_text",
+]
 
 #: Minimum height (and width) of any button, in pixels. Not a measured value: a conventional
 #: large-target floor, set well above the toolkit default (~24 px) because the users of this
 #: window are the ones who cannot aim precisely. WCAG 2.2 AAA asks for 44 px.
 MIN_TARGET_PX = 48
+
+#: Window width at and above which the controls sit in two columns. A layout choice, not a
+#: measured value: each column needs about as much room as the old single column (~480 px).
+TWO_COLUMN_MIN_PX = 980
 
 #: Which letter each emergency action's Alt-mnemonic sits on.
 _MNEMONICS = {"pause": "P", "resume": "R", "recenter": "c"}
@@ -169,12 +184,14 @@ class HandsFreePanel:
         threaded: bool = True,
         parent: Any = None,
     ) -> None:
-        from PySide6.QtCore import QObject, QTimer, Signal
+        from PySide6.QtCore import QEvent, QObject, QTimer, Signal
+        from PySide6.QtGui import QGuiApplication
         from PySide6.QtWidgets import (
+            QBoxLayout,
             QComboBox,
             QDialog,
+            QFrame,
             QGridLayout,
-            QGroupBox,
             QHBoxLayout,
             QLabel,
             QPushButton,
@@ -208,7 +225,13 @@ class HandsFreePanel:
         self._dialog.setWindowTitle("YazSes — Hands-free controls")
         # Wide enough for the widest row (gesture name, choice, Set) at the user's font size:
         # a fixed 720 px was already too narrow at 32 pt, where the window scrolled sideways.
-        self._dialog.resize(max(720, 44 * self._dialog.fontMetrics().averageCharWidth()), 820)
+        # Two columns need room; the width comes from the font as well as a floor, and is
+        # clamped to the screen so a small display gets the one-column layout instead.
+        width = max(TWO_COLUMN_MIN_PX + 120, 88 * self._dialog.fontMetrics().averageCharWidth())
+        screen = QGuiApplication.primaryScreen()
+        if screen is not None:
+            width = min(width, max(720, screen.availableGeometry().width() - 40))
+        self._dialog.resize(width, 780)
 
         def big_button(text: str, ident: str) -> Any:
             btn = QPushButton(text)
@@ -236,18 +259,100 @@ class HandsFreePanel:
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         body = QWidget()
-        col = QVBoxLayout(body)
+        # Two columns when there is room -- what to do right now on the left, how it is set
+        # up on the right -- one column when there is not. The order of widgets is the same in
+        # both, so the Tab order does not depend on the window's width.
+        cols = QBoxLayout(QBoxLayout.Direction.LeftToRight, body)
+        cols.setSpacing(24)
+        now_w, setup_w = QWidget(), QWidget()
+        now, setup = QVBoxLayout(now_w), QVBoxLayout(setup_w)
+        for lay in (now, setup):
+            lay.setContentsMargins(0, 0, 0, 0)
+            lay.setSpacing(12)
+        cols.addWidget(now_w, 1)
+        cols.addWidget(setup_w, 1)
+        self._columns = cols
+        self._now_column, self._setup_column = now_w, setup_w
         scroll.setWidget(body)
         outer.addWidget(scroll)
 
+        class _Flip(QObject):  # type: ignore[misc,valid-type]
+            """One column below :data:`TWO_COLUMN_MIN_PX`, two at or above it.
+
+            Side by side, the columns' wrapped text needs more height than the box layout
+            reports (it asks each label for a one-line height), so the cards drew over each
+            other. The body's minimum height is therefore set from what each column needs at
+            the width it was actually given, and recomputed whenever the layout changes.
+            """
+
+            def eventFilter(self, obj: Any, event: Any) -> bool:  # noqa: N802 - Qt override
+                kind = event.type()
+                if kind == QEvent.Type.Resize and obj is self_dialog:
+                    want = (
+                        QBoxLayout.Direction.LeftToRight
+                        if self_dialog.width() >= TWO_COLUMN_MIN_PX
+                        else QBoxLayout.Direction.TopToBottom
+                    )
+                    if cols.direction() != want:
+                        cols.setDirection(want)
+                if obj is body and kind in (QEvent.Type.Resize, QEvent.Type.LayoutRequest):
+                    self._fit_height()
+                return False
+
+            def _fit_height(self) -> None:
+                if cols.direction() != QBoxLayout.Direction.LeftToRight:
+                    needed = 0
+                else:
+                    margins = cols.contentsMargins()
+                    needed = margins.top() + margins.bottom() + max(
+                        now.heightForWidth(now_w.width()),
+                        setup.heightForWidth(setup_w.width()),
+                    )
+                if body.minimumHeight() != needed:
+                    body.setMinimumHeight(needed)
+
+        self_dialog = self._dialog
+        self._flip = _Flip(self._dialog)
+        self._dialog.installEventFilter(self._flip)
+        body.installEventFilter(self._flip)
+
+        def heading(text: str) -> Any:
+            label = QLabel(text)
+            label.setFont(enlarged(label.font(), 3.0))
+            font = label.font()
+            font.setBold(True)
+            label.setFont(font)
+            return label
+
+        def card(title: str) -> tuple[Any, Any]:
+            """A framed section with a visible heading. The frame is a border, not a colour."""
+            frame = QFrame()
+            frame.setObjectName("card")
+            frame.setFrameShape(QFrame.Shape.StyledPanel)
+            frame.setFrameShadow(QFrame.Shadow.Plain)
+            lay = QVBoxLayout(frame)
+            lay.setSpacing(8)
+            lay.addWidget(heading(title))
+            return frame, lay
+
         # ---- 1. the state, read first, in words --------------------------------
+        now.addWidget(heading("Right now"))
+        status = QFrame()
+        status.setObjectName("statusCard")
+        # A heavier native frame than the cards: weight, not colour, marks the one thing to
+        # read first.
+        status.setFrameShape(QFrame.Shape.Box)
+        status.setFrameShadow(QFrame.Shadow.Plain)
+        status.setLineWidth(3)
+        status_lay = QVBoxLayout(status)
         self._headline = wrapped("Checking hands-free state…")
         hfont = enlarged(self._headline.font(), 5.0)
         hfont.setBold(True)
         self._headline.setFont(hfont)
         self._detail = wrapped("")
-        col.addWidget(self._headline)
-        col.addWidget(self._detail)
+        status_lay.addWidget(self._headline)
+        status_lay.addWidget(self._detail)
+        now.addWidget(status)
 
         # ---- 2. the emergency actions: first in the tab order ------------------
         for ident, text in (
@@ -257,17 +362,18 @@ class HandsFreePanel:
         ):
             btn = big_button(mnemonic(text, _MNEMONICS[ident]), ident)
             btn.clicked.connect(lambda _=False, i=ident: self._press(i))
-            col.addWidget(btn)
+            now.addWidget(btn)
         self._why_box = wrapped("")
-        col.addWidget(self._why_box)
+        self._why_box.hide()
+        now.addWidget(self._why_box)
         self._result = wrapped("")
-        col.addWidget(self._result)
+        self._result.hide()
+        now.addWidget(self._result)
 
         # ---- 2b. every way to stop that needs no pointer ------------------------
         from PySide6.QtCore import Qt
 
-        rbox = QGroupBox("Ways to stop without pointing")
-        rlay = QVBoxLayout(rbox)
+        rbox, rlay = card("Ways to stop without pointing")
         self._routes = wrapped("Checking…")
         self._routes.setTextInteractionFlags(
             Qt.TextInteractionFlag.TextSelectableByMouse
@@ -277,56 +383,10 @@ class HandsFreePanel:
         # without a pointer would defeat its own purpose.
         self._routes.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         rlay.addWidget(self._routes)
-        col.addWidget(rbox)
+        now.addWidget(rbox)
 
-        # ---- 3. camera controls (the existing staged-toggle path) --------------
-        box = QGroupBox("Camera controls")
-        grid = QGridLayout(box)
-        for index, ident in enumerate(("headpointer", "facegesture", "gaze")):
-            text_label = wrapped("")
-            btn = small_button("", f"feature_{ident}")
-            btn.clicked.connect(lambda _=False, s=ident: self._press_feature(s))
-            grid.addWidget(text_label, index, 0)
-            grid.addWidget(btn, index, 1)
-            self._feature_widgets[ident] = (text_label, btn)
-        grid.setColumnStretch(0, 1)
-        col.addWidget(box)
-        apply_row = QHBoxLayout()
-        apply_btn = small_button("Apply staged changes", "apply")
-        apply_btn.clicked.connect(self._press_apply)
-        apply_btn.setToolTip(
-            "Writes the camera-control changes you staged and installs any missing packages."
-        )
-        apply_row.addWidget(apply_btn)
-        apply_row.addStretch(1)
-        col.addLayout(apply_row)
-        self._apply_why = wrapped("")
-        col.addWidget(self._apply_why)
-
-        # ---- 4. dwell, independently of motion ---------------------------------
-        dbox = QGroupBox("Dwell-click (clicks when you hold still)")
-        dlay = QVBoxLayout(dbox)  # stacked: side by side they clip once the font is large
-        for ident in ("dwell_off", "dwell_on"):
-            btn = small_button(ident, ident)
-            btn.clicked.connect(lambda _=False, i=ident: self._press(i))
-            dlay.addWidget(btn)
-        col.addWidget(dbox)
-        self._dwell_why = wrapped("")
-        col.addWidget(self._dwell_why)
-
-        # ---- 5. the global stop -------------------------------------------------
-        sbox = QGroupBox("Global stop")
-        slay = QVBoxLayout(sbox)
-        self._safety_btn = small_button("", "safety_toggle")
-        self._safety_btn.clicked.connect(lambda _=False: self._press_safety())
-        self._safety_help = wrapped("")
-        slay.addWidget(self._safety_btn)
-        slay.addWidget(self._safety_help)
-        col.addWidget(sbox)
-
-        # ---- 6. health ----------------------------------------------------------
-        hbox = QGroupBox("Health")
-        hlay = QVBoxLayout(hbox)
+        # ---- 2c. health: what is wrong right now belongs beside the stop routes ----
+        hbox, hlay = card("Health")
         self._health = wrapped("Checking…")
         self._health.setTextInteractionFlags(
             Qt.TextInteractionFlag.TextSelectableByMouse
@@ -336,11 +396,62 @@ class HandsFreePanel:
         # health report can be read and copied was unreachable without a pointer.
         self._health.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         hlay.addWidget(self._health)
-        col.addWidget(hbox)
+        now.addWidget(hbox)
+
+        now.addStretch(1)
+
+        # ---- 3. camera controls (the existing staged-toggle path) --------------
+        setup.addWidget(heading("Set up"))
+        box, blay = card("Camera controls")
+        grid = QGridLayout()
+        blay.addLayout(grid)
+        for index, ident in enumerate(("headpointer", "facegesture", "gaze")):
+            text_label = wrapped("")
+            btn = small_button("", f"feature_{ident}")
+            btn.clicked.connect(lambda _=False, s=ident: self._press_feature(s))
+            grid.addWidget(text_label, index, 0)
+            grid.addWidget(btn, index, 1)
+            self._feature_widgets[ident] = (text_label, btn)
+        grid.setColumnStretch(0, 1)
+        apply_row = QHBoxLayout()
+        apply_btn = small_button("Apply staged changes", "apply")
+        apply_btn.clicked.connect(self._press_apply)
+        apply_btn.setToolTip(
+            "Writes the camera-control changes you staged and installs any missing packages."
+        )
+        apply_row.addWidget(apply_btn)
+        apply_row.addStretch(1)
+        blay.addLayout(apply_row)
+        self._apply_why = wrapped("")
+        self._apply_why.hide()
+        blay.addWidget(self._apply_why)
+        setup.addWidget(box)
+
+        # ---- 4. dwell, independently of motion ---------------------------------
+        # Stacked: side by side the two buttons clip once the font is large.
+        dbox, dlay = card("Dwell-click (clicks when you hold still)")
+        for ident in ("dwell_off", "dwell_on"):
+            btn = small_button(ident, ident)
+            btn.clicked.connect(lambda _=False, i=ident: self._press(i))
+            dlay.addWidget(btn)
+        self._dwell_why = wrapped("")
+        self._dwell_why.hide()
+        dlay.addWidget(self._dwell_why)
+        setup.addWidget(dbox)
+
+        # ---- 5. the global stop -------------------------------------------------
+        sbox, slay = card("Global stop")
+        self._safety_btn = small_button("", "safety_toggle")
+        self._safety_btn.clicked.connect(lambda _=False: self._press_safety())
+        self._safety_help = wrapped("")
+        slay.addWidget(self._safety_btn)
+        slay.addWidget(self._safety_help)
+        setup.addWidget(sbox)
 
         # ---- 7. face-switch mapping --------------------------------------------
-        mbox = QGroupBox("Face switch mapping")
-        mgrid = QGridLayout(mbox)
+        mbox, mlay = card("Face switch mapping")
+        mgrid = QGridLayout()
+        mlay.addLayout(mgrid)
         from yazses.facegesture.detector import GESTURES
 
         for index, gesture in enumerate(GESTURES):
@@ -366,11 +477,12 @@ class HandsFreePanel:
         mgrid.setColumnStretch(0, 1)
         self._map_note = wrapped("")
         mgrid.addWidget(self._map_note, len(GESTURES), 0, 1, 3)
-        col.addWidget(mbox)
+        setup.addWidget(mbox)
 
         self._notes = wrapped("")
-        col.addWidget(self._notes)
-        col.addStretch(1)
+        self._notes.hide()
+        setup.addWidget(self._notes)
+        setup.addStretch(1)
 
         bottom = QHBoxLayout()
         refresh = small_button("Refresh", "refresh")
@@ -443,11 +555,10 @@ class HandsFreePanel:
         """Pause, Resume, Recenter first; then controls, in reading order. Explicit, so a
         layout change cannot silently reorder what a keyboard user reaches first."""
         widgets: list[Any] = [self._buttons[i] for i in ("pause", "resume", "recenter")]
-        widgets.append(self._routes)
+        widgets += [self._routes, self._health]  # the left column, top to bottom
         order = [f"feature_{s}" for s in ("headpointer", "facegesture", "gaze")] + ["apply"]
         order += ["dwell_off", "dwell_on", "safety_toggle"]
         widgets += [self._buttons[i] for i in order]
-        widgets.append(self._health)
         for gesture, (_name, combo, setb) in self._map_widgets.items():
             widgets += [combo, setb]
         widgets += [self._buttons["refresh"], self._buttons["close"]]
@@ -506,6 +617,17 @@ class HandsFreePanel:
             widget.setText(text)
 
     @staticmethod
+    def _set_optional(widget: Any, text: str) -> None:
+        """Like :meth:`_set_text`, and the line takes no room while it has nothing to say.
+
+        An empty reason or result used to leave a blank band between the buttons and the next
+        section. Visibility changes only when the text goes from empty to not, or back.
+        """
+        HandsFreePanel._set_text(widget, text)
+        if widget.isHidden() == bool(text):
+            widget.setVisible(bool(text))
+
+    @staticmethod
     def _set_enabled(widget: Any, enabled: bool) -> None:
         if widget.isEnabled() != enabled:
             widget.setEnabled(enabled)
@@ -531,7 +653,8 @@ class HandsFreePanel:
             btn.setToolTip(spec.help if spec.enabled else spec.why_disabled)
             if not spec.enabled:
                 why_lines.append(f"{spec.label}: unavailable — {spec.why_disabled}")
-        self._set_text(self._why_box, "\n".join(why_lines))
+        self._set_optional(self._why_box, "\n".join(why_lines))
+        self._mark_primary(model)
         self._set_text(self._routes, stop_routes_text(model))
 
         dwell_why = []
@@ -543,7 +666,7 @@ class HandsFreePanel:
             btn.setAccessibleDescription(spec.help if spec.enabled else spec.why_disabled)
             if not spec.enabled and spec.why_disabled:
                 dwell_why.append(f"{spec.label}: unavailable — {spec.why_disabled}")
-        self._set_text(self._dwell_why, "\n".join(dwell_why))
+        self._set_optional(self._dwell_why, "\n".join(dwell_why))
 
         sp = model.safety_toggle
         self._set_text(self._safety_btn, sp.label)
@@ -558,12 +681,28 @@ class HandsFreePanel:
         self._set_text(self._health, health_text(model))
 
         self._render_mapping(model)
-        self._set_text(self._notes, "\n".join(model.notes))
+        self._set_optional(self._notes, "\n".join(model.notes))
 
         self._restore_focus(focused, model)
         if not self._first_read:
             self._first_read = True
             self._focus_first_action(focused, model)
+
+    def _mark_primary(self, model: PanelModel) -> None:
+        """Set the action the state calls for in bold, so the eye lands on it.
+
+        Weight only, and only when it changes (a screen reader is told nothing: the button's
+        text and accessible name are untouched).
+        """
+        primary = model.primary
+        wanted = primary.id if primary is not None and primary.enabled else ""
+        for ident in ("pause", "resume", "recenter"):
+            btn = self._buttons[ident]
+            bold = ident == wanted
+            font = btn.font()
+            if font.bold() != bold:
+                font.setBold(bold)
+                btn.setFont(font)
 
     def _busy_reason(self) -> str:
         if self._apply_busy is None:
@@ -584,7 +723,7 @@ class HandsFreePanel:
         )
         if btn.accessibleDescription() != description:  # polled every second: set on change
             btn.setAccessibleDescription(description)
-        self._set_text(self._apply_why, why)
+        self._set_optional(self._apply_why, why)
 
     def _focus_first_action(self, focused: Any, model: PanelModel) -> None:
         """On the first read, put focus on the action the state calls for (Recover when
@@ -656,7 +795,7 @@ class HandsFreePanel:
     # ---------------------------------------------------------------- presses
 
     def _show(self, message: str) -> None:
-        self._set_text(self._result, message)
+        self._set_optional(self._result, message)
 
     def _press(self, ident: str) -> None:
         if self._model is None:

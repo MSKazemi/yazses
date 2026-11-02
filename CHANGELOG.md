@@ -6,6 +6,22 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — the hands-free controls window is laid out in two columns
+
+The window used to be one long scrolling list. It now has two columns when it is wide enough:
+**Right now** (the state, Pause / Resume / Recenter, the ways to stop without pointing, and the health
+report) on the left, and **Set up** (camera switches, dwell-click, global stop, face-switch mapping) on
+the right. Below about 980 px it falls back to one column. The state sits in a heavier frame, the other
+sections are framed cards with a visible heading, and the action the state calls for is set in bold.
+An empty explanation line (a disabled button's reason, the result of the last press) no longer leaves a
+blank band.
+
+Nothing about what a control does changed, and the accessibility rules stand and are still tested: no
+colour or stylesheet is used, every button and combo box is at least 48 px high, Pause, Resume and
+Recenter are the first three Tab stops, and the Tab order does not depend on the window's width. The
+only change to the Tab order is that the health report now comes straight after the ways to stop, where
+it now sits on screen, instead of after the camera switches.
+
 ## [2.48.0] - 2026-11-02
 
 ### Added — the latency governor's second model can be released when idle (opt-in)

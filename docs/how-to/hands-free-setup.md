@@ -113,6 +113,12 @@ before you turn anything on, and any value you write yourself wins.
 Every terminal step above is listed; there is no other one. Checking status, pausing and resuming are
 also in the settings window (`yazses settings`), which shows the same panel as `yazses handsfree status`.
 
+The hands-free controls window has two columns when it is wide enough, and one when it is not (the
+order is the same, so Tab goes through the controls the same way). **Right now** holds the state, the
+Pause, Resume and Recenter buttons, the ways to stop without pointing, and the health report. **Set up**
+holds the camera switches, dwell-click, the global stop and the face-switch mapping. The button the
+current state calls for is set in bold.
+
 ### Turn it on from the settings window (no terminal)
 
 1. Tray icon → **Settings…**.
