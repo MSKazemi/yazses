@@ -3,6 +3,7 @@ import logging
 import numpy as np
 from faster_whisper import WhisperModel
 
+from yazses.language.capability import normalise_language
 from yazses.postprocess.cjk import glue_word_tokens, join_pieces
 from yazses.stt.vocabulary import PROMPT_TOKEN_BUDGET
 
@@ -118,7 +119,10 @@ class FasterWhisperEngine:
         # `[stt] language`; "" means auto-detect, expressed to faster-whisper by
         # omitting the kwarg entirely (passing language=None means the same thing
         # but relies on an undocumented default — omission is the explicit form).
-        self._language = (language or "").strip()
+        # Folded the way `language/capability.py` folds it before judging the pairing:
+        # "fa-IR" passed that check as "fa" and then reached faster-whisper's tokenizer
+        # raw, which raises ValueError at the first decode.
+        self._language = normalise_language(language)
         # 0 means "say nothing and let faster-whisper choose", which is not the
         # same as passing its current default explicitly — the default is theirs
         # to change, and pinning it here would silently freeze it at 5.

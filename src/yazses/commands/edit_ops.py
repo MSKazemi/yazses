@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
+_SENTENCE_SPLIT = re.compile(r"(?<=[.!?\u061f])\s+")
 _LAST_WORD = re.compile(r"(\w+)(\W*)$")
 
 _NUMBER_WORDS = {

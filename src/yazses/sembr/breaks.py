@@ -31,7 +31,7 @@ def semantic_breaks(text: str, max_len=None) -> str:
     s = re.sub(r"\s+", " ", (text or "").strip())
     if not s:
         return ""
-    s = re.sub(r"([.!?])\s+", r"\1\n", s)      # after sentence terminators
+    s = re.sub(r"([.!?\u061f])\s+", r"\1\n", s)      # after sentence terminators
     s = re.sub(r"([;:])\s+", r"\1\n", s)        # after semicolons/colons
     s = _COORD.sub(",\n", s)                    # before a comma-led clause word
     if max_len:

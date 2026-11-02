@@ -68,7 +68,7 @@ _PROTECTED_SPAN_RE = re.compile(
     r"""https?://\S+                       # URL
       | www\.\S+                           # bare www host
       | [\w.+-]+@[\w-]+\.[\w.-]+           # email address
-      | (?:/[\w.\-]+)+                     # absolute POSIX path
+      | (?<!\w)(?:/[\w.\-]+)+              # absolute POSIX path, not the slash in "و/یا"
       | [A-Za-z]:[\\/](?:[\w.\-]+[\\/]?)*  # Windows drive path
       | \b\d+(?:\.\d+)+\b                  # dotted version: 3.13, 1.2.3
       | [A-Za-z0-9][A-Za-z0-9_.+\-]*       # Latin/digit identifier run
