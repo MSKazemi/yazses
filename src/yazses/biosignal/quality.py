@@ -106,9 +106,15 @@ __all__ = [
     "segment_excursions",
     "suppress_events",
     "thresholds_for_unit",
+    "COUNT_QUANTISATION_SIGMA",
 ]
 
 _EPS = 1e-12
+
+#: Standard deviation of the rounding error of an integer stream: a uniform error of +-0.5
+#: count has sigma 1/sqrt(12). Nothing a count stream reports can be resolved finer, so it is
+#: the smallest sigma a step may honestly be measured against (see ``lead_off_metrics``).
+COUNT_QUANTISATION_SIGMA = 1.0 / math.sqrt(12.0)
 
 
 class QualityStatus(Enum):
@@ -542,6 +548,7 @@ def lead_off_metrics(
     segment_s: float = 0.05,
     flat_uv: float = 0.5,
     min_live_s: float = 0.2,
+    sigma_floor: float = 0.0,
 ) -> tuple[float, float]:
     """``(flat tail seconds, step in robust sigmas)`` of an abrupt step then a flat tail.
 
@@ -553,6 +560,12 @@ def lead_off_metrics(
     window that is flat throughout, or one that merely goes quiet without a step, returns
     ``(0.0, 0.0)`` and is left to the flatline check. Callers decide how large a step
     counts; the step is returned so it can be reported.
+
+    ``sigma_floor`` is the smallest sigma the step is measured against. A microvolt stream
+    leaves it 0 (``flat_uv`` is already the floor). A count stream has ``flat_uv == 0`` and,
+    when more than half of its live samples are identical, a median absolute deviation of
+    exactly 0, so a flat tail one count away read as a step of ~1e12 sigmas and graded lead-off;
+    ``COUNT_QUANTISATION_SIGMA`` is passed there instead.
     """
     seg = max(4, int(round(segment_s * fs)))
     n_seg = x.size // seg
@@ -571,7 +584,7 @@ def lead_off_metrics(
         return 0.0, 0.0
     # The floor must stay positive: a count stream (flat_uv == 0) can have a live part whose
     # MAD is exactly zero, and dividing by it would raise and disable the quality gate.
-    sigma = max(robust_sigma(segs[:live].ravel()), flat_uv, _EPS)
+    sigma = max(robust_sigma(segs[:live].ravel()), flat_uv, sigma_floor, _EPS)
     ref = float(np.median(mu[max(0, live - 5) : live]))
     step = abs(float(mu[live:].mean()) - ref) / sigma
     return k * seg / fs, float(step)
@@ -742,7 +755,8 @@ def _assess_results(
         # Lead-off first: a step then a flat tail looks like a strong cubic trend, and the
         # drift advice ("let it settle") would be wrong for an electrode that came off.
         flat_s, step_sigma = lead_off_metrics(
-            finite, fs, thr.leadoff_segment_s, thr.flat_degraded_uv
+            finite, fs, thr.leadoff_segment_s, thr.flat_degraded_uv,
+            sigma_floor=COUNT_QUANTISATION_SIGMA if thr.unit == "counts" else 0.0,
         )
         if step_sigma < thr.leadoff_step_sigma:
             flat_s = 0.0

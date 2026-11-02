@@ -1083,3 +1083,19 @@ def test_build_runner_marks_hardware_live_and_a_replay_not():
     assert build("synthetic")._live is False
     assert build("file:/nonexistent.csv")._live is False
     assert build("thinkgear:/dev/ttyUSB0")._live is True
+
+
+def test_KNOWN_LIMIT_a_blink_in_the_same_block_as_a_release_still_acts_after_the_slow_turn():
+    """Pinned, not endorsed. One block holds SQUEEZE_OFF and a DOUBLE_BLINK. Events run in order:
+    the release (and the seconds-long transcription behind it) comes first, then the blink's
+    action, so the blink acts seconds after it was made. The discard only drops LATER blocks.
+    If this is ever fixed, this test fails: change it and the 'known limits' text with it."""
+    rig = Rig(watchdog=1.5).attach()
+    rig.runner._live = True
+    rig.step([ev(ON)])
+    _slow_transcription(rig, 8.0, queued=2)
+    rig.step([ev(OFF), ev(EventKind.DOUBLE_BLINK, 0.9)])
+
+    assert [i.label for i in rig.intents] == ["undo"]        # acted after the 8 s turn
+    assert rig.source.items == []                            # the later blocks WERE discarded
+    assert rig.runner.status()["backlogs_discarded"] == 1

@@ -1255,11 +1255,17 @@ def _biosignal_check(
             if scheme != "file":
                 open_source(spec)  # constructs only: starts nothing, opens no hardware
         except (ValueError, OSError) as exc:
-            fails.append((
-                f"source {spec!r} is not usable: {exc}",
-                "use \"synthetic\", \"file:<recording>\", \"brainflow:<board id>[:<port>]\", "
-                "\"lsl:<stream>\", \"thinkgear:<port>\", \"bitalino:<port>\" or \"myo:<address>\""))
-            scheme = ""
+            if scheme in ("lsl", "thinkgear", "bitalino", "myo") and "<" in spec:
+                # An unfilled template (`myo:<address>`): the placeholder line below names
+                # what is missing and gives a real example, which is more use than the
+                # parser's "no valid address". Any other bad spec still fails here.
+                pass
+            else:
+                fails.append((
+                    f"source {spec!r} is not usable: {exc}",
+                    "use \"synthetic\", \"file:<recording>\", \"brainflow:<board id>[:<port>]\", "
+                    "\"lsl:<stream>\", \"thinkgear:<port>\", \"bitalino:<port>\" or \"myo:<address>\""))
+                scheme = ""
 
     # The device sources keep their library optional; name the extra that brings it.
     needs = _BIOSIGNAL_SCHEME_DEPS.get(scheme)

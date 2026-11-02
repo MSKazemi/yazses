@@ -26,6 +26,7 @@ from yazses.biosignal.quality import (
     excess_kurtosis,
     explain,
     flatline_std,
+    lead_off_metrics,
     mains_ratio,
     nonfinite_fraction,
     robust_sigma,
@@ -1180,3 +1181,47 @@ def test_the_weighted_ratio_tracks_what_the_eog_chain_passes():
         filtered = build_eog_chain(250.0).process(x)[500:]
         real = mains_ratio(filtered, 250.0, 50.0)
         assert mains_ratio(x, 250.0, 50.0, detector_edge_hz=20.0) == pytest.approx(real, abs=0.12)
+
+
+# -- lead-off on a count stream: the sigma cannot be finer than one count's rounding ------------
+
+
+def _zero_mad_counts(fs: float = 200.0):
+    live = np.zeros(int(fs))
+    live[::5] = 1.0                       # more than half identical: MAD is exactly 0
+    return live
+
+
+def test_a_one_count_tail_after_a_mostly_constant_count_stream_is_not_a_lead_off():
+    from yazses.biosignal.quality import COUNT_QUANTISATION_SIGMA
+
+    fs = 200.0
+    x = np.concatenate([_zero_mad_counts(fs), np.full(int(fs), 1.0)])
+    _flat, before = lead_off_metrics(x, fs, 0.05, 0.0)
+    assert before > 1e6                                   # the defect: a one-count change read as ~1e11 sigma
+    _flat, after = lead_off_metrics(x, fs, 0.05, 0.0, sigma_floor=COUNT_QUANTISATION_SIGMA)
+    assert 0.0 < after < DEFAULT_THRESHOLDS.leadoff_step_sigma     # a one-count change is not a step
+
+
+def test_a_real_step_on_a_count_stream_is_still_a_lead_off():
+    from yazses.biosignal.quality import COUNT_QUANTISATION_SIGMA
+
+    fs = 200.0
+    x = np.concatenate([_zero_mad_counts(fs), np.full(int(fs), 4.0)])     # four counts away
+    _flat, step = lead_off_metrics(x, fs, 0.05, 0.0, sigma_floor=COUNT_QUANTISATION_SIGMA)
+    assert step > DEFAULT_THRESHOLDS.leadoff_step_sigma
+
+
+def test_the_microvolt_path_is_unchanged_by_the_floor():
+    rng = np.random.default_rng(3)
+    fs = 250.0
+    x = np.concatenate([rng.normal(0, 20, int(fs)), np.full(int(fs), 300.0)])
+    assert lead_off_metrics(x, fs, 0.05, 0.5) == lead_off_metrics(x, fs, 0.05, 0.5, sigma_floor=0.0)
+
+
+def test_the_pipeline_thresholds_for_counts_floor_the_lead_off_sigma():
+    """Through the real assess path: a zero-MAD count channel one count off is not lead-off."""
+    fs = 200.0
+    x = np.concatenate([_zero_mad_counts(fs), np.full(int(fs), 1.0)])
+    q = assess_channel("emg", SignalKind.EMG, x, fs, thresholds_for_unit("counts"))
+    assert Reason.LEAD_OFF not in q.reasons

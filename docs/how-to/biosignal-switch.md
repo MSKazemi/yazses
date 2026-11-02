@@ -402,8 +402,10 @@ desensitized the switch, it raises its own effective floor on top of this.
 - **Electrode shifts and steps are not squeezes.** A sudden step in the signal (an electrode moving, a cable
   jolted) does not start a squeeze. A burst must keep its energy after its first moment, and a one-way level
   change does not count as a contraction. On the synthetic step fixture (steps of 300 to 5000 µV with a 25
-  to 200 ms rise, 15 ms bumps and single-sample pops, 30 to 40 seeds per cell) no step was accepted as a
-  squeeze. That fixture is white noise, not muscle, and a jolted cable on real skin has not been measured.
+  to 200 ms rise, rectangular bumps of 15 to 120 ms and single-sample pops, 20 to 40 seeds per cell) none
+  was accepted as a squeeze. **A smooth bump that rises and falls back is not stopped:** a bump of 50 to
+  120 ms at 600 µV or more still started a squeeze, in 7 to 20 of 20 runs (narrower than 40 ms never did).
+  That fixture is white noise, not muscle, and a jolted cable on real skin has not been measured.
 - **Mains hum on blink channels.** On an EOG (blink) channel the mains check reads the signal through the
   same low-pass the blink detector applies, so hum that the detector already filters out does not count
   against the channel. Synthetic, 500 double blinks: with 10 µV of hum added, 411 were still detected after
@@ -411,9 +413,15 @@ desensitized the switch, it raises its own effective floor on top of this.
   recording behind it, so how much hum a real channel can carry is unmeasured.
 - **A slow callback drops queued input.** A squeeze's transcription runs on the runner's own thread. After a
   callback of 1 second or more on a live device, the runner discards what the device queued in the meantime
-  and resets the detectors, so a gesture made during that time is ignored rather than acted on late. The
-  daemon logs `discarded N queued block(s) after a slow callback`. This does not happen while a squeeze is
-  held. The count is `backlogs_discarded` in the switch's status counts. Lost serial bytes during that time are unmeasured on a real device.
+  and resets the detectors and the quality monitor, so a gesture made during that time is ignored rather
+  than acted on late. The daemon logs `discarded N queued block(s) after a slow callback`; the count is
+  `backlogs_discarded` in the switch's status counts. **Cost: about 2.5 seconds of dead time afterwards**,
+  because the quality monitor refills for 2 seconds before it judges anything (measured for double blinks on
+  the synthetic stream; the squeeze path shares the warm-up and was not measured). Known limits: a block
+  holding a release and a blink acts on the blink seconds late, after the release's slow turn (tested);
+  and the discard is skipped while a squeeze is held, but the watchdog can release a squeeze during a slow
+  start and let it run (by reading the code only). Lost serial bytes during that time are unmeasured on a
+  real device.
 - **Count-unit devices.** A Myo, or a gForce armband through BrainFlow, reports raw counts. The quality gate
   skips its microvolt limits for those (see [the hardware guide](biosignal-hardware.md)). Its thresholds for
   counts are untuned.

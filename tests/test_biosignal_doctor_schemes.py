@@ -111,3 +111,19 @@ def test_a_brainflow_eeg_board_is_not_described_as_counts(libs_present, tmp_path
     status, detail = _row("brainflow:38", tmp_path)[1:3]
     assert status == "OK"
     assert "counts" not in detail
+
+
+def test_an_unfilled_myo_address_names_what_is_missing_with_a_real_example(libs_present, tmp_path):
+    """`myo:<address>` used to stop at the parser ("has no valid address") with the generic fix."""
+    status, detail = _row("myo:<address>", tmp_path)[1:3]
+    assert status == "WARN"
+    assert "still holds a placeholder (myo:<address>)" in detail
+    assert "no Bluetooth address is set" in detail
+    assert "myo:AA:BB:CC:DD:EE:FF" in detail
+    assert "has no valid address" not in detail
+
+
+def test_a_myo_address_that_is_wrong_rather_than_unfilled_still_fails(libs_present, tmp_path):
+    status, detail = _row("myo:not-an-address", tmp_path)[1:3]
+    assert status == "FAIL"
+    assert "is not usable" in detail

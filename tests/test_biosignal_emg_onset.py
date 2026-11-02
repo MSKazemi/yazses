@@ -918,6 +918,8 @@ def _edge(fs: float, n: int, at: int, shape: str, amp: float, ms: float) -> np.n
         y[at + w:] = amp
     elif shape == "bump":
         y[at:at + w] = amp
+    elif shape == "hann":
+        y[at:at + w] = amp * np.hanning(w)
     else:
         y[at] = amp
     return y
@@ -994,3 +996,31 @@ def test_a_rejected_transient_is_counted_and_a_reset_clears_it():
 def test_shape_test_arguments_are_validated(kw):
     with pytest.raises(ValueError):
         EmgOnsetDetector(_thresholds(1000.0), **kw)
+
+
+# -- a smooth unipolar bump is NOT handled: what is true, pinned ----------------------------
+#
+# The sustain and level-drift tests above stop a step (the level moves one way and stays) and a
+# ringing edge (the energy dies away). A smooth bump that rises and falls back is neither: its
+# net level change is small, it keeps its energy for the confirmation window, and its smooth edges
+# are too gentle for the artifact stage (a rectangular bump of the same width is blanked as a mean
+# shift, which is why the rectangular test above passes). Measured on synthetic white noise at
+# 5 uV, 20 seeds per cell, 250/500/1000 Hz: a Hann bump of 50-120 ms fired 7-20 of 20 at 600 uV
+# and 16-20 of 20 at 1000 uV or more; 300 uV fired 0-6 of 20; 30 ms never fired.
+
+
+@pytest.mark.parametrize("fs", [250.0, 500.0, 1000.0])
+def test_a_narrow_smooth_bump_does_not_fire(fs):
+    """The bump that IS rejected: 30 ms is shorter than the minimum burst."""
+    assert sum(_fires(fs, s, shape="hann", amp=1000.0, ms=30.0) for s in range(12)) == 0
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="KNOWN LIMIT: a smooth unipolar bump as wide as the minimum burst (50-120 ms, "
+    ">= 600 uV) still confirms a squeeze. Remove this marker, and the 'known limits' text in "
+    "the spec, the how-to and the CHANGELOG, when a detector change rejects it.",
+)
+@pytest.mark.parametrize("ms", [50.0, 80.0, 120.0])
+def test_a_smooth_bump_as_wide_as_the_minimum_burst_does_not_fire(ms):
+    assert sum(_fires(500.0, s, shape="hann", amp=1000.0, ms=ms) for s in range(12)) == 0

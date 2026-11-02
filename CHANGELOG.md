@@ -54,8 +54,12 @@ was measured for this.
 
 A band-passed edge kept the squeeze envelope over its threshold for the whole minimum burst. On synthetic
 signals a 1000 µV shift with a 60 ms rise fired 40 times in 40 at 200 Hz. A burst now has to keep its
-energy and must not be the raw level moving one way, which took every tested edge, bump and pop to 0 while
-a held contraction still confirmed at the same median latency. Not measured on real skin.
+energy and must not be the raw level moving one way. That took every tested step, every rectangular bump
+(15 to 120 ms) and every single-sample pop to 0 false starts, while a held contraction still confirmed at
+the same median latency. **Not stopped:** a smooth bump that rises and falls back (a Hann bump of 50 to
+120 ms) still starts a squeeze, in 7 to 20 of 20 runs at 600 µV and 16 to 20 of 20 at 1000 µV or more;
+300 µV fired 0 to 6 of 20, and 30 ms never fired. A strict expected-failure test records this. All of it
+is synthetic white noise, not measured on real skin.
 
 ### Fixed — the blink switch worked with its monitor off and not with it on (biosignal switch, off by default)
 
@@ -70,6 +74,16 @@ Transcription holds the thread that reads the device, so what queued meanwhile w
 new. A live source now discards that queue after a callback of a second or more. A release that overlapped
 a squeeze's start could also end the same turn twice. It now ends once, after the start returns.
 
+- **Cost: about 2.5 s of dead time.** The discard resets the detectors and the quality monitor, which
+  refills for 2 s before it judges anything. Measured on the synthetic blink stream: a double blink 2.5 s
+  after the reset was lost in 40 of 40 runs, one at 2.6 s or later was delivered about as often as without
+  a reset. So after every dictation turn longer than about a second the switch ignores gestures for roughly
+  2.5 s. The squeeze path shares the 2 s warm-up; its dead time was not measured.
+- **Known limit, by test:** a block that holds a release and a blink runs the release (and its slow turn)
+  first, then acts on the blink seconds late. The discard only drops later blocks.
+- **Known limit, by reading only:** the discard is skipped while a squeeze is held, but if the watchdog
+  releases a squeeze during a slow start, the discard can then run.
+
 ### Fixed — a Myo or gForce stream is no longer judged against microvolt limits (biosignal switch, off by default)
 
 The signal-quality gate applied microvolt limits to raw ADC counts, which is what a Myo and a gForce
@@ -77,7 +91,11 @@ report. A quiet, live Myo channel of about half a count of noise was called "fla
 because the flatline limit is 0.5 µV. Count-unit sources now skip the checks whose limits are in
 microvolts: flatline is judged only as exactly zero variance, and the saturation level, the drift
 amplitude gate and the EEG/EOG noise limits are off. Non-finite samples, packet loss, mains hum, clipping
-plateaus, lead-off steps and shared movement are still checked.
+plateaus, lead-off steps and shared movement are still checked. A stream where more than half the samples
+are identical, followed by a flat tail one count away, used to read as a lead-off step of about 10¹¹
+sigmas; the step is now measured against at least the rounding noise of an integer stream (0.29 count),
+so a one-count change no longer counts. A change of four counts still does. Synthetic only; how a real
+int8 band behaves is unknown.
 
 - **Every such report says so.** The report carries the reason, and `yazses biosignal monitor` prints
   "Absolute amplitude checks were skipped: this source reports counts, not microvolts", so the skip is
