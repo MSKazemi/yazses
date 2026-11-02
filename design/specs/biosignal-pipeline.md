@@ -390,15 +390,27 @@ Known limits from this round:
   an int8 8-channel burst. A 50 ms step window removes those cuts but is **not** adopted: a
   200 µV, 40 ms rectangular bump, rejected every time today (0 of 200), then fires every time
   (200 of 200) at both 200 and 250 Hz. An early release is the cheaper error, so the default stays.
-- **Artifacts that do fire the squeeze switch** (false ON, synthetic, 200 seeds). A 1000 µV step with a
-  25 ms rise: 192 at 200 Hz, 172 at 250 Hz, 181 at 500 Hz, 130 at 1000 Hz, so not a low-rate problem.
-  Below 500 Hz only: a 15 ms bump (66 of 200 at 200 µV, 200 Hz) and a 1000 µV single-sample pop
-  (20 of 200, 200 Hz). None has been compared with what a real electrode does; a jolted cable on real
-  skin is the measurement that would say whether these shapes matter.
-- **The gate reads as a stretch of time, so a noisy quality monitor costs more events.** On the clean
-  synthetic EOG stream with its default 10 µV hum the quality monitor already drops most double blinks
-  (seen while writing the end-to-end tests, not investigated). Judging events by when they happened
-  can only increase that. Worth measuring before reading blink rates from that fixture.
+- **Edges no longer fire the squeeze switch on this fixture** (synthetic, white noise at 5 µV, 30-40 seeds
+  per cell, 1 and 4 channels, 200-1000 Hz). A step of 300-5000 µV with a 25-200 ms rise, a 15 ms bump and
+  a single-sample pop: 0 false ON. With the two new tests off, a 1000 µV step with a 25 ms rise fired 38 of
+  40 at 200 Hz and a 60 ms rise 40 of 40. A burst now confirms only while the later half of its energy
+  holds up against the earlier half (`min_sustain_ratio`, 0.25) and the raw level is not moving mostly one
+  way (`max_level_drift`, 0.5). Failing either only postpones the confirmation. A 500 ms burst at 3-10
+  times the noise still confirmed in the same runs, at the same median latency; a very short 80 ms burst
+  at 200 Hz confirms less often (26 of 40, was 31). White noise is not real EMG and a jolted cable on real
+  skin has not been measured, so both limits are design choices to re-check on a recording.
+- **Hum on EOG is graded as the blink detector reads it** (synthetic, 100 seeds, 500 double blinks). The
+  mains check graded the raw block while the 0.1-20 Hz EOG chain removes most of a 50 Hz hum, so the
+  default 10 µV fixture delivered 0 of 500 with the monitor on against 411 with it off, and the monitor
+  removed no false events. The spectrum is now read through that low-pass (`mains_detector_edge_hz`). Hum
+  0 µV: 415 of 500. 10 µV: 411. 20 µV: 356. 50 µV: 0. False events on the no-blink fixture: 0 at 10 and
+  30 µV. The 10 µV default has no real recording behind it, so whether real hum warrants more suppression
+  is unmeasured. Other kinds are still graded raw.
+- **A slow callback discards the device's queue.** A squeeze's transcription runs on the runner's thread.
+  After a callback of 1 s or more on a live source, the runner drops what queued up and resets the
+  detectors (`backlogs_discarded` in the status), so a gesture made during it is ignored rather than acted
+  on late. Not while a squeeze is held. Lost serial bytes during that time are unmeasured on a real device;
+  the parsers resynchronise on the next valid packet in fixtures.
 - **Counts, not microvolts.** Myo (int8) and the gForce boards report ADC counts. Their preset says
   `unit = "counts"` (`boards.py`), and the pipeline's quality monitor then uses
   `quality.thresholds_for_unit("counts")`: the µV-absolute limits (flatline 0.5/0.1 µV, EMG

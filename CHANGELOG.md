@@ -6,6 +6,26 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — an electrode shift no longer starts dictation (biosignal switch, off by default)
+
+A band-passed edge kept the squeeze envelope over its threshold for the whole minimum burst. On synthetic
+signals a 1000 µV shift with a 60 ms rise fired 40 times in 40 at 200 Hz. A burst now has to keep its
+energy and must not be the raw level moving one way, which took every tested edge, bump and pop to 0 while
+a held contraction still confirmed at the same median latency. Not measured on real skin.
+
+### Fixed — the blink switch worked with its monitor off and not with it on (biosignal switch, off by default)
+
+The quality monitor graded mains hum on the raw signal, although the blink detector filters it out first.
+The default synthetic EOG stream delivered 0 of 500 double blinks with the monitor on and 411 with it off.
+It now reads the hum as the detector does: 411 of 500, no false events, and a 50 µV hum still stops every
+blink.
+
+### Fixed — a gesture made during a long transcription no longer acts afterwards (biosignal switch, off by default)
+
+Transcription holds the thread that reads the device, so what queued meanwhile was processed later as if
+new. A live source now discards that queue after a callback of a second or more. A release that overlapped
+a squeeze's start could also end the same turn twice. It now ends once, after the start returns.
+
 ### Fixed — a Myo or gForce stream is no longer judged against microvolt limits (biosignal switch, off by default)
 
 The signal-quality gate applied microvolt limits to raw ADC counts, which is what a Myo and a gForce

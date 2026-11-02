@@ -192,6 +192,12 @@ class QualityThresholds:
     mains_half_width_hz: float = 1.0
     mains_ratio_degraded: float = 0.3
     mains_ratio_bad: float = 0.7
+    # The upper edge of the band a kind's detector actually reads, in Hz. Hum above it reaches
+    # that detector already filtered, so it counts as the detector would see it, through a
+    # second-order low-pass (build_eog_chain). A kind not listed is graded on the raw spectrum.
+    mains_detector_edge_hz: Mapping[SignalKind, float] = field(
+        default_factory=lambda: {SignalKind.EOG: 20.0}
+    )
 
     # --- drift ----------------------------------------------------------------------
     # Variance share of a cubic trend over the window; only counted when the trend
@@ -469,12 +475,20 @@ def saturation_fraction(
 
 
 def mains_ratio(
-    x: np.ndarray, fs: float, mains_hz: float, half_width_hz: float = 1.0
+    x: np.ndarray,
+    fs: float,
+    mains_hz: float,
+    half_width_hz: float = 1.0,
+    detector_edge_hz: float | None = None,
 ) -> float:
     """Power within ``mains_hz`` +- half-width as a share of power from 1 Hz to Nyquist.
 
     Hann-windowed FFT of the whole window. Returns 0.0 when the line is above (or too
     near) Nyquist and so cannot be observed at this sampling rate.
+
+    ``detector_edge_hz``: read the spectrum through the low-pass a detector applies, so a hum
+    that detector removes is not held against a signal it can still read. A 10 uV hum on 3 uV
+    of noise is about 0.85 raw, and about 0.35 through the EOG chain.
     """
     n = x.size
     if n < 8 or fs <= 0.0:
@@ -486,6 +500,8 @@ def mains_ratio(
     seg = (x - x.mean()) * np.hanning(n)
     power = np.abs(np.fft.rfft(seg)) ** 2
     freqs = np.fft.rfftfreq(n, 1.0 / fs)
+    if detector_edge_hz is not None:
+        power = power / (1.0 + (freqs / detector_edge_hz) ** 4)  # second-order magnitude, squared
     total = float(power[freqs >= 1.0].sum())
     if total <= _EPS:
         return 0.0
@@ -712,7 +728,10 @@ def _assess_results(
     if not flat_bad:   # spectral / trend / noise statistics of a dead channel are meaningless
         worst_ratio, worst_hz = 0.0, 0.0
         for hz in thr.mains_hz:
-            r = mains_ratio(finite, fs, hz, thr.mains_half_width_hz)
+            r = mains_ratio(
+                finite, fs, hz, thr.mains_half_width_hz,
+                detector_edge_hz=thr.mains_detector_edge_hz.get(kind),
+            )
             if r > worst_ratio:
                 worst_ratio, worst_hz = r, hz
         metrics["mains_ratio"] = worst_ratio

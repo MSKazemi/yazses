@@ -1138,3 +1138,45 @@ def test_count_streams_that_are_mostly_zero_never_raise(seed):
 def test_an_unknown_unit_is_refused():
     with pytest.raises(ValueError, match="unit"):
         QualityThresholds(unit="mV")
+
+
+# -- hum on EOG: graded as the blink detector reads it --------------------------------------
+
+
+def _eog_with_hum(hum_uv: float, *, seed: int = 0, fs: float = 250.0, seconds: float = 4.0):
+    rng = np.random.default_rng(seed)
+    t = np.arange(int(fs * seconds)) / fs
+    return rng.normal(0.0, 3.0, t.size) + hum_uv * np.sin(2.0 * np.pi * 50.0 * t)
+
+
+def test_a_hum_the_blink_detector_filters_out_does_not_condemn_an_eog_channel():
+    x = _eog_with_hum(10.0)
+    assert mains_ratio(x, 250.0, 50.0) > DEFAULT_THRESHOLDS.mains_ratio_bad  # the raw reading
+    q = assess_channel("eog", SignalKind.EOG, x, 250.0)
+    assert q.status is not QualityStatus.BAD
+    assert Reason.MAINS not in [r for r in q.reasons if q.status is QualityStatus.BAD]
+
+
+def test_a_hum_too_strong_for_the_detector_filter_still_suppresses_eog():
+    q = assess_channel("eog", SignalKind.EOG, _eog_with_hum(60.0), 250.0)
+    assert q.status is QualityStatus.BAD
+    assert Reason.MAINS in q.reasons
+
+
+def test_other_kinds_are_still_graded_on_the_raw_spectrum():
+    x = _eog_with_hum(10.0)
+    assert mains_ratio(x, 250.0, 50.0, detector_edge_hz=20.0) < mains_ratio(x, 250.0, 50.0)
+    q = assess_channel("eeg", SignalKind.EEG, x, 250.0)
+    assert q.status is QualityStatus.BAD
+    assert Reason.MAINS in q.reasons
+
+
+def test_the_weighted_ratio_tracks_what_the_eog_chain_passes():
+    """The weighting stands in for the real filter, so it must agree with the real filter."""
+    from yazses.biosignal.filters import build_eog_chain
+
+    for hum in (5.0, 10.0, 20.0, 40.0):
+        x = _eog_with_hum(hum, seconds=8.0)
+        filtered = build_eog_chain(250.0).process(x)[500:]
+        real = mains_ratio(filtered, 250.0, 50.0)
+        assert mains_ratio(x, 250.0, 50.0, detector_edge_hz=20.0) == pytest.approx(real, abs=0.12)
