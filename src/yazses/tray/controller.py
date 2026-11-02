@@ -7,7 +7,8 @@ asserted without a running daemon or a real subprocess.
 Mic actions (pin / unpin / re-calibrate) go over IPC so they take effect *live* on the
 running daemon (no restart). Restart shells out to the ``yazses`` CLI, which already
 knows how to cleanly restart via systemd / detached process. Stop uses the existing
-``shutdown`` IPC method. Launching the settings window shells out the same way, as a
+``shutdown`` IPC method, preceded by the stop note that tells the tray the stop was
+deliberate. Launching the settings window shells out the same way, as a
 detached ``yazses settings`` process — the tray never blocks waiting on it.
 
 Help/About open a URL through an injected opener. The update check is the one action that
@@ -19,8 +20,10 @@ from __future__ import annotations
 import logging
 import subprocess
 from collections.abc import Callable
+from pathlib import Path
 
 from yazses.system.browser import open_url
+from yazses.system.stop_request import clear_stop_request, request_stop
 
 log = logging.getLogger(__name__)
 
@@ -33,10 +36,15 @@ class TrayController:
         client,
         launcher: Callable[[list[str]], object] = subprocess.Popen,
         opener: Callable[[str], bool] = open_url,
+        *,
+        data_dir: Path | None = None,
     ) -> None:
         self._client = client
         self._launch = launcher
         self._open = opener
+        # Where the stop note goes (system/stop_request.py). None writes no note, which
+        # is right for a controller that is not driving a real daemon, such as a test.
+        self._data_dir = data_dir
         # Handles for children we started and deliberately do not wait on. Kept so
         # they can be reaped; see `reap`.
         self._children: list = []
@@ -143,8 +151,37 @@ class TrayController:
             return False
 
     def stop_daemon(self) -> dict:
-        """Ask the daemon to shut down."""
-        return self._call("shutdown")
+        """Stop the daemon for good: leave the stop note, then ask it to shut down.
+
+        The note is what keeps the tray from relaunching the daemon it just saw go
+        (tray/app.py). It is written first, because the tray can poll in between. Writing
+        it never raises and never blocks the shutdown: an unwritable data dir still gets
+        `shutdown`. If `shutdown` is refused, the note is taken back so the tray's normal
+        recovery applies to whatever is still running.
+        """
+        noted = self._leave_stop_note()
+        result = self._call("shutdown")
+        if noted and not result.get("ok"):
+            self._take_back_stop_note()
+        return result
+
+    def _leave_stop_note(self) -> bool:
+        if self._data_dir is None:
+            return False
+        try:
+            request_stop(self._data_dir)
+            return True
+        except Exception:
+            log.warning("Could not leave the stop note in %s", self._data_dir, exc_info=True)
+            return False
+
+    def _take_back_stop_note(self) -> None:
+        if self._data_dir is None:
+            return
+        try:
+            clear_stop_request(self._data_dir)
+        except Exception:
+            log.warning("Could not remove the stop note", exc_info=True)
 
     # ---- Meeting Mode (live, over IPC) ------------------------------------
     def start_meeting(self) -> dict:
