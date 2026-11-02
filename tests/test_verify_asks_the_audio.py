@@ -31,6 +31,7 @@ import pathlib
 
 import pytest
 
+from tests.decoder_stack import needs_faster_whisper
 from yazses.system.verify import verify
 
 SPEECH = pathlib.Path(__file__).resolve().parent.parent / "data/librispeech-sample/jfk.wav"
@@ -136,6 +137,7 @@ def detector():
     return holds_no_speech
 
 
+@needs_faster_whisper
 def test_real_speech_is_not_called_speechless(detector):
     """The expensive direction, on a real recording rather than a fake.
 

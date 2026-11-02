@@ -85,6 +85,7 @@ def prompt_summary(
     mined: bool = False,
     context: bool = False,
     screen: bool = False,
+    app_name: bool = True,
 ) -> str:
     """One line naming everything that really reaches Whisper's ``initial_prompt``.
 
@@ -106,6 +107,10 @@ def prompt_summary(
     too much work for a status row, and all are transient by design, so
     naming any particular term would be a lie by the time it was printed. Whether they
     contribute at all is decidable from config, and that is the part worth reporting.
+
+    ``app_name`` says whether the built-in English app-name phrase is sent at all
+    (``stt.vocabulary.builtin_prompt_applies``): with ``[stt] language`` set to another
+    language it is withheld, and the row must not claim it is there.
     """
     parts: list[str] = []
     text = (configured or "").strip()
@@ -128,6 +133,13 @@ def prompt_summary(
     if screen:
         # A gate too: the labels are read at each hold and discarded after its decode.
         parts.append("names visible in the focused window ([screengrounded] on)")
+    if not app_name:
+        if not parts:
+            return (
+                "nothing primed (the English app-name phrase is withheld for this language) "
+                "— add words with `yazses vocab add <word>`"
+            )
+        return "; ".join(parts) + " (English app-name phrase withheld for this language)"
     if not parts:
         return "app name only — add words with `yazses vocab add <word>`"
     return "app name + " + "; ".join(parts)
