@@ -285,3 +285,79 @@ def test_a_recording_with_a_noise_floor_is_not_flagged(tmp_path, monkeypatch):
     _patch(monkeypatch, diarizer=None)
     r = runner.invoke(cli.app, ["transcribe", str(_audio(tmp_path)), "--no-diarize"], env=_ENV)
     assert "carries no signal" not in r.output, r.output
+
+
+# ---- failures a user meets before any audio is read --------------------------
+
+
+class _EngineNeverBuilt:
+    """Stands in for the decoder; a test fails if the CLI builds it anyway."""
+
+    def __init__(self, *a, **k):
+        raise AssertionError("the engine should not be built for this input")
+
+
+def test_a_missing_model_prints_the_friendly_message_and_no_traceback(tmp_path, monkeypatch):
+    # Reproduced: with no cached model, `_build_engine` raised ModelUnavailableError,
+    # which only LanguageUnsupportedError was caught for, so the CLI died with a
+    # traceback and printed the friendly message after it.
+    from yazses.stt.errors import ModelUnavailableError
+
+    _patch(monkeypatch, diarizer=None)
+
+    class _Absent:
+        def __init__(self, *a, **k):
+            raise ModelUnavailableError("small", "not in the local cache, and offline")
+
+    monkeypatch.setattr("yazses.stt.faster_whisper.FasterWhisperEngine", _Absent, raising=True)
+    f = _audio(tmp_path)
+    r = runner.invoke(cli.app, ["transcribe", str(f), "--no-diarize"], env=_ENV)
+    assert r.exit_code == 1, r.output
+    assert isinstance(r.exception, SystemExit), repr(r.exception)
+    assert "is not on this machine" in r.output
+    assert not f.with_suffix(".txt").exists()
+
+
+def test_an_unknown_model_name_is_refused_up_front(tmp_path, monkeypatch):
+    # Reproduced: `--model no-such-model` built the engine, failed to load it, and
+    # suggested `yazses model download no-such-model`, which cannot work.
+    _patch(monkeypatch, diarizer=None)
+    monkeypatch.setattr(
+        "yazses.stt.faster_whisper.FasterWhisperEngine", _EngineNeverBuilt, raising=True)
+    f = _audio(tmp_path)
+    r = runner.invoke(
+        cli.app, ["transcribe", str(f), "--model", "no-such-model"], env=_ENV)
+    assert r.exit_code == 2, r.output
+    assert isinstance(r.exception, SystemExit), repr(r.exception)
+    assert "no-such-model" in r.output
+    assert "base.en" in r.output and "large-v3" in r.output
+    assert "yazses model download" not in r.output
+    assert not f.with_suffix(".txt").exists()
+
+
+def test_a_hub_id_is_not_mistaken_for_an_unknown_name(tmp_path, monkeypatch):
+    # faster-whisper accepts a Hugging Face id (org/repo) as a model; only a bare
+    # unknown short name is refused up front.
+    _patch(monkeypatch, diarizer=None)
+    monkeypatch.setattr(
+        "yazses.stt.faster_whisper.FasterWhisperEngine", _FakeEngine, raising=True)
+    f = _audio(tmp_path)
+    r = runner.invoke(
+        cli.app,
+        ["transcribe", str(f), "--no-diarize", "--model", "Systran/faster-whisper-small"],
+        env=_ENV)
+    assert r.exit_code == 0, r.output
+
+
+def test_a_negative_speaker_count_is_refused(tmp_path, monkeypatch):
+    # Reproduced: `--speakers -3` was accepted and silently meant auto-detect, because
+    # both diarizers treat any value <= 0 as "no count" (sherpa: num_clusters = -1;
+    # pyannote: `if max_speakers > 0`). A negative count is meaningless, so refuse it.
+    _patch(monkeypatch, diarizer=_FakeDiarizer())
+    monkeypatch.setattr(
+        "yazses.stt.faster_whisper.FasterWhisperEngine", _EngineNeverBuilt, raising=True)
+    f = _audio(tmp_path)
+    r = runner.invoke(cli.app, ["transcribe", str(f), "--diarize", "--speakers", "-3"], env=_ENV)
+    assert r.exit_code == 2, r.output
+    assert isinstance(r.exception, SystemExit), repr(r.exception)
+    assert "--speakers" in r.output and "-3" in r.output

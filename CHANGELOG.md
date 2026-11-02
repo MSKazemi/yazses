@@ -6,6 +6,16 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses transcribe` errors are one clear message, not a traceback
+
+With no cached model, `yazses transcribe` printed a Python traceback and then the friendly
+message; the message is now the whole output (the traceback is kept at DEBUG). An unknown
+`--model` name is refused up front with exit 2, naming the model and listing the Whisper
+models that `transcribe` accepts, instead of suggesting `yazses model download <name>`, which
+could not work. A negative `--speakers`, `--min-speakers` or `--max-speakers` is refused with
+exit 2: both diarizers read a non-positive count as auto-detect, so `-3` silently meant "auto".
+A Hugging Face id (`org/repo`) or a local model folder is still accepted by `--model`.
+
 ### Fixed — the Arabic, Persian and Urdu pages showed their Markdown as raw text
 
 The right-to-left translated pages wrapped their body in a bare `<div dir="rtl">`, so headings,
