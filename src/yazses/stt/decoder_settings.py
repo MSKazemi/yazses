@@ -28,6 +28,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from yazses.language.capability import normalise_language
 from yazses.stt.download import language_model_problem
 
 if TYPE_CHECKING:
@@ -132,7 +133,8 @@ def file_decoder_settings(
 
     wish = str(getattr(section, "language", "en") or "").strip()
     task = "translate" if wish == "translate" else None
-    language = "" if task else wish
+    # "fa-IR" -> "fa": the pairing check below folds it, so the decoder must too.
+    language = "" if task else normalise_language(wish)
     # An `.en` checkpoint has no language tokens, so it answers foreign speech with
     # fluent English nonsense rather than an error. Same rule as the daemon's factory.
     if problem := language_model_problem(model, language):

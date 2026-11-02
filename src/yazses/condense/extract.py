@@ -15,7 +15,7 @@ this that these those it its i you he she we they them his her our your my me hi
 have has had will would can could should may might must not no yes just very really about into
 """.split())
 
-_SENT_SPLIT = re.compile(r"(?<=[.!?])\s+")
+_SENT_SPLIT = re.compile(r"(?<=[.!?\u061f])\s+")
 _WORD = re.compile(r"[a-z0-9']+")
 
 # Scoring is mean content-word frequency, and dividing by the sentence's own length made a

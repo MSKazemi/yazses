@@ -23,13 +23,17 @@ def _literal(value: str) -> Callable[[re.Match[str]], str]:
 
 
 def _shape(value: str) -> str:
-    """Letters and digits only, lowercased — the form similarity is judged on.
+    """Letters and digits only, case-folded — the form similarity is judged on.
+
+    "Letters" means letters of any script. The earlier ``[a-z0-9]`` reduced every Persian,
+    Russian or Chinese word to the empty string, so every such pair scored 1.0 and a plain
+    rewording was mined as a mishearing.
 
     Case and spacing are exactly what a recognition error gets wrong ("yaz says" for
     "YazSes"), so comparing the raw strings would score the clearest true positives
     lowest.
     """
-    return re.sub(r"[^a-z0-9]", "", (value or "").lower())
+    return re.sub(r"[\W_]+", "", (value or "").casefold())
 
 
 def similarity(wrong: str, right: str) -> float:

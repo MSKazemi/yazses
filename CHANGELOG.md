@@ -36,6 +36,35 @@ machine, and CTranslate2 may keep its memory after a model is dropped. The new
 its `stt` (343 MB) and `latency` (116 MB) ceilings are the ADR-029 baseline measured on `fa058766`,
 and its other five rows are unmeasured proposals (`null`). No nightly job feeds it real numbers yet.
 
+### Fixed — Persian and other non-Latin text was silently damaged by English-shaped guards
+
+Found by running the real functions on Persian sentences (a read-only audit of Persian support).
+Nothing here adds a feature or a config key.
+
+- **`[compute]` (on for new installs) replaced Persian sentences with a number.** Its "this is
+  prose" guard looked for an ASCII letter, so "سال 1403 - 1404" was typed as `-1` and
+  "تخفیف 15% است" as `0.15`. Any letter now counts as prose; real arithmetic ("15% of 240",
+  "2 + 2") still computes. The same applied to Russian and Chinese.
+- **`[corrdict]` scored every non-Latin pair as a perfect mishearing.** Its similarity measure kept
+  only `[a-z0-9]`, so Persian, Russian and Chinese words all reduced to nothing and a plain rewording
+  (ارسال → بفرست) was mined as a correction. It now compares letters of any script; English scores
+  are unchanged.
+- **`[stt] language = "fa-IR"` passed the check and then failed at the first decode.** The check folds
+  it to `fa`; the engine and the file-transcription settings passed the raw string to faster-whisper,
+  which raises. Region tags (`fa-IR`, `pt-BR`, `zh-TW`) are now folded the same way everywhere.
+- **`yazses doctor` now says when files and meetings would decode as English.** `[recimport] language`
+  and `[meeting] language` default to `"en"` and do not follow `[stt] language`, so setting only
+  `[stt] language = "fa"` left `yazses transcribe` decoding Persian as English. A new row appears only
+  when the two disagree; an English install sees nothing. Behaviour is unchanged: it is a warning.
+- **The Arabic question mark `؟` now ends a sentence** for "delete the last sentence", `condense`,
+  `reflow` and `sembr`. Before, a paragraph of Persian questions was one sentence.
+- **The Persian normaliser no longer reads the slash in "و/یا" as a file path**, so the Arabic Yeh beside
+  it is corrected. Real paths, URLs and emails are still left byte for byte.
+
+Not fixed here: the English prompt sent with every decode, `condition_on_previous_text`, Wayland
+typing of Persian, and the missing Persian voice commands. Each needs a measurement or a native
+speaker, and is a separate change.
+
 ### Fixed — documentation that described the repository as it was before 2.47.0
 
 - The benchmark harness left this repository in 2.47.0, but a dozen pages still told readers to
