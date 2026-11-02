@@ -13,6 +13,7 @@ import numpy as np
 import pytest
 
 from yazses.biosignal.quality import (
+    DEFAULT_THRESHOLDS,
     ChannelQuality,
     QualityReport,
     QualityStatus,
@@ -1154,7 +1155,6 @@ def test_a_hum_the_blink_detector_filters_out_does_not_condemn_an_eog_channel():
     assert mains_ratio(x, 250.0, 50.0) > DEFAULT_THRESHOLDS.mains_ratio_bad  # the raw reading
     q = assess_channel("eog", SignalKind.EOG, x, 250.0)
     assert q.status is not QualityStatus.BAD
-    assert Reason.MAINS not in [r for r in q.reasons if q.status is QualityStatus.BAD]
 
 
 def test_a_hum_too_strong_for_the_detector_filter_still_suppresses_eog():
