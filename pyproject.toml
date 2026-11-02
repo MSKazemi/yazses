@@ -172,15 +172,19 @@ emg = [
 ble = [
     "bleak>=3.0.2",
 ]
+# PySide6 stays below 6.12 on purpose: 6.12.0 makes the `pyside6` metapackage depend on
+# `pyside6-webengine` (a 117 MB Chromium build) and `pyside6-pdf`, which the overlay and
+# tray never use, and its licence string ("LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only")
+# trips the dependency-review licence gate. Lift this when 6.12 stops pulling them in.
 overlay = [
-    "PySide6>=6.11.1",
+    "PySide6>=6.11.1,<6.12",
 ]
 # Everything the desktop experience needs beyond the headless core. Kept as a
 # named alias of `overlay` so install paths can ask for intent ("I have a
 # desktop") rather than for a widget, and so adding a second desktop-only
 # dependency later does not mean editing every installer again.
 desktop = [
-    "PySide6>=6.11.1",
+    "PySide6>=6.11.1,<6.12",
 ]
 prosody = [
     "praat-parselmouth>=0.4.7",
@@ -401,7 +405,7 @@ all = [
     "pynvim>=0.6.0",
     "pyserial>=3.5",
     "bleak>=3.0.2",
-    "PySide6>=6.11.1",
+    "PySide6>=6.11.1,<6.12",
     "praat-parselmouth>=0.4.7",
     "kokoro-onnx>=0.5.0",
     "onnxruntime>=1.27.0; sys_platform != 'darwin' or platform_machine != 'x86_64'",

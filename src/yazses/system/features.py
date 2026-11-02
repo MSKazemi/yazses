@@ -1186,11 +1186,11 @@ _FEATURE_DEPS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
     "handsfree": (("cv2", "mediapipe"), _CAMERA),
     # Chords read face and head tokens off the same shared camera source.
     "gesture": (("cv2", "mediapipe"), _CAMERA),
-    "overlay": (("PySide6",), ("PySide6>=6.11.1",)),
+    "overlay": (("PySide6",), ("PySide6>=6.11.1,<6.12",)),
     # Same Qt dependency as the overlay. Registered separately because PySide6 is
     # no longer a base dependency (it is the `desktop` extra), so enabling the tray
     # on a headless-installed copy has to be able to fetch it too.
-    "tray": (("PySide6",), ("PySide6>=6.11.1",)),
+    "tray": (("PySide6",), ("PySide6>=6.11.1,<6.12",)),
     "chinese-script": (("opencc",), ("opencc-python-reimplemented>=0.1.7",)),
     # Its absence is the reason this map now has a guard. `features enable denoise`
     # wrote `[denoise] enabled = true`, installed nothing, and the daemon then warned
