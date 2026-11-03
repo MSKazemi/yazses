@@ -43,7 +43,7 @@ experiment on physical hardware are **different claims**.
 | **Deferred / conditional** | Demand and an explicit decision must precede implementation. | A commitment to build it. |
 
 For reachable features, the source of truth is the
-[feature registry and ``yazses features`` command](features.md), which distinguish
+[feature registry and `yazses features` command](features.md), which distinguish
 wired capabilities from designed-but-unwired ones. For actual installation
 and usage evidence, consult the [platform validation matrix](validation-matrix.md).
 It distinguishes **Verified (HW)**, **Reported**, **CI only** and **UNVERIFIED**,
@@ -52,39 +52,47 @@ versions automatically.
 
 ### How a claim gets earned
 
-Evidence is promoted one stage at a time, and a later stage never implies an
-earlier one is complete. In particular, **a package can be released while a
-device is still unverified**.
+Release availability and real-device verification are **separate evidence
+paths**. A package can ship while a specific device remains unverified;
+a hardware trial can also fail. Only a complete positive hardware record
+for the **same released build and setup** can support a narrow
+compatibility claim.
 
 ```mermaid
 flowchart TB
-    D["Stage 1 - Design<br/>ADR or written spec"]
-    S["Stage 2 - Synthetic fixture or CI<br/>Shows: the code path behaves"]
-    R["Stage 3a - Release or package available<br/>Shows: it can be installed"]
-    H["Stage 3b - Independent real-device result<br/>Shows: a named device, OS and version worked"]
-    C["Stage 4 - Bounded compatibility claim<br/>Covers only what was tested"]
-    D --> S
-    S --> R
-    S --> H
-    H --> C
-    R -.->|"does not by itself prove"| C
-    classDef proven stroke-width:3px
-    classDef pending stroke-dasharray:6 3
-    class H,C pending
+    D["Design or scoped technical decision"]
+    T["Synthetic / replay tests and CI<br/>Code-path evidence only"]
+    R["Published software release<br/>Installable, not device proof"]
+    H["Physical-device trial by a named tester<br/>Exact version, OS and hardware; may pass or fail"]
+    G{"Positive Verified (HW) record<br/>for that released build and setup?"}
+    S["Bounded support claim<br/>Only what was actually verified"]
+    U["No verified compatibility claim<br/>Preserve Failed, Reported or UNVERIFIED status"]
+    D --> T
+    T --> R
+    T --> H
+    R --> G
+    H --> G
+    G -->|"Yes"| S
+    G -->|"No / incomplete"| U
+    classDef verified stroke-width:3px
+    classDef unverified stroke-dasharray:6 3
+    class S verified
+    class U unverified
 ```
 
 **Text equivalent:**
 
-| Stage | What it shows | What it does **not** show | Recorded as |
-|---|---|---|---|
-| 1. Design | A decision and its reasons. | That anything works. | [ADR](https://github.com/MSKazemi/yazses/tree/main/design/adr) or spec |
-| 2. Synthetic fixture / CI | The code path behaves on recorded or simulated input. | Behaviour on a real device, OS or application. | **CI only** |
-| 3a. Release / package | The software can be installed from a tagged build. | That any device or input method works. | [Release notes](releases/index.md) |
-| 3b. Independent real-device result | A named device, OS and release worked or failed, reported by someone other than the author. | That later releases or other devices work. | **Verified (HW)** or **Reported** |
-| 4. Bounded claim | Exactly what stage 3b covered, for that release. | Anything wider. | [Validation matrix](validation-matrix.md) |
+| Evidence | Supports | Does **not** support |
+|---|---|---|
+| Design / ADR | Architecture or intention has been recorded. | A working implementation. |
+| Synthetic / replay / CI | The specified test passed under simulated, recorded or runner conditions. | Physical hardware, microphone permission or real app interaction. |
+| Published release | A named build and package can be installed. | Compatibility with any particular device, desktop or feature path. |
+| Real-device test | A named tester records the exact build, OS, device, install path, actual result and relevant diagnostics. Results can be **Verified (HW)**, **Failed (HW)** or **Reported** when incomplete. | Any untested version, OS, device or other claim. |
+| Bounded compatibility claim | **Both** a published build and a complete positive **Verified (HW)** record for that tested route. | Automatic promotion of every platform or a later release. |
 
-Stages 3a and 3b are separate: 3a does not wait for 3b, and 3b is the only
-route to stage 4. Anything without a stage 3b result stays **UNVERIFIED**.
+See the [validation evidence standard](contribute/validation.md) and
+[validation matrix](validation-matrix.md). Failed and incomplete reports
+remain visible; neither becomes a positive compatibility claim.
 
 ## Current technical position — November 2026
 
@@ -106,40 +114,52 @@ acceptance testing.
 
 ## Execution order — outcomes first, not feature count
 
-These are **priorities and dependencies**, not calendar quarters. Parallel
-study is welcome, but research cannot silently authorize a new feature wave.
-In the diagram an arrow means **"depends on" or "needs a decision"**. It never
-means "will ship".
+These are **priorities and evidence states**, **not release dates or a
+four-era timeline**. The engineering lanes can progress independently;
+only the arrows entering the decision gate express a prerequisite.
 
 ```mermaid
 flowchart TB
-    P0["P0 - Reliability and platform proof<br/>Status: active"]
-    P1["P1 - Agent-era bridge<br/>Status: shipped, real-client check pending"]
-    V["R1 - Speech quality, EMG and blink<br/>Status: validation only, no real-device proof"]
-    C["R2 - Android, XR and expanded HCI<br/>Status: conditional or research only"]
-    GATE{"ADR-030 freeze: outside-user demand<br/>and a recorded amendment?"}
-    SCOPE["Scoped issue with acceptance criteria"]
-    STAY["Stays research or deferred"]
-    P0 --> P1
-    P0 --> V
-    V ~~~ C
-    C --> GATE
-    GATE -->|"yes"| SCOPE
-    GATE -->|"no"| STAY
-    classDef shipped stroke-width:3px
+    subgraph DELIVERY["Current permitted delivery"]
+      direction LR
+      P0["P0 - Desktop reliability and OS validation<br/>ACTIVE: hardware evidence incomplete"]
+      P1["P1 - Agent-era voice interfaces<br/>RELEASED code: real-client validation pending"]
+    end
+    subgraph RESEARCH["Measure existing technology before expansion"]
+      direction LR
+      ASR["R1 - Offline ASR and languages<br/>RESEARCH: benchmark and acceptance gates"]
+      BIO["R1 - EMG / blink switches<br/>EXPERIMENTAL: physical validation pending"]
+    end
+    subgraph HORIZON["Future surfaces: not scheduled feature releases"]
+      direction LR
+      AND["Android<br/>SOURCE FOUNDATIONS; no APK"]
+      XR["XR / expanded HCI<br/>RESEARCH ONLY"]
+    end
+    G{"New capability permitted by ADR-030?<br/>Substantive outside-user evidence and recorded decision"}
+    BUILD["Scoped engineering issue with acceptance criteria"]
+    PARK["Remain research / deferred"]
+    AND --> G
+    XR --> G
+    G -->|"Yes"| BUILD
+    G -->|"No"| PARK
+    classDef current stroke-width:3px
     classDef experimental stroke-dasharray:6 3
     classDef research stroke-dasharray:2 3
-    class P0,P1 shipped
-    class V experimental
-    class C research
+    class P0,P1 current
+    class BIO experimental
+    class ASR,AND,XR research
 ```
 
-**Text equivalent:** the table below lists every lane with its status and
-evidence. P0 (reliability and platform proof) comes first, and the narrow
-agent-era bridge (P1) is already shipped and awaiting real-client checks. Speech
-quality and biosignal switches are validated on real devices without adding
-features (validation only). Android and XR/HCI are conditional or research-only: they reach a
-scoped issue only through the ADR-030 gate, and otherwise stay as research.
+**Text equivalent:** P0 is the first priority but **not yet
+fully verified**; it covers the installed dictation path on actual OS
+and compositor combinations. P1 interfaces have shipped but still need
+client-version tests to establish review-before-send behavior.
+R1 ASR work is benchmark research; R1 biosignal input has released
+experimental code but awaits real-device and safety evidence. Android
+has source foundations without an installable application; XR and
+expanded HCI remain research only. Neither is scheduled for delivery
+without the explicit ADR-030 entry gate. **None of these labels is a
+promise to ship the next stage.**
 
 | Lane | Success looks like | Required evidence / issue |
 |---|---|---|
@@ -160,7 +180,7 @@ improvements** hidden in this table.
 The accepted [ADR-030 breadth freeze](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-030-agent-era-direction.md)
 prioritizes reliability, truthful capabilities, first-use adoption and two
 small agent interfaces. Beyond that scope, a proposal stops at a **Proposed
-ADR** or an ``evergreen:research`` issue unless substantive outside-user
+ADR** or an `evergreen:research` issue unless substantive outside-user
 feedback and a maintainer-recorded amendment justify it. Accessibility
 feature expansion also needs evidence from real hands-free users.
 
@@ -168,12 +188,12 @@ feature expansion also needs evidence from real hands-free users.
 flowchart TB
     A["Step 1: Written hypothesis<br/>a falsifiable question"]
     B["Step 2: Local-only feasibility and licence check<br/>no cloud, no private data"]
-    C{"Step 3: Do people or bodies take part?"}
-    D["Step 3a: Documented consent and safety review"]
+    C{"Step 3: Human participants or body-contact sensors?"}
+    D["Step 3a: Consent, privacy and device-safety review"]
     E["Step 4: Reproducible measurements<br/>named device, version and baseline"]
     F{"Step 5: Maintainer go or no-go"}
     G{"Step 6: ADR-030 breadth freeze:<br/>exception accepted and recorded?"}
-    H["Step 7: Scoped implementation issue<br/>off by default, tests and docs included"]
+    H["Step 7: Scoped implementation proposal<br/>opt-in defaults, tests and docs required"]
     Z["Stop: the result stays research"]
     A --> B
     B --> C
@@ -192,15 +212,15 @@ flowchart TB
 1. Write the hypothesis as a question that a measurement could answer **no** to.
 2. Check feasibility and licensing using local resources only, with no
    cloud service and no private data.
-3. Where people or bodies take part (biosignals, accessibility trials), a
-   documented consent and safety review comes before any measurement.
+3. For human participants, on-body sensors or accessibility trials, review
+   consent, privacy, device safety and research requirements before measurement.
 4. Take reproducible measurements: named device, release, configuration
    and baseline, including the failures.
 5. A maintainer records a go or no-go. No-go ends as published research.
 6. Even a go meets the ADR-030 breadth freeze: without a recorded exception
    it also ends as research.
-7. Only an accepted exception becomes a scoped implementation issue, which
-   ships off by default with its tests and docs. The
+7. Only an accepted exception can become a scoped implementation task. Any
+   eventual release must be opt-in by default and include tests and docs. The
    [stage chart above](#how-a-claim-gets-earned) then decides what may be
    claimed about it.
 
@@ -242,7 +262,7 @@ and its biosignal switch does not decode thoughts.
 The [milestone policy](https://github.com/MSKazemi/yazses/blob/main/design/milestone-policy.md)
 distinguishes delivery issues (one milestone), epics (derived from their
 children), and evergreen research, translation and open-ended field
-reports (the appropriate ``evergreen:*`` label, no milestone). A research
+reports (the appropriate `evergreen:*` label, no milestone). A research
 idea is not a release obligation.
 
 | Work you can join | Tracking |
