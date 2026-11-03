@@ -18,6 +18,19 @@ _HOMOGLYPHS = {
     "О": "O", "Р": "P", "С": "C", "Т": "T", "Х": "X",
 }
 _INVISIBLE = {"​", "‌", "‍", "⁠", "﻿", "­"}
+# ZWNJ and ZWJ are orthography in Persian, Arabic, Urdu and Indic scripts (the half-space in
+# می‌خواهم is part of the spelling), so between two non-ASCII letters they are not a hidden character.
+# Anywhere else (between ASCII letters, at an edge, next to a digit) they are still flagged.
+_JOINER_CONTROLS = {"‌", "‍"}
+
+
+def _is_orthographic_joiner(text: str, i: int) -> bool:
+    """A ZWNJ/ZWJ at ``text[i]`` that sits between two non-ASCII letters. Pure."""
+    if text[i] not in _JOINER_CONTROLS or i == 0 or i + 1 >= len(text):
+        return False
+    before, after = text[i - 1], text[i + 1]
+    return (before.isalpha() and not before.isascii()
+            and after.isalpha() and not after.isascii())
 
 
 def _skeleton_char(ch: str) -> str:
@@ -51,6 +64,8 @@ def scan_confusables(text: str) -> list[dict]:
     findings = []
     for i, ch in enumerate(text or ""):
         if ch in _INVISIBLE:
+            if _is_orthographic_joiner(text, i):
+                continue
             findings.append({"index": i, "char": ch, "kind": "invisible", "suggestion": ""})
         elif ch in _HOMOGLYPHS or 0xFF01 <= ord(ch) <= 0xFF5E:
             findings.append({"index": i, "char": ch, "kind": "confusable",

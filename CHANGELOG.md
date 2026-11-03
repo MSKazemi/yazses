@@ -74,6 +74,20 @@ A Hugging Face id (`org/repo`) or a local model folder is still accepted by `--m
   syntax hint ran past the window. The threshold row now puts its field under the label when
   the window is too narrow, and the two text lines wrap instead of clipping.
 
+### Fixed — SafeGlyph no longer warns about the half-space in ordinary Persian
+
+With `[safeglyph] enabled` (opt-in, log-only) every Persian dictation containing a half-space, as in
+می‌خواهم, logged a warning about a hidden character, because the check flagged every ZWNJ. A ZWNJ or ZWJ
+between two non-ASCII letters is spelling in Persian, Arabic, Urdu and the Indic scripts and is no longer
+flagged. A zero-width character anywhere else is still flagged: between ASCII letters (a ZWNJ hidden inside `paypal`), at either
+end of the text, or next to a digit, and the other invisible characters (U+200B, U+2060, U+FEFF, U+00AD)
+are flagged everywhere. A real homoglyph inside Persian text is still found.
+
+### Fixed — the semantic-break splitter treats the Arabic semicolon like the ASCII one
+
+`sembr` broke a line after `;` but not after `؛` (U+061B), although it already broke after the Arabic
+question mark. English text breaks exactly as before.
+
 ### Fixed — the Arabic, Persian and Urdu pages showed their Markdown as raw text
 
 The right-to-left translated pages wrapped their body in a bare `<div dir="rtl">`, so headings,
