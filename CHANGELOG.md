@@ -6,6 +6,21 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — design pages no longer publish a cut-off or fragment meta description
+
+Was: the description derived for a `design/` page kept straight `"` characters, and the Material
+theme writes it into `<meta name="description" content="…">` without escaping, so the first quote
+ended the attribute and a parser read only the text before it (68 of 402 pages in a built site;
+`adr-v2-080` read `Wave J research (#7) —`). A paragraph that only introduces a list or a quote
+("The brief was:") was also used whole, giving 60 pages a description that ends mid-thought.
+
+Now: `hooks/design_tier.py` writes typographic quotes (“ ”) in the text it derives, and skips a
+paragraph that ends in `:`, `(`, `,`, `;` or a dash, keeping the complete sentences before it or
+moving to the next paragraph. Measured on a strict build of the same tree before and after:
+quote-broken tags 68 → 0, fragment endings 60 → 0, descriptions under 45 characters 19 → 4 (each
+a complete short sentence). A test now renders every published page's description as the theme
+does and parses it back.
+
 ## [2.48.1] - 2026-11-03
 
 ### Fixed — the tray's "Stop daemon" stays stopped, and its menu actions report the real outcome
