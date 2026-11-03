@@ -6,6 +6,22 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a Butterworth design at an impossible corner-to-rate ratio is refused where it is made
+
+Was: with the corner frequency far below float64 resolution of the sampling rate, the biosignal
+filter design returned sections sitting on the unit circle, and only the later `SosFilter` refused
+them.
+
+Now: `_butterworth` raises a `ValueError` naming the corner and rate. Realistic designs are
+unchanged. Sixteen property tests (arbitrary lengths including 0 and 1, extreme amplitudes,
+chunked equals whole, flat, railed and all-NaN channels never graded GOOD) back it.
+
+Known and left open as a strict xfail: one NaN in a 4 s window at 500 Hz still grades GOOD, because
+`nonfinite_frac_degraded` is 0.001. Capping at DEGRADED changes what counts as GOOD on real
+recordings, which is a threshold decision.
+
+Not checked: real recordings; Windows and FreeBSD.
+
 ## [2.48.1] - 2026-11-03
 
 ### Fixed — the tray's "Stop daemon" stays stopped, and its menu actions report the real outcome
