@@ -10,13 +10,19 @@ from pathlib import Path
 
 import pytest
 
-from scripts.evaluate_dysfluency_fidelity import (
-    EvaluationInputError,
-    _word_errors,
-    _write_aggregate_report,
-    evaluate_synthetic,
-    main,
+import runpy
+
+# This executable is a research script, not an installed distribution. Load it
+# from its checked-in path rather than declaring a fictional "scripts" package.
+_RUNNER = runpy.run_path(
+    str(Path(__file__).resolve().parents[1] / "scripts" / "evaluate_dysfluency_fidelity.py"),
+    run_name="dysfluency_fidelity_test_runner",
 )
+EvaluationInputError = _RUNNER["EvaluationInputError"]
+_word_errors = _RUNNER["_word_errors"]
+_write_aggregate_report = _RUNNER["_write_aggregate_report"]
+evaluate_synthetic = _RUNNER["evaluate_synthetic"]
+main = _RUNNER["main"]
 
 _FIXTURE = Path(__file__).parent / "fixtures" / "disfluency" / "fidelity_synthetic.json"
 _DIGEST = "0" * 64
