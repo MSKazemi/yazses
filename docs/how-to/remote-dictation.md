@@ -168,9 +168,10 @@ ssh_port = 22            # accepted, but see below
 key_file = ""            # accepted, but see below
 ```
 
-`ssh_port` and `key_file` are accepted, but `yazses remote` always sends its own
-`-p`/`-i` values (22 and no key file when you omit them), so the config values never
-apply. Pass the port and key on the command line.
+`ssh_port` and `key_file` are accepted, but `yazses remote` always passes its own port
+(22 when you omit `-p`) and key file (none when you omit `-i`), so the config values never
+apply. The `ssh` command line gets `-p` only when the port is not 22 and `-i` only when a key
+file is given. Pass the port and key on the command line.
 
 !!! warning "`default_host` is accepted but not implemented"
 

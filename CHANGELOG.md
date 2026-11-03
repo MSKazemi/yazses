@@ -107,6 +107,23 @@ a first run nothing is running yet, so there is nothing to restart.
 - **Known-good microphones** told non-programmers to "open a pull request" in the browser editor with no
   link. It now gives the edit link and three plain steps, and an issue as a fallback.
 
+### Fixed — seven statements in the how-to pages and the FAQ that the code contradicts
+
+Found by checking every command, flag, key, default and number on those pages against the code (run, not
+read). Each was reproduced before it was changed.
+
+- **Install only what you need:** the Glance-Type (`gaze`) download is about 154 MB, not 228 MB (`yazses features`).
+- **Personal vocabulary and `[hotwords]`:** `[hotwords]` is not "the same switch" as `[stt] vocab_correction`. They
+  are two keys feeding one corrector, and either turns it on (`daemon.py`: `vocab_correction or hotwords_on`). The page
+  and the `HotwordsConfig` docstring now say so.
+- **Low-RAM models:** resident memory is not "roughly twice" the file: from the page's own table it is 3.7x for
+  `tiny.en`, 2.5x for `base.en` and 1.5x for `small.en`.
+- **Remote dictation:** `yazses remote` passes its own port and key file, but `ssh` gets `-p` only when the port is not 22
+  and `-i` only when a key is given.
+- **Air-gapped:** `yazses update` also contacts the Chocolatey, winget or Scoop index on a Windows install.
+- **FAQ:** "does not set timers" ignored the optional, off-by-default Local Voice Timer.
+- **House style:** whole-word matching applies to literal rules, not to `regex = true` rules.
+
 ### Fixed — the Arabic, Persian and Urdu pages showed their Markdown as raw text
 
 The right-to-left translated pages wrapped their body in a bare `<div dir="rtl">`, so headings,

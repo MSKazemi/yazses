@@ -89,7 +89,7 @@ For stubborn terms, two stronger, related mechanisms exist:
   contains a word that sounds the same as one of your terms and is spelled almost the
   same ("cooper netties" for Kubernetes), it is replaced, and every replacement is
   logged. It does not bias the decoder itself, so it cannot add a word the recogniser
-  never produced a near-miss for. It is the same switch as `[stt] vocab_correction`.
+  never produced a near-miss for. It feeds the same corrector that `[stt] vocab_correction` switches on; either one turns it on.
 
   ```bash
   yazses features enable hotwords
