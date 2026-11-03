@@ -3,6 +3,7 @@
 **Date:** 2026-11-03  
 **Status:** Research / preregistration proposal. No corpus run, human study, model tuning, user-visible feature, or new ADR has been authorized or completed.  
 **Canonical issue:** [#255 — evaluate dictation with dysfluent and dysarthric speakers](https://github.com/MSKazemi/yazses/issues/255).  
+**Detailed methods / evidence audit:** [2026-11-03 preregistration worksheet](2026-11-03-dysfluency-study-registration-and-evidence-audit.md) — independent speaker/episode units, data rights, adjudication, statistics, and all unresolved freeze decisions.  
 **Existing decisions:** [ADR-015](../adr/adr-015-dysfluency-friendly-mode.md), [ADR-v2-021](../adr/adr-v2-021-atypical-speech-adapter.md), [ADR-011](../adr/adr-011.md); [AGENTS.md](../../AGENTS.md).  
 **Related:** [#144](https://github.com/MSKazemi/yazses/issues/144) and [#146](https://github.com/MSKazemi/yazses/issues/146) (both closed), [semantic invariants](../../contract/semantic/invariants.json), [research agenda](../../docs/research/agenda.md).
 
