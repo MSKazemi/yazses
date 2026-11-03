@@ -79,6 +79,22 @@ offset (true bursts 107/120 down to 0/120), and removing the pre-crossing mean c
 bursts and needs a new constant. The false squeeze stays open.
 
 Not checked: real hardware or recordings.
+### Fixed — hostile or corrupt biosignal recordings fail with a clear error, not a crash or a huge allocation
+
+Was: an empty `.npz` raised `EOFError`; a truncated zip raised `BadZipFile`; a `.npz` whose header
+claimed a billion samples allocated about 8 GB before failing; a corrupt `.npz` leaked its file
+handle; `# fs=1e400` in a CSV raised `OverflowError`; an XDF stream with `nominal_srate` `1e400`
+was returned at an infinite rate; a member named `data` without `.npy` raised `KeyError`.
+
+Now: each is a `ValueError` naming the file, the declared size is checked against the archive entry
+before numpy allocates, and a non-finite sampling rate counts as unknown. 53 seeded fuzz and totality
+tests cover the ThinkGear, BITalino, Myo and EDF parsers too (truncation, bit flips, bad checksums,
+split at every byte, garbage prefixes); they found no failure there.
+
+Known and left open: ThinkGear rescans a buffer of repeated `0xAA` bytes on each feed (CPU grows
+faster than linearly, memory stays bounded by its 64 KiB cap).
+
+Not checked: real XDF files (`pyxdf` was a stub), real devices.
 
 ## [2.48.1] - 2026-11-03
 
