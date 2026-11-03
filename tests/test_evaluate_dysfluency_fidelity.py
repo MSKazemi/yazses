@@ -5,12 +5,11 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import runpy
 from copy import deepcopy
 from pathlib import Path
 
 import pytest
-
-import runpy
 
 # This executable is a research script, not an installed distribution. Load it
 # from its checked-in path rather than declaring a fictional "scripts" package.
