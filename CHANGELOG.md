@@ -140,6 +140,16 @@ sizes by listing and reading them).
 - **Feature reference:** the intro said all but the core are off by default. The core and the capabilities marked
   `recommended (on by default)` are on from the start. The sentence is in `scripts/gen-docs.py`; the page is regenerated.
 
+### Fixed — eight feature cards said "Off by default" while first-run setup turns them on, and `jump --help` promised VS Code
+
+- **Feature cards.** `checkdigit`, `focusprofile`, `timeline`, `compute`, `corrdict`, `verbatim`, `spelling` and
+  `cmdsafety` are in the recommended tier, which first-run setup writes on (`default_enabled_slugs`); their config keys
+  default to off, which is what the cards were describing. The cards (and `docs/features.md`, regenerated) now say "On
+  after first-run setup (the config key itself defaults to off)." A test holds that no card the first run seeds claims to
+  be off by default.
+- **`yazses jump --help`** said it uses the "Neovim/VS Code" bridge. The command refuses VS Code (its bridge supplies
+  dictation context only, with no cursor motion), so the help now says Neovim and says VS Code cannot be used for jumping.
+
 ### Fixed — the Arabic, Persian and Urdu pages showed their Markdown as raw text
 
 The right-to-left translated pages wrapped their body in a bare `<div dir="rtl">`, so headings,

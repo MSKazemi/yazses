@@ -505,8 +505,8 @@ def jump(
 ) -> None:
     """Jump to a symbol or line in the active editor.
 
-    Uses the configured LSP editor bridge (Neovim/VS Code) to resolve the
-    target and move the cursor.
+    Uses the Neovim editor bridge to resolve the target and move the cursor. VS Code
+    cannot be used for jumping: its bridge supplies dictation context only.
     """
     from yazses.commands.lsp_context import LspContextProvider
     from yazses.jump.target import plan_motion, resolve_target
