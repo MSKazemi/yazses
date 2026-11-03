@@ -46,9 +46,19 @@ nothing here is tested by the maintainers.
     ```
 
 3. **Add one row** to the table above, in alphabetical order by microphone name, and delete
-   the `_(your entry here)_` placeholder row if it is still present.
+   the `_(your entry here)_` placeholder row if it is still present. You can do this in the
+   browser, with no Git on your machine:
 
-4. Open a pull request titled `docs: add <microphone> to known-good microphones`.
+    1. Sign in to GitHub, then open
+       [the page's edit view](https://github.com/MSKazemi/yazses/edit/main/docs/known-good-microphones.md).
+       If you are not a maintainer, GitHub offers to make a copy of the project for you.
+    2. Add your row to the table and scroll down to **Commit changes** (GitHub may label the
+       button **Propose changes**).
+    3. Give it the title `docs: add <microphone> to known-good microphones`, then follow the
+       **Create pull request** button that comes next.
+
+4. If that is too much, open an [issue](https://github.com/MSKazemi/yazses/issues/new/choose)
+   with the same five columns instead, and a maintainer will add the row.
 
 ### What to put in each column
 

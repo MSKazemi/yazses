@@ -21,6 +21,149 @@ colour or stylesheet is used, every button and combo box is at least 48 px high,
 Recenter are the first three Tab stops, and the Tab order does not depend on the window's width. The
 only change to the Tab order is that the health report now comes straight after the ways to stop, where
 it now sits on screen, instead of after the camera switches.
+### Fixed — the tray's "Stop daemon" stays stopped, and its menu actions report the real outcome
+
+Was: on Linux, "Stop daemon" sent only the `shutdown` request. The stop note that `yazses stop`
+leaves was never written, so the tray relaunched the daemon about five seconds later and undid the
+stop. The microphone pin, the re-calibrate and the stop handlers announced success whatever the
+daemon answered, and dropped the daemon's own words on failure. Meeting Mode's notification and the
+re-calibrate failure showed "That did not work." or "Could not re-calibrate right now." when the
+daemon had given a reason or an error.
+
+Now: "Stop daemon" leaves the same stop note before it sends `shutdown`, so the tray closes instead
+of relaunching; if the stop is refused, the note is removed and the tray's normal recovery applies.
+A failed microphone pin, re-calibrate or stop shows the daemon's `reason` or `error`; "Pinned to"
+and "Stopping the daemon…" appear only when the daemon accepted the request. `yazses restart` still
+writes no note. Only the Linux tray calls this path; the macOS and Windows trays quit through their
+own `shutdown` calls, which this change does not touch.
+
+Not checked: a real tray on a real desktop session, and the macOS and Windows trays. The fix is
+covered by unit tests with a fake IPC client and a temporary data directory.
+
+### Fixed — Apply in Settings could erase a pinned microphone you never touched
+
+The microphone dropdown selects its row by value. A pinned `[audio] device` with no matching row
+(the device unplugged, or a substring pin such as `USB` that matches no device name exactly) fell
+back to "Follow the system default". Pressing Apply with nothing changed then read that as a
+change and wrote an empty device, clearing the pin and raising the restart prompt. Now the pinned
+value always has a row, labelled with a `not connected` (or `matches a connected device`) note,
+so an untouched Apply writes nothing for the microphone. Choosing "Follow the system default"
+still clears the pin. Not checked: a real desktop session and real audio hardware; the tests run
+offscreen with a stubbed device list.
+
+### Fixed — `yazses cite` and `yazses vocab import` failed silently or with a traceback
+
+- `cite --style bogus` printed APA output with exit 0. An unknown style now exits 2 and lists
+  `latex, plain, apa`. `--style plain` still prints the same as `apa` (`Vaswani et al. (2017)`):
+  its own format is undecided, so it is not yet a separate style.
+- A non-UTF-8 `.bib` passed to `cite` raised `UnicodeDecodeError`. It is now read as UTF-8,
+  then Latin-1. A binary file passed to `vocab import` (or to `-` on stdin) now fails with a
+  one-line message naming the file and that it is not UTF-8, exit 1, and writes nothing.
+- `vocab import <directory>` said `No such file`. It now says the path is a directory.
+- `cite` on an empty `.bib` now says the bibliography file has no entries, and an empty query
+  says the query is empty, instead of `No confident citation match`.
+
+### Fixed — `yazses transcribe` errors are one clear message, not a traceback
+
+With no cached model, `yazses transcribe` printed a Python traceback and then the friendly
+message; the message is now the whole output (the traceback is kept at DEBUG). An unknown
+`--model` name is refused up front with exit 2, naming the model and listing the Whisper
+models that `transcribe` accepts, instead of suggesting `yazses model download <name>`, which
+could not work. A negative `--speakers`, `--min-speakers` or `--max-speakers` is refused with
+exit 2: both diarizers read a non-positive count as auto-detect, so `-3` silently meant "auto".
+A Hugging Face id (`org/repo`) or a local model folder is still accepted by `--model`.
+
+### Fixed — keyboard focus, Apply and large-font labels in the settings window
+
+- **The focused sidebar row and category row now show a 2 px ring.** Both lists had
+  `outline: 0`, which removed the only focus cue; the row's selection fill was the sole
+  indicator, and it says which page is open rather than where focus is. The ring uses the
+  window's text colour, which keeps at least 3:1 contrast against the window and the fill in
+  both light and dark themes.
+- **Ctrl+Return applies the staged changes** (Ctrl+Enter, the keypad's Enter, works too).
+  The comment and the Apply tooltip said "Enter applies", but a main window has no default
+  button, so Enter did nothing and Apply could sit a long way down the Tab order. A plain Enter
+  in a text field still does not apply anything.
+- **Labels no longer clip at a large font.** At 2x the Audio page's "Silence threshold:" label
+  was narrower than its text, its status line ran past the field, and the Features filter's
+  syntax hint ran past the window. The threshold row now puts its field under the label when
+  the window is too narrow, and the two text lines wrap instead of clipping.
+
+### Fixed — SafeGlyph no longer warns about the half-space in ordinary Persian
+
+With `[safeglyph] enabled` (opt-in, log-only) every Persian dictation containing a half-space, as in
+می‌خواهم, logged a warning about a hidden character, because the check flagged every ZWNJ. A ZWNJ or ZWJ
+between two non-ASCII letters is spelling in Persian, Arabic, Urdu and the Indic scripts and is no longer
+flagged. A zero-width character anywhere else is still flagged: between ASCII letters (a ZWNJ hidden inside `paypal`), at either
+end of the text, or next to a digit, and the other invisible characters (U+200B, U+2060, U+FEFF, U+00AD)
+are flagged everywhere. A real homoglyph inside Persian text is still found.
+
+### Fixed — the semantic-break splitter treats the Arabic semicolon like the ASCII one
+
+`sembr` broke a line after `;` but not after `؛` (U+061B), although it already broke after the Arabic
+question mark. English text breaks exactly as before.
+
+### Fixed — the advice after `yazses mic-level --set` now names one restart command that is true everywhere
+
+`mic-level --set` printed `yazses stop && yazses start`, the Linux install guide said
+`systemctl --user restart yazses.service`, and the getting-started page did not mention a restart at
+all. A daemon that is already running ignores a changed threshold until it is restarted. All three now
+say `yazses restart`, the command the silent-audio guide already used: it stops every daemon and
+starts exactly one, through the systemd unit when one is installed. Getting-started also says that on
+a first run nothing is running yet, so there is nothing to restart.
+
+### Fixed — first-run pages now say what a healthy first run looks like, and point to `yazses quickstart`
+
+- **Getting started** said every `yazses doctor` row should read `[OK]`. On a fresh machine doctor prints
+  several `[WARN]` rows (daemon not running, speech model not downloaded, no config file yet) and ends with
+  `Good to go (N optional warnings)`. The page now says that is normal and what a `[FAIL]` means.
+- **`yazses quickstart`** (read-only, tailored to the machine) is the command `--help`, `status` and the
+  installer footer point to, but the getting-started, Linux install and FAQ pages never named it. They do now.
+- **Known-good microphones** told non-programmers to "open a pull request" in the browser editor with no
+  link. It now gives the edit link and three plain steps, and an issue as a fallback.
+
+### Fixed — seven statements in the how-to pages and the FAQ that the code contradicts
+
+Found by checking every command, flag, key, default and number on those pages against the code (run, not
+read). Each was reproduced before it was changed.
+
+- **Install only what you need:** the Glance-Type (`gaze`) download is about 154 MB, not 228 MB (`yazses features`).
+- **Personal vocabulary and `[hotwords]`:** `[hotwords]` is not "the same switch" as `[stt] vocab_correction`. They
+  are two keys feeding one corrector, and either turns it on (`daemon.py`: `vocab_correction or hotwords_on`). The page
+  and the `HotwordsConfig` docstring now say so.
+- **Low-RAM models:** resident memory is not "roughly twice" the file: from the page's own table it is 3.7x for
+  `tiny.en`, 2.5x for `base.en` and 1.5x for `small.en`.
+- **Remote dictation:** `yazses remote` passes its own port and key file, but `ssh` gets `-p` only when the port is not 22
+  and `-i` only when a key is given.
+- **Air-gapped:** `yazses update` also contacts the Chocolatey, winget or Scoop index on a Windows install.
+- **FAQ:** "does not set timers" ignored the optional, off-by-default Local Voice Timer.
+- **House style:** whole-word matching applies to literal rules, not to `regex = true` rules.
+
+### Fixed — the architecture guide's capability table was 11 features behind the registry, and six other statements
+
+Found by checking the page against the code (the registry counted by running it; paths, packages and
+sizes by listing and reading them).
+
+- **Architecture, capability table:** it said 140 capabilities, 73 wired, 67 designed. The registry has 151, 126 wired,
+  25 designed, and the figure on the same page already said so. The per-category rows are replaced with the live
+  counts. The paragraph below it said accessibility is "almost entirely designed (2 of 20)"; it is 20 of 25 wired, and
+  the category furthest from done is now multilingual (5 of 7 designed).
+- **Architecture, smaller:** the Unicode injector is `inject/unicode.py` (not `unicode_injector.py`); 24 of the 151
+  rows need an optional Python package (not fifteen); Moonshine also pulls `librosa`, `numba` and `huggingface-hub`
+  (still no torch); the latency figure is 30 utterances per model, not one utterance measured 30 times;
+  `speechbrain` resolves to about 3.4 GB, not 3.1 GB (also in the CLI reference).
+- **Feature reference:** the intro said all but the core are off by default. The core and the capabilities marked
+  `recommended (on by default)` are on from the start. The sentence is in `scripts/gen-docs.py`; the page is regenerated.
+
+### Fixed — eight feature cards said "Off by default" while first-run setup turns them on, and `jump --help` promised VS Code
+
+- **Feature cards.** `checkdigit`, `focusprofile`, `timeline`, `compute`, `corrdict`, `verbatim`, `spelling` and
+  `cmdsafety` are in the recommended tier, which first-run setup writes on (`default_enabled_slugs`); their config keys
+  default to off, which is what the cards were describing. The cards (and `docs/features.md`, regenerated) now say "On
+  after first-run setup (the config key itself defaults to off)." A test holds that no card the first run seeds claims to
+  be off by default.
+- **`yazses jump --help`** said it uses the "Neovim/VS Code" bridge. The command refuses VS Code (its bridge supplies
+  dictation context only, with no cursor motion), so the help now says Neovim and says VS Code cannot be used for jumping.
 
 ### Fixed — the Arabic, Persian and Urdu pages showed their Markdown as raw text
 
@@ -65,6 +208,97 @@ was measured for this.
 - The missing-character error names the layout that was consulted, and `yazses doctor` gains an
   `Injection layout` row: STT language, the detected layout and its source, and that Persian
   letters need an active `ir` layout or YazSes pastes instead.
+
+### Fixed — an electrode shift no longer starts dictation (biosignal switch, off by default)
+
+A band-passed edge kept the squeeze envelope over its threshold for the whole minimum burst. On synthetic
+signals a 1000 µV shift with a 60 ms rise fired 40 times in 40 at 200 Hz. A burst now has to keep its
+energy and must not be the raw level moving one way. That took every tested step, every rectangular bump
+(15 to 120 ms) and every single-sample pop to 0 false starts, while a held contraction still confirmed at
+the same median latency. **Not stopped:** a smooth bump that rises and falls back (a Hann bump of 50 to
+120 ms) still starts a squeeze, in 7 to 20 of 20 runs at 600 µV and 16 to 20 of 20 at 1000 µV or more;
+300 µV fired 0 to 6 of 20, and 30 ms never fired. A strict expected-failure test records this. All of it
+is synthetic white noise, not measured on real skin.
+
+### Fixed — the blink switch worked with its monitor off and not with it on (biosignal switch, off by default)
+
+The quality monitor graded mains hum on the raw signal, although the blink detector filters it out first.
+The default synthetic EOG stream delivered 0 of 500 double blinks with the monitor on and 411 with it off.
+It now reads the hum as the detector does: 411 of 500, no false events, and a 50 µV hum still stops every
+blink.
+
+### Fixed — a gesture made during a long transcription no longer acts afterwards (biosignal switch, off by default)
+
+Transcription holds the thread that reads the device, so what queued meanwhile was processed later as if
+new. A live source now discards that queue after a callback of a second or more. A release that overlapped
+a squeeze's start could also end the same turn twice. It now ends once, after the start returns.
+
+- **Cost: about 2.5 s of dead time.** The discard resets the detectors and the quality monitor, which
+  refills for 2 s before it judges anything. Measured on the synthetic blink stream: a double blink 2.5 s
+  after the reset was lost in 40 of 40 runs, one at 2.6 s or later was delivered about as often as without
+  a reset. So after every dictation turn longer than about a second the switch ignores gestures for roughly
+  2.5 s. The squeeze path shares the 2 s warm-up; its dead time was not measured.
+- **Known limit, by test:** a block that holds a release and a blink runs the release (and its slow turn)
+  first, then acts on the blink seconds late. The discard only drops later blocks.
+- **Known limit, by reading only:** the discard is skipped while a squeeze is held, but if the watchdog
+  releases a squeeze during a slow start, the discard can then run.
+
+### Fixed — a Myo or gForce stream is no longer judged against microvolt limits (biosignal switch, off by default)
+
+The signal-quality gate applied microvolt limits to raw ADC counts, which is what a Myo and a gForce
+report. A quiet, live Myo channel of about half a count of noise was called "flat" and graded degraded,
+because the flatline limit is 0.5 µV. Count-unit sources now skip the checks whose limits are in
+microvolts: flatline is judged only as exactly zero variance, and the saturation level, the drift
+amplitude gate and the EEG/EOG noise limits are off. Non-finite samples, packet loss, mains hum, clipping
+plateaus, lead-off steps and shared movement are still checked. A stream where more than half the samples
+are identical, followed by a flat tail one count away, used to read as a lead-off step of about 10¹¹
+sigmas; the step is now measured against at least the rounding noise of an integer stream (0.29 count),
+so a one-count change no longer counts. A change of four counts still does. Synthetic only; how a real
+int8 band behaves is unknown.
+
+- **Every such report says so.** The report carries the reason, and `yazses biosignal monitor` prints
+  "Absolute amplitude checks were skipped: this source reports counts, not microvolts", so the skip is
+  never silent.
+- **µV boards: nothing changes.** The defaults are the same object, and a test checks the reports are
+  identical with and without the switch.
+- **Not measured on hardware.** Checked on synthetic count streams only. The thresholds that remain for
+  counts are untuned design choices, and no real Myo or gForce has been run through this.
+
+### Fixed — `yazses doctor` advises on the LSL, ThinkGear, BITalino and Myo sources
+
+The biosignal row checked a serial port only for BrainFlow sources, and gave no advice for the four
+other `[biosignal] source` kinds. Now:
+
+- **A missing port is named:** `thinkgear:` or `bitalino:` with no port says so, and gives an example.
+- **A Windows drive path is read whole:** the row split the spec at its first colon, so
+  `thinkgear:C:\dev\rfcomm9` was read as port `C` and never checked. It now takes the port the source
+  parser does, and a path that does not exist is reported like a missing `/dev` port. A COM name
+  (`COM3`, `\\.\COM3`) is still not checked, since it is not a file. Found by the Windows CI leg on this
+  PR; tested with Windows-style strings on every platform, not run on Windows.
+- **A placeholder is named:** `thinkgear:<port>`, `bitalino:<port>` or `myo:<address>` left as written is
+  reported as a placeholder, with an example of the real spec.
+- **Each device's channel layout is on the OK line**, from the board table. For a Myo or gForce it says
+  the values are counts. LSL is described without a rate or signal kind, since the stream sets them.
+
+Nothing new is opened, and the BrainFlow allowlist is unchanged: these sources never resolve to a
+BrainFlow id.
+
+### Fixed — `biosignal monitor` shows when the stream-integrity gate is holding events
+
+- While the stream-integrity gate holds events (a timestamp went backwards, a packet was lost or
+  repeated, or the stream stalled), `yazses biosignal monitor` now prints an `Events HELD` line with
+  the reason and how much clean signal is still needed before it clears. It prints a `cleared` line
+  when the hold ends. Before, the only trace was a log line and a dropped-event reason.
+- The wording and keys match the `integrity` block of the daemon status, so the two read the same.
+- Not run on real hardware: the test covers a recorded-style fake source, not a live board.
+
+### Fixed — `doctor` no longer reports a Windows COM port as a missing file
+
+- `[emg] device_port = "COM3"` (also `com12`, and `\\.\COM3`) used to show `EMG serial port FAIL
+  COM3 not found` on a correct Windows config, because doctor checked it as a file path. It now shows
+  SKIP with "cannot be checked this way; it will be tried when YazSes starts". A POSIX path such as
+  `/dev/ttyUSB0` is still checked, and FAILs when it is missing.
+- Not tested on Windows: the check is covered by unit tests on the port's text, not on a Windows machine.
 
 ## [2.48.0] - 2026-11-02
 

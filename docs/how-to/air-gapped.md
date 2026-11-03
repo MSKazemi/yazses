@@ -150,7 +150,8 @@ update_check = false               # the default
 Leave `[general] update_check` at its default, `false`: it is the only thing in
 YazSes that reaches out on its own, and only if you turned it on (`yazses features
 enable update-check`). `yazses update` contacts PyPI, GitHub Releases or the Snap
-Store only when you run it.
+Store (and, for a Windows install, the Chocolatey, winget or Scoop index) only when you
+run it.
 
 ## What is not covered here
 

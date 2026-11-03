@@ -52,6 +52,8 @@ Each block is a `SampleBlock`. Its `data` has shape `(n_channels, n_samples)` an
 **microvolts**. Convert raw device counts to microvolts in the driver. The ThinkGear driver does this
 with a constant that cites the vendor's conversion. If the vendor publishes no gain, do not guess
 one: the Myo driver reports raw counts with a `scale` option and its docs say the values are counts.
+If the values are raw counts, set `unit="counts"` on the device's entry in `boards.py`. The quality gate then
+skips the checks whose limits are in microvolts, and says so.
 
 ```python
 # NeuroSky: V = raw * (1.8 / 4096) / 2000  ->  µV per count
@@ -158,6 +160,10 @@ When you add a scheme:
 * Add the scheme to the list in the `open_source` docstring.
 * Add it to `_SPEC_HELP` in the same file. That text is what a user sees for a malformed spec.
 * Return a source that is **not started**. `open_source` does not call `start()`.
+* Describe the device in `src/yazses/biosignal/boards.py`, so `yazses biosignal boards` and the system
+  `doctor` row know about it. A scheme that is not a BrainFlow board also needs an entry in
+  `_SCHEME_PRESETS` in that file, and a dependency hint in `_BIOSIGNAL_SCHEME_DEPS` in
+  `src/yazses/system/doctor.py`.
 
 Parse the options of your spec in a function that raises `ValueError` for a missing port or an unknown
 option. The ThinkGear spec parser does this and is a good model.
@@ -251,8 +257,7 @@ A driver pull request must show:
 * **The `check-source` output.** Paste the full report from the real device, with the `--seconds`
   value you used. Include the exit code.
 * **The tests you ran.** The parser tests and the transport tests, and the commands you used. The
-  project gates are `uv run python -m pytest tests/ -v` and `uv run ruff check src tests scripts
-  paper/benchmark`. Report any gate that fails. Do not leave it out.
+  project gates are `uv run python -m pytest tests/ -v` and `uv run ruff check src tests scripts`. Report any gate that fails. Do not leave it out.
 * **The docs you changed.** A driver that users can reach needs an entry in `CHANGELOG.md` under
   `[Unreleased]`, and a line in the [hardware guide](../how-to/biosignal-hardware.md) that says
   whether the device was tested.

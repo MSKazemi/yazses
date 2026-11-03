@@ -62,7 +62,9 @@ def describe(action: str, result: dict) -> tuple[str, str]:
     the drift this whole module layout exists to prevent (#63).
     """
     if not result.get("ok"):
-        return "YazSes", str(result.get("reason") or "That did not work.")
+        # `reason` is the daemon's refusal; `error` is a dead client's exception text
+        # (TrayController._call). Both are the words to show.
+        return "YazSes", str(result.get("reason") or result.get("error") or "That did not work.")
     if action == START:
         meeting_id = str(result.get("meeting_id") or "").strip()
         body = f"Recording meeting {meeting_id}" if meeting_id else "Recording the meeting"

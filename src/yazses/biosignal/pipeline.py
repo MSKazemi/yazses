@@ -1173,9 +1173,12 @@ def build_parts(request: PartsRequest) -> PipelineParts:
 
     # quality
     try:
-        from yazses.biosignal.quality import SignalQualityMonitor
+        from yazses.biosignal.boards import unit_of
+        from yazses.biosignal.quality import SignalQualityMonitor, thresholds_for_unit
 
-        parts.quality = SignalQualityMonitor()
+        # A count-unit source (Myo, gForce) gets the thresholds that skip the microvolt
+        # limits; every other source gets the defaults, exactly as before.
+        parts.quality = SignalQualityMonitor(thresholds_for_unit(unit_of(request.source_spec)))
     except Exception:
         log.warning("Biosignal quality monitor unavailable; no quality gate.", exc_info=True)
 

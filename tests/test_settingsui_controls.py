@@ -173,3 +173,22 @@ def test_the_numeric_threshold_is_written_as_a_number():
 
     apply_setting("accessibility", "vad_threshold", slider_to_threshold(500), write=write)
     assert isinstance(captured["value"], float)
+
+
+def test_an_unplugged_pin_keeps_a_row_carrying_its_value():
+    """The dropdown selects by value. With no such row, an untouched Apply would
+    read 'Follow the system default' as a change and erase the pin."""
+    rows = mic_choices(DEVICES, default_name="Built-in Microphone", pinned="USB Audio")
+    pinned_row = next(r for r in rows if r.value == "USB Audio")
+    assert pinned_row.is_pinned
+    assert "not connected" in pinned_row.label
+
+
+def test_a_substring_pin_keeps_a_row_carrying_its_value():
+    rows = mic_choices(DEVICES, default_name=None, pinned="yeti")
+    assert any(r.value == "yeti" and r.is_pinned for r in rows)
+
+
+def test_a_connected_pin_adds_no_duplicate_row():
+    rows = mic_choices(DEVICES, default_name=None, pinned="Yeti Stereo Microphone")
+    assert [r.value for r in rows].count("Yeti Stereo Microphone") == 1

@@ -285,3 +285,86 @@ def test_a_recording_with_a_noise_floor_is_not_flagged(tmp_path, monkeypatch):
     _patch(monkeypatch, diarizer=None)
     r = runner.invoke(cli.app, ["transcribe", str(_audio(tmp_path)), "--no-diarize"], env=_ENV)
     assert "carries no signal" not in r.output, r.output
+
+
+# ---- failures a user meets before any audio is read --------------------------
+
+
+def _never_built(*_a, **_k):
+    raise AssertionError("the engine should not be built for this input")
+
+
+def _patch_without_decoder(monkeypatch, build_engine):
+    """Like `_patch`, but never imports `yazses.stt.faster_whisper`.
+
+    `_patch` monkeypatches the decoder class, which imports ctranslate2 and so cannot
+    run where the decoder stack is absent (the FreeBSD leg). The engine is built by
+    `pipeline._build_engine`, so that is the seam replaced here instead, and these
+    tests run on every platform.
+    """
+    monkeypatch.setattr(
+        "yazses.config.load_config", lambda *_a, **_k: Config(), raising=True)
+    monkeypatch.setattr(
+        "yazses.recimport.audio_io.load_audio",
+        lambda *_a, **_k: (_signal(), 16000), raising=True)
+    monkeypatch.setattr(
+        "yazses.recimport.pipeline.build_diarizer", lambda *_a, **_k: None, raising=True)
+    monkeypatch.setattr(
+        "yazses.recimport.pipeline._build_engine", build_engine, raising=True)
+
+
+def test_a_missing_model_prints_the_friendly_message_and_no_traceback(tmp_path, monkeypatch):
+    # Reproduced: with no cached model, `_build_engine` raised ModelUnavailableError,
+    # which only LanguageUnsupportedError was caught for, so the CLI died with a
+    # traceback and printed the friendly message after it.
+    from yazses.stt.errors import ModelUnavailableError
+
+    def _absent(*_a, **_k):
+        raise ModelUnavailableError("small", "not in the local cache, and offline")
+
+    _patch_without_decoder(monkeypatch, _absent)
+    f = _audio(tmp_path)
+    r = runner.invoke(cli.app, ["transcribe", str(f), "--no-diarize"], env=_ENV)
+    assert r.exit_code == 1, r.output
+    assert isinstance(r.exception, SystemExit), repr(r.exception)
+    assert "is not on this machine" in r.output
+    assert not f.with_suffix(".txt").exists()
+
+
+def test_an_unknown_model_name_is_refused_up_front(tmp_path, monkeypatch):
+    # Reproduced: `--model no-such-model` built the engine, failed to load it, and
+    # suggested `yazses model download no-such-model`, which cannot work.
+    _patch_without_decoder(monkeypatch, _never_built)
+    f = _audio(tmp_path)
+    r = runner.invoke(
+        cli.app, ["transcribe", str(f), "--model", "no-such-model"], env=_ENV)
+    assert r.exit_code == 2, r.output
+    assert isinstance(r.exception, SystemExit), repr(r.exception)
+    assert "no-such-model" in r.output
+    assert "base.en" in r.output and "large-v3" in r.output
+    assert "yazses model download" not in r.output
+    assert not f.with_suffix(".txt").exists()
+
+
+def test_a_hub_id_is_not_mistaken_for_an_unknown_name(tmp_path, monkeypatch):
+    # faster-whisper accepts a Hugging Face id (org/repo) as a model; only a bare
+    # unknown short name is refused up front.
+    _patch_without_decoder(monkeypatch, lambda *_a, **_k: _FakeEngine())
+    f = _audio(tmp_path)
+    r = runner.invoke(
+        cli.app,
+        ["transcribe", str(f), "--no-diarize", "--model", "Systran/faster-whisper-small"],
+        env=_ENV)
+    assert r.exit_code == 0, r.output
+
+
+def test_a_negative_speaker_count_is_refused(tmp_path, monkeypatch):
+    # Reproduced: `--speakers -3` was accepted and silently meant auto-detect, because
+    # both diarizers treat any value <= 0 as "no count" (sherpa: num_clusters = -1;
+    # pyannote: `if max_speakers > 0`). A negative count is meaningless, so refuse it.
+    _patch_without_decoder(monkeypatch, _never_built)
+    f = _audio(tmp_path)
+    r = runner.invoke(cli.app, ["transcribe", str(f), "--diarize", "--speakers", "-3"], env=_ENV)
+    assert r.exit_code == 2, r.output
+    assert isinstance(r.exception, SystemExit), repr(r.exception)
+    assert "--speakers" in r.output and "-3" in r.output

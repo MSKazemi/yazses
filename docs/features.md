@@ -7,7 +7,7 @@ description: All 151 YazSes capabilities, what each does, and how to turn it on.
 
 # Feature Reference
 
-YazSes ships **151 capabilities**. All but the core are **off by default** — turn one on with `yazses features enable <toggle>` and apply with `yazses restart`. Browse them interactively with `yazses features` (grouped) or `yazses features info <toggle>` (one card).
+YazSes ships **151 capabilities**. The core and the capabilities marked `recommended (on by default)` are on from the start; the rest are **off by default** — turn one on with `yazses features enable <toggle>` and apply with `yazses restart`. Browse them interactively with `yazses features` (grouped) or `yazses features info <toggle>` (one card).
 
 **Tiers:** `core` (always on) · `recommended (on by default)` · `recommended` (safe, worth enabling) · `optional` · `experimental` (rough edges — needs `--force` to enable) · `planned` (designed but not yet wired into this build — cannot be enabled yet; contributions welcome).
 
@@ -186,7 +186,7 @@ YazSes ships **151 capabilities**. All but the core are **off by default** — t
 ### Focus-Class Auto-Profile
 
 - **Toggle:** `focusprofile`  ·  **Tier:** recommended  ·  **Config:** `[focusprofile] — auto grammar per app class`
-- **What it does:** Auto-selects the dictation profile from the focused window's class (terminal→shell, editor→code, browser→prose) so you never switch profiles by hand. Off by default.
+- **What it does:** Auto-selects the dictation profile from the focused window's class (terminal→shell, editor→code, browser→prose) so you never switch profiles by hand. On after first-run setup (the config key itself defaults to off).
 - **Use when:** When you move between a terminal, editor, and browser and don't want to switch profiles by hand.
 - **Example:** Move from your editor to a terminal and the grammar follows.
 - **Activate:** `yazses features enable focusprofile` then `yazses restart`
@@ -270,7 +270,7 @@ YazSes ships **151 capabilities**. All but the core are **off by default** — t
 ### Checksum-Validated Entry
 
 - **Toggle:** `checkdigit`  ·  **Tier:** recommended  ·  **Config:** `[checkdigit] — verify dictated ID numbers`
-- **What it does:** Runs dictated account/ID numbers (credit card, IBAN, ISBN) through their check-digit algorithm and flags a mis-heard digit before it lands — with fix suggestions. Off by default.
+- **What it does:** Runs dictated account/ID numbers (credit card, IBAN, ISBN) through their check-digit algorithm and flags a mis-heard digit before it lands — with fix suggestions. On after first-run setup (the config key itself defaults to off).
 - **Use when:** When you dictate a card, IBAN, or ID number where one mis-heard digit would be costly to miss.
 - **Example:** Dictate a card number and a mis-heard digit is caught instantly.
 - **Activate:** `yazses features enable checkdigit` then `yazses restart`
@@ -286,7 +286,7 @@ YazSes ships **151 capabilities**. All but the core are **off by default** — t
 ### Self-Learning Correction Dictionary
 
 - **Toggle:** `corrdict`  ·  **Tier:** recommended  ·  **Config:** `[corrdict] — auto-fix your recurring errors`
-- **What it does:** Learns the ASR errors you keep fixing (e.g. 'yaz says' → 'YazSes') and applies them automatically to future output. High-precision, from your own edits. Off by default.
+- **What it does:** Learns the ASR errors you keep fixing (e.g. 'yaz says' → 'YazSes') and applies them automatically to future output. High-precision, from your own edits. On after first-run setup (the config key itself defaults to off).
 - **Use when:** When you keep fixing the same ASR mistake and want it corrected automatically from now on.
 - **Example:** You keep fixing 'yaz says'→'YazSes'; soon it's fixed automatically.
 - **Activate:** `yazses features enable corrdict` then `yazses restart`
@@ -302,7 +302,7 @@ YazSes ships **151 capabilities**. All but the core are **off by default** — t
 ### Phonetic Spelling Mode
 
 - **Toggle:** `spelling`  ·  **Tier:** recommended  ·  **Config:** `[spelling] — NATO → exact characters`
-- **What it does:** A character-exact mode for passwords/codes/IDs: hold the command key and say 'spell capital alpha bravo double lima' → 'Abll'. Handles digits and symbols. Needs [hotkey] command_key bound. Off by default.
+- **What it does:** A character-exact mode for passwords/codes/IDs: hold the command key and say 'spell capital alpha bravo double lima' → 'Abll'. Handles digits and symbols. Needs [hotkey] command_key bound. On after first-run setup (the config key itself defaults to off).
 - **Use when:** When dictating a password, code, or ID that has to be character-exact.
 - **Example:** Say 'capital alpha bravo double lima' to type 'Abll' exactly.
 - **Activate:** `yazses features enable spelling` then `yazses restart`
@@ -510,7 +510,7 @@ YazSes ships **151 capabilities**. All but the core are **off by default** — t
 ### Inline Compute
 
 - **Toggle:** `compute`  ·  **Tier:** recommended  ·  **Config:** `[compute] — types the answer`
-- **What it does:** Say 'what's 15% of 240' and it types 36. On-device arithmetic and percentages, no cloud calculator. Off by default.
+- **What it does:** Say 'what's 15% of 240' and it types 36. On-device arithmetic and percentages, no cloud calculator. On after first-run setup (the config key itself defaults to off).
 - **Use when:** When you need a quick sum or percentage typed straight into your text without a calculator.
 - **Example:** Say "what's 15% of 240" and it types 36.
 - **Activate:** `yazses features enable compute` then `yazses restart`
@@ -518,7 +518,7 @@ YazSes ships **151 capabilities**. All but the core are **off by default** — t
 ### Verbatim / Autoformat Toggle
 
 - **Toggle:** `verbatim`  ·  **Tier:** recommended  ·  **Config:** `[verbatim] — freeze formatting on command`
-- **What it does:** Say 'dictate verbatim' to freeze all formatting (ITN, punctuation, reflow) for exact capture, 'resume formatting' to restore — mid-burst. Off by default.
+- **What it does:** Say 'dictate verbatim' to freeze all formatting (ITN, punctuation, reflow) for exact capture, 'resume formatting' to restore — mid-burst. On after first-run setup (the config key itself defaults to off).
 - **Use when:** When you need exact literal capture (a quote, a code block) with no auto-formatting applied.
 - **Example:** Say 'dictate verbatim' and 'one hundred dollars' types literally.
 - **Activate:** `yazses features enable verbatim` then `yazses restart`
@@ -690,7 +690,7 @@ YazSes ships **151 capabilities**. All but the core are **off by default** — t
 ### Voice Undo/Redo Timeline
 
 - **Toggle:** `timeline`  ·  **Tier:** recommended  ·  **Config:** `[timeline] — undo YazSes output by voice`
-- **What it does:** Undo/redo YazSes's own output across bursts by voice — 'undo the last sentence', 'redo' — even where the app's Ctrl+Z is unreliable. Off by default.
+- **What it does:** Undo/redo YazSes's own output across bursts by voice — 'undo the last sentence', 'redo' — even where the app's Ctrl+Z is unreliable. On after first-run setup (the config key itself defaults to off).
 - **Use when:** When you need to take back what YazSes typed across bursts in an app whose own undo is unreliable.
 - **Example:** Say 'undo the last sentence' to take back what YazSes just typed.
 - **Activate:** `yazses features enable timeline` then `yazses restart`
@@ -798,7 +798,7 @@ YazSes ships **151 capabilities**. All but the core are **off by default** — t
 ### Command Safety Gate
 
 - **Toggle:** `cmdsafety`  ·  **Tier:** recommended  ·  **Config:** `[cmdsafety] — confirm dangerous commands`
-- **What it does:** Holds a destructive dictated command (rm -rf, mkfs, dd, curl|sh, force-push) until you say 'confirm', so a misrecognition can't fire it. Judged on the command text, not on which window is focused, so it still protects on Wayland. Off by default.
+- **What it does:** Holds a destructive dictated command (rm -rf, mkfs, dd, curl|sh, force-push) until you say 'confirm', so a misrecognition can't fire it. Judged on the command text, not on which window is focused, so it still protects on Wayland. On after first-run setup (the config key itself defaults to off).
 - **Use when:** When you dictate into a shell and a misheard rm or force-push would be unrecoverable.
 - **Example:** Dictate 'rm -rf' and it waits for you to say 'confirm' before it types.
 - **Activate:** `yazses features enable cmdsafety` then `yazses restart`

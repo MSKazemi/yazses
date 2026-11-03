@@ -107,21 +107,36 @@ any of them on a real person yet, which is why the next sections show you how to
 
 Run `yazses biosignal --help` for exact options. The ones you will use first, in order:
 
-1. **`yazses biosignal doctor`** checks the chain end to end before you trust it: the extra is
-   installed, the source opens, samples arrive at the expected rate, `mains_hz` matches the interference
-   it sees, the signal is not flat or clipped, and a calibration profile exists and matches your
-   channels. Each problem comes with the reason and the fix, and the output ends with one **`Verdict:`**
-   line: either that you are ready, or the single most important next step (pick a source, install a
-   library, calibrate). Read that line first. When it says you are ready, the next thing it points you to
-   is `yazses biosignal field-test`. Start here, and again after you move the electrode. The system-wide
-   `yazses doctor` also has a "Biosignal switch" row that stays quiet while the feature is off.
+1. **`yazses biosignal doctor`** checks the chain before you trust it: the extra is installed, the source
+   opens, samples arrive at the expected rate, `mains_hz` matches the interference it sees, the signal is
+   not flat or clipped, and a calibration profile exists and matches your channels. It opens the
+   `synthetic`, `file:` and `brainflow:` sources. For an `lsl:`, `thinkgear:`, `bitalino:` or `myo:` source
+   it describes the device without opening it and sends you to `check-source` (see
+   [Other devices](biosignal-hardware.md#other-devices-and-recordings)); the system-wide `yazses doctor`
+   row has their advice too. Each problem comes with the reason and the fix, and the output ends with one
+   **`Verdict:`** line: either that you are ready, or the single most important next step (pick a source,
+   install a library, calibrate). Read that line first. Once `[biosignal] enabled = true`, a ready verdict
+   points you to `yazses biosignal field-test`; while the feature is off, it tells you to set
+   `enabled = true` and run `yazses restart`. Start here, and again after you move the electrode. The
+   system-wide `yazses doctor` has a "Biosignal switch" row. It is skipped while the feature is off. Once
+   the feature is on, it checks the configured source without opening it, and for each device source it
+   names what is missing (the extra to install, a placeholder spec that still needs a serial port, LSL
+   stream name or Bluetooth address) and the fix. A Windows COM port such as `COM3` is not a file, so the
+   `[emg] device_port` row cannot check that it exists: it shows SKIP and says the port will be tried when
+   YazSes starts.
 2. **`yazses biosignal calibrate`** runs a short guided session: you **relax**, squeeze **lightly**,
    squeeze **hard**, **blink** three times, and **clench your jaw** three times. It skips a step your
    source has no channel for, and the blink and clench steps only run when those switches are enabled (or
    with `--blink` / `--clench`). It writes a small local profile, not your raw signal. It stops and writes
    nothing if the signal is bad, and it tells you which step failed.
-3. **`yazses biosignal monitor`** shows the live signal quality, the events as they are detected, and the
-   state of the false-positive budget. Use it to see, before you rely on a switch, what makes it fire.
+3. **`yazses biosignal monitor`** shows the live signal quality, the events as they are detected, and your
+   measured activation and cancel counts for the run. Use it to see, before you rely on a switch, what
+   makes it fire. It does not apply your false-positive budget: the budget runs in the daemon, and
+   `report` judges your rate against it. For a source that reports counts rather than microvolts (Myo,
+   gForce), it says that the microvolt-absolute checks were skipped. When the stream itself is at fault (a
+   timestamp went backwards, a packet was lost or repeated, or the stream stalled), it holds events and
+   prints `Events HELD: the stream-integrity gate is closed. Reason: ...` with how much clean signal is
+   still needed (`Cleared? not yet: ...`), then `Stream integrity: cleared (...)` once the hold ends.
 4. **`yazses biosignal replay <recording>`** runs a saved recording through the same detectors with no
    hardware, so you can try a threshold change on yesterday's data or check a bug report.
 5. **`yazses biosignal report`** summarises how often each event fired and how often you cancelled it,
@@ -153,6 +168,85 @@ yazses biosignal monitor      # squeeze, blink and talk; watch what it reports
 yazses biosignal field-test   # how often does it fire by mistake, by activity?
 yazses restart
 ```
+
+## Try it with no hardware
+
+Everything here uses the built-in `synthetic` source, a generated signal with scripted gestures. The output
+below is from one run of this repository's code. It shows the code path works. It says nothing about how a
+switch behaves on a person.
+
+```bash
+yazses biosignal doctor --source synthetic
+yazses biosignal monitor --source synthetic --seconds 12 --clench
+```
+
+`doctor` runs a self-check through the real pipeline and ends with a verdict:
+
+```text
+Self-check (synthetic signal through the real pipeline):
+  [OK]   scripted double blink detected
+  [OK]   quality gate: degraded
+Verdict: ready. Nothing is switched on yet; to use it, set [biosignal] enabled = true and run `yazses restart`.
+```
+
+`monitor` prints the signal quality and each detection as it happens. Its demo repeats scripted double
+blinks, a jaw clench and a squeeze every 8 seconds. `--clench` turns the jaw-clench detector on for the
+run, since it is off by default. From one 12-second run:
+
+```text
+Monitoring synthetic  (fs 500 Hz, 4 channels; detectors: emg, double_blink, jaw_clench).  Ctrl-C to stop.  Demo gestures are scripted every 8 s.
+  Muscle squeeze: off until you calibrate (`yazses biosignal calibrate`).
+       4.63s  double_blink   conf=0.53  ch=Fp1,Fp2
+       7.02s  jaw_clench     conf=0.69  ch=Fp1,Fp2
+...
+Stopped (time limit reached) after 12.0 s, 299 blocks.
+Detections:
+  double_blink      1
+  jaw_clench        1
+```
+
+The demo runs only inside `monitor`, and nothing it detects is typed or acted on. The daemon does not run
+the demo script, so enabling the synthetic source does not make a running YazSes act on scripted gestures.
+
+**The squeeze does not fire here.** The muscle-squeeze detector stays off until a calibration profile
+exists, and `calibrate` cannot make one from the synthetic source. It stops with exit code 2:
+
+```text
+The synthetic source makes no deliberate gestures, so there is nothing to calibrate on. Use a board, or `file:<recording>` of a calibration session.
+```
+
+So a squeeze can be tried only with a real board, or with a recording of a real calibration session.
+
+To replay a generated session through the same detectors:
+
+```bash
+yazses biosignal record --source synthetic --seconds 30 --out session.csv --truth-out truth.json
+yazses biosignal replay session.csv
+```
+
+```text
+      15.63s  double_blink   conf=0.53  ch=Fp1,Fp2
+
+Done (end of recording).  Detections:
+  double_blink      1
+```
+
+`record` writes the file owner-only (mode 0600), and `--truth-out` writes the scripted events, which
+`evaluate --file session.csv --truth truth.json` can score. Its output on the generated signal, from a
+60-second run of `yazses biosignal evaluate --seconds 60`:
+
+```text
+Evaluating synthetic:mixed (seed 0): 60 s, 8 known events, detectors: double_blink, jaw_clench, tolerance 0.3 s
+  note: muscle squeeze not evaluated: no calibration profile (`yazses biosignal calibrate`)
+
+kind          TP  FP  FN  precision  recall    F1  lat med ms  lat p95 ms  FP/hour
+------------  --  --  --  ---------  ------  ----  ----------  ----------  -------
+double_blink   4   0   0       1.00    1.00  1.00         -19          -4      0.0
+jaw_clench     4   0   0       1.00    1.00  1.00          25          33      0.0
+```
+
+Its caveat line reads: `Caveat: results on synthetic signals prove the detection logic, not real-world
+accuracy.` Treat every number above as the generated signal's, not yours.
 
 ## Measure your own rate
 
@@ -305,6 +399,32 @@ desensitized the switch, it raises its own effective floor on top of this.
   real-hardware result has been collected yet; `field-test` is how that changes.
 - **A squeeze is the recommended trigger.** A muscle electrode on a muscle you choose gives the cleanest
   signal. Blink and jaw clench are artifacts, and the jaw clench is off by default for that reason.
+- **Electrode shifts and steps are not squeezes.** A sudden step in the signal (an electrode moving, a cable
+  jolted) does not start a squeeze. A burst must keep its energy after its first moment, and a one-way level
+  change does not count as a contraction. On the synthetic step fixture (steps of 300 to 5000 µV with a 25
+  to 200 ms rise, rectangular bumps of 15 to 120 ms and single-sample pops, 20 to 40 seeds per cell) none
+  was accepted as a squeeze. **A smooth bump that rises and falls back is not stopped:** a bump of 50 to
+  120 ms at 600 µV or more still started a squeeze, in 7 to 20 of 20 runs (narrower than 40 ms never did).
+  That fixture is white noise, not muscle, and a jolted cable on real skin has not been measured.
+- **Mains hum on blink channels.** On an EOG (blink) channel the mains check reads the signal through the
+  same low-pass the blink detector applies, so hum that the detector already filters out does not count
+  against the channel. Synthetic, 500 double blinks: with 10 µV of hum added, 411 were still detected after
+  this change (0 with the mains check on before it); with 50 µV, none were. The 10 µV fixture has no real
+  recording behind it, so how much hum a real channel can carry is unmeasured.
+- **A slow callback drops queued input.** A squeeze's transcription runs on the runner's own thread. After a
+  callback of 1 second or more on a live device, the runner discards what the device queued in the meantime
+  and resets the detectors and the quality monitor, so a gesture made during that time is ignored rather
+  than acted on late. The daemon logs `discarded N queued block(s) after a slow callback`; the count is
+  `backlogs_discarded` in the switch's status counts. **Cost: about 2.5 seconds of dead time afterwards**,
+  because the quality monitor refills for 2 seconds before it judges anything (measured for double blinks on
+  the synthetic stream; the squeeze path shares the warm-up and was not measured). Known limits: a block
+  holding a release and a blink acts on the blink seconds late, after the release's slow turn (tested);
+  and the discard is skipped while a squeeze is held, but the watchdog can release a squeeze during a slow
+  start and let it run (by reading the code only). Lost serial bytes during that time are unmeasured on a
+  real device.
+- **Count-unit devices.** A Myo, or a gForce armband through BrainFlow, reports raw counts. The quality gate
+  skips its microvolt limits for those (see [the hardware guide](biosignal-hardware.md)). Its thresholds for
+  counts are untuned.
 - **Not thought control.** Decoding motor imagery, SSVEP or P300 is not in this feature, and EEG headbands
   here are only read for the eye and muscle activity on them.
 
@@ -331,6 +451,7 @@ you should not paste one into a public issue. For a bug report, share the output
 | It worked yesterday, not today | The electrode moved. Re-run `calibrate`. |
 | Squeeze opens the mic but it will not close | The signal never fell below the release threshold; a watchdog ends such a hold on its own. Re-run `calibrate` and check contact. |
 | Nothing is typed after a squeeze | That is the normal dictation path now; see [silent audio](silent-audio-discarding.md) and run `yazses doctor`. |
+| A gesture made during a long transcription did nothing | By design: after a callback of 1 second or more, gestures made meanwhile are dropped, not acted on late. The daemon log says `discarded N queued block(s)`. See the slow-callback note under Honest limitations. |
 
 ## See also
 

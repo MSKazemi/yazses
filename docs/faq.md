@@ -23,7 +23,8 @@ Install YazSes, then **hold the hotkey, speak, and release**. The audio is turne
 into text on your own machine and typed straight into whatever application has
 focus — an editor, a browser field, a terminal, or a chat window. There is no
 separate dictation window to copy out of, and no "start/stop dictation" mode to
-remember: the key is held only while you are talking.
+remember: the key is held only while you are talking. New here? `yazses quickstart` prints
+the next steps for your machine and changes nothing.
 
 ## Is there free dictation software that works offline?
 
@@ -133,7 +134,8 @@ trigger** for fully hands-free operation.
 ## Is YazSes an AI agent?
 
 No. YazSes dictates text and runs editor/terminal voice commands; it does not
-browse the web, reason over your files, set timers, or hold a conversation. (An
+browse the web, reason over your files, or hold a conversation. It sets timers only if you turn on the
+optional Local Voice Timer (`yazses features enable voicetimer`), which is off by default. (An
 agentic version was prototyped in the archived Rust branch but is not shipped.)
 
 ## What languages does YazSes support?

@@ -32,6 +32,15 @@ log = logging.getLogger(__name__)
 _ICON_PX = 64
 
 
+def _daemon_words(res: dict, fallback: str) -> str:
+    """The daemon's own explanation of a refusal or failure, else *fallback*.
+
+    The daemon names its failure `reason` (a refusal) or `error` (an exception, or a
+    client that could not reach it). Either is shown verbatim.
+    """
+    return str(res.get("reason") or res.get("error") or fallback)
+
+
 class LinuxTray:
     """TrayBackend for Linux, backed by a PySide6 QSystemTrayIcon."""
 
@@ -71,7 +80,7 @@ class LinuxTray:
 
         platform = get_platform()
         client = platform.ipc_client_factory(platform.paths.ipc_socket)
-        self._controller = TrayController(client)
+        self._controller = TrayController(client, data_dir=platform.paths.data_dir)
 
         self._app = QApplication.instance() or QApplication([])
         self._app.setQuitOnLastWindowClosed(False)  # menu closing must not exit
@@ -414,7 +423,10 @@ class LinuxTray:
     def _on_pick_device(self, device: str) -> None:
         if self._controller is None:
             return
-        self._controller.pin(device)
+        res = self._controller.pin(device)
+        if not res.get("ok"):
+            self._notify("YazSes microphone", _daemon_words(res, "Could not change the microphone."))
+            return
         self._notify(
             "YazSes microphone",
             f"Pinned to '{device}'." if device else "Following the OS default input.",
@@ -427,7 +439,7 @@ class LinuxTray:
         if res.get("started"):
             self._notify("YazSes", "Re-calibrating — speak normally for a few seconds…")
         else:
-            self._notify("YazSes", res.get("reason", "Could not re-calibrate right now."))
+            self._notify("YazSes", _daemon_words(res, "Could not re-calibrate right now."))
 
     def _on_meeting(self, action: str) -> None:
         """Start or stop a meeting, reporting whatever the daemon actually answered.
@@ -459,8 +471,11 @@ class LinuxTray:
 
     def _on_stop_daemon(self) -> None:
         if self._controller is not None:
-            self._controller.stop_daemon()
-            self._notify("YazSes", "Stopping the daemon…")
+            res = self._controller.stop_daemon()
+            if res.get("ok"):
+                self._notify("YazSes", "Stopping the daemon…")
+            else:
+                self._notify("YazSes", _daemon_words(res, "Could not stop the daemon."))
 
     def _on_settings(self) -> None:
         # Opening a window is the one menu action with no visible effect of its own if
