@@ -80,6 +80,97 @@ was measured for this.
   `Injection layout` row: STT language, the detected layout and its source, and that Persian
   letters need an active `ir` layout or YazSes pastes instead.
 
+### Fixed — an electrode shift no longer starts dictation (biosignal switch, off by default)
+
+A band-passed edge kept the squeeze envelope over its threshold for the whole minimum burst. On synthetic
+signals a 1000 µV shift with a 60 ms rise fired 40 times in 40 at 200 Hz. A burst now has to keep its
+energy and must not be the raw level moving one way. That took every tested step, every rectangular bump
+(15 to 120 ms) and every single-sample pop to 0 false starts, while a held contraction still confirmed at
+the same median latency. **Not stopped:** a smooth bump that rises and falls back (a Hann bump of 50 to
+120 ms) still starts a squeeze, in 7 to 20 of 20 runs at 600 µV and 16 to 20 of 20 at 1000 µV or more;
+300 µV fired 0 to 6 of 20, and 30 ms never fired. A strict expected-failure test records this. All of it
+is synthetic white noise, not measured on real skin.
+
+### Fixed — the blink switch worked with its monitor off and not with it on (biosignal switch, off by default)
+
+The quality monitor graded mains hum on the raw signal, although the blink detector filters it out first.
+The default synthetic EOG stream delivered 0 of 500 double blinks with the monitor on and 411 with it off.
+It now reads the hum as the detector does: 411 of 500, no false events, and a 50 µV hum still stops every
+blink.
+
+### Fixed — a gesture made during a long transcription no longer acts afterwards (biosignal switch, off by default)
+
+Transcription holds the thread that reads the device, so what queued meanwhile was processed later as if
+new. A live source now discards that queue after a callback of a second or more. A release that overlapped
+a squeeze's start could also end the same turn twice. It now ends once, after the start returns.
+
+- **Cost: about 2.5 s of dead time.** The discard resets the detectors and the quality monitor, which
+  refills for 2 s before it judges anything. Measured on the synthetic blink stream: a double blink 2.5 s
+  after the reset was lost in 40 of 40 runs, one at 2.6 s or later was delivered about as often as without
+  a reset. So after every dictation turn longer than about a second the switch ignores gestures for roughly
+  2.5 s. The squeeze path shares the 2 s warm-up; its dead time was not measured.
+- **Known limit, by test:** a block that holds a release and a blink runs the release (and its slow turn)
+  first, then acts on the blink seconds late. The discard only drops later blocks.
+- **Known limit, by reading only:** the discard is skipped while a squeeze is held, but if the watchdog
+  releases a squeeze during a slow start, the discard can then run.
+
+### Fixed — a Myo or gForce stream is no longer judged against microvolt limits (biosignal switch, off by default)
+
+The signal-quality gate applied microvolt limits to raw ADC counts, which is what a Myo and a gForce
+report. A quiet, live Myo channel of about half a count of noise was called "flat" and graded degraded,
+because the flatline limit is 0.5 µV. Count-unit sources now skip the checks whose limits are in
+microvolts: flatline is judged only as exactly zero variance, and the saturation level, the drift
+amplitude gate and the EEG/EOG noise limits are off. Non-finite samples, packet loss, mains hum, clipping
+plateaus, lead-off steps and shared movement are still checked. A stream where more than half the samples
+are identical, followed by a flat tail one count away, used to read as a lead-off step of about 10¹¹
+sigmas; the step is now measured against at least the rounding noise of an integer stream (0.29 count),
+so a one-count change no longer counts. A change of four counts still does. Synthetic only; how a real
+int8 band behaves is unknown.
+
+- **Every such report says so.** The report carries the reason, and `yazses biosignal monitor` prints
+  "Absolute amplitude checks were skipped: this source reports counts, not microvolts", so the skip is
+  never silent.
+- **µV boards: nothing changes.** The defaults are the same object, and a test checks the reports are
+  identical with and without the switch.
+- **Not measured on hardware.** Checked on synthetic count streams only. The thresholds that remain for
+  counts are untuned design choices, and no real Myo or gForce has been run through this.
+
+### Fixed — `yazses doctor` advises on the LSL, ThinkGear, BITalino and Myo sources
+
+The biosignal row checked a serial port only for BrainFlow sources, and gave no advice for the four
+other `[biosignal] source` kinds. Now:
+
+- **A missing port is named:** `thinkgear:` or `bitalino:` with no port says so, and gives an example.
+- **A Windows drive path is read whole:** the row split the spec at its first colon, so
+  `thinkgear:C:\dev\rfcomm9` was read as port `C` and never checked. It now takes the port the source
+  parser does, and a path that does not exist is reported like a missing `/dev` port. A COM name
+  (`COM3`, `\\.\COM3`) is still not checked, since it is not a file. Found by the Windows CI leg on this
+  PR; tested with Windows-style strings on every platform, not run on Windows.
+- **A placeholder is named:** `thinkgear:<port>`, `bitalino:<port>` or `myo:<address>` left as written is
+  reported as a placeholder, with an example of the real spec.
+- **Each device's channel layout is on the OK line**, from the board table. For a Myo or gForce it says
+  the values are counts. LSL is described without a rate or signal kind, since the stream sets them.
+
+Nothing new is opened, and the BrainFlow allowlist is unchanged: these sources never resolve to a
+BrainFlow id.
+
+### Fixed — `biosignal monitor` shows when the stream-integrity gate is holding events
+
+- While the stream-integrity gate holds events (a timestamp went backwards, a packet was lost or
+  repeated, or the stream stalled), `yazses biosignal monitor` now prints an `Events HELD` line with
+  the reason and how much clean signal is still needed before it clears. It prints a `cleared` line
+  when the hold ends. Before, the only trace was a log line and a dropped-event reason.
+- The wording and keys match the `integrity` block of the daemon status, so the two read the same.
+- Not run on real hardware: the test covers a recorded-style fake source, not a live board.
+
+### Fixed — `doctor` no longer reports a Windows COM port as a missing file
+
+- `[emg] device_port = "COM3"` (also `com12`, and `\\.\COM3`) used to show `EMG serial port FAIL
+  COM3 not found` on a correct Windows config, because doctor checked it as a file path. It now shows
+  SKIP with "cannot be checked this way; it will be tried when YazSes starts". A POSIX path such as
+  `/dev/ttyUSB0` is still checked, and FAILs when it is missing.
+- Not tested on Windows: the check is covered by unit tests on the port's text, not on a Windows machine.
+
 ## [2.48.0] - 2026-11-02
 
 ### Added — the latency governor's second model can be released when idle (opt-in)

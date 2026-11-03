@@ -927,3 +927,68 @@ def test_an_unconfigured_biosignal_is_not_listed_among_the_modalities(tmp_path):
     d._config.modality.preset = "hands-free"
     roles = d._resolve_modality_roles(d._config)
     assert "emg" not in roles.values()
+
+
+def test_a_release_during_the_start_ends_the_turn_exactly_once(tmp_path):
+    """A release overlapping the start: one end, after the start, never two over one recording."""
+    d, _runner, _safety, _clock, _ = _armed(tmp_path)
+    order: list[str] = []
+    d._on_hold_end = lambda: order.append("end")
+
+    def start(_key) -> None:
+        order.append("start")
+        d._biosignal_mode_end()            # arrives while the start is still running
+        assert order == ["start"]          # deferred: must not end a half-started turn
+
+    d._on_hold_start = start
+    d._biosignal_mode_start("full_text")
+    assert order == ["start", "end"]
+    assert d._biosignal_mode == ""
+    assert d._biosignal_starting is False and d._biosignal_end_deferred is False
+
+
+def test_a_pause_during_the_start_ends_the_turn_exactly_once_and_latches(tmp_path):
+    d, _runner, _safety, _clock, _ = _armed(tmp_path)
+    order: list[str] = []
+    d._on_hold_end = lambda: order.append("end")
+
+    def start(_key) -> None:
+        order.append("start")
+        d._biosignal_release_held()
+
+    d._on_hold_start = start
+    d._biosignal_mode_start("full_text")
+    assert order == ["start", "end"]
+    assert d._biosignal_latched is True
+
+
+def test_a_start_that_raises_with_a_release_pending_still_ends(tmp_path):
+    d, _runner, _safety, _clock, _ = _armed(tmp_path)
+    ends: list[int] = []
+    d._on_hold_end = lambda: ends.append(1)
+
+    def start(_key) -> None:
+        d._biosignal_mode_end()
+        raise RuntimeError("microphone failed")
+
+    d._on_hold_start = start
+    with pytest.raises(RuntimeError):
+        d._biosignal_mode_start("full_text")
+    assert ends == [1]
+
+
+def test_an_ordinary_squeeze_still_ends_once_on_release(tmp_path):
+    d, _runner, _safety, _clock, _ = _armed(tmp_path)
+    ends: list[int] = []
+    d._on_hold_start = lambda _key: None
+    d._on_hold_end = lambda: ends.append(1)
+    d._biosignal_mode_start("full_text")
+    assert ends == []
+    d._biosignal_mode_end()
+    assert ends == [1]
+
+
+def test_the_discard_count_is_on_the_status_allowlist():
+    from yazses.core.daemon import Daemon
+
+    assert "backlogs_discarded" in Daemon._BIOSIGNAL_STATUS_COUNTS

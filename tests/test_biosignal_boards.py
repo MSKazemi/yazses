@@ -16,6 +16,7 @@ from yazses.biosignal.boards import (
     BoardPreset,
     known_boards,
     preset_for,
+    unit_of,
 )
 from yazses.biosignal.lsl_source import LSLBlockSource
 from yazses.biosignal.myo import MyoSource
@@ -156,9 +157,9 @@ def test_parsing_specs_never_imports_brainflow(monkeypatch: pytest.MonkeyPatch):
         spec = preset.source_spec()
         if spec and "<" not in spec:
             open_source(spec)
-        # preset_for reads only BrainFlow and synthetic specs; the other sources are found
-        # by their name.
-        lookup = spec if spec.startswith(("brainflow:", "synthetic")) else preset.name
+        # preset_for reads BrainFlow, synthetic and the four device schemes from the spec; the
+        # DIY serial device has no spec, so it is found by its name.
+        lookup = spec if spec else preset.name
         assert preset_for(lookup) is not None
 
 
@@ -337,6 +338,69 @@ def test_int_lookup_never_matches_the_boardless_presets():
 )
 def test_preset_for_unknown_returns_none_and_never_raises(query):
     assert preset_for(query) is None
+
+
+@pytest.mark.parametrize(
+    ("spec", "expected"),
+    [
+        ("lsl:type=EEG", "lsl-stream"),
+        ("lsl:Muse", "lsl-stream"),
+        ("lsl:source_id=abc-123", "lsl-stream"),
+        ("LSL:type=EEG", "lsl-stream"),
+        ("thinkgear:/dev/rfcomm0", "neurosky-thinkgear"),
+        ("thinkgear:COM3:baud=57600,name=Fp1", "neurosky-thinkgear"),
+        ("thinkgear:<port>", "neurosky-thinkgear"),
+        ("bitalino:COM5:A1=emg,fs=1000", "bitalino"),
+        ("bitalino:/dev/ttyUSB0", "bitalino"),
+        ("myo:AA:BB:CC:DD:EE:FF", "myo"),
+        ("myo:<address>", "myo"),
+        ("  myo:AA:BB:CC:DD:EE:FF  ", "myo"),
+    ],
+)
+def test_preset_for_resolves_the_device_schemes(spec: str, expected: str):
+    """The four non-BrainFlow sources resolve from their spec, so `doctor` can advise on them."""
+    found = preset_for(spec)
+    assert found is not None
+    assert found.name == expected
+    assert found.board_id is None
+
+
+@pytest.mark.parametrize("spec", ["lsl", "thinkgear", "bitalino2:COM5", "myo2:x", "nope:x"])
+def test_unlisted_or_bare_scheme_is_still_none(spec: str):
+    assert preset_for(spec) is None
+
+
+def test_device_scheme_resolution_never_yields_a_brainflow_id():
+    """`brainflow:` ids come only from the BrainFlow rows; no device scheme may add one."""
+    for spec in ("lsl:type=EEG", "thinkgear:/dev/rfcomm0", "bitalino:COM5", "myo:AA:BB:CC:DD:EE:FF"):
+        found = preset_for(spec)
+        assert found is not None and found.board_id is None
+        assert not found.source_spec().startswith("brainflow:")
+
+
+def test_count_unit_presets_are_the_myo_and_the_gforce_armbands():
+    assert {b.name for b in ALL if b.unit == "counts"} == {"gforce-pro", "gforce-dual", "myo"}
+    assert {b.unit for b in ALL} <= {"uV", "counts"}
+
+
+@pytest.mark.parametrize(
+    ("spec", "unit"),
+    [
+        ("myo:AA:BB:CC:DD:EE:FF", "counts"),
+        ("brainflow:16", "counts"),
+        ("brainflow:19:/dev/ttyUSB0", "counts"),
+        ("brainflow:38", "uV"),
+        ("brainflow:12345", "uV"),
+        ("synthetic", "uV"),
+        ("lsl:type=EEG", "uV"),
+        ("thinkgear:/dev/rfcomm0", "uV"),
+        ("bitalino:COM5", "uV"),
+        ("file:session.csv", "uV"),
+        ("", "uV"),
+    ],
+)
+def test_unit_of_says_what_the_source_reports(spec: str, unit: str):
+    assert unit_of(spec) == unit
 
 
 def test_preset_for_bool_is_not_an_id():

@@ -207,6 +207,16 @@ _JUMP_CONTEXT_S = 0.1
 # Settle time = this many high-pass time constants (+ the smoothing window).
 _RING_TIME_CONSTANTS = 25.0
 _ARTIFACT_CHUNK = 512  # evaluate this many new samples at once (bounds the window views)
+# A burst is confirmed only while the later half of its energy holds up against the earlier
+# half. Synthetic measurement, 150 seeds per cell at 200-1000 Hz: artifact ring-downs that
+# reached confirmation read 0.006-0.2, white-noise bursts 0.11-4 with a median near 1. A value
+# below this only postpones the confirmation, so a burst that dips is late, not lost.
+DEFAULT_MIN_SUSTAIN_RATIO = 0.25
+# A rising edge slow enough to outlast the minimum burst holds its energy up too, so the shape
+# is asked as well: of all the distance the raw level travelled since the crossing, how much
+# was net movement? A monotonic edge reads near 1 and a zero-mean burst far below this.
+# Scale-free and rate-free; failing it only postpones the confirmation, as above.
+DEFAULT_MAX_LEVEL_DRIFT = 0.5
 
 
 class OnsetState(Enum):
@@ -496,6 +506,8 @@ class EmgOnsetDetector:
         adapt_baseline: bool = True,
         min_channel_fraction: float = 0.5,
         settle_after_step_s: float | None = None,
+        min_sustain_ratio: float = DEFAULT_MIN_SUSTAIN_RATIO,
+        max_level_drift: float = DEFAULT_MAX_LEVEL_DRIFT,
         step_ratio: float = DEFAULT_STEP_RATIO,
         jump_ratio: float = DEFAULT_JUMP_RATIO,
         step_window_s: float = _STEP_WINDOW_S,
@@ -513,6 +525,10 @@ class EmgOnsetDetector:
             raise ValueError("min_channel_fraction must be in (0, 1]")
         if settle_after_step_s is not None and not settle_after_step_s >= 0.0:
             raise ValueError("settle_after_step_s must be >= 0 (or None for the ring-down default)")
+        if not min_sustain_ratio >= 0.0:
+            raise ValueError("min_sustain_ratio must be >= 0 (0 disables the test)")
+        if not 0.0 < max_level_drift <= 1.0:
+            raise ValueError("max_level_drift must be in (0, 1] (1 disables the test)")
         if not (step_ratio > 0 and jump_ratio > 0):
             raise ValueError("step_ratio and jump_ratio must be > 0 (math.inf disables a test)")
         if step_window_s <= 0 or jump_context_s <= 0:
@@ -521,6 +537,17 @@ class EmgOnsetDetector:
             raise ValueError("rail_limit_uv must be a positive, finite value (or None)")
         self._min_frac = float(min_channel_fraction)
         self._settle_step_s = settle_after_step_s
+        self._min_sustain = float(min_sustain_ratio)
+        self._pending_energy: list[float] = []  # cumulative raw energy since the crossing
+        self._sustain_failed = False
+        self._max_drift = float(max_level_drift)
+        self._level = 0.0  # raw level (channel mean) at the sample being stepped
+        self._level_start = 0.0
+        self._level_prev = 0.0
+        self._level_path = 0.0
+        self._cur_raw = 0.0
+        self._raw_env = np.zeros(0, dtype="float64")
+        self._rejected_transient = 0
         self._step_ratio = float(step_ratio)
         self._jump_ratio = float(jump_ratio)
         self._step_window_s = step_window_s
@@ -556,6 +583,8 @@ class EmgOnsetDetector:
         """Diagnostic counters since construction or :meth:`reset` (a fresh copy each call).
 
         ``rejected_bursts`` — bursts shorter than the minimum burst, dropped silently;
+        ``rejected_transient`` — those of them that ran long enough but never held up
+        (their energy rang down, or the raw level only moved one way);
         ``blanked_steps`` — artifact episodes (step, pop, saturation) that blanked the
         detector (a new artifact inside an open blanking extends it and is not recounted);
         ``rejected_disagreement`` — bursts the mean envelope saw but too few channels
@@ -565,6 +594,7 @@ class EmgOnsetDetector:
         """
         return {
             "rejected_bursts": self.rejected_bursts,
+            "rejected_transient": self._rejected_transient,
             "blanked_steps": self._blanked_steps,
             "rejected_disagreement": self._rejected_disagreement,
             "max_hold_trips": self._max_hold_trips,
@@ -602,6 +632,7 @@ class EmgOnsetDetector:
         """Forget the stream, the baseline adaptation and any open squeeze."""
         self._baseline = self._th.baseline
         self.rejected_bursts = 0
+        self._rejected_transient = 0
         self._blanked_steps = 0
         self._rejected_disagreement = 0
         self._max_hold_trips = 0
@@ -634,6 +665,7 @@ class EmgOnsetDetector:
         self._expected_t = self._anchor + self._n_in / fs
 
         env, env_ch = self._envelope(self._filter.process(x))
+        levels = x.mean(axis=0)[-env.size:] if env.size else x.mean(axis=0)[:0]
         for k, e in enumerate(env.tolist()):
             self._n_env += 1
             m = self._n_env
@@ -652,6 +684,8 @@ class EmgOnsetDetector:
                 self._observe(0.0)
                 continue
             self._cur_ch = env_ch[:, k]
+            self._cur_raw = float(self._raw_env[k])
+            self._level = float(levels[k])
             self._observe(e)
             events.extend(self._step(e, t))
         return events
@@ -740,6 +774,7 @@ class EmgOnsetDetector:
         per = (cs[:, end] - cs[:, start]) / (end - start)
         self._tail = full[:, -(n - 1):] if n > 1 else np.zeros((n_ch, 0), dtype="float64")
         per = np.asarray(per, dtype="float64")
+        self._raw_env = r.mean(axis=0)  # unsmoothed: the smoothing would hide a decay
         return per.mean(axis=0), per
 
     # -- state machine ------------------------------------------------------
@@ -761,6 +796,10 @@ class EmgOnsetDetector:
                     self._t_cross = t
                     self._t_disagree = None
                     self._peak = e
+                    self._pending_energy = [self._cur_raw]
+                    self._level_start = self._level_prev = self._level
+                    self._level_path = 0.0
+                    self._sustain_failed = False
                     out.extend(self._maybe_confirm(e, t, on, half))
             else:
                 if e < off:
@@ -770,9 +809,14 @@ class EmgOnsetDetector:
 
         elif st is OnsetState.PENDING:
             self._peak = max(self._peak, e)
+            self._pending_energy.append(self._pending_energy[-1] + self._cur_raw)
+            self._level_path += abs(self._level - self._level_prev)
+            self._level_prev = self._level
             if e < off:
                 self._state = OnsetState.IDLE
                 self.rejected_bursts += 1
+                if self._sustain_failed:
+                    self._rejected_transient += 1
             elif t - self._t_cross > th.max_hold_s:
                 self._enter_stuck()
             elif not self._agree(on):
@@ -834,6 +878,9 @@ class EmgOnsetDetector:
             return []
         if not self._confirm_ok(elapsed):
             return []
+        if not (self._sustained() and self._level_stays()):
+            self._sustain_failed = True
+            return []
         self._state = OnsetState.ACTIVE
         self._t_on = t
         ratio = self._peak / on
@@ -848,6 +895,32 @@ class EmgOnsetDetector:
         }
         self._annotate_on(detail)
         return [self._event(EventKind.SQUEEZE_ON, t, 0.5 + 0.5 * math.tanh(ratio - 1.0), detail)]
+
+    def _sustained(self) -> bool:
+        """Does the burst's energy hold up, rather than ring down from one transient?
+
+        Compares the later half of the unsmoothed energy since the crossing with the earlier
+        half. An edge the filter rings on puts nearly all its energy at the start, and the
+        smoothed envelope stays over the on level for the whole minimum duration on the
+        strength of that; a contraction keeps going. Failing only keeps the burst pending:
+        it confirms later if the energy returns, and is dropped when the envelope falls.
+        """
+        if self._min_sustain <= 0.0:
+            return True
+        cum = self._pending_energy
+        mid = len(cum) // 2
+        early = cum[mid - 1] if mid else 0.0
+        late = cum[-1] - early
+        early_n, late_n = mid, len(cum) - mid
+        if early_n == 0 or early <= 0.0:
+            return True
+        return late / late_n >= self._min_sustain * (early / early_n)
+
+    def _level_stays(self) -> bool:
+        """False while the raw level moved mostly one way: an edge, not a zero-mean burst."""
+        if self._max_drift >= 1.0 or self._level_path <= 0.0:
+            return True
+        return abs(self._level - self._level_start) / self._level_path < self._max_drift
 
     def _release(
         self,

@@ -487,6 +487,10 @@ class Daemon:
     #: from the source (it registers itself on its first sample, as the face switch does).
     _biosignal_runner = None
     _biosignal_latched: bool = False
+    #: A start is running on the runner's thread; an end that arrives now waits for it.
+    #: Both guarded by `_biosignal_lock`.
+    _biosignal_starting: bool = False
+    _biosignal_end_deferred: bool = False
     _biosignal_gate_armed: bool = False
     #: True while the runner's exposure accounting is paused because the hands-free gate said
     #: no. Flipped only on a transition (see `_biosignal_set_accounting`), so the watcher's
@@ -2465,7 +2469,10 @@ class Daemon:
             held, self._biosignal_mode = self._biosignal_mode, ""
             if held:
                 self._biosignal_latched = True
-        if held:
+            deferred = bool(held) and self._biosignal_starting
+            if deferred:
+                self._biosignal_end_deferred = True
+        if held and not deferred:
             log.info("Biosignal: hands-free pause during a held squeeze; releasing it.")
             self._on_hold_end()
 
@@ -2540,12 +2547,14 @@ class Daemon:
                     self._command_mode = True
                 return
             self._biosignal_mode = mode
+            self._biosignal_starting = True
+            self._biosignal_end_deferred = False
         # Race: from here the watcher (gate pause) or `_biosignal_mode_end` may clear
-        # `_biosignal_mode` and call `_on_hold_end` BEFORE the start below has run -- that
-        # end would be a no-op and the start would then open a turn nobody owns (a
-        # microphone left open). So after the start, look again: if the squeeze was
-        # released meanwhile, end the turn we just began. An extra end is harmless (a
-        # release with no recording is documented as a no-op in `_on_hold_end`).
+        # `_biosignal_mode` before the start below has run. An end then would be a no-op and
+        # the start would open a turn nobody owns (a microphone left open); an end that
+        # overlapped the start would race a second one over the same recording. So an end
+        # arriving during the start only leaves a note, and this thread ends the turn once,
+        # after the start has returned.
         try:
             if mode == "command":
                 self._on_command_hold_start(0)
@@ -2553,8 +2562,9 @@ class Daemon:
                 self._on_hold_start(0)
         finally:
             with lock:
-                released = not self._biosignal_mode
-            if released:
+                self._biosignal_starting = False
+                deferred, self._biosignal_end_deferred = self._biosignal_end_deferred, False
+            if deferred:
                 with self._biosignal_runner_busy():
                     self._on_hold_end()
         # A pause that landed between the gate check above and the start: do not wait for
@@ -2569,7 +2579,10 @@ class Daemon:
         with lock:
             held, self._biosignal_mode = self._biosignal_mode, ""
             self._biosignal_latched = False
-        if held:
+            deferred = bool(held) and self._biosignal_starting
+            if deferred:
+                self._biosignal_end_deferred = True
+        if held and not deferred:
             with self._biosignal_runner_busy():
                 self._on_hold_end()  # consumes `_command_mode` when the turn was a command
 
@@ -8889,7 +8902,7 @@ class Daemon:
 
     #: Counters `status` may carry from the biosignal runner: integers only, by name.
     _BIOSIGNAL_STATUS_COUNTS = ("blocks", "events", "intents", "accepted", "dropped",
-                                "watchdog_trips", "detectors")
+                                "watchdog_trips", "backlogs_discarded", "detectors")
 
     @staticmethod
     def _biosignal_label(value: object) -> str | None:
