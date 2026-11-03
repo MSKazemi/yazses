@@ -146,3 +146,12 @@ For reproducible software examples use [BrainFlow synthetic board](https://brain
 9. MOABB. *Quickstart and reproducible benchmark mission.* https://moabb.neurotechx.com/docs/README.html ; *release v1.7.1* https://zenodo.org/records/22215752
 10. PhysioNet. *EEG Motor Movement/Imagery Dataset.* https://physionet.org/content/eegmmidb/1.0.0/
 
+
+
+## Update: executable synthetic motor-imagery negative control (2026-11-03)
+
+The repo already had a tested P0/P1 synthetic EOG/EMG artifact replay in [the HCI protocol](../../hci-huggingface/EEG_EOG_FEASIBILITY_PROTOCOL.md). To avoid duplicating it, this research branch adds a **separate**, standalone [synthetic motor-imagery stress experiment](../../hci-huggingface/EEG_MI_SYNTHETIC_STRESS_RESULTS.md), [script](../../../scripts/hci_eeg_mi_synthetic.py) and [13 regression tests](../../../tests/test_hci_eeg_mi_synthetic.py).
+
+**Key negative finding (authored signals only):** the toy 10 Hz power detector generated two proposals for two deliberately easy imagery blocks, **but also one false candidate on a rest interval with lower synthetic baseline power**. Blink, muscle, missing-data and flatline scenarios produced no proposals in that seed. This is **not a human EEG result**; all data and thresholds were invented, and no false-activation/hour rate is inferred. It demonstrates why a potential neural switch must be evaluated for across-session drift and continuous idle false-trigger exposure rather than only epoch-level classification.
+
+The new artifacts were executed in a separate offline Python workspace: **13/13 isolated tests passed,** with byte-for-byte Git blob verification against the branch. The full YazSes suite, Ruff and real-device checks have not been run. No production code or approved ADR changed. The next gate remains a license-reviewed, session/participant-separated public neural EEG dataset protocol and causal replay under #696 / #817, with any actual human study separately gated.
