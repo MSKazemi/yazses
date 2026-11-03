@@ -305,7 +305,7 @@ showing whether each is on/off, its toggle name, what enabling it downloads, and
 advice tier.
 
 The **DOWNLOAD** column is what a fresh install fetches in total — the whole
-dependency closure, so `cocktail` reads as `~3.1 GB` rather than as the one package
+dependency closure, so `cocktail` reads as `~3.4 GB` rather than as the one package
 you type, **plus** any model files the capability downloads the first time it runs,
 so `read-back` reads as `~352 MB` rather than as its 12 MB of packages. Blank means
 nothing to download, which is true of most capabilities. See

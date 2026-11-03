@@ -7,7 +7,7 @@ description: All 151 YazSes capabilities, what each does, and how to turn it on.
 
 # Feature Reference
 
-YazSes ships **151 capabilities**. All but the core are **off by default** — turn one on with `yazses features enable <toggle>` and apply with `yazses restart`. Browse them interactively with `yazses features` (grouped) or `yazses features info <toggle>` (one card).
+YazSes ships **151 capabilities**. The core and the capabilities marked `recommended (on by default)` are on from the start; the rest are **off by default** — turn one on with `yazses features enable <toggle>` and apply with `yazses restart`. Browse them interactively with `yazses features` (grouped) or `yazses features info <toggle>` (one card).
 
 **Tiers:** `core` (always on) · `recommended (on by default)` · `recommended` (safe, worth enabling) · `optional` · `experimental` (rough edges — needs `--force` to enable) · `planned` (designed but not yet wired into this build — cannot be enabled yet; contributions welcome).
 
