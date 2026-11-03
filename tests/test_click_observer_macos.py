@@ -542,12 +542,18 @@ def test_the_macos_platform_bundle_exposes_the_click_observer_factory() -> None:
     assert platform.click_observer_factory is MacClickObserver
 
 
-def test_the_factory_builds_an_unstarted_observer_and_imports_no_quartz() -> None:
+def test_the_factory_builds_an_unstarted_observer_and_imports_no_quartz(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """``get_platform()`` merely running must not touch Input Monitoring (base.py)."""
     import sys
 
     from yazses.platform.macos import build_platform
 
+    # On a real Mac an earlier test in the same xdist worker (or the platform itself) may
+    # already have imported Quartz; the claim is that *building the observer* does not, so
+    # start from a clean slate. Restored on teardown. (Same pattern as test_pointer_macos.py.)
+    monkeypatch.delitem(sys.modules, "Quartz", raising=False)
     factory = build_platform().click_observer_factory
     assert factory is not None
     observer = factory()
