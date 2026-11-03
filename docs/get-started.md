@@ -75,9 +75,15 @@ build. The [validation matrix](validation-matrix.md) shows what testers have con
     yazses doctor
     ```
 
-    Every row should read `[OK]`, and a row that does not names its fix. If doctor reports
-    that you were added to the `input` group, **log out and back in once**. Group changes
-    apply only to new logins.
+    On a first run most rows read `[OK]`, and a few `[WARN]` rows are normal: the daemon is not
+    running yet, the speech model is not downloaded yet (it is fetched on first dictation), and
+    there is no config file yet (built-in defaults apply). A healthy first run ends with a
+    `Good to go` line that counts the optional warnings. A `[FAIL]` row is a real problem; most
+    rows name their fix, and `yazses quickstart` (below) covers the rest. If doctor reports that you were added
+    to the `input` group, **log out and back in once**. Group changes apply only to new logins.
+
+    Not sure what to do next? `yazses quickstart` looks at this machine and prints the next
+    steps. It changes nothing, so it is safe to run at any point.
 
     Then tune the voice gate to your microphone and room:
 
@@ -170,7 +176,8 @@ modifier you rarely use, so it does not interfere with normal typing. You can al
 ## If something does not work
 
 Run `yazses doctor` first. It covers most first-run problems, and every check that fails
-names its fix. The common ones:
+names its fix. `yazses quickstart` prints the next steps for this machine and changes nothing.
+The common ones:
 
 - **Nothing happens when I hold the key.** On Linux, log out and back in after the
   installer adds you to the `input` group. On macOS, turn on **Input Monitoring**, then

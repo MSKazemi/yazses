@@ -23,7 +23,8 @@ as silent failure later:
 bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)
 ```
 
-That is the whole install. Skip to [§2](#2-finish-setup).
+That is the whole install. Skip to [§2](#2-finish-setup). If you are unsure what is left to do,
+`yazses quickstart` looks at this machine and prints the next steps; it changes nothing.
 
 > **Build prerequisites are handled for you.** The script needs `git` (it installs
 > the latest code straight from the repo) and a C compiler with the Python headers

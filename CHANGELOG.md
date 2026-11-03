@@ -97,6 +97,16 @@ say `yazses restart`, the command the silent-audio guide already used: it stops 
 starts exactly one, through the systemd unit when one is installed. Getting-started also says that on
 a first run nothing is running yet, so there is nothing to restart.
 
+### Fixed — first-run pages now say what a healthy first run looks like, and point to `yazses quickstart`
+
+- **Getting started** said every `yazses doctor` row should read `[OK]`. On a fresh machine doctor prints
+  several `[WARN]` rows (daemon not running, speech model not downloaded, no config file yet) and ends with
+  `Good to go (N optional warnings)`. The page now says that is normal and what a `[FAIL]` means.
+- **`yazses quickstart`** (read-only, tailored to the machine) is the command `--help`, `status` and the
+  installer footer point to, but the getting-started, Linux install and FAQ pages never named it. They do now.
+- **Known-good microphones** told non-programmers to "open a pull request" in the browser editor with no
+  link. It now gives the edit link and three plain steps, and an issue as a fallback.
+
 ### Fixed — the Arabic, Persian and Urdu pages showed their Markdown as raw text
 
 The right-to-left translated pages wrapped their body in a bare `<div dir="rtl">`, so headings,
