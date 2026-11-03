@@ -25,6 +25,9 @@ from typing import Any
 
 BOARD_ID = -1
 MODALITIES = ("eeg", "eog", "emg")
+# Research-only fault threshold: a timestamp jump over ten nominal sample periods
+# fails the integrity probe. This is NOT a measured BrainFlow or release limit.
+MAX_NOMINAL_GAP_PERIODS = 10.0
 NOTICE = (
     "SYNTHETIC BOARD ONLY. A BrainFlow channel can have multiple modality labels; "
     "this checks the interface, not independent human EEG, EOG, EMG, neural intent, "
@@ -55,16 +58,28 @@ def summarize(board_api: Any, board_id: int, data: Any) -> dict[str, Any]:
         indices = [int(v) for v in getattr(board_api, f"get_{modality}_channels")(board_id)]
         if len(set(indices)) != len(indices) or any(not 0 <= idx < rows for idx in indices):
             raise ValueError(f"invalid {modality} indices")
+        if timestamp_channel in indices:
+            raise ValueError(f"timestamp row is mislabeled as {modality}")
         channels[modality] = indices
 
     # Read values only to validate them. Do not serialize the matrix or any sample.
+    # The baseline probe cannot tell *which physiological source* generated them.
     for row in data:
         if any(not math.isfinite(float(value)) for value in row):
             raise ValueError("non-finite synthetic samples")
+    signal_indices = set().union(*(set(indices) for indices in channels.values()))
+    if not signal_indices:
+        raise ValueError("no sensor-labeled signal rows")
+    if all(max(data[idx]) - min(data[idx]) <= 1e-12 for idx in signal_indices):
+        raise ValueError("all sensor-labeled signal rows are flatlined")
     stamps = [float(value) for value in data[timestamp_channel]]
     gaps = [end - start for start, end in zip(stamps, stamps[1:])]
     if any(gap <= 0 for gap in gaps):
         raise ValueError("timestamps are not strictly increasing")
+    # A strictly increasing sequence can still hide a long loss of acquisition.
+    # Use a deliberately generous design threshold until native measurements exist.
+    if any(gap > MAX_NOMINAL_GAP_PERIODS / sample_rate_hz for gap in gaps):
+        raise ValueError("timestamp gap exceeds research integrity threshold")
 
     sorted_gaps = sorted(gaps)
     rank = max(0, math.ceil(0.95 * len(sorted_gaps)) - 1)
@@ -76,6 +91,8 @@ def summarize(board_api: Any, board_id: int, data: Any) -> dict[str, Any]:
         "rows": rows,
         "sample_count": samples,
         "sample_rate_hz": sample_rate_hz,
+        "max_gap_nominal_periods": MAX_NOMINAL_GAP_PERIODS,
+        "timing_integrity_research_threshold_only": True,
         "relative_capture_span_ms": round((stamps[-1] - stamps[0]) * 1000, 3),
         "timestamp_gap_p95_ms": round(sorted_gaps[rank] * 1000, 3),
         "channels_by_label": channels,
