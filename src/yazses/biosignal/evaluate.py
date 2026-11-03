@@ -352,7 +352,7 @@ class EvaluationReport:
 
     @property
     def false_activations_upper_per_hour(self) -> float | None:
-        """One-sided 95% upper bound on the false-activation rate (approximate)."""
+        """One-sided 95% upper bound on the false-activation rate (exact Poisson)."""
         return _poisson_upper(self.false_activations, self.duration_s / 3600.0)
 
 
