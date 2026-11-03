@@ -50,3 +50,35 @@ The executable's exit code is 0 only if the interface-level checks pass; 1 is a 
 2. Add a controlled playback-file benchmark (using *only* synthetic, verified-license fixtures) to test reproducible buffers, varied clocks, stale events and dropped samples. Do not merge the playback semantics into the live daemon.
 3. Update the #696 evidence ledger only after the actual BoardShim run is reviewed. The existing generated event/classification experiment and new BoardShim probe test **different** things; neither is evidence of human neural intent.
 4. For any later human study follow ADR-v2-150, #425/#427, the separate ethics/consent gate and the proposed ADR-v2-154 from PR #821. Do not recruit or collect biosignals under this probe.
+
+
+## G1 adversarial transport replay — 2026-11-03
+
+The new standard-library-only [fault replay](../../scripts/hci_brainflow_integrity_replay.py) and [six regression tests](../../tests/test_hci_brainflow_integrity_replay.py) extend the *transport* investigation without repeating the separate [motor-imagery drift experiment tracked in #696](https://github.com/MSKazemi/yazses/issues/696). The replay uses a **fabricated four-row board** with 500 synthetic samples at nominal 250 Hz. Its signals are arbitrary Gaussian values, **not** BrainFlow-generated recordings or human biosignals.
+
+Run from the repo root:
+
+```sh
+python scripts/hci_brainflow_integrity_replay.py --seed 0
+python -m pytest tests/test_hci_brainflow_synthetic_probe.py tests/test_hci_brainflow_integrity_replay.py -q
+```
+
+The integrity probe now rejects (i) non-finite values, (ii) non-increasing timestamps, (iii) an all-flatlined set of sensor-labeled rows, (iv) missing/minimal samples, (v) a mislabeled timestamp row and (vi) **forward timestamp gaps larger than ten nominal sample periods**. This last threshold (`MAX_NOMINAL_GAP_PERIODS = 10.0`) is **a provisional research fault-injection choice, not a validated BrainFlow tolerance or acceptance criterion for a consumer device**. It must be checked against native BoardShim timing before being considered anywhere outside this probe.
+
+The experiment deliberately tests the boundary of what *transport* checks can conclude. An injected large signal burst remains **transport-valid**; it must not be labeled a blink, muscle contraction or intended neural event on the strength of this probe. No event-to-action code exists here.
+
+| Synthetic matrix scenario, seed 0 | Expected transport decision | Actual |
+|---|---|---|
+| Clean | Accept | Accept |
+| Small time jitter | Accept | Accept |
+| Large arbitrary waveform burst | Accept, **physiological origin unknown** | Accept |
+| Duplicate timestamp | Reject | Reject |
+| Clock reversal | Reject | Reject |
+| 120 ms forward timestamp jump | Reject | Reject |
+| NaN sample | Reject | Reject |
+| All sensor-labeled signals flatline | Reject | Reject |
+| One sample only | Reject | Reject |
+
+**Verification performed here:** seed-0 CLI report had **9/9 expected outcomes**. The 9-case replay was also exercised under eight declared seeds in the tests. Combined new and existing isolated tests: **13 passed** on Python 3.13.5 in the current container, with source bytes matched to the GitHub blobs; syntax compilation passed. This is *not* a full project/CI or native BrainFlow run. BrainFlow 5.23.0 is not installed in the container; no device or real-person data were used. The full `uv`/Ruff/mypy gates were not run.
+
+**Next falsifiers:** a real installed BrainFlow SYNTHETIC_BOARD smoke run may expose naturally irregular timing, model metadata variation, or native lifecycle errors. If the provisional gap threshold flags valid native synthetic-board output, adjust it *using a written predeclared calibration protocol*, not by claiming synthetic fault tests predict hardware. Real-user stop/recovery and EEG-origin questions remain untested and gated by the [#821 proposed ADR](https://github.com/MSKazemi/yazses/pull/821).
