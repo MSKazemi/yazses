@@ -85,6 +85,9 @@ build. The [validation matrix](validation-matrix.md) shows what testers have con
     yazses mic-level --set
     ```
 
+    A daemon that is already running keeps the old threshold until you run `yazses restart`.
+    On a first run nothing is running yet, so there is nothing to restart.
+
 === ":material-apple: macOS"
 
     Open YazSes from Applications. The app is not notarised yet, so the first launch is
@@ -175,7 +178,8 @@ names its fix. The common ones:
 - **It types into the wrong window, or nowhere.** See
   [dictation types into the wrong window](how-to/wrong-window.md).
 - **"Silent audio — discarding".** The voice gate is set above your voice. Run
-  `yazses mic-level --set` again; see [the guide](how-to/silent-audio-discarding.md).
+  `yazses mic-level --set` again, then `yazses restart` so the running daemon picks up the new
+  threshold; see [the guide](how-to/silent-audio-discarding.md).
 
 Still stuck? [Open an issue](https://github.com/MSKazemi/yazses/issues/new/choose) and
 paste what `yazses doctor` printed. Read it first: it lists device names and file paths.

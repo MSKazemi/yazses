@@ -466,8 +466,11 @@ your speech is below the VAD gate. Measure and set it:
 
 ```bash
 yazses mic-level --set      # records ~4s; writes a fitting vad_threshold
-systemctl --user restart yazses.service
+yazses restart              # a running daemon ignores a changed threshold until restarted
 ```
+
+`yazses restart` works with or without the systemd unit: it stops every daemon and starts exactly
+one, through the unit when one is installed.
 
 Re-run whenever your speaking volume changes (e.g. quiet late-night dictation).
 
