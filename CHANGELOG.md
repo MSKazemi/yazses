@@ -20,6 +20,18 @@ moving to the next paragraph. Measured on a strict build of the same tree before
 quote-broken tags 68 → 0, fragment endings 60 → 0, descriptions under 45 characters 19 → 4 (each
 a complete short sentence). A test now renders every published page's description as the theme
 does and parses it back.
+### Tests — the brain's runner: dead time after a backlog discard and same-block release+blink, pinned
+
+Was: two soft spots of the opt-in biosignal runner were described in prose but not measured.
+
+Now: `tests/test_biosignal_runner_timing.py` pins them with a fake clock and synthetic blocks, and
+changes no behaviour. After a backlog discard the first accepted event comes 2.75 s after resume
+at the default thresholds (2.80 s with 0.10 s blocks), the quality monitor's warm-up. A blink in the
+same block as a release is dispatched after the release callback, 0 blocks late. Neither is
+changed: keeping detector state across a gap, or dispatching the blink first (the daemon ignores
+intents while recording), are design decisions.
+
+Not checked: real hardware or a real EMG signal; the probe used seeded noise.
 
 ## [2.48.1] - 2026-11-03
 
