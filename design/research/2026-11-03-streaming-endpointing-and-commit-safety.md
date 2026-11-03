@@ -63,7 +63,6 @@ A separate test weakness: [`test_streaming_engine_emits_partial`](../../tests/te
 | [UFAL Whisper-Streaming](https://github.com/ufal/whisper_streaming/tree/6da90b44b7e50d79695e68166d2a2c7609c75abb), snapshot `6da90b4` [P] | Documents confirmation of common prefixes across updates with new audio, sentence-based buffer trimming, reprocessing and overlap handling; identifies SimulStreaming as successor. | Do not mistake YazSes' untrimmed whole-buffer/character-prefix variant for an equivalent tested implementation. |
 | [UFAL SimulStreaming](https://github.com/ufal/SimulStreaming/tree/077ea37d5ab4ff98bc567e4507f140dc4e5d5ad6), snapshot `077ea37` [P] | Documents AlignAtt and LocalAgreement; separates confirmed from unconfirmed output and supports long-audio replay. | PyTorch-oriented server/demonstrator; its own performance claims cannot justify extra CPU/RAM/dependency burden or a new networking path in YazSes. |
 | [faster-whisper](https://github.com/SYSTRAN/faster-whisper/tree/2a3a857737d17d974f30d818ebec69ce11929e5c), snapshot `2a3a857` [P] | Existing batch and decoder window backend; VAD may filter speech/silence. | VAD is not user consent to submit/replace target text or to end a held-key turn. |
-| [WhisperRT](https://arxiv.org/abs/2508.12301v2), version 2 dated 2026-04-05 [P] | Research on fine-tuned causal streaming and sub-300 ms processing chunks. | Different model/training and no YazSes-specific reproduction; **defer**, not a default-engine proposal. |
 
 ### 2.1 Latency and error evidence
 
