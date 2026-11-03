@@ -76,6 +76,7 @@ _ACTIVATING: frozenset[EventKind] = frozenset(EventKind) - {EventKind.SQUEEZE_OF
 _SCHEMA = 1
 _EPS = 1e-9
 _Z_ONE_SIDED_95 = 1.645
+_ONE_SIDED_ALPHA = 0.05
 _DEFAULT_IDLE_HOURS = 0.1
 
 Runnable = Any
@@ -198,18 +199,46 @@ def _wilson(successes: int, n: int) -> tuple[float, float]:
     return wilson_interval(successes, n)
 
 
+#: Counts up to this use the exact Poisson limit; above it the Wilson-Hilferty form is used,
+#: whose error there is far below what a rate reports at one decimal place.
+_POISSON_EXACT_MAX = 1000
+
+
+def _poisson_cdf(k: int, lam: float) -> float:
+    """P(X <= k) for X ~ Poisson(lam), summed in log space (no overflow, stdlib only)."""
+    log_lam = math.log(lam)
+    return sum(math.exp(-lam + i * log_lam - math.lgamma(i + 1.0)) for i in range(k + 1))
+
+
+def _poisson_upper_events(count: int) -> float:
+    """One-sided 95% upper limit on the Poisson mean, in events, after ``count`` events.
+
+    Exact for ``count <= _POISSON_EXACT_MAX`` (bisection on the CDF). For zero events it is
+    2.9957, not the "rule of three" 3 and not the 2.9687 a Wilson-Hilferty form gives there.
+    """
+    k = int(count)
+    if k > _POISSON_EXACT_MAX:
+        k1 = k + 1.0
+        return k1 * (1.0 - 1.0 / (9.0 * k1) + _Z_ONE_SIDED_95 / (3.0 * math.sqrt(k1))) ** 3
+    lo, hi = 0.0, k + 10.0 * math.sqrt(k + 1.0) + 10.0
+    for _ in range(100):
+        mid = (lo + hi) / 2.0
+        if _poisson_cdf(k, mid) > _ONE_SIDED_ALPHA:
+            lo = mid
+        else:
+            hi = mid
+    return (lo + hi) / 2.0
+
+
 def _poisson_upper(count: int, hours: float) -> float | None:
     """One-sided 95% upper bound on an event rate (per hour) given ``count`` in ``hours``.
 
-    Wilson-Hilferty cube-root approximation to the Poisson upper quantile; for zero
-    events it is close to the "rule of three" (about 3 / hours). An approximation,
-    reported as such. ``None`` when there was no exposure.
+    The exact Poisson limit (see :func:`_poisson_upper_events`) divided by the exposure.
+    ``None`` when there was no exposure: zero events in zero time claims nothing.
     """
     if hours <= 0:
         return None
-    k1 = count + 1.0
-    bound = k1 * (1.0 - 1.0 / (9.0 * k1) + _Z_ONE_SIDED_95 / (3.0 * math.sqrt(k1))) ** 3
-    return bound / hours
+    return _poisson_upper_events(count) / hours
 
 
 def _percentile(values: Sequence[float], pct: float) -> float | None:
@@ -323,7 +352,7 @@ class EvaluationReport:
 
     @property
     def false_activations_upper_per_hour(self) -> float | None:
-        """One-sided 95% upper bound on the false-activation rate (approximate)."""
+        """One-sided 95% upper bound on the false-activation rate (exact Poisson)."""
         return _poisson_upper(self.false_activations, self.duration_s / 3600.0)
 
 
@@ -534,7 +563,7 @@ class IdleReport:
 
     @property
     def phantom_upper_per_hour(self) -> float | None:
-        """One-sided 95% upper bound on the phantom rate (approximate; ~3/h of exposure at zero)."""
+        """One-sided 95% upper bound on the phantom rate (exact Poisson; ~3/h of exposure at zero)."""
         return _poisson_upper(self.phantom_activations, self.hours)
 
 
@@ -571,8 +600,9 @@ def evaluate_idle(
     second, off by default) add the electrode faults that most often fool a detector.
     Pass ``source_factory`` (a zero-argument callable returning a ``BlockSource``) to use
     your own idle source; a source that reports scripted truth events is refused, since it
-    would not be idle. Whatever the source, at most ``hours_simulated`` of signal is
-    consumed, so an endless source is safe.
+    would not be idle. Whatever the source, the run stops at the first block that reaches
+    ``hours_simulated``: it may consume up to one block more than that, and the rates use
+    the duration actually consumed. An endless source is therefore safe.
 
     Deterministic for a given ``seed``. A clean count of zero is evidence of a low rate,
     not of zero: :attr:`IdleReport.phantom_upper_per_hour` is the bound to quote.
@@ -648,7 +678,7 @@ def format_report(report: EvaluationReport) -> str:
     up = report.false_activations_upper_per_hour
     out.append(
         f"false activations: {report.false_activations} "
-        f"({_num(fa, '.1f')}/hour; 95% upper bound {_num(up, '.1f')}/hour, approximate)"
+        f"({_num(fa, '.1f')}/hour; 95% upper bound {_num(up, '.1f')}/hour)"
     )
     out.append("")
     out.append(CAVEAT)
@@ -724,7 +754,7 @@ def format_idle_report(report: IdleReport) -> str:
         f"events seen: {seen}",
         f"phantom activations: {report.phantom_activations} "
         f"({_num(report.phantom_per_hour, '.1f')}/hour; 95% upper bound "
-        f"{_num(report.phantom_upper_per_hour, '.1f')}/hour, approximate)",
+        f"{_num(report.phantom_upper_per_hour, '.1f')}/hour)",
         "",
         CAVEAT,
     ])

@@ -47,6 +47,24 @@ Known and left open as a strict xfail: one NaN in a 4 s window at 500 Hz still g
 recordings, which is a threshold decision.
 
 Not checked: real recordings; Windows and FreeBSD.
+### Fixed — the biosignal false-activation upper bound is the exact Poisson limit
+
+Was: the one-sided 95% upper bound on a false-activation rate used a cube-root approximation. With
+zero events it gave 2.9687 events where the exact value is 2.9957, so the default 0.1 h idle run
+printed 29.7/hour instead of 30.0/hour, slightly optimistic. A rest phase with fewer than four
+windows told the user the electrodes were flat, which that check cannot know.
+
+Now: the bound is exact for counts up to 1000 (bisection on the Poisson CDF, standard library only),
+and the report no longer calls it approximate. A short rest phase says not enough resting signal
+was recorded. `evaluate_idle`'s docstring says the run may overshoot the requested time by one
+block. New `tests/test_biosignal_stats_audit.py` checks the Wilson interval, per-hour rates and
+zero-exposure cases against independent values.
+
+Known and left open as strict xfails: `LedgerStats.per_hour` returns 0.0 when there are
+activations but no active time, and `check_source` prints PASS for a 0.2 s run in which both rate
+checks were skipped. `fieldtest.py` and `fprate.py` keep the older approximation.
+
+Not checked: real recordings.
 
 ## [2.48.1] - 2026-11-03
 
