@@ -3,7 +3,7 @@
 > **Status:** research and design snapshot, **not** a released capability, clinical claim, approved human study or permission to alter production.  
 > **Tracking:** [#696 (EEG/EOG feasibility)](https://github.com/MSKazemi/yazses/issues/696) under [#692 (multimodal HCI)](https://github.com/MSKazemi/yazses/issues/692); complementary research under [#790 (accessible hands-free workspace)](https://github.com/MSKazemi/yazses/issues/790), especially [#814 (study/review gates)](https://github.com/MSKazemi/yazses/issues/814), [#815 (multimodal arbitration)](https://github.com/MSKazemi/yazses/issues/815), [#816 (stop/recovery)](https://github.com/MSKazemi/yazses/issues/816), and [#817 (task evaluation)](https://github.com/MSKazemi/yazses/issues/817).  
 > **Date and evidence:** 2026-11-03. Third-party findings below are cited to upstream scientific articles and library documentation; **no new device, human, or EEG-model benchmark was run** for this report.  
-> **Binding scope:** [ADR-030](../../adr/adr-030-agent-era-direction.md), [ADR-v2-152](../../adr/adr-v2-152-biosignal-artifact-switches.md), [biosignal validation protocol](../specs/biosignal-validation-protocol.md) and [HCI lab roadmap](../hci-huggingface/ROADMAP.md).
+> **Binding scope:** [ADR-030](../../adr/adr-030-agent-era-direction.md), [ADR-v2-152](../../adr/adr-v2-152-biosignal-artifact-switches.md), [biosignal validation protocol](../../specs/biosignal-validation-protocol.md) and [HCI lab roadmap](../../hci-huggingface/ROADMAP.md).
 
 ## Executive recommendation
 
@@ -23,7 +23,7 @@ Investigate **non-invasive scalp EEG as a very low-bandwidth intentional switch*
 | Imagined/covert speech from non-invasive EEG/MEG | Weak, distributed neural patterns during attempted internal speech | **Research horizon only** | Free-form EEG accuracy and generalization inadequate for consumer dictation; EEG and MEG are not interchangeable |
 | Intracortical speech BCI | Surgically implanted electrodes in specialized medical studies | Scientific reference for severe paralysis communication | Not usable with consumer EEG; not a plausible YazSes plugin or DIY feature |
 
-The currently shipped YazSes **biosignal switch** uses artifacts, not motor-imagery brain decoding: [user guide](../../../docs/how-to/biosignal-switch.md) and [biosignal spec](../specs/biosignal-pipeline.md). The explicit exclusion of neural motor imagery and cortical decoders in [ADR-v2-152](../../adr/adr-v2-152-biosignal-artifact-switches.md) remains binding. BrainFlow hardware acquisition support alone does **not** imply that the app decodes thoughts.
+The currently shipped YazSes **biosignal switch** uses artifacts, not motor-imagery brain decoding: [user guide](../../../docs/how-to/biosignal-switch.md) and [biosignal spec](../../specs/biosignal-pipeline.md). The explicit exclusion of neural motor imagery and cortical decoders in [ADR-v2-152](../../adr/adr-v2-152-biosignal-artifact-switches.md) remains binding. BrainFlow hardware acquisition support alone does **not** imply that the app decodes thoughts.
 
 ## 2. Important findings available by 2026-11-03
 
@@ -45,7 +45,7 @@ There is no reason to build a second biosignal acquisition or activation system.
 - `platform/emg/` and activation-source seam: existing physical-switch event routing, not a cortical decoder.
 - `design/hci-huggingface/` research tasks #692/#696/#699/#700: shared synthetic samples, offline replay, uncertainty/abstention/confirmation tests.
 - `design/eye-control/` research and review: target semantics, safety, consent and device testing.
-- [biosignal field protocol](../specs/biosignal-validation-protocol.md): baseline measured **phantom activations/hour** and hit rates, not an ambiguous classifier 'accuracy'.
+- [biosignal field protocol](../../specs/biosignal-validation-protocol.md): baseline measured **phantom activations/hour** and hit rates, not an ambiguous classifier 'accuracy'.
 
 A hypothetical **separate research adapter** could output **candidate events, not commands**, with this *conceptual-only* envelope:
 
