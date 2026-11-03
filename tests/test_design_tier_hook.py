@@ -657,3 +657,121 @@ def test_published_design_pages_no_longer_share_one_description(hook):
     assert checked > 100, f"expected to derive descriptions for the design tier, got {checked}"
     shared = sum(n for n in descriptions.values() if n > 1)
     assert shared <= checked * 0.05, f"{shared} of {checked} pages share a description"
+
+
+# ---- a description is written into an HTML attribute ----------------------------------
+#
+# Material emits `<meta name="description" content="{{ page.meta.description }}">` with no
+# escaping. A straight `"` in the text therefore ended the attribute there: 65 design pages
+# served `content="Wave J research (#7) — "` and a parser read 22 characters. And a lead-in
+# line ("The brief was:") made a fragment of a description. Both are fixed where the text is
+# derived, so the test renders it the way the template does and parses it back.
+
+
+def _meta_tag(description: str) -> str:
+    """The tag exactly as `material/templates/base.html` writes it (no escaping)."""
+    return f'<meta name="description" content="{description}">'
+
+
+def _parsed_description(tag: str) -> tuple[int, str | None]:
+    """How many `<meta>` tags and attributes a real HTML parser finds, and the value read back."""
+    from html.parser import HTMLParser
+
+    class _Collect(HTMLParser):
+        def __init__(self) -> None:
+            super().__init__()
+            self.tags: list[list[tuple[str, str | None]]] = []
+
+        def handle_starttag(self, tag, attrs):  # noqa: ANN001
+            self.tags.append(attrs)
+
+    collector = _Collect()
+    collector.feed(tag)
+    collector.close()
+    assert len(collector.tags) == 1
+    attrs = dict(collector.tags[0])
+    assert set(attrs) == {"name", "content"}, f"the tag grew attributes: {collector.tags[0]}"
+    return len(collector.tags[0]), attrs["content"]
+
+
+def test_straight_quotes_become_typographic_ones(hook):
+    assert hook._plain('say "new paragraph" or "bold"') == "say “new paragraph” or “bold”"
+    assert hook._plain('("quoted" first)') == "(“quoted” first)"
+    assert hook._plain('"starts the line"') == "“starts the line”"
+    assert hook._plain('a 5" pipe') == "a 5” pipe"
+    assert '"' not in hook._plain('mixed "one", \'two\' and "three"')
+
+
+def test_a_description_with_quotes_survives_as_one_well_formed_attribute(hook):
+    markdown = (
+        '# Wave J\n\nWave J research (#7) — "open the notes about the mortgage" → fuzzy match, '
+        'then "read it back" to the user.\n'
+    )
+    page = _MetaPage("design/adr/adr-v2-080.md")
+    hook.on_page_markdown(markdown, page=page, config=CONFIG)
+    description = page.meta["description"]
+    assert '"' not in description
+    count, value = _parsed_description(_meta_tag(description))
+    assert value == description, "the parser must read back the whole intended text"
+    assert len(value) > 60, "a truncated attribute (the bug) reads far less than this"
+
+
+def test_a_heading_with_quotes_gives_a_title_with_no_straight_quote(hook):
+    page = _MetaPage("design/adr/adr-099.md")
+    hook.on_page_markdown('# ADR-099 — Why "new paragraph" is a command and not a word we type, ever\n\nProse that is long enough to be used as the description.\n', page=page, config=CONFIG)
+    assert '"' not in page.meta.get("seo_title", "")
+
+
+@pytest.mark.parametrize("lead_in", [
+    "The brief was:", "Three facts shape this (", "It covers the following,", "Two things matter;",
+    "The cause was —", "The cause was –", "The cause was -",
+])
+def test_a_lead_in_line_is_not_a_description(hook, lead_in):
+    markdown = (
+        f"# T\n\nThis decision exists because the old behaviour surprised people. {lead_in}\n\n"
+        "- first\n- second\n\n"
+        "The second paragraph is a real statement that a reader can use as a summary.\n"
+    )
+    out = hook._describe(markdown)
+    assert out == "This decision exists because the old behaviour surprised people."
+
+
+def test_a_lead_in_with_nothing_before_it_moves_to_the_next_prose_block(hook):
+    markdown = (
+        "# T\n\nThe brief for this whole piece of work was, in the owner's words:\n\n"
+        "> a block quote\n\n"
+        "The next paragraph is a complete statement that a reader can use as a summary.\n"
+    )
+    assert hook._describe(markdown) == "The next paragraph is a complete statement that a reader can use as a summary."
+
+
+def test_a_document_of_only_lead_ins_falls_back_to_the_title_description(hook):
+    page = _MetaPage("design/x.md")
+    hook.on_page_markdown("# Comparison matrix\n\nThe options we weighed against each other were:\n\n- a\n- b\n", page=page, config=CONFIG)
+    assert page.meta["description"].startswith("Comparison matrix.")
+
+
+def test_every_published_design_description_is_one_well_formed_attribute(hook):
+    """All the real pages, rendered as Material renders them and parsed back.
+
+    This is the check that was missing: it fails on the two defects seen live - a quote
+    that ends the attribute early, and a description that is a lead-in fragment.
+    """
+    published = _publishable(hook)
+    assert published is not None
+    checked = 0
+    for rel in sorted(p for p in published if p.endswith(".md")):
+        text = (ROOT / rel).read_text(encoding="utf-8")
+        if text.startswith("---\n"):
+            continue  # hand-written front matter: the author's own description wins
+        page = _MetaPage(rel)
+        hook.on_page_markdown(text, page=page, config=CONFIG)
+        description = page.meta.get("description")
+        if not description:
+            continue
+        checked += 1
+        assert '"' not in description, f"{rel}: a straight quote ends the attribute early"
+        _, value = _parsed_description(_meta_tag(description))
+        assert value == description, f"{rel}: the parser read {value!r}, not the intended text"
+        assert not description.endswith(hook._LEAD_IN), f"{rel}: ends as a fragment: {description[-40:]!r}"
+    assert checked > 100, f"expected to check the design tier, got {checked}"
