@@ -166,11 +166,11 @@ No third-party upload of recordings, transcripts, voiceprints, or participant me
 
 The review branch also contains a deliberately limited and auditable first step:
 
-- [Evaluation runner](../../scripts/evaluate_dysfluency_fidelity.py): a local, deterministic **text-only** comparison of the **same raw hypothesis** through the currently shipped filter with \`enabled=False\` versus \`enabled=True, collapse_repetitions=True, collapse_prolongations=True\`. No decoder, microphone, local LLM, model download, network request or operating-system output injection is involved. This is **filter-only**, not a full replay of the master accessibility preset (which also alters pre-speech padding).
-- [Invented example cases](../../tests/fixtures/disfluency/fidelity_synthetic.json): nine synthetic phrases across repetition, prolongation, interjection, one placeholder \`block\` stratum (no simulated acoustic block) and fluent controls covering a hedge, a negation, code tokens and intentional hyphens.
+- [Evaluation runner](../../scripts/evaluate_dysfluency_fidelity.py): a local, deterministic **text-only** comparison of the **same raw hypothesis** through the currently shipped filter with `enabled=False` versus `enabled=True, collapse_repetitions=True, collapse_prolongations=True`. No decoder, microphone, local LLM, model download, network request or operating-system output injection is involved. This is **filter-only**, not a full replay of the master accessibility preset (which also alters pre-speech padding).
+- [Invented example cases](../../tests/fixtures/disfluency/fidelity_synthetic.json): nine synthetic phrases across repetition, prolongation, interjection, one placeholder `block` stratum (no simulated acoustic block) and fluent controls covering a hedge, a negation, code tokens and intentional hyphens.
 - [Regression tests](../../tests/test_evaluate_dysfluency_fidelity.py): paired-input equality, independent literal/semantic word error counts, fail-over-pass semantics, disputed/inconsistent oracle handling, explicit denominators, schema checks, private-text leakage prevention and exclusive aggregate-report creation.
 
-Run from the repository root after the ordinary \`uv sync\`:
+Run from the repository root after the ordinary `uv sync`:
 
 ~~~sh
 uv run python -m pytest tests/test_evaluate_dysfluency_fidelity.py tests/test_dysfluency_eval.py -q
@@ -179,11 +179,11 @@ uv run python scripts/evaluate_dysfluency_fidelity.py tests/fixtures/disfluency/
 uv run python scripts/evaluate_dysfluency_fidelity.py tests/fixtures/disfluency/fidelity_synthetic.json --output /tmp/yazses-synthetic-summary.json
 ~~~
 
-**Output contract:** JSON contains only counts, rates, a manifest checksum, simplified whitespace/casefold word-error totals and a \`PASS_SYNTHETIC\` / \`FAIL_SYNTHETIC\` / \`INCONCLUSIVE_SYNTHETIC\` label. It contains **no** individual input, text, case ID, reference or per-case transcript checksum. A single confirmed meaning-destructive synthetic case fails regardless of successful cleanups; an unresolved or fixture-mismatched candidate is inconclusive unless a separate confirmed destructive case already fails. Both \`fluent_changes\` and \`safe_cleanup_yield_nonfluent\` report numerator and denominator, and undefined rates remain \`null\`.
+**Output contract:** JSON contains only counts, rates, a manifest checksum, simplified whitespace/casefold word-error totals and a `PASS_SYNTHETIC` / `FAIL_SYNTHETIC` / `INCONCLUSIVE_SYNTHETIC` label. It contains **no** individual input, text, case ID, reference or per-case transcript checksum. A single confirmed meaning-destructive synthetic case fails regardless of successful cleanups; an unresolved or fixture-mismatched candidate is inconclusive unless a separate confirmed destructive case already fails. Both `fluent_changes` and `safe_cleanup_yield_nonfluent` report numerator and denominator, and undefined rates remain `null`.
 
 This runner **does not** accept any input declaring itself a real audio corpus. It can reject wrong scope declarations but cannot independently verify that a caller's strings are synthetic: operators must never place private/participant transcripts in fixtures or third-party coding assistants. The fixed fixtures have **author-supplied oracles, not independent human adjudication**. Their success is a code-level smoke test, *not* evidence of improvement for people who stutter, people with dysarthria, or any other speakers.
 
-**Verification distinction:** the pure evaluator tests were run in an isolated Python environment on 2026-11-03; real-\`yazses\` CLI integration, repository-wide gates and CI status must be checked on the PR before claiming green. This does not discharge the real-speech rights/consent and preregistration gates above.
+**Verification distinction:** the pure evaluator tests were run in an isolated Python environment on 2026-11-03; real-`yazses` CLI integration, repository-wide gates and CI status must be checked on the PR before claiming green. This does not discharge the real-speech rights/consent and preregistration gates above.
 
 ## References (landing pages, not redistributed PDFs)
 
