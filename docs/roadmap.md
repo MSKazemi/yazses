@@ -258,7 +258,7 @@ There is also [voice control — milestone #8](https://github.com/MSKazemi/yazse
 and the [future XR study](https://github.com/MSKazemi/yazses/blob/main/design/xr/ROADMAP.md).
 None overrides ADR-030's active constraints.
 
-## The destination — vision, not a delivery calendar
+## The destination — vision, not a delivery calendar { #the-destination }
 
 YazSes aims to make a keyboard optional for more people, with private
 speech processing under the user's control. Foundation dictation is
@@ -271,6 +271,68 @@ features; more ambitious understanding and interaction need evidence.
 | **Grounded interaction** | Can a user direct and revise input safely without a keyboard? | Parts released; hands-free user and compositor evidence still required. |
 | **Local understanding / recall** | Can a person search and manipulate their own material with verifiable sources? | Some local building blocks exist; semantic cited recall is not a committed release. |
 | **New modalities and spaces** | Do accessible sensors, mobile surfaces or XR meaningfully reduce effort? | **Conditional research**, not the next automatic feature wave. |
+
+### The faculties, by how far each has got
+
+Each box carries its status in words, so the picture still reads in greyscale; the
+table under it gives the same information as text for screen readers. A thick outline is released, a dashed outline is experimental or
+opt-in, a dotted outline is research or not committed. The shapes say nothing about
+dates, and a dotted box is not a promise.
+
+```mermaid
+block-beta
+  columns 5
+  h1["Reliable input"] D["Hold-to-talk dictation\nReleased; platform checks open"] T["File and meeting transcription\nReleased; meetings opt-in"] space space
+  h2["Grounded interaction"] M["Local MCP server\nReleased"] S["Send-to Claude or Codex\nExperimental; client-unverified"] G["Gaze, head pointer, Voice Pilot\nExperimental; off by default"] B["EMG, blink, jaw-clench\nExperimental; no device proof"]
+  h3["Local understanding and recall"] K["Keyword recall\nOpt-in"] R["Semantic, cited recall\nNot a committed release"] space space
+  h4["New modalities and spaces"] P["Mixed-language switching\nPlanned; not wired"] A["Android\nSource foundations only"] X["XR\nResearch only"] space
+  classDef released stroke-width:3px
+  classDef experimental stroke-dasharray:6 3
+  classDef research stroke-dasharray:2 3
+  class D,T,M released
+  class S,G,B,K experimental
+  class R,P,A,X research
+```
+
+**Text equivalent:**
+
+| Horizon | Faculty | Status today |
+|---|---|---|
+| Reliable input | Hold-to-talk dictation | **Released**; per-platform physical validation is still open. |
+| Reliable input | File and meeting transcription | **Released**; meeting capture is opt-in. |
+| Grounded interaction | Local MCP server with `ask_human` | **Released**. |
+| Grounded interaction | Send-to Claude or Codex | **Experimental / client-unverified**; off by default; pre-fills and never sends. |
+| Grounded interaction | Gaze, head pointer, Voice Pilot | **Experimental**; off by default. |
+| Grounded interaction | EMG, blink and jaw-clench switches | **Experimental**; real-device evidence not established. |
+| Local understanding and recall | Keyword recall of your own words | Opt-in; needs the local learning corpus. |
+| Local understanding and recall | Semantic, cited recall | **Not a committed release.** |
+| New modalities and spaces | Mixed-language switching | **Planned**; designed but not wired. |
+| New modalities and spaces | Android | **Source foundations only**; no installable app. |
+| New modalities and spaces | XR | **Research only.** |
+
+The dashed arrows between horizons mean "evidence is needed before this is built on",
+not "this is scheduled next".
+
+### Three promises that hold across all of it
+
+```mermaid
+flowchart LR
+  accTitle: Three promises that hold across every faculty
+  accDescr: Offline, opt-in and private, each tied to the thing that enforces it.
+  O["Offline by default<br/>enforced by an egress-inventory test"]
+  F["Off by default<br/>new features ship dormant, enforced by tests"]
+  L["Private learning corpus<br/>encrypted, opt-in, never leaves the machine"]
+  classDef promise stroke-width:3px
+  class O,F,L promise
+```
+
+**Text equivalent:**
+
+| Promise | What backs it |
+|---|---|
+| Offline | `tests/test_egress_inventory.py` fails the build when a module gains an unregistered outbound path ([ADR-019](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-019-egress-inventory-and-escalation.md)). |
+| Off by default | New features ship dormant; `tests/test_features_defaults.py` and `tests/test_dormant_features.py` check it. |
+| Private learning corpus | The corpus is encrypted, opt-in, and `nothing leaves your machine`; it is one of the three categories that may never leave ([ADR-019](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-019-egress-inventory-and-escalation.md)). |
 
 Read the [architecture](architecture.md), the
 [ADRs](https://github.com/MSKazemi/yazses/tree/main/design/adr),
