@@ -65,6 +65,20 @@ activations but no active time, and `check_source` prints PASS for a 0.2 s run i
 checks were skipped. `fieldtest.py` and `fprate.py` keep the older approximation.
 
 Not checked: real recordings.
+### Tests — which synthetic shapes the EMG onset detector fires on, measured
+
+Was: the known limit (a smooth 50-120 ms unipolar bump still reads as a squeeze) was a prose
+sentence and one xfail.
+
+Now: `tests/test_biosignal_emg_onset_shapes.py` records, over 12 seeds at 250, 500 and 1000 Hz,
+which Hann bumps and zero-mean bursts fire and which do not, and changes no behaviour. A 30 ms
+bump never fires; 50-150 ms bumps at 600 uV or more fire most of the time; a held 500 ms
+contraction fires on every seed; plain relaxed noise never fires. No threshold tried separated
+bumps from true bursts without a regression: a raw-level mean test fails with a 100 uV electrode
+offset (true bursts 107/120 down to 0/120), and removing the pre-crossing mean costs a few true
+bursts and needs a new constant. The false squeeze stays open.
+
+Not checked: real hardware or recordings.
 
 ## [2.48.1] - 2026-11-03
 
