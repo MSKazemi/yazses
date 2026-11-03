@@ -241,3 +241,37 @@ def test_the_exported_text_is_what_import_accepts(tmp_path, monkeypatch):
     runner.invoke(cli.app, ["vocab", "import", "-"], input=exported)
 
     assert runner.invoke(cli.app, ["vocab", "export"]).stdout == exported
+
+
+def test_import_of_a_directory_says_it_is_a_directory(tmp_path, monkeypatch):
+    """'No such file' was wrong: the path exists, it is just a directory."""
+    monkeypatch.setattr(cli, "get_platform", lambda: _fake_platform(tmp_path))
+    folder = tmp_path / "jargon"
+    folder.mkdir()
+    result = runner.invoke(cli.app, ["vocab", "import", str(folder)])
+    assert result.exit_code == 1
+    assert "is a directory" in result.output
+    assert "No such file" not in result.output
+
+
+def test_import_of_a_binary_file_fails_in_one_line_not_a_traceback(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "get_platform", lambda: _fake_platform(tmp_path))
+    add_vocab(tmp_path / "vocabulary.txt", ["mine"])
+    binary = tmp_path / "photo.png"
+    binary.write_bytes(b"\x89PNG\r\n\x1a\n\x00\xff\xfe\x80")
+
+    result = runner.invoke(cli.app, ["vocab", "import", str(binary)])
+
+    assert isinstance(result.exception, (SystemExit, type(None))), repr(result.exception)
+    assert result.exit_code == 1
+    assert "photo.png" in result.output
+    assert "UTF-8" in result.output
+    assert load_vocab(tmp_path / "vocabulary.txt") == ["mine"], "a failed import must not write"
+
+
+def test_import_from_stdin_that_is_not_utf8_fails_in_one_line(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "get_platform", lambda: _fake_platform(tmp_path))
+    result = runner.invoke(cli.app, ["vocab", "import", "-"], input=b"\xff\xfe\x89")
+    assert isinstance(result.exception, (SystemExit, type(None))), repr(result.exception)
+    assert result.exit_code == 1
+    assert "UTF-8" in result.output
