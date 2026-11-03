@@ -300,18 +300,25 @@ opt-in, a dotted outline is research or not committed. The shapes say nothing ab
 dates, and a dotted box is not a promise.
 
 ```mermaid
-block-beta
-  columns 5
-  h1["Reliable input"] D["Hold-to-talk dictation\nReleased; platform checks open"] T["File and meeting transcription\nReleased; meetings opt-in"] space space
-  h2["Grounded interaction"] M["Local MCP server\nReleased"] S["Send-to Claude or Codex\nExperimental; client-unverified"] G["Gaze, head pointer, Voice Pilot\nExperimental; off by default"] B["EMG, blink, jaw-clench\nExperimental; no device proof"]
-  h3["Local understanding and recall"] K["Keyword recall\nOpt-in"] R["Semantic, cited recall\nNot a committed release"] space space
-  h4["New modalities and spaces"] P["Mixed-language switching\nPlanned; not wired"] A["Android\nSource foundations only"] X["XR\nResearch only"] space
-  classDef released stroke-width:3px
-  classDef experimental stroke-dasharray:6 3
-  classDef research stroke-dasharray:2 3
-  class D,T,M released
-  class S,G,B,K experimental
-  class R,P,A,X research
+flowchart TB
+    D["Reliable input: hold-to-talk dictation<br/>Released; platform checks open"]
+    T["Reliable input: file and meeting transcription<br/>Released; meetings opt-in"]
+    M["Grounded interaction: local MCP server<br/>Released"]
+    S["Grounded interaction: send-to Claude or Codex<br/>Experimental; client-unverified"]
+    G["Grounded interaction: gaze, head pointer, Voice Pilot<br/>Experimental; off by default"]
+    B["Grounded interaction: EMG, blink, jaw-clench<br/>Experimental; no device proof"]
+    K["Understanding and recall: keyword recall<br/>Opt-in"]
+    R["Understanding and recall: semantic, cited recall<br/>Not a committed release"]
+    P["New modalities: mixed-language switching<br/>Deferred; not wired"]
+    A["New modalities: Android<br/>Source foundations only"]
+    X["New modalities: XR<br/>Research only"]
+    D ~~~ T ~~~ M ~~~ S ~~~ G ~~~ B ~~~ K ~~~ R ~~~ P ~~~ A ~~~ X
+    classDef released stroke-width:3px
+    classDef experimental stroke-dasharray:6 3
+    classDef research stroke-dasharray:2 3
+    class D,T,M released
+    class S,G,B,K experimental
+    class R,P,A,X research
 ```
 
 **Text equivalent:**
@@ -326,12 +333,12 @@ block-beta
 | Grounded interaction | EMG, blink and jaw-clench switches | **Experimental**; real-device evidence not established. |
 | Local understanding and recall | Keyword recall of your own words | Opt-in; needs the local learning corpus. |
 | Local understanding and recall | Semantic, cited recall | **Not a committed release.** |
-| New modalities and spaces | Mixed-language switching | **Planned**; designed but not wired. |
+| New modalities and spaces | Mixed-language switching | **Deferred**; designed but not wired. |
 | New modalities and spaces | Android | **Source foundations only**; no installable app. |
 | New modalities and spaces | XR | **Research only.** |
 
-The dashed arrows between horizons mean "evidence is needed before this is built on",
-not "this is scheduled next".
+The boxes run from the most established faculty to the least. Their order says
+nothing about what is built next, and a dotted box is not a promise.
 
 ### Three promises that hold across all of it
 
