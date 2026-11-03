@@ -1,4 +1,9 @@
-"""The hands-free controls window — a thin Qt shell over `handsfree/panel.py` (#420).
+"""The hands-free controls — a thin Qt shell over `handsfree/panel.py` (#420).
+
+It is the body of the settings window's "Hands-free" page (``embedded=True``): the page supplies
+the heading and the one-line description, the same as every other page, and this widget supplies
+everything below them. Without ``embedded`` it is a top-level window, which is how the tests and
+``yazses`` development tooling run it.
 
 Everything this window *says* and every button's *meaning* is decided by the pure view-model
 (:func:`yazses.handsfree.panel.build_panel`); this file only places widgets and forwards
@@ -18,15 +23,16 @@ fails first.
   stacked button always has the window's full width.
 * *Two columns when there is room, and the same order either way.* "Right now" (the state, the
   three emergency buttons, the ways to stop, the health report) is on the left and "Set up" on the
-  right; below :data:`TWO_COLUMN_MIN_PX` they stack in that order. Weight and frames mark what to
+  right; below :data:`TWO_COLUMN_MIN_PX` of width they stack in that order. In the settings
+  window that is one column at its default size and two when it is maximised. Weight and frames mark what to
   read first -- no colour, no stylesheet (a test holds both).
 * *Text follows the system font.* Sizes are derived from the font the platform hands the
   application, in whichever unit it uses (points or pixels), never set to a fixed number.
 * *A screen reader hears the sentence, not a caption.* A label's accessible name is its own
   text. Giving a label a short name ("Hands-free state") replaces the text in what a screen
   reader is told, so the state itself would never be announced; no label is given one.
-* *Enter never does something you did not aim at.* The window's default button is Refresh,
-  which is harmless, so Enter on text or a combo box refreshes instead of pausing.
+* *Enter never does something you did not aim at.* No button is the default, so Enter on
+  text or a combo box does nothing; Enter on a focused button presses that button.
 * *The Pause button works before anything has been read.* The window appears at once and
   reads the daemon on a worker thread; until that answer arrives every other control is
   disabled and Pause makes its ordinary call.
@@ -52,8 +58,11 @@ fails first.
   installing packages or preparing a model (on its own worker thread), this window's Apply is
   disabled and says what is running; Pause, Resume and Recenter stay usable throughout.
 * *Opening it never opens the camera, and never blocks.* The slow part of gathering the facts
-  (the display topology behind the calibration check) runs on a worker thread; the window
+  (the display topology behind the calibration check) runs on a worker thread; the page
   appears at once saying it is checking.
+* *It reads only while it is on screen, and never takes the keyboard from the sidebar.* The poll
+  starts when the page is shown and stops when it is hidden. Embedded, showing the page does not
+  move focus: someone arrowing down the sidebar must be able to arrow past it.
 
 Qt is imported inside the class so a base install, and the tests that import this module for
 its pure helpers, never load it.
@@ -182,20 +191,18 @@ class HandsFreePanel:
         apply_busy: Callable[[], str] | None = None,
         poll_ms: int = 1000,
         threaded: bool = True,
-        parent: Any = None,
+        embedded: bool = False,
     ) -> None:
         from PySide6.QtCore import QEvent, QObject, QTimer, Signal
         from PySide6.QtGui import QGuiApplication
         from PySide6.QtWidgets import (
             QBoxLayout,
             QComboBox,
-            QDialog,
             QFrame,
             QGridLayout,
             QHBoxLayout,
             QLabel,
             QPushButton,
-            QScrollArea,
             QVBoxLayout,
             QWidget,
         )
@@ -211,6 +218,7 @@ class HandsFreePanel:
         #: Called on the UI thread only, so it may read widgets.
         self._apply_busy = apply_busy
         self._threaded = threaded
+        self._embedded = embedded
         self._inputs: PanelInputs | None = None
         self._model: PanelModel | None = None
         self._busy = False
@@ -221,17 +229,16 @@ class HandsFreePanel:
         self._bridge = _Bridge()
         self._bridge.ready.connect(self._on_inputs)
 
-        self._dialog = QDialog(parent)
-        self._dialog.setWindowTitle("YazSes — Hands-free controls")
-        # Wide enough for the widest row (gesture name, choice, Set) at the user's font size:
-        # a fixed 720 px was already too narrow at 32 pt, where the window scrolled sideways.
-        # Two columns need room; the width comes from the font as well as a floor, and is
-        # clamped to the screen so a small display gets the one-column layout instead.
-        width = max(TWO_COLUMN_MIN_PX + 120, 88 * self._dialog.fontMetrics().averageCharWidth())
-        screen = QGuiApplication.primaryScreen()
-        if screen is not None:
-            width = min(width, max(720, screen.availableGeometry().width() - 40))
-        self._dialog.resize(width, 780)
+        self._root = QWidget()
+        if not embedded:
+            # Its own window: wide enough for two columns at the user's font size, and
+            # clamped to the screen so a small display gets the one-column layout instead.
+            self._root.setWindowTitle("YazSes — Hands-free controls")
+            width = max(TWO_COLUMN_MIN_PX + 120, 88 * self._root.fontMetrics().averageCharWidth())
+            screen = QGuiApplication.primaryScreen()
+            if screen is not None:
+                width = min(width, max(720, screen.availableGeometry().width() - 40))
+            self._root.resize(width, 780)
 
         def big_button(text: str, ident: str) -> Any:
             btn = QPushButton(text)
@@ -255,9 +262,10 @@ class HandsFreePanel:
             label.setWordWrap(True)
             return label
 
-        outer = QVBoxLayout(self._dialog)
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
+        # No scroll area of its own: the settings page already scrolls its content, and a
+        # second one nested inside it is how a list got squeezed before (see `shell.py`).
+        outer = QVBoxLayout(self._root)
+        outer.setContentsMargins(0, 0, 0, 0)
         body = QWidget()
         # Two columns when there is room -- what to do right now on the left, how it is set
         # up on the right -- one column when there is not. The order of widgets is the same in
@@ -273,8 +281,7 @@ class HandsFreePanel:
         cols.addWidget(setup_w, 1)
         self._columns = cols
         self._now_column, self._setup_column = now_w, setup_w
-        scroll.setWidget(body)
-        outer.addWidget(scroll)
+        outer.addWidget(body)
 
         class _Flip(QObject):  # type: ignore[misc,valid-type]
             """One column below :data:`TWO_COLUMN_MIN_PX`, two at or above it.
@@ -287,10 +294,14 @@ class HandsFreePanel:
 
             def eventFilter(self, obj: Any, event: Any) -> bool:  # noqa: N802 - Qt override
                 kind = event.type()
-                if kind == QEvent.Type.Resize and obj is self_dialog:
+                if obj is root and kind == QEvent.Type.Show:
+                    panel._on_shown()
+                elif obj is root and kind == QEvent.Type.Hide:
+                    panel.stop()
+                if kind == QEvent.Type.Resize and obj is root:
                     want = (
                         QBoxLayout.Direction.LeftToRight
-                        if self_dialog.width() >= TWO_COLUMN_MIN_PX
+                        if root.width() >= TWO_COLUMN_MIN_PX
                         else QBoxLayout.Direction.TopToBottom
                     )
                     if cols.direction() != want:
@@ -311,14 +322,15 @@ class HandsFreePanel:
                 if body.minimumHeight() != needed:
                     body.setMinimumHeight(needed)
 
-        self_dialog = self._dialog
-        self._flip = _Flip(self._dialog)
-        self._dialog.installEventFilter(self._flip)
+        root = self._root
+        panel = self
+        self._flip = _Flip(self._root)
+        self._root.installEventFilter(self._flip)
         body.installEventFilter(self._flip)
 
         def heading(text: str) -> Any:
             label = QLabel(text)
-            label.setFont(enlarged(label.font(), 3.0))
+            label.setFont(enlarged(label.font(), 1.0))
             font = label.font()
             font.setBold(True)
             label.setFont(font)
@@ -487,55 +499,22 @@ class HandsFreePanel:
         bottom = QHBoxLayout()
         refresh = small_button("Refresh", "refresh")
         refresh.clicked.connect(self.refresh)
-        # The default button is what Enter does when focus is on something that does not use
-        # Enter (the health text, the dialog itself). Qt would otherwise pick the first
-        # button in the window -- Pause. Refresh is harmless to press by accident.
-        refresh.setDefault(True)
-        close = small_button("Close", "close")
-        close.clicked.connect(self._dialog.close)
         bottom.addWidget(refresh)
         bottom.addStretch(1)
-        bottom.addWidget(close)
         outer.addLayout(bottom)
-
-        # Width from what the layout actually needs, not from a guess. The scroll area scrolls sideways
-        # exactly when its viewport is narrower than the body's minimum width, and the target sizes,
-        # margins, combo arrows and scroll bar are fixed pixels that do not scale with the font -- so a
-        # width worked out from the average glyph width is too small in a narrow font. Estimating the
-        # rest was not enough either: on Windows a vertical scroll bar that appears only at some sizes
-        # (14 pt here) is 25 px wide once shown, and its `sizeHint()` before it is shown says
-        # otherwise, so the hosted run kept scrolling sideways by exactly 25 px. So react to the
-        # overflow itself: whenever the horizontal range becomes non-zero, make the dialog that much
-        # wider and keep it from shrinking below it again. It only ever widens, so it settles.
-        hbar = scroll.horizontalScrollBar()
-
-        def _widen_to_remove_sideways_scrolling(_low: int, high: int) -> None:
-            if high <= 0:
-                return
-            if (
-                cols.direction() == QBoxLayout.Direction.LeftToRight
-                and self._dialog.width() < TWO_COLUMN_MIN_PX
-            ):
-                return  # two columns do not fit here: the layout is about to stack, not widen
-            wanted = self._dialog.width() + high
-            self._dialog.setMinimumWidth(max(self._dialog.minimumWidth(), wanted))
-            self._dialog.resize(wanted, self._dialog.height())
-
-        hbar.rangeChanged.connect(_widen_to_remove_sideways_scrolling)
 
         self._set_tab_order()
         self._placeholders()
-        self._dialog.finished.connect(lambda _=0: self.stop())
         self._timer: Any = None
         if poll_ms > 0:
-            self._timer = QTimer(self._dialog)
+            self._timer = QTimer(self._root)
             self._timer.timeout.connect(self.refresh)
             self._poll_ms = poll_ms
 
     # ---------------------------------------------------------------- before the first read
 
     #: Which controls stay usable until the daemon has answered once.
-    _AWAITING = frozenset({"pause", "refresh", "close"})
+    _AWAITING = frozenset({"pause", "refresh"})
 
     def _placeholders(self) -> None:
         """Words (not identifiers) on every control, and only the safe ones enabled, until the
@@ -566,10 +545,10 @@ class HandsFreePanel:
         widgets += [self._buttons[i] for i in order]
         for gesture, (_name, combo, setb) in self._map_widgets.items():
             widgets += [combo, setb]
-        widgets += [self._buttons["refresh"], self._buttons["close"]]
+        widgets.append(self._buttons["refresh"])
         self._tab_order = widgets
         for first, second in zip(widgets, widgets[1:], strict=False):
-            self._dialog.setTabOrder(first, second)
+            self._root.setTabOrder(first, second)
 
     @property
     def tab_order(self) -> list[Any]:
@@ -691,7 +670,10 @@ class HandsFreePanel:
         self._restore_focus(focused, model)
         if not self._first_read:
             self._first_read = True
-            self._focus_first_action(focused, model)
+            if not self._embedded:
+                # A page never takes focus: the read can finish while the window is in the
+                # background, and moving focus then would pull it off the sidebar entry.
+                self._focus_first_action(focused, model)
 
     def _mark_primary(self, model: PanelModel) -> None:
         """Set the action the state calls for in bold, so the eye lands on it.
@@ -872,18 +854,22 @@ class HandsFreePanel:
     # ---------------------------------------------------------------- showing
 
     @property
-    def dialog(self) -> Any:
-        return self._dialog
+    def widget(self) -> Any:
+        """The widget to place on a page (or to show, when the panel is its own window)."""
+        return self._root
 
     def show(self) -> None:
-        """Show the window and start polling. Reading the facts opens no camera."""
-        self._dialog.show()
-        if not self._first_read and self._buttons["pause"].isEnabled():
+        """Show the panel; reading the facts and the poll start with it. Opens no camera."""
+        self._root.show()
+
+    def _on_shown(self) -> None:
+        if not self._embedded and not self._first_read and self._buttons["pause"].isEnabled():
             self._buttons["pause"].setFocus()  # until the state is read, Pause is the one stop
         self.refresh()
-        if self._timer is not None:
+        if self._timer is not None and not self._timer.isActive():
             self._timer.start(self._poll_ms)
 
     def stop(self) -> None:
+        """Stop polling. Called when the panel is hidden, so a page nobody sees reads nothing."""
         if self._timer is not None:
             self._timer.stop()

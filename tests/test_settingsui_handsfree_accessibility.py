@@ -70,12 +70,12 @@ def _plain(text: str) -> str:
 
 
 def _shown(rig: _Rig, qapp) -> None:
-    rig.panel.dialog.show()
+    rig.panel.widget.show()
     qapp.processEvents()
 
 
 def _interactive(rig: _Rig) -> list[QWidget]:
-    d = rig.panel.dialog
+    d = rig.panel.widget
     return [*d.findChildren(QPushButton), *d.findChildren(QComboBox)]
 
 
@@ -91,7 +91,7 @@ def test_every_label_sentence_reaches_the_accessibility_layer(qapp):
     """The regression: ``setAccessibleName("Hands-free state")`` made the layer report the caption
     and drop the sentence, so a screen reader never announced Faulted / Paused / Active."""
     rig = _Rig(qapp, _faulted_with_everything_on())
-    labels = [lb for lb in rig.panel.dialog.findChildren(QLabel) if lb.text().strip()]
+    labels = [lb for lb in rig.panel.widget.findChildren(QLabel) if lb.text().strip()]
     assert len(labels) >= 8
     for label in labels:
         iface = QAccessible.queryAccessibleInterface(label)
@@ -165,7 +165,7 @@ def test_each_gesture_combo_is_labelled_by_its_gesture_name(qapp):
 def test_before_the_first_read_no_control_is_named_after_an_identifier(qapp):
     rig = _Rig(qapp)
     fresh = HandsFreePanel(lambda: rig.inputs, lambda spec: None, poll_ms=0, threaded=False)
-    for widget in [*fresh.dialog.findChildren(QPushButton)]:
+    for widget in [*fresh.widget.findChildren(QPushButton)]:
         text = _plain(widget.text())
         assert not re.fullmatch(r"[a-z]+(_[a-z]+)+", text), f"placeholder text {text!r}"
         assert text.strip()
@@ -184,7 +184,7 @@ def _chain(rig: _Rig, qapp) -> list[QWidget]:
         if (
             widget.focusPolicy() & Qt.FocusPolicy.TabFocus
             and widget.isEnabled()
-            and widget.isVisibleTo(rig.panel.dialog)
+            and widget.isVisibleTo(rig.panel.widget)
         ):
             stops.append(widget)
         widget = widget.nextInFocusChain()
@@ -229,7 +229,7 @@ def test_every_enabled_button_can_be_pressed_with_space_and_with_enter(qapp):
     rig = _Rig(qapp, _faulted_with_everything_on())
     _shown(rig, qapp)
     pressed: list[str] = []
-    buttons = [b for b in rig.panel.dialog.findChildren(QPushButton) if b.isEnabled()]
+    buttons = [b for b in rig.panel.widget.findChildren(QPushButton) if b.isEnabled()]
     # Close would end the test's own dialog; the rest are exercised for real.
     buttons = [b for b in buttons if b.objectName() != "close"]
     assert len(buttons) >= 10
@@ -261,7 +261,7 @@ def test_a_combo_box_is_changed_with_the_arrow_keys_and_saved_with_its_set_butto
 def test_the_three_emergency_buttons_have_distinct_alt_mnemonics_and_nothing_else_collides(qapp):
     rig = _Rig(qapp, _faulted_with_everything_on())
     seen: dict[str, str] = {}
-    for button in rig.panel.dialog.findChildren(QPushButton):
+    for button in rig.panel.widget.findChildren(QPushButton):
         seq = QKeySequence.mnemonic(button.text())
         if seq.isEmpty():
             continue
@@ -273,26 +273,54 @@ def test_the_three_emergency_buttons_have_distinct_alt_mnemonics_and_nothing_els
     assert "resume" in seen.values()
 
 
-def test_enter_on_text_refreshes_and_never_pauses(qapp):
-    """Qt makes the first button -- Pause -- the dialog's default, so Enter on the health text
-    paused hands-free input. The default is now Refresh."""
+def test_enter_on_text_never_does_anything(qapp):
+    """Enter on the health text must not press a button. As a dialog, Qt made the first button --
+    Pause -- the default, so Enter paused hands-free input; as a page of the settings window there
+    is no default button at all, and this holds the page to that."""
     rig = _Rig(qapp, _inputs(SafetyState.ACTIVE))
     _shown(rig, qapp)
-    assert rig.button("refresh").isDefault()
     assert not rig.button("pause").isDefault()
     rig.panel._health.setFocus()
-    gathers = rig.gathers
     QTest.keyClick(rig.panel._health, Qt.Key.Key_Return)
     assert rig.performed == [], "Enter on the health text performed an action"
-    assert rig.gathers == gathers + 1, "Enter on the health text should have refreshed"
+    rig.panel.widget.close()
 
 
-def test_escape_closes_the_window_without_performing_anything(qapp):
-    rig = _Rig(qapp)
-    _shown(rig, qapp)
-    QTest.keyClick(rig.panel.dialog, Qt.Key.Key_Escape)
-    assert not rig.panel.dialog.isVisible()
-    assert rig.performed == []
+def test_hiding_the_panel_stops_the_poll_and_showing_it_starts_it_again(qapp):
+    """A page nobody is looking at reads nothing; the poll follows the page's visibility."""
+    panel = HandsFreePanel(
+        lambda: _inputs(), lambda spec: None, poll_ms=60_000, threaded=False, embedded=True
+    )
+    timer = panel._timer
+    assert not timer.isActive()
+    panel.widget.show()
+    qapp.processEvents()
+    assert timer.isActive()
+    panel.widget.hide()
+    qapp.processEvents()
+    assert not timer.isActive()
+    panel.widget.show()
+    qapp.processEvents()
+    assert timer.isActive()
+    panel.widget.close()
+    assert not timer.isActive()
+
+
+@pytest.mark.parametrize(("embedded", "grabs"), [(True, False), (False, True)])
+def test_only_a_window_of_its_own_moves_focus_on_the_first_read(qapp, embedded, grabs):
+    """Someone arrowing down the sidebar lands on this page; if its first read moved focus they
+    could not arrow on to the next page. The read can also finish while the window is in the
+    background, when the application has no focused widget and a window-level `setFocus` would
+    silently replace the sidebar's -- offscreen Qt always reports a focused widget, so the
+    decision itself is what is held here."""
+    calls: list = []
+    panel = HandsFreePanel(
+        lambda: _inputs(), lambda spec: None, poll_ms=0, threaded=False, embedded=embedded
+    )
+    panel._focus_first_action = lambda focused, model: calls.append(model)  # type: ignore[method-assign]
+    panel.refresh()
+    assert bool(calls) is grabs
+    panel.widget.close()
 
 
 # ---------------------------------------------------------------- before the first read
@@ -329,7 +357,7 @@ def test_pause_works_before_the_daemon_has_been_read_and_makes_the_ordinary_call
 def test_every_other_control_is_disabled_until_the_first_read(qapp):
     panel, performed = _unread_panel()
     for ident, button in panel._buttons.items():
-        if ident in ("pause", "refresh", "close"):
+        if ident in ("pause", "refresh"):
             assert button.isEnabled(), ident
         else:
             assert not button.isEnabled(), f"{ident} is pressable before the state is known"
@@ -357,7 +385,7 @@ def test_the_first_read_puts_keyboard_focus_on_the_action_the_state_calls_for(
     qapp, state, reason, expected
 ):
     rig = _Rig(qapp, _inputs(state, reason=reason))
-    assert rig.panel.dialog.focusWidget() is rig.button(expected)
+    assert rig.panel.widget.focusWidget() is rig.button(expected)
 
 
 # ---------------------------------------------------------------- a larger system font
@@ -376,16 +404,16 @@ def test_no_button_or_combo_is_cut_short_and_nothing_forces_sideways_scrolling(
     qapp.setFont(font)
     rig = _Rig(qapp, _faulted_with_everything_on())
     _shown(rig, qapp)
-    for button in rig.panel.dialog.findChildren(QPushButton):
+    for button in rig.panel.widget.findChildren(QPushButton):
         need = max(button.sizeHint().width(), button.minimumSizeHint().width())
         assert button.width() >= need, (
             f"{button.objectName()} is {button.width()}px wide but needs {need}px at {points}pt: "
             f"{_plain(button.text())!r} is cut short"
         )
-    for combo in rig.panel.dialog.findChildren(QComboBox):
+    for combo in rig.panel.widget.findChildren(QComboBox):
         widest = max(combo.fontMetrics().horizontalAdvance(combo.itemText(i)) for i in range(combo.count()))
         assert combo.width() >= widest, f"{combo.accessibleName()} would elide its choices at {points}pt"
-    for area in rig.panel.dialog.findChildren(QScrollArea):
+    for area in rig.panel.widget.findChildren(QScrollArea):
         assert area.horizontalScrollBar().maximum() == 0, f"sideways scrolling at {points}pt"
 
 
@@ -425,7 +453,7 @@ def test_no_sideways_scrolling_in_the_narrowest_and_the_widest_installed_font(
     qapp.setFont(font)
     rig = _Rig(qapp, _faulted_with_everything_on())
     _shown(rig, qapp)
-    for area in rig.panel.dialog.findChildren(QScrollArea):
+    for area in rig.panel.widget.findChildren(QScrollArea):
         assert area.horizontalScrollBar().maximum() == 0, (
             f"sideways scrolling by {area.horizontalScrollBar().maximum()}px at {points}pt in {families[which]!r}"
         )
@@ -445,7 +473,7 @@ def test_a_window_that_turns_out_too_narrow_widens_itself_instead_of_scrolling_s
     font.setPointSize(points)
     qapp.setFont(font)
     rig = _Rig(qapp, _faulted_with_everything_on())
-    dialog = rig.panel.dialog
+    dialog = rig.panel.widget
     dialog.setMinimumWidth(0)
     dialog.resize(260, 820)
     _shown(rig, qapp)
@@ -513,14 +541,14 @@ def test_no_colour_is_set_anywhere_in_the_shell_or_on_any_widget(qapp):
     } & forbidden
     assert used == set(), f"the shell sets colour via {sorted(used)}"
     rig = _Rig(qapp, _faulted_with_everything_on())
-    for widget in rig.panel.dialog.findChildren(QWidget):
+    for widget in rig.panel.widget.findChildren(QWidget):
         assert widget.styleSheet() == "", widget.objectName()
         assert widget.palette().resolveMask() == 0, f"{widget.objectName()} overrides the palette"
 
 
 def _every_string(rig: _Rig) -> str:
     chunks: list[str] = []
-    for widget in rig.panel.dialog.findChildren(QWidget):
+    for widget in rig.panel.widget.findChildren(QWidget):
         for getter in ("text", "toolTip", "accessibleName", "accessibleDescription", "title"):
             value = getattr(widget, getter, None)
             if callable(value):

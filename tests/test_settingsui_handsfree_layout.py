@@ -28,7 +28,7 @@ def qapp():
 
 
 def _show(rig, qapp, width: int, height: int = 800):
-    dialog = rig.panel.dialog
+    dialog = rig.panel.widget
     dialog.resize(width, height)
     dialog.show()
     for _ in range(5):

@@ -126,7 +126,7 @@ def test_the_controls_the_old_window_stacked_each_live_on_their_own_page(qapp):
     assert page_of(win._model_box) == "speech"
     assert page_of(win._mic_box) == "audio"
     assert page_of(win._filter_box) == "features"
-    assert page_of(win._handsfree_button) == "handsfree"
+    assert page_of(win._handsfree_panel.widget) == "handsfree"
     assert page_of(win._maintenance.check_button) == "updates"
 
 

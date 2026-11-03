@@ -20,7 +20,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 pytest.importorskip("PySide6")
 
-from PySide6.QtWidgets import QApplication  # noqa: E402
+from PySide6.QtWidgets import QApplication, QWidget  # noqa: E402
 
 from yazses.handsfree.observability import HandsFreeFacts  # noqa: E402
 from yazses.handsfree.panel import FeatureFact, PanelInputs  # noqa: E402
@@ -161,14 +161,11 @@ def test_the_settings_window_hands_the_panel_its_own_busy_state_and_summary(qapp
     class _Stub:
         def __init__(self, gather, perform, **kw):
             captured.update(kw)
-
-        def show(self):
-            pass
+            self.widget = QWidget()
 
     monkeypatch.setattr(hp_module, "HandsFreePanel", _Stub)
     controller = SettingsController(Config, lambda s, k, v, q: None, lambda modules: [])
     win = SettingsWindow(build_settings_model(Config()), controller)
-    win._handsfree_button.click()
     busy = captured["apply_busy"]
 
     assert busy() == ""

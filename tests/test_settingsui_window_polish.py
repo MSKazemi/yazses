@@ -119,8 +119,8 @@ def test_the_general_and_hands_free_notes_start_at_the_left_edge(qapp):
     note = next(lb for text, lb in general.items() if text.startswith("Changes are staged"))
     assert note.indent() == 0
     handsfree = _labels(win._shell.stack.widget(next(i for i, s in enumerate(PAGES) if s.key == "handsfree")))
-    about = next(lb for text, lb in handsfree.items() if "does not open the camera" in text)
-    assert about.indent() == 0
+    # The panel's own labels are plain (no stylesheet margin), so none of them is indented.
+    assert handsfree and all(lb.indent() <= 0 for lb in handsfree.values())
 
 
 # ---- the repeated sentence -------------------------------------------------------------
@@ -131,8 +131,6 @@ def test_the_hands_free_page_does_not_repeat_its_own_blurb(qapp):
     spec = next(s for s in PAGES if s.key == "handsfree")
     page = win._shell.stack.widget(PAGES.index(spec))
     texts = list(_labels(page))
-    about = next(t for t in texts if "does not open the camera" in t)
-    assert "Pause, resume" not in about, "that is the blurb's sentence, one line above"
-    assert about != spec.blurb
-    # What a person needs before clicking is still said: the camera is not opened.
-    assert "does not open the camera" in about
+    # The heading's description is said once, under the heading; the controls do not say it again.
+    assert texts.count(spec.blurb) == 1
+    assert not any("Pause, resume and recover the camera-driven" in t for t in texts if t != spec.blurb)

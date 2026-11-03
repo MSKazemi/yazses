@@ -6,21 +6,32 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Changed — the hands-free controls window is laid out in two columns
+### Changed — the hands-free controls are the Hands-free page of the settings window, in two columns when there is room
 
-The window used to be one long scrolling list. It now has two columns when it is wide enough:
-**Right now** (the state, Pause / Resume / Recenter, the ways to stop without pointing, and the health
-report) on the left, and **Set up** (camera switches, dwell-click, global stop, face-switch mapping) on
-the right. Below about 980 px it falls back to one column. The state sits in a heavier frame, the other
-sections are framed cards with a visible heading, and the action the state calls for is set in bold.
-An empty explanation line (a disabled button's reason, the result of the last press) no longer leaves a
-blank band.
+They used to open in a second window from a button on a nearly empty page. They are now the page
+itself, under the same heading and grey description as General, Speech and the others, so the sidebar
+stays on screen and there is nothing to open or close. The page reads the daemon only while it is shown
+and stops when you leave it. It never takes keyboard focus when it appears, so arrowing down the sidebar
+can carry on past it; Pause, Resume and Recenter are still the first three Tab stops inside the page.
+The Close button went with the window, and nothing is the default button any more, so Enter on text still
+does nothing.
+
+At the settings window's default size the page is one column; when the window is wide enough (about
+980 px of page) it is two: **Right now** (the state, Pause / Resume / Recenter, the ways to stop without
+pointing, and the health report) on the left, and **Set up** (camera switches, dwell-click, global stop,
+face-switch mapping) on the right. The state sits in a heavier frame, the other sections are framed cards
+with a visible heading, the action the state calls for is set in bold, and an empty explanation line (a
+disabled button's reason, the result of the last press) no longer leaves a blank band.
 
 Nothing about what a control does changed, and the accessibility rules stand and are still tested: no
-colour or stylesheet is used, every button and combo box is at least 48 px high, Pause, Resume and
-Recenter are the first three Tab stops, and the Tab order does not depend on the window's width. The
-only change to the Tab order is that the health report now comes straight after the ways to stop, where
-it now sits on screen, instead of after the camera switches.
+colour or stylesheet in the panel, every button and combo box at least 48 px high, Pause, Resume and
+Recenter first in the Tab order, and the Tab order independent of the width. The health report now comes
+straight after the ways to stop, where it sits on screen, instead of after the camera switches. The
+how-to pages name the page, not a button.
+
+Not measured: a very large system font, where a mapping row can need more than the page's width and the
+page then scrolls sideways (the old window widened itself to avoid that).
+
 ### Fixed — the tray's "Stop daemon" stays stopped, and its menu actions report the real outcome
 
 Was: on Linux, "Stop daemon" sent only the `shutdown` request. The stop note that `yazses stop`

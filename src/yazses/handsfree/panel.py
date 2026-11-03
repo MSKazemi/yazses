@@ -611,8 +611,8 @@ def stop_routes(inputs: PanelInputs) -> tuple[str, ...]:
     if not _requested(inputs):
         return ()
     routes = [
-        "This window (Settings → Hands-free controls): Alt+P presses Pause and Alt+R presses "
-        "Resume or Recover; Tab reaches every control.",
+        "This page (Settings → Hands-free): Alt+P presses Pause and Alt+R presses "
+        "Resume or Recover while it is open; Tab reaches every control.",
         "Terminal, script, or anything that can run a command: `yazses handsfree pause` "
         "(and `yazses handsfree resume`).",
     ]
