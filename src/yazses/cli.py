@@ -8567,6 +8567,30 @@ def transcribe(
         typer.echo(f"Unknown --format {fmt!r}; expected one of {', '.join(VALID_FORMATS)}.", err=True)
         raise typer.Exit(1)
 
+    # Refused before any config or model is touched. A bare unknown name would otherwise
+    # fail inside the decoder with a suggestion (`yazses model download <name>`) that
+    # cannot work for a name that is not a Whisper model. A hub id (org/repo) or a local
+    # folder is a valid faster-whisper model, so it is let through to the loader.
+    from yazses.stt.download import WHISPER_MODELS, is_whisper_model
+
+    if model and not is_whisper_model(model) and "/" not in model and not Path(model).exists():
+        typer.echo(
+            f"Unknown --model {model!r}. Valid Whisper models: "
+            f"{', '.join(sorted(WHISPER_MODELS))} (or a Hugging Face id like org/repo).",
+            err=True)
+        raise typer.Exit(2)
+
+    # 0 means auto-detect. Any other value below zero is meaningless, and it was not
+    # refused: both diarizers read a non-positive count as "no count", so `--speakers -3`
+    # silently ran auto-detection.
+    for flag, count in (("--speakers", speakers), ("--min-speakers", min_speakers),
+                        ("--max-speakers", max_speakers)):
+        if count < 0:
+            typer.echo(
+                f"{flag} must be 0 (auto-detect) or a positive speaker count, not {count}.",
+                err=True)
+            raise typer.Exit(2)
+
     # get_paths(), not get_platform(): transcribing a file needs a config
     # location and nothing else from the platform layer. Routing it through the
     # backend made it raise UnsupportedPlatformError on an OS without one —
@@ -8643,7 +8667,7 @@ def transcribe(
     # load and the file decode falls back.
     from yazses.recimport.pipeline import _build_engine
     from yazses.stt.decoder_settings import file_decoder_settings
-    from yazses.stt.errors import LanguageUnsupportedError
+    from yazses.stt.errors import LanguageUnsupportedError, ModelUnavailableError
 
     typer.echo(f"Loading model '{file_decoder_settings(cfg.stt, eff).model}'…", err=True)
     try:
@@ -8654,6 +8678,14 @@ def transcribe(
         typer.echo(str(exc), err=True)
         typer.echo("Pass --model with a multilingual checkpoint, e.g. --model small.", err=True)
         raise typer.Exit(2) from None
+    except ModelUnavailableError as exc:
+        # The model is absent and could not be fetched. The exception's text is already
+        # the full remedy, so it is the whole output; the traceback is kept at DEBUG.
+        import logging
+
+        logging.getLogger("yazses").debug("transcribe: model unavailable", exc_info=True)
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from None
 
     # Speaker naming: parse explicit maps; load the enrolled voiceprint (→ "You").
     name_list = [n.strip() for n in names.split(",")] if names else None
