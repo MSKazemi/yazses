@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.48.1] - 2026-11-03
+
 ### Fixed — the tray's "Stop daemon" stays stopped, and its menu actions report the real outcome
 
 Was: on Linux, "Stop daemon" sent only the `shutdown` request. The stop note that `yazses stop`
