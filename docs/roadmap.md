@@ -314,6 +314,27 @@ build time:
 
 <!-- yazses-status:recent-releases -->
 
+## Future work
+
+Nothing here is scheduled. Each item is labelled with the status words defined
+[above](#what-our-status-words-mean), and none overrides the ADR-030 breadth
+freeze.
+
+| Idea | Status | Why it is not built, and what would change that |
+|---|---|---|
+| **Cloud escalation for transcription** | **Deferred**: designed, deliberately not implemented | Offline stays the only path, so "nothing leaves your machine" is never quietly weakened. [ADR-019](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-019-egress-inventory-and-escalation.md) applies the same guardrails to any future feature, lists every way data can leave today, and names three things that may never leave whatever the consent: voiceprint embeddings, the learning corpus, and anything captured from someone who did not consent. |
+| **Third-party plug-ins** | **Declined**, not deferred | A plug-in would sit on the dictation hot path with the microphone, the transcript and the injector. [ADR-018](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-018-feature-packs-and-the-plugin-question.md) records the reasoning and what would reverse it: a real isolation boundary. |
+| **Other agent protocols** | **Released**: MCP server over stdio. **Declined**: FastAPI and agent-to-agent | [ADR-020](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-020-agent-protocols.md) gives the reasons. |
+| **Personal speech adapters (LoRA)** | **Deferred** | On-device fine-tuning for your own voice, including atypical speech, waits for a measured accuracy win on held-out data. Prompt-level personalisation from your own corpus already ships. |
+| **Per-language model switching and code-switch dictation** | **Deferred** | The routing logic exists but nothing calls it yet: no decode path produces the per-span language IDs it needs, and no code-switch-adapted model ships. |
+| **Silent-speech input (sEMG)** | **Experimental / hardware-unverified** | The activation seam ships; real-device evidence is not established. |
+| **Vision-based screen commanding** | **Conditional** | Gaze targeting ships on X11; deeper pure-vision commanding depends on platform support that is not universal. |
+| **Spoken recall with cited retrieval** | **Research** | `yazses recall` already searches your past dictation by keyword (opt-in). Semantic, cited, fully offline retrieval is not a committed release. |
+| **Multi-step task chaining over long sessions** | **Research** | No design is accepted. |
+
+When a research direction does ship, it follows the same rule as everything
+else: off by default, opt-in, on-device.
+
 ## Known limits
 
 - **Physical validation is incomplete** and does not carry forward
