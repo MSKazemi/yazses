@@ -209,10 +209,23 @@ jobs:
         # only: the failure mode being caught is interpreter behaviour, not OS
         # behaviour, and a full 3x5 matrix buys nothing for the runtime it costs.
         python-version: ["3.11", "3.12"]
-        # Runs as `test-linux` above, on every PR, so it is not repeated here.
-        exclude:
-          - os: ubuntu-latest
-            python-version: "3.12"
+        # Two exclusions, written as one expression because GitHub does not allow the
+        # `matrix` context in a job-level `if:` (so one leg cannot be skipped from
+        # outside), while `github` is available here:
+        #   * ubuntu-latest / 3.12 runs as `test-linux` above, on every PR, so it is not
+        #     repeated here. Always excluded.
+        #   * macos-latest / 3.11 is dropped on pull_request only. Every PR launched two
+        #     macOS legs into the one pool that is short of runners; a different
+        #     interpreter on the same OS catches interpreter behaviour, which Linux
+        #     already covers (3.11 to 3.14), not macOS behaviour, which 3.12 covers.
+        #     Pushes to main and manual runs still run it. A leg removed this way does
+        #     not exist, so ci-gate sees a `test` job with fewer legs, not a skipped one.
+        #     Measured 2026-11-04: CI_POLICY.md section 13.1.
+        # tests/test_ci_test_matrix.py renders both branches offline.
+        exclude: >-
+          ${{ fromJSON(github.event_name == 'pull_request'
+          && '[{"os":"ubuntu-latest","python-version":"3.12"},{"os":"macos-latest","python-version":"3.11"}]'
+          || '[{"os":"ubuntu-latest","python-version":"3.12"}]') }}
         include:
           - os: ubuntu-latest
             python-version: "3.13"
