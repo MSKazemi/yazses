@@ -1,0 +1,2177 @@
+{
+  "schema_version": 1,
+  "inventory_date": "2026-10-28",
+  "source_document": "design/hci-huggingface/model-provenance.md",
+  "models": [
+    {
+      "id": "systran--faster-whisper-tiny",
+      "name": "Systran/faster-whisper-tiny",
+      "role": "stt",
+      "inventory_table": "A1",
+      "status": "listed-only",
+      "source": {
+        "kind": "huggingface",
+        "location": "Systran/faster-whisper-tiny"
+      },
+      "upstream_id": "openai--whisper-tiny",
+      "upstream_author": "Converted by Systran from openai/whisper-tiny",
+      "model_card_url": "https://huggingface.co/Systran/faster-whisper-tiny",
+      "license": {
+        "status": "stated",
+        "id": "mit",
+        "as_stated": "mit (front matter). Body: none; links upstream card"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "d90ca5fe260221311c53c58e660288d3deb8d356",
+        "observed_on": "2026-10-28",
+        "last_modified": "2023-11-23",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "faster-whisper / CTranslate2",
+      "download_method": "faster_whisper.utils.download_model(name) via src/yazses/stt/download.py:201-214, called without a revision argument, so it resolves to the repository's default branch at download time",
+      "offline_behavior": "Cache first: WhisperModel(..., local_files_only=True) (src/yazses/stt/faster_whisper.py:40-44); if that raises, one online download (lines 63-66). The loaders pin no revision",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "unknown: the inventory records no consent step; fallback is the one online download described under offline_behavior, then ModelUnavailableError (faster_whisper.py:67-83)",
+      "benchmarked_by_yazses": false,
+      "code_refs": [
+        {
+          "path": "src/yazses/stt/download.py",
+          "line": 64
+        }
+      ]
+    },
+    {
+      "id": "systran--faster-whisper-tiny.en",
+      "name": "Systran/faster-whisper-tiny.en",
+      "role": "stt",
+      "inventory_table": "A1",
+      "status": "listed-only",
+      "source": {
+        "kind": "huggingface",
+        "location": "Systran/faster-whisper-tiny.en"
+      },
+      "upstream_id": "openai--whisper-tiny.en",
+      "upstream_author": "Systran, from openai/whisper-tiny.en",
+      "model_card_url": "https://huggingface.co/Systran/faster-whisper-tiny.en",
+      "license": {
+        "status": "stated",
+        "id": "mit",
+        "as_stated": "mit (front matter)"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "0d3d19a32d3338f10357c0889762bd8d64bbdeba",
+        "observed_on": "2026-10-28",
+        "last_modified": "2023-11-23",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "faster-whisper / CTranslate2",
+      "download_method": "faster_whisper.utils.download_model(name) via src/yazses/stt/download.py:201-214, called without a revision argument, so it resolves to the repository's default branch at download time",
+      "offline_behavior": "Cache first: WhisperModel(..., local_files_only=True) (src/yazses/stt/faster_whisper.py:40-44); if that raises, one online download (lines 63-66). The loaders pin no revision",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "unknown: the inventory records no consent step; fallback is the one online download described under offline_behavior, then ModelUnavailableError (faster_whisper.py:67-83)",
+      "benchmarked_by_yazses": true,
+      "code_refs": [
+        {
+          "path": "src/yazses/stt/download.py",
+          "line": 65
+        },
+        {
+          "path": "docs/models.md",
+          "line": 90
+        }
+      ]
+    },
+    {
+      "id": "systran--faster-whisper-base",
+      "name": "Systran/faster-whisper-base",
+      "role": "stt",
+      "inventory_table": "A1",
+      "status": "listed-only",
+      "source": {
+        "kind": "huggingface",
+        "location": "Systran/faster-whisper-base"
+      },
+      "upstream_id": "openai--whisper-base",
+      "upstream_author": "Systran, from openai/whisper-base",
+      "model_card_url": "https://huggingface.co/Systran/faster-whisper-base",
+      "license": {
+        "status": "stated",
+        "id": "mit",
+        "as_stated": "mit (front matter)"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "ebe41f70d5b6dfa9166e2c581c45c9c0cfc57b66",
+        "observed_on": "2026-10-28",
+        "last_modified": "2023-11-23",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "faster-whisper / CTranslate2",
+      "download_method": "faster_whisper.utils.download_model(name) via src/yazses/stt/download.py:201-214, called without a revision argument, so it resolves to the repository's default branch at download time",
+      "offline_behavior": "Cache first: WhisperModel(..., local_files_only=True) (src/yazses/stt/faster_whisper.py:40-44); if that raises, one online download (lines 63-66). The loaders pin no revision",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "unknown: the inventory records no consent step; fallback is the one online download described under offline_behavior, then ModelUnavailableError (faster_whisper.py:67-83)",
+      "benchmarked_by_yazses": true,
+      "code_refs": [
+        {
+          "path": "src/yazses/stt/download.py",
+          "line": 48
+        }
+      ]
+    },
+    {
+      "id": "systran--faster-whisper-base.en",
+      "name": "Systran/faster-whisper-base.en",
+      "role": "stt",
+      "inventory_table": "A1",
+      "status": "used-default",
+      "source": {
+        "kind": "huggingface",
+        "location": "Systran/faster-whisper-base.en"
+      },
+      "upstream_id": "openai--whisper-base.en",
+      "upstream_author": "Systran, from openai/whisper-base.en",
+      "model_card_url": "https://huggingface.co/Systran/faster-whisper-base.en",
+      "license": {
+        "status": "stated",
+        "id": "mit",
+        "as_stated": "mit (front matter)"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "3d3d5dee26484f91867d81cb899cfcf72b96be6c",
+        "observed_on": "2026-10-28",
+        "last_modified": "2023-11-23",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "faster-whisper / CTranslate2",
+      "download_method": "faster_whisper.utils.download_model(name) via src/yazses/stt/download.py:201-214, called without a revision argument, so it resolves to the repository's default branch at download time",
+      "offline_behavior": "Cache first: WhisperModel(..., local_files_only=True) (src/yazses/stt/faster_whisper.py:40-44); if that raises, one online download (lines 63-66). The loaders pin no revision",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "unknown: the inventory records no consent step; fallback is the one online download described under offline_behavior, then ModelUnavailableError (faster_whisper.py:67-83)",
+      "benchmarked_by_yazses": true,
+      "code_refs": [
+        {
+          "path": "src/yazses/config.py",
+          "line": 43
+        },
+        {
+          "path": "src/yazses/stt/download.py",
+          "line": 49
+        },
+        {
+          "path": "docs/models.md",
+          "line": 15
+        }
+      ]
+    },
+    {
+      "id": "systran--faster-whisper-small",
+      "name": "Systran/faster-whisper-small",
+      "role": "stt",
+      "inventory_table": "A1",
+      "status": "listed-only",
+      "source": {
+        "kind": "huggingface",
+        "location": "Systran/faster-whisper-small"
+      },
+      "upstream_id": "openai--whisper-small",
+      "upstream_author": "Systran, from openai/whisper-small",
+      "model_card_url": "https://huggingface.co/Systran/faster-whisper-small",
+      "license": {
+        "status": "stated",
+        "id": "mit",
+        "as_stated": "mit (front matter)"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "536b0662742c02347bc0e980a01041f333bce120",
+        "observed_on": "2026-10-28",
+        "last_modified": "2023-11-23",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "faster-whisper / CTranslate2",
+      "download_method": "faster_whisper.utils.download_model(name) via src/yazses/stt/download.py:201-214, called without a revision argument, so it resolves to the repository's default branch at download time",
+      "offline_behavior": "Cache first: WhisperModel(..., local_files_only=True) (src/yazses/stt/faster_whisper.py:40-44); if that raises, one online download (lines 63-66). The loaders pin no revision",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "unknown: the inventory records no consent step; fallback is the one online download described under offline_behavior, then ModelUnavailableError (faster_whisper.py:67-83)",
+      "benchmarked_by_yazses": true,
+      "code_refs": [
+        {
+          "path": "src/yazses/stt/download.py",
+          "line": 62
+        }
+      ]
+    },
+    {
+      "id": "systran--faster-whisper-small.en",
+      "name": "Systran/faster-whisper-small.en",
+      "role": "stt",
+      "inventory_table": "A1",
+      "status": "listed-only",
+      "source": {
+        "kind": "huggingface",
+        "location": "Systran/faster-whisper-small.en"
+      },
+      "upstream_id": "openai--whisper-small.en",
+      "upstream_author": "Systran, from openai/whisper-small.en",
+      "model_card_url": "https://huggingface.co/Systran/faster-whisper-small.en",
+      "license": {
+        "status": "stated",
+        "id": "mit",
+        "as_stated": "mit (front matter)"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "d1d751a5f8271d482d14ca55d9e2deeebbae577f",
+        "observed_on": "2026-10-28",
+        "last_modified": "2023-11-23",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "faster-whisper / CTranslate2",
+      "download_method": "faster_whisper.utils.download_model(name) via src/yazses/stt/download.py:201-214, called without a revision argument, so it resolves to the repository's default branch at download time",
+      "offline_behavior": "Cache first: WhisperModel(..., local_files_only=True) (src/yazses/stt/faster_whisper.py:40-44); if that raises, one online download (lines 63-66). The loaders pin no revision",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "unknown: the inventory records no consent step; fallback is the one online download described under offline_behavior, then ModelUnavailableError (faster_whisper.py:67-83)",
+      "benchmarked_by_yazses": true,
+      "code_refs": [
+        {
+          "path": "src/yazses/stt/download.py",
+          "line": 63
+        },
+        {
+          "path": "docs/models.md",
+          "line": 92
+        }
+      ]
+    },
+    {
+      "id": "systran--faster-whisper-medium",
+      "name": "Systran/faster-whisper-medium",
+      "role": "stt",
+      "inventory_table": "A1",
+      "status": "listed-only",
+      "source": {
+        "kind": "huggingface",
+        "location": "Systran/faster-whisper-medium"
+      },
+      "upstream_id": "openai--whisper-medium",
+      "upstream_author": "Systran, from openai/whisper-medium",
+      "model_card_url": "https://huggingface.co/Systran/faster-whisper-medium",
+      "license": {
+        "status": "stated",
+        "id": "mit",
+        "as_stated": "mit (front matter)"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "08e178d48790749d25932bbc082711ddcfdfbc4f",
+        "observed_on": "2026-10-28",
+        "last_modified": "2023-11-23",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "faster-whisper / CTranslate2",
+      "download_method": "faster_whisper.utils.download_model(name) via src/yazses/stt/download.py:201-214, called without a revision argument, so it resolves to the repository's default branch at download time",
+      "offline_behavior": "Cache first: WhisperModel(..., local_files_only=True) (src/yazses/stt/faster_whisper.py:40-44); if that raises, one online download (lines 63-66). The loaders pin no revision",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "unknown: the inventory records no consent step; fallback is the one online download described under offline_behavior, then ModelUnavailableError (faster_whisper.py:67-83)",
+      "benchmarked_by_yazses": true,
+      "code_refs": [
+        {
+          "path": "src/yazses/stt/download.py",
+          "line": 60
+        }
+      ]
+    },
+    {
+      "id": "systran--faster-whisper-medium.en",
+      "name": "Systran/faster-whisper-medium.en",
+      "role": "stt",
+      "inventory_table": "A1",
+      "status": "listed-only",
+      "source": {
+        "kind": "huggingface",
+        "location": "Systran/faster-whisper-medium.en"
+      },
+      "upstream_id": "openai--whisper-medium.en",
+      "upstream_author": "Systran, from openai/whisper-medium.en",
+      "model_card_url": "https://huggingface.co/Systran/faster-whisper-medium.en",
+      "license": {
+        "status": "stated",
+        "id": "mit",
+        "as_stated": "mit (front matter)"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "a29b04bd15381511a9af671baec01072039215e3",
+        "observed_on": "2026-10-28",
+        "last_modified": "2023-11-23",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "faster-whisper / CTranslate2",
+      "download_method": "faster_whisper.utils.download_model(name) via src/yazses/stt/download.py:201-214, called without a revision argument, so it resolves to the repository's default branch at download time",
+      "offline_behavior": "Cache first: WhisperModel(..., local_files_only=True) (src/yazses/stt/faster_whisper.py:40-44); if that raises, one online download (lines 63-66). The loaders pin no revision",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "unknown: the inventory records no consent step; fallback is the one online download described under offline_behavior, then ModelUnavailableError (faster_whisper.py:67-83)",
+      "benchmarked_by_yazses": true,
+      "code_refs": [
+        {
+          "path": "src/yazses/stt/download.py",
+          "line": 61
+        }
+      ]
+    },
+    {
+      "id": "systran--faster-whisper-large-v1",
+      "name": "Systran/faster-whisper-large-v1",
+      "role": "stt",
+      "inventory_table": "A1",
+      "status": "listed-only",
+      "source": {
+        "kind": "huggingface",
+        "location": "Systran/faster-whisper-large-v1"
+      },
+      "upstream_id": "openai--whisper-large",
+      "upstream_author": "Systran, from openai/whisper-large (v1)",
+      "model_card_url": "https://huggingface.co/Systran/faster-whisper-large-v1",
+      "license": {
+        "status": "stated",
+        "id": "mit",
+        "as_stated": "mit (front matter)"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "b07c8d4be0be90092aa01a29c975077acb8d15c9",
+        "observed_on": "2026-10-28",
+        "last_modified": "2023-11-23",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "faster-whisper / CTranslate2",
+      "download_method": "faster_whisper.utils.download_model(name) via src/yazses/stt/download.py:201-214, called without a revision argument, so it resolves to the repository's default branch at download time",
+      "offline_behavior": "Cache first: WhisperModel(..., local_files_only=True) (src/yazses/stt/faster_whisper.py:40-44); if that raises, one online download (lines 63-66). The loaders pin no revision",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "unknown: the inventory records no consent step; fallback is the one online download described under offline_behavior, then ModelUnavailableError (faster_whisper.py:67-83)",
+      "benchmarked_by_yazses": false,
+      "code_refs": [
+        {
+          "path": "src/yazses/stt/download.py",
+          "line": 56
+        }
+      ]
+    },
+    {
+      "id": "systran--faster-whisper-large-v2",
+      "name": "Systran/faster-whisper-large-v2",
+      "role": "stt",
+      "inventory_table": "A1",
+      "status": "listed-only",
+      "source": {
+        "kind": "huggingface",
+        "location": "Systran/faster-whisper-large-v2"
+      },
+      "upstream_id": "openai--whisper-large-v2",
+      "upstream_author": "Systran, from openai/whisper-large-v2",
+      "model_card_url": "https://huggingface.co/Systran/faster-whisper-large-v2",
+      "license": {
+        "status": "stated",
+        "id": "mit",
+        "as_stated": "mit (front matter)"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "f0fe81560cb8b68660e564f55dd99207059c092e",
+        "observed_on": "2026-10-28",
+        "last_modified": "2023-11-23",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "faster-whisper / CTranslate2",
+      "download_method": "faster_whisper.utils.download_model(name) via src/yazses/stt/download.py:201-214, called without a revision argument, so it resolves to the repository's default branch at download time",
+      "offline_behavior": "Cache first: WhisperModel(..., local_files_only=True) (src/yazses/stt/faster_whisper.py:40-44); if that raises, one online download (lines 63-66). The loaders pin no revision",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "unknown: the inventory records no consent step; fallback is the one online download described under offline_behavior, then ModelUnavailableError (faster_whisper.py:67-83)",
+      "benchmarked_by_yazses": false,
+      "code_refs": [
+        {
+          "path": "src/yazses/stt/download.py",
+          "line": 57
+        }
+      ]
+    },
+    {
+      "id": "systran--faster-whisper-large-v3",
+      "name": "Systran/faster-whisper-large-v3",
+      "role": "stt",
+      "inventory_table": "A1",
+      "status": "listed-only",
+      "source": {
+        "kind": "huggingface",
+        "location": "Systran/faster-whisper-large-v3"
+      },
+      "upstream_id": "openai--whisper-large-v3",
+      "upstream_author": "Systran, from openai/whisper-large-v3",
+      "model_card_url": "https://huggingface.co/Systran/faster-whisper-large-v3",
+      "license": {
+        "status": "stated",
+        "id": "mit",
+        "as_stated": "mit (front matter). Upstream card says apache-2.0 (Table A3)"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "edaa852ec7e145841d8ffdb056a99866b5f0a478",
+        "observed_on": "2026-10-28",
+        "last_modified": "2023-11-23",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "faster-whisper / CTranslate2",
+      "download_method": "faster_whisper.utils.download_model(name) via src/yazses/stt/download.py:201-214, called without a revision argument, so it resolves to the repository's default branch at download time",
+      "offline_behavior": "Cache first: WhisperModel(..., local_files_only=True) (src/yazses/stt/faster_whisper.py:40-44); if that raises, one online download (lines 63-66). The loaders pin no revision",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "unknown: the inventory records no consent step; fallback is the one online download described under offline_behavior, then ModelUnavailableError (faster_whisper.py:67-83)",
+      "benchmarked_by_yazses": true,
+      "code_refs": [
+        {
+          "path": "src/yazses/stt/download.py",
+          "line": 55
+        }
+      ]
+    },
+    {
+      "id": "systran--faster-distil-whisper-large-v2",
+      "name": "Systran/faster-distil-whisper-large-v2",
+      "role": "stt",
+      "inventory_table": "A1",
+      "status": "listed-only",
+      "source": {
+        "kind": "huggingface",
+        "location": "Systran/faster-distil-whisper-large-v2"
+      },
+      "upstream_id": "distil-whisper--distil-large-v2",
+      "upstream_author": "Conversion of distil-whisper/distil-large-v2",
+      "model_card_url": "https://huggingface.co/Systran/faster-distil-whisper-large-v2",
+      "license": {
+        "status": "stated",
+        "id": "mit",
+        "as_stated": "mit (front matter); upstream distil card mit"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "fe9b404fc56de3f7c38606ef9ba6fd83526d05e4",
+        "observed_on": "2026-10-28",
+        "last_modified": "2024-05-09",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "faster-whisper / CTranslate2",
+      "download_method": "faster_whisper.utils.download_model(name) via src/yazses/stt/download.py:201-214, called without a revision argument, so it resolves to the repository's default branch at download time",
+      "offline_behavior": "Cache first: WhisperModel(..., local_files_only=True) (src/yazses/stt/faster_whisper.py:40-44); if that raises, one online download (lines 63-66). The loaders pin no revision",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "unknown: the inventory records no consent step; fallback is the one online download described under offline_behavior, then ModelUnavailableError (faster_whisper.py:67-83)",
+      "benchmarked_by_yazses": false,
+      "code_refs": [
+        {
+          "path": "src/yazses/stt/download.py",
+          "line": 50
+        }
+      ]
+    },
+    {
+      "id": "systran--faster-distil-whisper-large-v3",
+      "name": "Systran/faster-distil-whisper-large-v3",
+      "role": "stt",
+      "inventory_table": "A1",
+      "status": "listed-only",
+      "source": {
+        "kind": "huggingface",
+        "location": "Systran/faster-distil-whisper-large-v3"
+      },
+      "upstream_id": "distil-whisper--distil-large-v3",
+      "upstream_author": "Conversion of distil-whisper/distil-large-v3",
+      "model_card_url": "https://huggingface.co/Systran/faster-distil-whisper-large-v3",
+      "license": {
+        "status": "stated",
+        "id": "mit",
+        "as_stated": "mit (front matter); upstream mit"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "c3058b475261292e64a0412df1d2681c06260fab",
+        "observed_on": "2026-10-28",
+        "last_modified": "2024-03-25",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "faster-whisper / CTranslate2",
+      "download_method": "faster_whisper.utils.download_model(name) via src/yazses/stt/download.py:201-214, called without a revision argument, so it resolves to the repository's default branch at download time",
+      "offline_behavior": "Cache first: WhisperModel(..., local_files_only=True) (src/yazses/stt/faster_whisper.py:40-44); if that raises, one online download (lines 63-66). The loaders pin no revision",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "unknown: the inventory records no consent step; fallback is the one online download described under offline_behavior, then ModelUnavailableError (faster_whisper.py:67-83)",
+      "benchmarked_by_yazses": false,
+      "code_refs": [
+        {
+          "path": "src/yazses/stt/download.py",
+          "line": 51
+        }
+      ]
+    },
+    {
+      "id": "systran--faster-distil-whisper-medium.en",
+      "name": "Systran/faster-distil-whisper-medium.en",
+      "role": "stt",
+      "inventory_table": "A1",
+      "status": "listed-only",
+      "source": {
+        "kind": "huggingface",
+        "location": "Systran/faster-distil-whisper-medium.en"
+      },
+      "upstream_id": "distil-whisper--distil-medium.en",
+      "upstream_author": "Conversion; upstream named by repository name (card not read)",
+      "model_card_url": "https://huggingface.co/Systran/faster-distil-whisper-medium.en",
+      "license": {
+        "status": "stated",
+        "id": "mit",
+        "as_stated": "mit (front matter); upstream mit"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "80ddfce281f77766d8943d63109199fc8145dfa5",
+        "observed_on": "2026-10-28",
+        "last_modified": "2024-01-19",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "faster-whisper / CTranslate2",
+      "download_method": "faster_whisper.utils.download_model(name) via src/yazses/stt/download.py:201-214, called without a revision argument, so it resolves to the repository's default branch at download time",
+      "offline_behavior": "Cache first: WhisperModel(..., local_files_only=True) (src/yazses/stt/faster_whisper.py:40-44); if that raises, one online download (lines 63-66). The loaders pin no revision",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "unknown: the inventory records no consent step; fallback is the one online download described under offline_behavior, then ModelUnavailableError (faster_whisper.py:67-83)",
+      "benchmarked_by_yazses": false,
+      "code_refs": [
+        {
+          "path": "src/yazses/stt/download.py",
+          "line": 53
+        }
+      ]
+    },
+    {
+      "id": "systran--faster-distil-whisper-small.en",
+      "name": "Systran/faster-distil-whisper-small.en",
+      "role": "stt",
+      "inventory_table": "A1",
+      "status": "listed-only",
+      "source": {
+        "kind": "huggingface",
+        "location": "Systran/faster-distil-whisper-small.en"
+      },
+      "upstream_id": "distil-whisper--distil-small.en",
+      "upstream_author": "Conversion of distil-whisper/distil-small.en",
+      "model_card_url": "https://huggingface.co/Systran/faster-distil-whisper-small.en",
+      "license": {
+        "status": "stated",
+        "id": "mit",
+        "as_stated": "mit (front matter); upstream mit"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "ef77d90526ccd62cde3808ee70626a01e5cf83e4",
+        "observed_on": "2026-10-28",
+        "last_modified": "2024-01-22",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "faster-whisper / CTranslate2",
+      "download_method": "faster_whisper.utils.download_model(name) via src/yazses/stt/download.py:201-214, called without a revision argument, so it resolves to the repository's default branch at download time",
+      "offline_behavior": "Cache first: WhisperModel(..., local_files_only=True) (src/yazses/stt/faster_whisper.py:40-44); if that raises, one online download (lines 63-66). The loaders pin no revision",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "unknown: the inventory records no consent step; fallback is the one online download described under offline_behavior, then ModelUnavailableError (faster_whisper.py:67-83)",
+      "benchmarked_by_yazses": false,
+      "code_refs": [
+        {
+          "path": "src/yazses/stt/download.py",
+          "line": 54
+        }
+      ]
+    },
+    {
+      "id": "distil-whisper--distil-large-v3.5-ct2",
+      "name": "distil-whisper/distil-large-v3.5-ct2",
+      "role": "stt",
+      "inventory_table": "A1",
+      "status": "listed-only",
+      "source": {
+        "kind": "huggingface",
+        "location": "distil-whisper/distil-large-v3.5-ct2"
+      },
+      "upstream_id": "distil-whisper--distil-large-v3.5",
+      "upstream_author": "distil-whisper (Hugging Face)",
+      "model_card_url": "https://huggingface.co/distil-whisper/distil-large-v3.5-ct2",
+      "license": {
+        "status": "stated",
+        "id": "mit",
+        "as_stated": "mit. Card: \"inherits the MIT license from OpenAI's Whisper model\""
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "9793ccc07920e0f830e1dba0343efcdf0ef8c903",
+        "observed_on": "2026-10-28",
+        "last_modified": "2025-03-19",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "faster-whisper / CTranslate2",
+      "download_method": "faster_whisper.utils.download_model(name) via src/yazses/stt/download.py:201-214, called without a revision argument, so it resolves to the repository's default branch at download time",
+      "offline_behavior": "Cache first: WhisperModel(..., local_files_only=True) (src/yazses/stt/faster_whisper.py:40-44); if that raises, one online download (lines 63-66). The loaders pin no revision",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "unknown: the inventory records no consent step; fallback is the one online download described under offline_behavior, then ModelUnavailableError (faster_whisper.py:67-83)",
+      "benchmarked_by_yazses": false,
+      "code_refs": [
+        {
+          "path": "src/yazses/stt/download.py",
+          "line": 52
+        }
+      ]
+    },
+    {
+      "id": "dropbox-dash--faster-whisper-large-v3-turbo",
+      "name": "mobiuslabsgmbh/faster-whisper-large-v3-turbo (redirects to dropbox-dash/faster-whisper-large-v3-turbo)",
+      "role": "stt",
+      "inventory_table": "A1",
+      "status": "listed-only",
+      "source": {
+        "kind": "huggingface",
+        "location": "dropbox-dash/faster-whisper-large-v3-turbo",
+        "requested_as": "mobiuslabsgmbh/faster-whisper-large-v3-turbo"
+      },
+      "upstream_id": "openai--whisper-large-v3-turbo",
+      "upstream_author": "Conversion of openai/whisper-large-v3-turbo (per the card); the requested id is a Mobius Labs repo",
+      "model_card_url": "https://huggingface.co/dropbox-dash/faster-whisper-large-v3-turbo",
+      "license": {
+        "status": "stated",
+        "id": "mit",
+        "as_stated": "mit (front matter, redirect target). Card: conversion of openai/whisper-large-v3-turbo"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "0a363e9161cbc7ed1431c9597a8ceaf0c4f78fcf",
+        "observed_on": "2026-10-28",
+        "last_modified": "2025-11-05",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "faster-whisper / CTranslate2",
+      "download_method": "faster_whisper.utils.download_model(name) via src/yazses/stt/download.py:201-214, called without a revision argument, so it resolves to the repository's default branch at download time",
+      "offline_behavior": "Cache first: WhisperModel(..., local_files_only=True) (src/yazses/stt/faster_whisper.py:40-44); if that raises, one online download (lines 63-66). The loaders pin no revision",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "unknown: the inventory records no consent step; fallback is the one online download described under offline_behavior, then ModelUnavailableError (faster_whisper.py:67-83)",
+      "benchmarked_by_yazses": true,
+      "code_refs": [
+        {
+          "path": "src/yazses/stt/download.py",
+          "line": 59
+        }
+      ],
+      "notes": "Requested id is a Mobius Labs repo. The API call returned HTTP 307 to dropbox-dash/faster-whisper-large-v3-turbo; the content read is at the redirect target. Whether the redirect is permanent, and whether the content is identical, is not verified. YazSes does not pin the revision."
+    },
+    {
+      "id": "nvidia--parakeet-tdt-0.6b-v2",
+      "name": "NVIDIA Parakeet TDT 0.6B v2",
+      "role": "stt",
+      "inventory_table": "A2",
+      "status": "used-opt-in",
+      "source": {
+        "kind": "huggingface",
+        "location": "nvidia/parakeet-tdt-0.6b-v2"
+      },
+      "upstream_author": "NVIDIA",
+      "model_card_url": "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2",
+      "license": {
+        "status": "stated",
+        "id": "cc-by-4.0",
+        "as_stated": "cc-by-4.0. Card: \"GOVERNING TERMS: Use of this model is governed by the CC-BY-4.0 license\" (line 179)"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "ae9ad07059c7c739ffaf932226a8fe64ae2620b0",
+        "observed_on": "2026-10-28",
+        "last_modified": "2026-06-29",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "Upstream is NeMo (.nemo). YazSes loads it through onnx-asr (ONNX)",
+      "download_method": "onnx_asr.load_model(alias) in src/yazses/stt/parakeet.py:164 and :173, no revision argument; which repository onnx-asr fetches for the alias was not verified",
+      "offline_behavior": "onnx_asr.load_model has no offline switch (parakeet.py:188-190), so the whole load is wrapped in load_cache_first (src/yazses/system/hfcache.py:135-157): offline attempt first, online retry on failure unless the user set offline mode",
+      "hardware": "Card: \"designed to run on NVIDIA GPU-accelerated systems\" (line 229); \"At least 2GB RAM for model to load\" (line 350). No CPU-only figure stated",
+      "consent_and_fallback": "unknown: opt-in engine (the user must select it); no download-consent step recorded in the inventory; fallback is the online retry in load_cache_first",
+      "benchmarked_by_yazses": true,
+      "code_refs": [
+        {
+          "path": "src/yazses/stt/parakeet.py",
+          "line": 39
+        },
+        {
+          "path": "src/yazses/stt/parakeet.py",
+          "line": 164
+        },
+        {
+          "path": "src/yazses/stt/parakeet.py",
+          "line": 194
+        },
+        {
+          "path": "src/yazses/language/capability.py",
+          "line": 51
+        }
+      ],
+      "notes": "Benchmark files record the model name only, not a repository or revision. The revision above is the upstream NeMo repository head, not necessarily the files onnx-asr downloads."
+    },
+    {
+      "id": "istupakov--parakeet-tdt-0.6b-v2-onnx",
+      "name": "ONNX conversion of Parakeet TDT 0.6B v2 (candidate source of the ONNX files)",
+      "role": "stt",
+      "inventory_table": "A2",
+      "status": "candidate-not-used",
+      "source": {
+        "kind": "huggingface",
+        "location": "istupakov/parakeet-tdt-0.6b-v2-onnx"
+      },
+      "upstream_id": "nvidia--parakeet-tdt-0.6b-v2",
+      "upstream_author": "Converter account istupakov (not the original author), for onnx-asr",
+      "model_card_url": "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v2-onnx",
+      "license": {
+        "status": "stated",
+        "id": "cc-by-4.0",
+        "as_stated": "cc-by-4.0; base_model: nvidia/parakeet-tdt-0.6b-v2"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "0bbb45a3365852604aef28b538a8f066f4ccaa85",
+        "observed_on": "2026-10-28",
+        "last_modified": "2026-02-17",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "onnx-asr / ONNX Runtime",
+      "download_method": "unknown: not verified as the repository YazSes downloads; the code names only the alias",
+      "offline_behavior": "unknown: not applicable until the alias-to-repository mapping is verified",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "unknown: not inventoried",
+      "benchmarked_by_yazses": false,
+      "code_refs": [],
+      "notes": "Not verified whether this is the repository onnx-asr fetches for nemo-parakeet-tdt-0.6b-v2 (onnx-asr was not installed during the inventory). Marked candidate-not-used because no YazSes code names this repository."
+    },
+    {
+      "id": "nvidia--parakeet-tdt-0.6b-v3",
+      "name": "NVIDIA Parakeet TDT 0.6B v3",
+      "role": "stt",
+      "inventory_table": "A2",
+      "status": "listed-only",
+      "source": {
+        "kind": "huggingface",
+        "location": "nvidia/parakeet-tdt-0.6b-v3"
+      },
+      "upstream_author": "NVIDIA",
+      "model_card_url": "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3",
+      "license": {
+        "status": "stated",
+        "id": "cc-by-4.0",
+        "as_stated": "cc-by-4.0 (line 812)"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "541d1f99c6b0c3cd0b11a95167540bb8edefd82b",
+        "observed_on": "2026-10-28",
+        "last_modified": "2026-08-05",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "NeMo; safetensors; GGUF variant also listed on the Hub",
+      "download_method": "unknown: no code path loads it by default (listed in language/capability.py only)",
+      "offline_behavior": "unknown: not applicable, listed only",
+      "hardware": "unknown: hardware statements not read in full",
+      "consent_and_fallback": "unknown: not inventoried",
+      "benchmarked_by_yazses": false,
+      "code_refs": [
+        {
+          "path": "src/yazses/language/capability.py",
+          "line": 89
+        },
+        {
+          "path": "src/yazses/language/capability.py",
+          "line": 182
+        }
+      ],
+      "notes": "Multilingual (25 European languages per the card, line 794). Not the engine default."
+    },
+    {
+      "id": "moonshine-ai--moonshine",
+      "name": "UsefulSensors Moonshine (now moonshine-ai/moonshine on the Hub)",
+      "role": "stt",
+      "inventory_table": "A2",
+      "status": "used-opt-in",
+      "source": {
+        "kind": "huggingface",
+        "location": "moonshine-ai/moonshine",
+        "requested_as": "UsefulSensors/moonshine"
+      },
+      "upstream_author": "Useful Sensors (card: \"Useful Sensors developed the models\")",
+      "model_card_url": "https://huggingface.co/moonshine-ai/moonshine",
+      "license": {
+        "status": "stated",
+        "id": "mit",
+        "as_stated": "mit (front matter). Read at the redirect target"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "48b4e427b587bcf67797a5be706d6ddc4a298149",
+        "observed_on": "2026-10-28",
+        "last_modified": "2025-11-30",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "useful-moonshine-onnx (ONNX Runtime)",
+      "download_method": "The installed package fetches id UsefulSensors/moonshine with hf_hub_download and no revision (moonshine_onnx/model.py:5-9, package version 20251121)",
+      "offline_behavior": "Load wrapped in load_cache_first (src/yazses/system/hfcache.py:135-157): offline attempt first, online retry on failure unless the user set offline mode (src/yazses/stt/moonshine.py:131-147)",
+      "hardware": "Not stated numerically. Card says intended for platforms severely constrained in memory capacity and computational resources (intent, not a figure)",
+      "consent_and_fallback": "unknown: opt-in engine; no download-consent step recorded in the inventory; fallback is the online retry in load_cache_first",
+      "benchmarked_by_yazses": true,
+      "code_refs": [
+        {
+          "path": "src/yazses/stt/moonshine.py",
+          "line": 46
+        },
+        {
+          "path": "src/yazses/stt/moonshine.py",
+          "line": 131
+        }
+      ],
+      "notes": "English only. The id in code is a Hub redirect; whether it is permanent, and whether the onnx/merged/base/float files are unchanged, is not verified."
+    },
+    {
+      "id": "speechbrain--spkrec-ecapa-voxceleb",
+      "name": "SpeechBrain ECAPA-TDNN speaker encoder",
+      "role": "speaker-embedding",
+      "inventory_table": "A2",
+      "status": "used-opt-in",
+      "source": {
+        "kind": "huggingface",
+        "location": "speechbrain/spkrec-ecapa-voxceleb"
+      },
+      "upstream_author": "SpeechBrain team; architecture Desplanques et al. (Interspeech 2020, card citation)",
+      "model_card_url": "https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb",
+      "license": {
+        "status": "stated",
+        "id": "apache-2.0",
+        "as_stated": "apache-2.0 (front matter and metadata)"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "0f99f2d0ebe89ac095bcc5903c4dd8f72b367286",
+        "observed_on": "2026-10-28",
+        "last_modified": "2025-02-18",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "SpeechBrain (PyTorch)",
+      "download_method": "unknown: loaded through load_cache_first (src/yazses/voiceprint/ecapa.py:27-31); the fetch call itself was not inventoried",
+      "offline_behavior": "Load wrapped in load_cache_first (src/yazses/system/hfcache.py:135-157): offline attempt first, online retry on failure unless the user set offline mode",
+      "hardware": "Not stated in the card (the card gives a GPU option, run_opts={\"device\":\"cuda\"}, line 80)",
+      "consent_and_fallback": "unknown: optional (voiceprint extra); no consent step recorded in the inventory; fallback is the online retry in load_cache_first",
+      "benchmarked_by_yazses": false,
+      "code_refs": [
+        {
+          "path": "src/yazses/voiceprint/ecapa.py",
+          "line": 28
+        },
+        {
+          "path": "src/yazses/config.py",
+          "line": 788
+        }
+      ],
+      "notes": "Trained on VoxCeleb; the SpeechBrain team gives no warranty on other datasets (card lines 104-106). Whether the voiceprint feature is on by default was not checked."
+    },
+    {
+      "id": "pyannote--speaker-diarization-3.1",
+      "name": "pyannote speaker diarization pipeline 3.1",
+      "role": "speaker-diarization",
+      "inventory_table": "A2",
+      "status": "used-opt-in",
+      "source": {
+        "kind": "huggingface",
+        "location": "pyannote/speaker-diarization-3.1"
+      },
+      "upstream_author": "pyannote (Hugging Face organisation)",
+      "model_card_url": "https://huggingface.co/pyannote/speaker-diarization-3.1",
+      "license": {
+        "status": "stated",
+        "id": "mit",
+        "as_stated": "mit (Hub metadata). Gated (gated: auto); the model card body returned HTTP 401 without a token and was not read"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "84fd25912480287da0247647c3d2b4853cb3ee5d",
+        "observed_on": "2026-10-28",
+        "last_modified": "2024-05-10",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "pyannote.audio (PyTorch)",
+      "download_method": "Pipeline.from_pretrained(..., token=...) in src/yazses/recimport/pyannote_backend.py:196; requires the user to accept the conditions on both pyannote repositories (pyannote_backend.py:162-163)",
+      "offline_behavior": "Load wrapped in load_cache_first (src/yazses/system/hfcache.py:135-157): offline attempt first, online retry on failure unless the user set offline mode (pyannote_backend.py:196)",
+      "hardware": "unknown: model card not read (HTTP 401)",
+      "consent_and_fallback": "Opt-in ([recimport] backend = \"pyannote\"); the user must accept the gated conditions and supply a token. Fallback: online retry in load_cache_first",
+      "benchmarked_by_yazses": false,
+      "code_refs": [
+        {
+          "path": "src/yazses/recimport/pyannote_backend.py",
+          "line": 70
+        },
+        {
+          "path": "src/yazses/recimport/pyannote_backend.py",
+          "line": 196
+        },
+        {
+          "path": "src/yazses/config.py",
+          "line": 1762
+        }
+      ]
+    },
+    {
+      "id": "pyannote--segmentation-3.0",
+      "name": "pyannote segmentation 3.0",
+      "role": "speaker-diarization",
+      "inventory_table": "A2",
+      "status": "used-opt-in",
+      "source": {
+        "kind": "huggingface",
+        "location": "pyannote/segmentation-3.0"
+      },
+      "upstream_author": "pyannote",
+      "model_card_url": "https://huggingface.co/pyannote/segmentation-3.0",
+      "license": {
+        "status": "stated",
+        "id": "mit",
+        "as_stated": "mit (Hub metadata). Gated (auto); body returned HTTP 401"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "e66f3d3b9eb0873085418a7b813d3b369bf160bb",
+        "observed_on": "2026-10-28",
+        "last_modified": "2024-05-10",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "pyannote.audio (PyTorch)",
+      "download_method": "Loaded by the pyannote pipeline (src/yazses/recimport/pyannote_backend.py:76: the pipeline loads both repositories)",
+      "offline_behavior": "Same as pyannote--speaker-diarization-3.1",
+      "hardware": "unknown: model card not read (HTTP 401)",
+      "consent_and_fallback": "Same as pyannote--speaker-diarization-3.1: opt-in, gated conditions, token",
+      "benchmarked_by_yazses": false,
+      "code_refs": [
+        {
+          "path": "src/yazses/recimport/pyannote_backend.py",
+          "line": 76
+        }
+      ],
+      "notes": "Its weights, converted, are the default sherpa segmentation model (entry sherpa-onnx-pyannote-segmentation-3-0)."
+    },
+    {
+      "id": "sherpa-onnx-pyannote-segmentation-3-0",
+      "name": "sherpa-onnx pyannote segmentation 3.0 ONNX",
+      "role": "speaker-diarization",
+      "inventory_table": "A2",
+      "status": "used-default",
+      "source": {
+        "kind": "github-release",
+        "location": "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-segmentation-models/sherpa-onnx-pyannote-segmentation-3-0.tar.bz2"
+      },
+      "upstream_id": "pyannote--segmentation-3.0",
+      "upstream_author": "k2-fsa (sherpa-onnx), converting pyannote segmentation 3.0",
+      "model_card_url": "unknown",
+      "license": {
+        "status": "unknown",
+        "as_stated": "Not verified for the conversion. Upstream pyannote segmentation 3.0 is mit per Hub metadata. The sherpa-onnx code is Apache-2.0 (a code licence, not a model licence)"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "tag",
+        "value": "speaker-segmentation-models",
+        "observed_on": "2026-10-28",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "partial",
+      "artifacts": [
+        {
+          "name": "sherpa-onnx-pyannote-segmentation-3-0.tar.bz2",
+          "sha256_status": "unknown"
+        }
+      ],
+      "runtime_format": "sherpa-onnx (ONNX Runtime, no torch)",
+      "download_method": "One-shot urllib download in src/yazses/recimport/download.py:30-45 (URL at :22-24), no checksum; run via yazses transcribe --download-models",
+      "offline_behavior": "Models are not fetched at run time. SherpaDiarizer raises FileNotFoundError when the files are missing (src/yazses/recimport/diarizer.py:~88-95) and points at yazses transcribe --download-models",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "unknown: the download is an explicit command (--download-models); no other consent step recorded. Fallback: FileNotFoundError with instructions",
+      "benchmarked_by_yazses": true,
+      "code_refs": [
+        {
+          "path": "src/yazses/recimport/download.py",
+          "line": 22
+        },
+        {
+          "path": "src/yazses/recimport/diarizer.py",
+          "line": 18
+        },
+        {
+          "path": "src/yazses/config.py",
+          "line": 1762
+        }
+      ],
+      "notes": "The tag is a mutable release tag, not an immutable revision. HEAD returned HTTP 200 on 2026-10-28; Content-Length was not reported."
+    },
+    {
+      "id": "3dspeaker-eres2net-base-zh-cn",
+      "name": "3D-Speaker ERes2Net base, zh-cn ONNX",
+      "role": "speaker-embedding",
+      "inventory_table": "A2",
+      "status": "used-default",
+      "source": {
+        "kind": "github-release",
+        "location": "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/3dspeaker_speech_eres2net_base_sv_zh-cn_3dspeaker_16k.onnx"
+      },
+      "upstream_author": "3D-Speaker project (repository modelscope/3D-Speaker). Variant name in the URL: zh-cn",
+      "model_card_url": "unknown",
+      "license": {
+        "status": "unknown",
+        "as_stated": "Not verified for the weights. 3D-Speaker repository code licence: Apache-2.0 (LICENSE fetched; a code licence, not a model licence)"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "tag",
+        "value": "speaker-recongition-models",
+        "observed_on": "2026-10-28",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "partial",
+      "artifacts": [
+        {
+          "name": "3dspeaker_speech_eres2net_base_sv_zh-cn_3dspeaker_16k.onnx",
+          "sha256_status": "unknown"
+        }
+      ],
+      "runtime_format": "sherpa-onnx",
+      "download_method": "One-shot urllib download in src/yazses/recimport/download.py:30-45 (URL at :26-28), no checksum",
+      "offline_behavior": "Same as sherpa-onnx-pyannote-segmentation-3-0: not fetched at run time; FileNotFoundError when missing",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "unknown: explicit --download-models command; no other consent step recorded",
+      "benchmarked_by_yazses": true,
+      "code_refs": [
+        {
+          "path": "src/yazses/recimport/download.py",
+          "line": 26
+        },
+        {
+          "path": "src/yazses/recimport/diarizer.py",
+          "line": 19
+        }
+      ],
+      "notes": "The tag is spelled recongition in the URL, exactly as served. It is a mutable release tag, not an immutable revision."
+    },
+    {
+      "id": "silero-vad-v6-faster-whisper-bundled",
+      "name": "Silero VAD v6, bundled with faster-whisper (silero_vad_v6.onnx)",
+      "role": "vad",
+      "inventory_table": "A2",
+      "status": "used-default",
+      "source": {
+        "kind": "package-bundled",
+        "location": "faster-whisper"
+      },
+      "upstream_author": "Silero Team (snakers4/silero-vad, named in the faster_whisper/vad.py:13 comment)",
+      "model_card_url": "unknown",
+      "license": {
+        "status": "unknown",
+        "as_stated": "Not verified in this pass (the licence of the Silero model was not read; faster-whisper package metadata says MIT)"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "package-version",
+        "value": "faster-whisper 1.2.1",
+        "observed_on": "2026-10-28",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "recorded",
+      "artifacts": [
+        {
+          "name": "silero_vad_v6.onnx",
+          "relative_path": "faster_whisper/assets/silero_vad_v6.onnx",
+          "size_bytes": 1245151,
+          "sha256": "4cbf549b8326f60f80f2536d9eefeb450a9abe83365a098031c89719f1be17d2",
+          "sha256_status": "computed-locally"
+        }
+      ],
+      "runtime_format": "ONNX Runtime via faster-whisper",
+      "download_method": "None: the file ships inside the faster-whisper package",
+      "offline_behavior": "No download; fully offline (src/yazses/recimport/audio_io.py:131-160)",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "Not applicable: no download",
+      "benchmarked_by_yazses": false,
+      "code_refs": [
+        {
+          "path": "src/yazses/recimport/audio_io.py",
+          "line": 152
+        }
+      ],
+      "notes": "The hash was computed in the inventory worktree for faster-whisper 1.2.1 and is only valid for that package version."
+    },
+    {
+      "id": "silero-vad-package",
+      "name": "Silero VAD, silero-vad package (optional)",
+      "role": "vad",
+      "inventory_table": "A2",
+      "status": "used-opt-in",
+      "source": {
+        "kind": "package",
+        "location": "silero-vad"
+      },
+      "upstream_author": "Silero Team",
+      "model_card_url": "unknown",
+      "license": {
+        "status": "unknown",
+        "as_stated": "Not verified"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "unknown",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "load_silero_vad(onnx=True)",
+      "download_method": "None expected: the module docstring says the wheel carries the ONNX (src/yazses/meeting/silero_vad.py:5-8). Not verified (package not installed)",
+      "offline_behavior": "unknown: not verified in the inventory pass",
+      "hardware": "Per the project's own docstring (silero_vad.py:5-8): pulls torch and torchaudio, about 3 GB. Not re-measured",
+      "consent_and_fallback": "Opt-in ([meeting] vad_backend = \"silero\", default \"calibrated\")",
+      "benchmarked_by_yazses": false,
+      "code_refs": [
+        {
+          "path": "src/yazses/meeting/silero_vad.py",
+          "line": 41
+        },
+        {
+          "path": "src/yazses/config.py",
+          "line": 1834
+        }
+      ]
+    },
+    {
+      "id": "mediapipe-face-landmarker-float16",
+      "name": "MediaPipe FaceLandmarker, float16 bundle (face_landmarker.task)",
+      "role": "face-landmark",
+      "inventory_table": "A2",
+      "status": "used-opt-in",
+      "source": {
+        "kind": "url",
+        "location": "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"
+      },
+      "upstream_author": "Google (MediaPipe)",
+      "model_card_url": "unknown",
+      "license": {
+        "status": "unknown",
+        "as_stated": "Not verified. No licence or terms page was read"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "versioned-path",
+        "value": "float16/1",
+        "observed_on": "2026-10-28",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "partial",
+      "artifacts": [
+        {
+          "name": "face_landmarker.task",
+          "size_bytes": 3758596,
+          "sha256_status": "unknown",
+          "md5_etag": "b0e7274907a1644404fef66b28dd6d85"
+        }
+      ],
+      "runtime_format": "MediaPipe Tasks (Python), CPU path",
+      "download_method": "One-shot fetch into the user cache with a .part file and a minimum size of 1,000,000 bytes; a truncated transfer is rejected when Content-Length disagrees; no checksum (src/yazses/gaze/download.py:112-130)",
+      "offline_behavior": "Fetched once; construction of the gaze and perception backends calls the fetch (gaze/mediapipe_backend.py:36, perception/mediapipe_backend.py:120)",
+      "hardware": "unknown: not stated in the code or docs read",
+      "consent_and_fallback": "Opt-in: gaze and perception are off by default (src/yazses/config.py:585-586 and :653); no per-download consent step recorded in the inventory",
+      "benchmarked_by_yazses": false,
+      "code_refs": [
+        {
+          "path": "src/yazses/gaze/download.py",
+          "line": 27
+        },
+        {
+          "path": "src/yazses/gaze/download.py",
+          "line": 121
+        },
+        {
+          "path": "src/yazses/gaze/mediapipe_backend.py",
+          "line": 27
+        },
+        {
+          "path": "src/yazses/perception/mediapipe_backend.py",
+          "line": 110
+        },
+        {
+          "path": "src/yazses/config.py",
+          "line": 585
+        }
+      ],
+      "notes": "HEAD on 2026-10-28: HTTP 200, Content-Length 3758596, ETag (MD5) b0e7274907a1644404fef66b28dd6d85, Last-Modified 2023-05-03. The file was not downloaded, so no sha256 was computed."
+    },
+    {
+      "id": "l2cs-net",
+      "name": "L2CS-Net (gaze backend l2cs, manual install)",
+      "role": "gaze-estimation",
+      "inventory_table": "A2",
+      "status": "used-opt-in",
+      "source": {
+        "kind": "package",
+        "location": "l2cs"
+      },
+      "upstream_author": "Ahmednull/L2CS-Net (named as base model of the LiteRT conversion in Table B); upstream authors not verified",
+      "model_card_url": "unknown",
+      "license": {
+        "status": "unknown",
+        "as_stated": "Not verified"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "unknown",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "PyTorch, via the l2cs package",
+      "download_method": "unknown: weights=None; the code comment says the package resolves its bundled ResNet (src/yazses/gaze/l2cs.py:25)",
+      "offline_behavior": "unknown: not inventoried",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "Opt-in, manual install only",
+      "benchmarked_by_yazses": false,
+      "code_refs": [
+        {
+          "path": "src/yazses/gaze/l2cs.py",
+          "line": 18
+        },
+        {
+          "path": "src/yazses/gaze/factory.py",
+          "line": 12
+        }
+      ]
+    },
+    {
+      "id": "openai--whisper-tiny",
+      "name": "openai/whisper-tiny",
+      "role": "stt",
+      "inventory_table": "A3",
+      "status": "upstream-reference",
+      "source": {
+        "kind": "huggingface",
+        "location": "openai/whisper-tiny"
+      },
+      "upstream_author": "openai (Hub repository owner)",
+      "model_card_url": "https://huggingface.co/openai/whisper-tiny",
+      "license": {
+        "status": "stated",
+        "id": "apache-2.0",
+        "as_stated": "apache-2.0 (Hub metadata)"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "169d4a4341b33bc18d8881c4b69c2e104e1cc0af",
+        "observed_on": "2026-10-28",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "not applicable: upstream original, not loaded by YazSes",
+      "download_method": "not applicable: never downloaded by YazSes",
+      "offline_behavior": "not applicable: never downloaded by YazSes",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "not applicable: never downloaded by YazSes",
+      "benchmarked_by_yazses": false,
+      "code_refs": [],
+      "notes": "Use or limits per the inventory: not read in full; the large-v3 card is representative. Relation: Upstream of Systran/faster-whisper-tiny. The Systran card says mit"
+    },
+    {
+      "id": "openai--whisper-tiny.en",
+      "name": "openai/whisper-tiny.en",
+      "role": "stt",
+      "inventory_table": "A3",
+      "status": "upstream-reference",
+      "source": {
+        "kind": "huggingface",
+        "location": "openai/whisper-tiny.en"
+      },
+      "upstream_author": "openai (Hub repository owner)",
+      "model_card_url": "https://huggingface.co/openai/whisper-tiny.en",
+      "license": {
+        "status": "stated",
+        "id": "apache-2.0",
+        "as_stated": "apache-2.0"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "87c7102498dcde7456f24cfd30239ca606ed9063",
+        "observed_on": "2026-10-28",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "not applicable: upstream original, not loaded by YazSes",
+      "download_method": "not applicable: never downloaded by YazSes",
+      "offline_behavior": "not applicable: never downloaded by YazSes",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "not applicable: never downloaded by YazSes",
+      "benchmarked_by_yazses": false,
+      "code_refs": [],
+      "notes": "Use or limits per the inventory: not read in full. Relation: Upstream of Systran/faster-whisper-tiny.en. Systran says mit"
+    },
+    {
+      "id": "openai--whisper-base",
+      "name": "openai/whisper-base",
+      "role": "stt",
+      "inventory_table": "A3",
+      "status": "upstream-reference",
+      "source": {
+        "kind": "huggingface",
+        "location": "openai/whisper-base"
+      },
+      "upstream_author": "openai (Hub repository owner)",
+      "model_card_url": "https://huggingface.co/openai/whisper-base",
+      "license": {
+        "status": "stated",
+        "id": "apache-2.0",
+        "as_stated": "apache-2.0"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "e37978b90ca9030d5170a5c07aadb050351a65bb",
+        "observed_on": "2026-10-28",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "not applicable: upstream original, not loaded by YazSes",
+      "download_method": "not applicable: never downloaded by YazSes",
+      "offline_behavior": "not applicable: never downloaded by YazSes",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "not applicable: never downloaded by YazSes",
+      "benchmarked_by_yazses": false,
+      "code_refs": [],
+      "notes": "Use or limits per the inventory: not read in full. Relation: Upstream of Systran/faster-whisper-base. Systran says mit"
+    },
+    {
+      "id": "openai--whisper-base.en",
+      "name": "openai/whisper-base.en",
+      "role": "stt",
+      "inventory_table": "A3",
+      "status": "upstream-reference",
+      "source": {
+        "kind": "huggingface",
+        "location": "openai/whisper-base.en"
+      },
+      "upstream_author": "openai (Hub repository owner)",
+      "model_card_url": "https://huggingface.co/openai/whisper-base.en",
+      "license": {
+        "status": "stated",
+        "id": "apache-2.0",
+        "as_stated": "apache-2.0"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "911407f4214e0e1d82085af863093ec0b66f9cd6",
+        "observed_on": "2026-10-28",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "not applicable: upstream original, not loaded by YazSes",
+      "download_method": "not applicable: never downloaded by YazSes",
+      "offline_behavior": "not applicable: never downloaded by YazSes",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "not applicable: never downloaded by YazSes",
+      "benchmarked_by_yazses": false,
+      "code_refs": [],
+      "notes": "Use or limits per the inventory: not read in full. Relation: Upstream of Systran/faster-whisper-base.en (default). Systran says mit"
+    },
+    {
+      "id": "openai--whisper-small",
+      "name": "openai/whisper-small",
+      "role": "stt",
+      "inventory_table": "A3",
+      "status": "upstream-reference",
+      "source": {
+        "kind": "huggingface",
+        "location": "openai/whisper-small"
+      },
+      "upstream_author": "openai (Hub repository owner)",
+      "model_card_url": "https://huggingface.co/openai/whisper-small",
+      "license": {
+        "status": "stated",
+        "id": "apache-2.0",
+        "as_stated": "apache-2.0"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "973afd24965f72e36ca33b3055d56a652f456b4d",
+        "observed_on": "2026-10-28",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "not applicable: upstream original, not loaded by YazSes",
+      "download_method": "not applicable: never downloaded by YazSes",
+      "offline_behavior": "not applicable: never downloaded by YazSes",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "not applicable: never downloaded by YazSes",
+      "benchmarked_by_yazses": false,
+      "code_refs": [],
+      "notes": "Use or limits per the inventory: not read in full. Relation: Upstream of Systran/faster-whisper-small. Systran says mit"
+    },
+    {
+      "id": "openai--whisper-small.en",
+      "name": "openai/whisper-small.en",
+      "role": "stt",
+      "inventory_table": "A3",
+      "status": "upstream-reference",
+      "source": {
+        "kind": "huggingface",
+        "location": "openai/whisper-small.en"
+      },
+      "upstream_author": "openai (Hub repository owner)",
+      "model_card_url": "https://huggingface.co/openai/whisper-small.en",
+      "license": {
+        "status": "stated",
+        "id": "apache-2.0",
+        "as_stated": "apache-2.0"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "e8727524f962ee844a7319d92be39ac1bd25655a",
+        "observed_on": "2026-10-28",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "not applicable: upstream original, not loaded by YazSes",
+      "download_method": "not applicable: never downloaded by YazSes",
+      "offline_behavior": "not applicable: never downloaded by YazSes",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "not applicable: never downloaded by YazSes",
+      "benchmarked_by_yazses": false,
+      "code_refs": [],
+      "notes": "Use or limits per the inventory: not read in full. Relation: Upstream of Systran/faster-whisper-small.en. Systran says mit"
+    },
+    {
+      "id": "openai--whisper-medium",
+      "name": "openai/whisper-medium",
+      "role": "stt",
+      "inventory_table": "A3",
+      "status": "upstream-reference",
+      "source": {
+        "kind": "huggingface",
+        "location": "openai/whisper-medium"
+      },
+      "upstream_author": "openai (Hub repository owner)",
+      "model_card_url": "https://huggingface.co/openai/whisper-medium",
+      "license": {
+        "status": "stated",
+        "id": "apache-2.0",
+        "as_stated": "apache-2.0"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "abdf7c39ab9d0397620ccaea8974cc764cd0953e",
+        "observed_on": "2026-10-28",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "not applicable: upstream original, not loaded by YazSes",
+      "download_method": "not applicable: never downloaded by YazSes",
+      "offline_behavior": "not applicable: never downloaded by YazSes",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "not applicable: never downloaded by YazSes",
+      "benchmarked_by_yazses": false,
+      "code_refs": [],
+      "notes": "Use or limits per the inventory: not read in full. Relation: Upstream of Systran/faster-whisper-medium. Systran says mit"
+    },
+    {
+      "id": "openai--whisper-medium.en",
+      "name": "openai/whisper-medium.en",
+      "role": "stt",
+      "inventory_table": "A3",
+      "status": "upstream-reference",
+      "source": {
+        "kind": "huggingface",
+        "location": "openai/whisper-medium.en"
+      },
+      "upstream_author": "openai (Hub repository owner)",
+      "model_card_url": "https://huggingface.co/openai/whisper-medium.en",
+      "license": {
+        "status": "stated",
+        "id": "apache-2.0",
+        "as_stated": "apache-2.0"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "2e98eb6279edf5095af0c8dedb36bdec0acd172b",
+        "observed_on": "2026-10-28",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "not applicable: upstream original, not loaded by YazSes",
+      "download_method": "not applicable: never downloaded by YazSes",
+      "offline_behavior": "not applicable: never downloaded by YazSes",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "not applicable: never downloaded by YazSes",
+      "benchmarked_by_yazses": false,
+      "code_refs": [],
+      "notes": "Use or limits per the inventory: not read in full. Relation: Upstream of Systran/faster-whisper-medium.en. Systran says mit"
+    },
+    {
+      "id": "openai--whisper-large",
+      "name": "openai/whisper-large (v1)",
+      "role": "stt",
+      "inventory_table": "A3",
+      "status": "upstream-reference",
+      "source": {
+        "kind": "huggingface",
+        "location": "openai/whisper-large"
+      },
+      "upstream_author": "openai (Hub repository owner)",
+      "model_card_url": "https://huggingface.co/openai/whisper-large",
+      "license": {
+        "status": "unknown",
+        "as_stated": "Not verified (not fetched)"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "unknown",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "not applicable: upstream original, not loaded by YazSes",
+      "download_method": "not applicable: never downloaded by YazSes",
+      "offline_behavior": "not applicable: never downloaded by YazSes",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "not applicable: never downloaded by YazSes",
+      "benchmarked_by_yazses": false,
+      "code_refs": [],
+      "notes": "Use or limits per the inventory: not verified. Relation: Upstream named by Systran/faster-whisper-large-v1"
+    },
+    {
+      "id": "openai--whisper-large-v2",
+      "name": "openai/whisper-large-v2",
+      "role": "stt",
+      "inventory_table": "A3",
+      "status": "upstream-reference",
+      "source": {
+        "kind": "huggingface",
+        "location": "openai/whisper-large-v2"
+      },
+      "upstream_author": "openai (Hub repository owner)",
+      "model_card_url": "https://huggingface.co/openai/whisper-large-v2",
+      "license": {
+        "status": "stated",
+        "id": "apache-2.0",
+        "as_stated": "apache-2.0"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "ae4642769ce2ad8fc292556ccea8e901f1530655",
+        "observed_on": "2026-10-28",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "not applicable: upstream original, not loaded by YazSes",
+      "download_method": "not applicable: never downloaded by YazSes",
+      "offline_behavior": "not applicable: never downloaded by YazSes",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "not applicable: never downloaded by YazSes",
+      "benchmarked_by_yazses": false,
+      "code_refs": [],
+      "notes": "Use or limits per the inventory: not read in full. Relation: Upstream of Systran/faster-whisper-large-v2. Systran says mit"
+    },
+    {
+      "id": "openai--whisper-large-v3",
+      "name": "openai/whisper-large-v3",
+      "role": "stt",
+      "inventory_table": "A3",
+      "status": "upstream-reference",
+      "source": {
+        "kind": "huggingface",
+        "location": "openai/whisper-large-v3"
+      },
+      "upstream_author": "openai (Hub repository owner)",
+      "model_card_url": "https://huggingface.co/openai/whisper-large-v3",
+      "license": {
+        "status": "stated",
+        "id": "apache-2.0",
+        "as_stated": "apache-2.0 (front matter, line 112 of the README)"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "06f233fe06e710322aca913c1bc4249a0d71fce1",
+        "observed_on": "2026-10-28",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "not applicable: upstream original, not loaded by YazSes",
+      "download_method": "not applicable: never downloaded by YazSes",
+      "offline_behavior": "not applicable: never downloaded by YazSes",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "not applicable: never downloaded by YazSes",
+      "benchmarked_by_yazses": false,
+      "code_refs": [],
+      "notes": "Use or limits per the inventory: Intended users: AI researchers. Caution against surveillance and \"subjective classification\" (line 499). Not recommended for high-risk domains (line 499). Repetition loops may occur (line 517). No minimum CPU or RAM stated; GPU speed-ups only (lines 306-459). Relation: Upstream of Systran/faster-whisper-large-v3. Licence mismatch: Systran says mit, the upstream card says apache-2.0"
+    },
+    {
+      "id": "openai--whisper-large-v3-turbo",
+      "name": "openai/whisper-large-v3-turbo",
+      "role": "stt",
+      "inventory_table": "A3",
+      "status": "upstream-reference",
+      "source": {
+        "kind": "huggingface",
+        "location": "openai/whisper-large-v3-turbo"
+      },
+      "upstream_author": "openai (Hub repository owner)",
+      "model_card_url": "https://huggingface.co/openai/whisper-large-v3-turbo",
+      "license": {
+        "status": "stated",
+        "id": "mit",
+        "as_stated": "mit (Hub metadata)"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "41f01f3fe87f28c78e2fbf8b568835947dd65ed9",
+        "observed_on": "2026-10-28",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "not applicable: upstream original, not loaded by YazSes",
+      "download_method": "not applicable: never downloaded by YazSes",
+      "offline_behavior": "not applicable: never downloaded by YazSes",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "not applicable: never downloaded by YazSes",
+      "benchmarked_by_yazses": false,
+      "code_refs": [],
+      "notes": "Use or limits per the inventory: not read in full. Relation: Upstream of dropbox-dash/faster-whisper-large-v3-turbo (the redirect target). Both say mit: matches"
+    },
+    {
+      "id": "distil-whisper--distil-large-v2",
+      "name": "distil-whisper/distil-large-v2",
+      "role": "stt",
+      "inventory_table": "A3",
+      "status": "upstream-reference",
+      "source": {
+        "kind": "huggingface",
+        "location": "distil-whisper/distil-large-v2"
+      },
+      "upstream_author": "distil-whisper (Hub repository owner)",
+      "model_card_url": "https://huggingface.co/distil-whisper/distil-large-v2",
+      "license": {
+        "status": "stated",
+        "id": "mit",
+        "as_stated": "mit"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "97d2c8f9cae1b0f6c8fc2e173495ee4cedc05843",
+        "observed_on": "2026-10-28",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "not applicable: upstream original, not loaded by YazSes",
+      "download_method": "not applicable: never downloaded by YazSes",
+      "offline_behavior": "not applicable: never downloaded by YazSes",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "not applicable: never downloaded by YazSes",
+      "benchmarked_by_yazses": false,
+      "code_refs": [],
+      "notes": "Use or limits per the inventory: not read in full; the Parakeet-v2-style CC licence does not apply here. Relation: Upstream of Systran/faster-distil-whisper-large-v2. Both mit: matches"
+    },
+    {
+      "id": "distil-whisper--distil-large-v3",
+      "name": "distil-whisper/distil-large-v3",
+      "role": "stt",
+      "inventory_table": "A3",
+      "status": "upstream-reference",
+      "source": {
+        "kind": "huggingface",
+        "location": "distil-whisper/distil-large-v3"
+      },
+      "upstream_author": "distil-whisper (Hub repository owner)",
+      "model_card_url": "https://huggingface.co/distil-whisper/distil-large-v3",
+      "license": {
+        "status": "stated",
+        "id": "mit",
+        "as_stated": "mit"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "8031d2e6ce6631b7fc45629dddfc00271116d981",
+        "observed_on": "2026-10-28",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "not applicable: upstream original, not loaded by YazSes",
+      "download_method": "not applicable: never downloaded by YazSes",
+      "offline_behavior": "not applicable: never downloaded by YazSes",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "not applicable: never downloaded by YazSes",
+      "benchmarked_by_yazses": false,
+      "code_refs": [],
+      "notes": "Use or limits per the inventory: not read in full. Relation: Upstream of Systran/faster-distil-whisper-large-v3. Matches"
+    },
+    {
+      "id": "distil-whisper--distil-large-v3.5",
+      "name": "distil-whisper/distil-large-v3.5",
+      "role": "stt",
+      "inventory_table": "A3",
+      "status": "upstream-reference",
+      "source": {
+        "kind": "huggingface",
+        "location": "distil-whisper/distil-large-v3.5"
+      },
+      "upstream_author": "distil-whisper (Hub repository owner)",
+      "model_card_url": "https://huggingface.co/distil-whisper/distil-large-v3.5",
+      "license": {
+        "status": "stated",
+        "id": "mit",
+        "as_stated": "mit"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "728a7691f3ff1d3d971528d3203a6e9559165d41",
+        "observed_on": "2026-10-28",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "not applicable: upstream original, not loaded by YazSes",
+      "download_method": "not applicable: never downloaded by YazSes",
+      "offline_behavior": "not applicable: never downloaded by YazSes",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "not applicable: never downloaded by YazSes",
+      "benchmarked_by_yazses": false,
+      "code_refs": [],
+      "notes": "Use or limits per the inventory: not read in full. Relation: Upstream of distil-whisper/distil-large-v3.5-ct2. The ct2 card cites MIT inherited from OpenAI Whisper (line 65). Matches on the field"
+    },
+    {
+      "id": "distil-whisper--distil-medium.en",
+      "name": "distil-whisper/distil-medium.en",
+      "role": "stt",
+      "inventory_table": "A3",
+      "status": "upstream-reference",
+      "source": {
+        "kind": "huggingface",
+        "location": "distil-whisper/distil-medium.en"
+      },
+      "upstream_author": "distil-whisper (Hub repository owner)",
+      "model_card_url": "https://huggingface.co/distil-whisper/distil-medium.en",
+      "license": {
+        "status": "stated",
+        "id": "mit",
+        "as_stated": "mit"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "6e61418885eaf4d5cc9f64e508e80ac5b4c052b7",
+        "observed_on": "2026-10-28",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "not applicable: upstream original, not loaded by YazSes",
+      "download_method": "not applicable: never downloaded by YazSes",
+      "offline_behavior": "not applicable: never downloaded by YazSes",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "not applicable: never downloaded by YazSes",
+      "benchmarked_by_yazses": false,
+      "code_refs": [],
+      "notes": "Use or limits per the inventory: not read in full. Relation: Upstream of Systran/faster-distil-whisper-medium.en (matched by repository name; the Systran card was not read)"
+    },
+    {
+      "id": "distil-whisper--distil-small.en",
+      "name": "distil-whisper/distil-small.en",
+      "role": "stt",
+      "inventory_table": "A3",
+      "status": "upstream-reference",
+      "source": {
+        "kind": "huggingface",
+        "location": "distil-whisper/distil-small.en"
+      },
+      "upstream_author": "distil-whisper (Hub repository owner)",
+      "model_card_url": "https://huggingface.co/distil-whisper/distil-small.en",
+      "license": {
+        "status": "stated",
+        "id": "mit",
+        "as_stated": "mit"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "9e4a67ca4569c30be43a3fe7fba1621e504f0093",
+        "observed_on": "2026-10-28",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "not applicable: upstream original, not loaded by YazSes",
+      "download_method": "not applicable: never downloaded by YazSes",
+      "offline_behavior": "not applicable: never downloaded by YazSes",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "not applicable: never downloaded by YazSes",
+      "benchmarked_by_yazses": false,
+      "code_refs": [],
+      "notes": "Use or limits per the inventory: not read in full. Relation: Upstream of Systran/faster-distil-whisper-small.en"
+    },
+    {
+      "id": "steja--whisper-small-persian",
+      "name": "steja/whisper-small-persian (fine-tune, converted to CTranslate2 int8 for the benchmark)",
+      "role": "stt",
+      "inventory_table": "A4",
+      "status": "benchmarked-only",
+      "source": {
+        "kind": "huggingface",
+        "location": "steja/whisper-small-persian"
+      },
+      "upstream_author": "steja (Hub repository owner)",
+      "model_card_url": "https://huggingface.co/steja/whisper-small-persian",
+      "license": {
+        "status": "stated",
+        "id": "apache-2.0",
+        "as_stated": "apache-2.0 (Hub metadata)"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "8c600b6b69f552730abab77a6a46311d673ea584",
+        "observed_on": "2026-10-28",
+        "last_modified": "2024-11-28",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "CTranslate2 int8, converted for the benchmark only",
+      "download_method": "not applicable: not downloaded by product code",
+      "offline_behavior": "not applicable: benchmark only",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "not applicable: not in WHISPER_MODELS and not shipped",
+      "benchmarked_by_yazses": true,
+      "code_refs": [],
+      "notes": "The benchmark MANIFEST records rev 8c600b6b, a prefix of this sha. Not in WHISPER_MODELS; the conversion was done for the benchmark only."
+    },
+    {
+      "id": "litert-community--l2cs-gaze360-litert",
+      "name": "litert-community/L2CS-Gaze360-LiteRT",
+      "role": "gaze-estimation",
+      "inventory_table": "B",
+      "status": "candidate-not-used",
+      "source": {
+        "kind": "huggingface",
+        "location": "litert-community/L2CS-Gaze360-LiteRT"
+      },
+      "upstream_author": "litert-community (Hub repository owner); upstream authorship not verified",
+      "model_card_url": "https://huggingface.co/litert-community/L2CS-Gaze360-LiteRT",
+      "license": {
+        "status": "stated",
+        "id": "mit",
+        "as_stated": "mit"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "f0c19a658e0a67c913e5704b051378200021e85d",
+        "observed_on": "2026-10-28",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "unknown: not stated in the inventory",
+      "download_method": "not applicable: candidate, never downloaded",
+      "offline_behavior": "not applicable: candidate, never downloaded",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "not applicable: candidate, never downloaded",
+      "benchmarked_by_yazses": false,
+      "code_refs": [],
+      "notes": "Candidate - requires licence review and independent benchmark; no evidence of fitness. Upstream L2CS-Net licence not verified. On-device timings are the publisher's own"
+    },
+    {
+      "id": "bcantcode--gazeinceptionlite",
+      "name": "BcantCode/GazeInceptionLite",
+      "role": "gaze-estimation",
+      "inventory_table": "B",
+      "status": "candidate-not-used",
+      "source": {
+        "kind": "huggingface",
+        "location": "BcantCode/GazeInceptionLite"
+      },
+      "upstream_author": "BcantCode (Hub repository owner); upstream authorship not verified",
+      "model_card_url": "https://huggingface.co/BcantCode/GazeInceptionLite",
+      "license": {
+        "status": "stated",
+        "id": "mit",
+        "as_stated": "mit"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "89bf6c3a4ad1313bfdc5346f6dd5bab036029b3c",
+        "observed_on": "2026-10-28",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "unknown: not stated in the inventory",
+      "download_method": "not applicable: candidate, never downloaded",
+      "offline_behavior": "not applicable: candidate, never downloaded",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "not applicable: candidate, never downloaded",
+      "benchmarked_by_yazses": false,
+      "code_refs": [],
+      "notes": "Candidate - requires licence review and independent benchmark; no evidence of fitness. Card says \"clinical validation needed\" and \"requires separate face/eye detection\""
+    },
+    {
+      "id": "skulleton12--mediapipe-face-landmarker",
+      "name": "Skulleton12/mediapipe-face-landmarker",
+      "role": "face-landmark",
+      "inventory_table": "B",
+      "status": "candidate-not-used",
+      "source": {
+        "kind": "huggingface",
+        "location": "Skulleton12/mediapipe-face-landmarker"
+      },
+      "upstream_author": "Skulleton12 (Hub repository owner); upstream authorship not verified",
+      "model_card_url": "https://huggingface.co/Skulleton12/mediapipe-face-landmarker",
+      "license": {
+        "status": "stated",
+        "id": "apache-2.0",
+        "as_stated": "apache-2.0"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "e8098a34013a130b8d8c88de0772f162b450dfad",
+        "observed_on": "2026-10-28",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "partial",
+      "artifacts": [
+        {
+          "name": "face_landmarker.task",
+          "size_bytes": 3758596,
+          "sha256_status": "unknown"
+        }
+      ],
+      "runtime_format": "MediaPipe Tasks bundle (face_landmarker.task re-upload)",
+      "download_method": "not applicable: candidate, never downloaded",
+      "offline_behavior": "not applicable: candidate, never downloaded",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "not applicable: candidate, never downloaded",
+      "benchmarked_by_yazses": false,
+      "code_refs": [],
+      "notes": "Candidate - requires licence review and independent benchmark; no evidence of fitness. Card has no provenance text. The file size equals the Google asset's Content-Length (3,758,596 bytes); the hash was not compared"
+    },
+    {
+      "id": "jkyy--actb-face-landmarker",
+      "name": "jkyy/actb-face-landmarker",
+      "role": "face-landmark",
+      "inventory_table": "B",
+      "status": "candidate-not-used",
+      "source": {
+        "kind": "huggingface",
+        "location": "jkyy/actb-face-landmarker"
+      },
+      "upstream_author": "jkyy (Hub repository owner); upstream authorship not verified",
+      "model_card_url": "https://huggingface.co/jkyy/actb-face-landmarker",
+      "license": {
+        "status": "stated",
+        "id": "apache-2.0",
+        "as_stated": "apache-2.0"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "20cb28de63b6989ad8b3e6692ec4e15b9513d424",
+        "observed_on": "2026-10-28",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "partial",
+      "artifacts": [
+        {
+          "name": "face_landmarker.task",
+          "size_bytes": 3758596,
+          "sha256_status": "unknown"
+        }
+      ],
+      "runtime_format": "MediaPipe Tasks bundle (face_landmarker.task re-upload)",
+      "download_method": "not applicable: candidate, never downloaded",
+      "offline_behavior": "not applicable: candidate, never downloaded",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "not applicable: candidate, never downloaded",
+      "benchmarked_by_yazses": false,
+      "code_refs": [],
+      "notes": "Candidate - requires licence review and independent benchmark; no evidence of fitness. Card (in Chinese) says the weights were re-hosted from Google's MediaPipe release under Apache-2.0; this is a third-party statement and was not checked against Google. Same size and LFS SHA-256 as the row above"
+    },
+    {
+      "id": "braindecode--eegpt-pretrained",
+      "name": "braindecode/eegpt-pretrained",
+      "role": "eeg",
+      "inventory_table": "B",
+      "status": "candidate-not-used",
+      "source": {
+        "kind": "huggingface",
+        "location": "braindecode/eegpt-pretrained"
+      },
+      "upstream_author": "braindecode (Hub repository owner); upstream authorship not verified",
+      "model_card_url": "https://huggingface.co/braindecode/eegpt-pretrained",
+      "license": {
+        "status": "stated",
+        "id": "bsd-3-clause",
+        "as_stated": "bsd-3-clause"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "e41cb3ae2ce4fd9eb736862292c91f8128d15618",
+        "observed_on": "2026-10-28",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "unknown: not stated in the inventory",
+      "download_method": "not applicable: candidate, never downloaded",
+      "offline_behavior": "not applicable: candidate, never downloaded",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "not applicable: candidate, never downloaded",
+      "benchmarked_by_yazses": false,
+      "code_refs": [],
+      "notes": "Candidate - requires licence review and independent benchmark; no evidence of fitness. Pretrained EEG model for braindecode; no EEG task, electrode set or accuracy was checked"
+    },
+    {
+      "id": "braindecode--vemg2pose-emg2pose",
+      "name": "braindecode/VEMG2Pose-emg2pose",
+      "role": "emg",
+      "inventory_table": "B",
+      "status": "candidate-not-used",
+      "source": {
+        "kind": "huggingface",
+        "location": "braindecode/VEMG2Pose-emg2pose"
+      },
+      "upstream_author": "braindecode (Hub repository owner); upstream authorship not verified",
+      "model_card_url": "https://huggingface.co/braindecode/VEMG2Pose-emg2pose",
+      "license": {
+        "status": "stated",
+        "id": "cc-by-nc-sa-4.0",
+        "as_stated": "cc-by-nc-sa-4.0"
+      },
+      "redistributed_by_yazses": false,
+      "revision": {
+        "kind": "git-commit",
+        "value": "12043578f59ad21c206aa3229196d1736da0ff70",
+        "observed_on": "2026-10-28",
+        "pinned_by_yazses": false
+      },
+      "artifact_hashes_status": "not-recorded",
+      "artifacts": [],
+      "runtime_format": "unknown: not stated in the inventory",
+      "download_method": "not applicable: candidate, never downloaded",
+      "offline_behavior": "not applicable: candidate, never downloaded",
+      "hardware": "unknown: not stated in the inventory",
+      "consent_and_fallback": "not applicable: candidate, never downloaded",
+      "benchmarked_by_yazses": false,
+      "code_refs": [],
+      "notes": "Candidate - requires licence review and independent benchmark; no evidence of fitness. Card: weights are Meta's, under CC BY-NC-SA 4.0 (non-commercial, share-alike); UmeTrack labels CC BY-NC 4.0 (lines 35-38)"
+    }
+  ]
+}

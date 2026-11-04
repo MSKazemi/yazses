@@ -1,0 +1,247 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "yazses-model-manifest-1",
+  "title": "YazSes model provenance manifest (schema 1)",
+  "description": "Machine-readable form of design/hci-huggingface/model-provenance.md (issue #694). A READ-ONLY catalogue: it is never read by the daemon, never drives a download, and never replaces the app's trusted download flow or Android's own checksums. A value the inventory does not state is written as the literal string \"unknown\" (text fields), as kind \"unknown\" (revision), as status \"unknown\" (licence, sha256), or as an empty artifact list; it is never guessed and never omitted. Checked offline by scripts/check_model_manifest.py, which interprets exactly the JSON Schema keywords this file uses (it refuses any other).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "inventory_date", "source_document", "models"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "inventory_date": { "$ref": "#/$defs/date" },
+    "source_document": {
+      "$ref": "#/$defs/text",
+      "description": "Repository path of the human-readable inventory every value here must trace to."
+    },
+    "models": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/model" } }
+  },
+  "$defs": {
+    "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+    "text": { "type": "string", "minLength": 1 },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "role",
+        "inventory_table",
+        "status",
+        "source",
+        "upstream_author",
+        "model_card_url",
+        "license",
+        "redistributed_by_yazses",
+        "revision",
+        "artifact_hashes_status",
+        "artifacts",
+        "runtime_format",
+        "download_method",
+        "offline_behavior",
+        "hardware",
+        "consent_and_fallback",
+        "benchmarked_by_yazses",
+        "code_refs"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+        "name": { "$ref": "#/$defs/text" },
+        "role": {
+          "enum": [
+            "stt",
+            "vad",
+            "speaker-diarization",
+            "speaker-embedding",
+            "face-landmark",
+            "gaze-estimation",
+            "eeg",
+            "emg"
+          ]
+        },
+        "inventory_table": {
+          "enum": ["A1", "A2", "A3", "A4", "B"],
+          "description": "The table of model-provenance.md the row came from."
+        },
+        "status": {
+          "enum": [
+            "used-default",
+            "used-opt-in",
+            "listed-only",
+            "benchmarked-only",
+            "candidate-not-used",
+            "upstream-reference"
+          ],
+          "description": "used-*: a code path loads it. listed-only: named in a lookup table, not loaded unless configured. benchmarked-only / candidate-not-used / upstream-reference: no code path loads it."
+        },
+        "source": { "$ref": "#/$defs/source" },
+        "upstream_id": {
+          "type": "string",
+          "description": "id of another entry in this manifest: the upstream original this entry was converted from."
+        },
+        "upstream_author": { "$ref": "#/$defs/text" },
+        "model_card_url": { "type": "string", "pattern": "^(https://\\S+|unknown)$" },
+        "license": { "$ref": "#/$defs/license" },
+        "redistributed_by_yazses": {
+          "type": "boolean",
+          "description": "True only if a YazSes artifact ships or mirrors these weights. Requires a stated, non-non-commercial licence and a non-candidate status (checked by the validator)."
+        },
+        "revision": { "$ref": "#/$defs/revision" },
+        "artifact_hashes_status": {
+          "enum": ["recorded", "partial", "not-recorded"],
+          "description": "recorded: every listed artifact has a sha256. partial: artifacts are listed and at least one sha256 is unknown. not-recorded: the inventory holds no per-artifact data (artifacts is empty)."
+        },
+        "artifacts": { "type": "array", "items": { "$ref": "#/$defs/artifact" } },
+        "runtime_format": { "$ref": "#/$defs/text" },
+        "download_method": { "$ref": "#/$defs/text" },
+        "offline_behavior": { "$ref": "#/$defs/text" },
+        "hardware": { "$ref": "#/$defs/text" },
+        "consent_and_fallback": { "$ref": "#/$defs/text" },
+        "benchmarked_by_yazses": { "type": "boolean" },
+        "code_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/code_ref" },
+          "description": "Repository files (and a line that exists in them) that load or list the model."
+        },
+        "notes": { "$ref": "#/$defs/text" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "status": { "enum": ["used-default", "used-opt-in", "listed-only"] } }
+          },
+          "then": { "properties": { "code_refs": { "minItems": 1 } } }
+        },
+        {
+          "if": { "properties": { "artifact_hashes_status": { "const": "not-recorded" } } },
+          "then": { "properties": { "artifacts": { "maxItems": 0 } } },
+          "else": { "properties": { "artifacts": { "minItems": 1 } } }
+        }
+      ]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "location"],
+      "properties": {
+        "kind": {
+          "enum": ["huggingface", "github-release", "url", "package-bundled", "package", "not-fetched"]
+        },
+        "location": {
+          "$ref": "#/$defs/text",
+          "description": "Hub repository id for huggingface; a URL for github-release and url; a package name for package and package-bundled; \"unknown\" for not-fetched."
+        },
+        "requested_as": {
+          "$ref": "#/$defs/text",
+          "description": "The id the code asks for, when the Hub answers it with a redirect to location."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "huggingface" } } },
+          "then": {
+            "properties": { "location": { "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$" } }
+          }
+        },
+        {
+          "if": { "properties": { "kind": { "enum": ["github-release", "url"] } } },
+          "then": { "properties": { "location": { "pattern": "^https://\\S+$" } } }
+        }
+      ]
+    },
+    "license": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "as_stated"],
+      "properties": {
+        "status": { "enum": ["stated", "unknown"] },
+        "id": {
+          "enum": ["mit", "apache-2.0", "cc-by-4.0", "bsd-3-clause", "cc-by-nc-sa-4.0"],
+          "description": "Closed list: the identifiers the inventory actually read, in the Hub's lower-case spelling. A new licence is a reviewed schema edit, never a free-text value."
+        },
+        "as_stated": {
+          "$ref": "#/$defs/text",
+          "description": "The inventory's own words, including the conditions under which the licence was read."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "stated" } } },
+          "then": { "required": ["id"] },
+          "else": { "properties": { "id": false } }
+        }
+      ]
+    },
+    "revision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "pinned_by_yazses"],
+      "properties": {
+        "kind": {
+          "enum": ["git-commit", "tag", "versioned-path", "package-version", "unknown"],
+          "description": "Only git-commit is immutable. tag, versioned-path and package-version can move or be replaced."
+        },
+        "value": { "$ref": "#/$defs/text" },
+        "observed_on": { "$ref": "#/$defs/date" },
+        "last_modified": { "$ref": "#/$defs/date" },
+        "pinned_by_yazses": {
+          "type": "boolean",
+          "description": "True only if YazSes code passes this revision to the loader. The inventory found no such pin; true is allowed only for a git-commit."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "unknown" } } },
+          "then": { "properties": { "value": false, "observed_on": false, "last_modified": false } },
+          "else": { "required": ["value"] }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "git-commit" } } },
+          "then": {
+            "required": ["observed_on"],
+            "properties": { "value": { "pattern": "^[0-9a-f]{40}$" } }
+          }
+        },
+        {
+          "if": { "properties": { "pinned_by_yazses": { "const": true } } },
+          "then": { "properties": { "kind": { "const": "git-commit" } } }
+        }
+      ]
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "sha256_status"],
+      "properties": {
+        "name": { "$ref": "#/$defs/text" },
+        "relative_path": {
+          "$ref": "#/$defs/text",
+          "description": "Path of the file under the directory passed to the validator's --artifact-root (for example a site-packages directory or a Hub snapshot). Used only to verify a hash against a file already on disk."
+        },
+        "size_bytes": { "type": "integer", "minimum": 0 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "sha256_status": { "enum": ["computed-locally", "reported-by-source", "unknown"] },
+        "md5_etag": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$",
+          "description": "A server-reported MD5 ETag. Integrity hint only: it is not a sha256 and is never promoted to one."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "sha256_status": { "const": "unknown" } } },
+          "then": { "properties": { "sha256": false } },
+          "else": { "required": ["sha256"] }
+        }
+      ]
+    },
+    "code_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "line"],
+      "properties": {
+        "path": { "$ref": "#/$defs/text" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}
