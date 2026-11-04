@@ -10,7 +10,7 @@ YazSes is a hold-to-talk voice daemon that replaces cloud dictation tools. When 
 
 - Writers and developers who want offline dictation without sending audio to Google, Apple, or Microsoft
 - Developers who want hands-free editor/terminal voice commands (undo, save, go-to-line, run tests, rename symbol)
-- Accessibility users who need hold-to-talk hands-free input with full privacy (an EMG trigger exists but is experimental)
+- Accessibility users who need offline hold-to-talk dictation with full privacy (an EMG trigger exists but is experimental)
 - Anyone who wants a self-improving, on-device dictation tool with no subscription
 
 ## What makes it different

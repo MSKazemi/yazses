@@ -359,7 +359,7 @@ desktop experience where one exists.
 | **Privacy-conscious professionals** | Dictate in law, medicine or research, where audio must never touch a cloud service. |
 | **Teams with confidential meetings** | Record and summarise internal, clinical, legal or pre-publication meetings without a note-taking SaaS or a bot in the call. |
 | **Researchers with recordings** | Batch-transcribe interviews, lectures and field recordings offline, with speaker labels, under your own retention rules. |
-| **People with motor disabilities** | Hold-to-talk for hands-free input, with Dysfluency-Friendly Mode for stuttered or dysarthric speech. An EMG (muscle-sensor) trigger exists but is [experimental, off by default, with no real-device evidence yet](docs/roadmap.md#known-limits). |
+| **People with motor disabilities** | Offline hold-to-talk dictation, with Dysfluency-Friendly Mode for stuttered or dysarthric speech. An EMG (muscle-sensor) trigger exists but is [experimental, off by default, with no real-device evidence yet](docs/roadmap.md#known-limits). |
 | **Offline and air-gapped sites** | Dictation on machines with no reliable internet, or where outbound network calls are not allowed. |
 
 **Guides with setup steps:**
