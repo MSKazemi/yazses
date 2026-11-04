@@ -1068,7 +1068,10 @@ class SettingsWindow:
         wrap.addLayout(line)
 
         # The syntax used to live only in a tooltip, which nobody finds unprompted.
-        syntax = QLabel("Narrow it down:  tier:rec   tier:exp   on:   off:   — or just type a word.")
+        syntax = QLabel(
+            "Type a word to search. Add on: or off: to show only enabled or disabled "
+            "features, or tier: plus a tier name (core, on, rec, opt, exp) to show one tier."
+        )
         syntax.setWordWrap(True)
         syntax.setStyleSheet(muted_style_for(syntax))
         wrap.addWidget(syntax)

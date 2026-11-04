@@ -71,6 +71,11 @@ Now: "Installed: YazSes 2.48.1. Check for updates asks where it was installed fr
 Was: while a language profile was selected, the Language box was disabled with no reason given, so it looked broken.
 
 Now: the box shows "Set by the language profile above. Choose Custom / advanced to pick the language yourself." while it is disabled, and the line is hidden under Custom / advanced. The wording is checked in tests against each profile's own speech language, on the real preview path.
+### Fixed — the Features search hint explains its filters in words
+
+Was: the hint under the Features search box read "Narrow it down: tier:rec tier:exp on: off: — or just type a word.", a string of tokens with no explanation of what each does.
+
+Now: "Type a word to search. Add on: or off: to show only enabled or disabled features, or tier: plus a tier name (core, on, rec, opt, exp) to show one tier." The filters and the tier names are the same as before; the tier model is unchanged. A test checks the examples against the filter parser.
 
 ### Fixed — design pages no longer publish a cut-off or fragment meta description
 
