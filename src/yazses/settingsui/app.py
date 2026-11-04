@@ -287,6 +287,14 @@ _FORM_FIELDS = (
 )
 
 
+#: Why the Language box is greyed. True in code: an exact profile sets the language
+#: (``_on_language_profile_selection_changed`` and the profile-sync path), and the
+#: Custom / advanced entry is what hands the picker back.
+LANGUAGE_REASON = (
+    "Set by the language profile above. Choose Custom / advanced to pick the language yourself."
+)
+
+
 class SettingsWindow:
     """The settings window itself. Only imports Qt when instantiated."""
 
@@ -710,6 +718,10 @@ class SettingsWindow:
         self._language_box = language_box
         self._language_baseline = model.language
         form.addRow(QLabel("Language:"), language_box)
+        # Shown only while the profile owns the field: a greyed box with no reason looks broken.
+        self._language_reason = QLabel(LANGUAGE_REASON)
+        self._language_reason.setWordWrap(True)
+        form.addRow(QLabel(""), self._language_reason)
 
         profile_box.currentIndexChanged.connect(
             self._on_language_profile_selection_changed
@@ -719,7 +731,7 @@ class SettingsWindow:
         )
         # An exact profile owns the speech-language field. Custom/advanced mode
         # exposes the low-level language picker instead.
-        language_box.setEnabled(not bool(model.language_profile))
+        self._set_language_field_enabled(not bool(model.language_profile))
 
         computes = compute_type_choices(model.stt_device, current=model.compute_type)
         compute_box = QComboBox()
@@ -1493,9 +1505,14 @@ class SettingsWindow:
         chosen = self._model_box.currentText().strip() if self._model_box else ""
         return chosen or None
 
+    def _set_language_field_enabled(self, enabled: bool) -> None:
+        """The Language box is editable only under Custom / advanced; the reason shows otherwise."""
+        self._language_box.setEnabled(enabled)
+        self._language_reason.setVisible(not enabled)
+
     def _on_language_profile_selection_changed(self, _index: int) -> None:
         profile = self._selected_language_profile()
-        self._language_box.setEnabled(not bool(profile))
+        self._set_language_field_enabled(not bool(profile))
         self._profile_model_user_choice = False
         if not profile:
             self._profile_auto_model = None
@@ -1702,7 +1719,7 @@ class SettingsWindow:
                 language_index = self._language_box.findData(candidate.language)
                 if language_index >= 0:
                     self._language_box.setCurrentIndex(language_index)
-                self._language_box.setEnabled(False)
+                self._set_language_field_enabled(False)
             finally:
                 self._profile_syncing = False
 

@@ -66,6 +66,11 @@ and no generated page changed.
 Was: the line under "About and updates" read "Checking asks the place YazSes was installed from (PyPI, GitHub or the snap store) for its newest version." The subject was "Checking", which is not the button's name, and "asks the place" is hard to parse.
 
 Now: "Installed: YazSes 2.48.1. Check for updates asks where it was installed from (PyPI, GitHub or Snap) for the newest version." The same facts, and the line names the button it describes. The text is pinned by a test.
+### Fixed — the Speech page says why its Language box is greyed
+
+Was: while a language profile was selected, the Language box was disabled with no reason given, so it looked broken.
+
+Now: the box shows "Set by the language profile above. Choose Custom / advanced to pick the language yourself." while it is disabled, and the line is hidden under Custom / advanced. The wording is checked in tests against each profile's own speech language, on the real preview path.
 
 ### Fixed — design pages no longer publish a cut-off or fragment meta description
 
