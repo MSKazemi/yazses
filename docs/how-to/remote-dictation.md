@@ -134,7 +134,7 @@ session is up.
     was typed into the focused window on **your own machine**, because the daemon
     chose the remote injector only while its state read "remote active", which a
     hold-to-talk burst always leaves. The fix makes the choice follow the session
-    itself; it ships in the first release after v2.43.2.
+    itself; it is fixed in v2.44.0.
 
 ## 3. Disconnect
 

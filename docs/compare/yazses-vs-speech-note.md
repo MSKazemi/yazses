@@ -60,7 +60,7 @@ on which desktop you run.
 - **Meeting capture** with speaker labels and optional local-LLM minutes.
 - **macOS and Windows** with the same configuration, in preview (see the [validation matrix](../validation-matrix.md)).
 - **Accessibility architecture** — VAD calibration, dysfluency-friendly filtering,
-  and a replaceable activation channel including an EMG muscle sensor.
+  and a replaceable activation channel, including an experimental EMG muscle sensor (off by default).
 
 ## They coexist well
 

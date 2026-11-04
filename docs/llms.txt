@@ -10,7 +10,7 @@ YazSes is a hold-to-talk voice daemon that replaces cloud dictation tools. When 
 
 - Writers and developers who want offline dictation without sending audio to Google, Apple, or Microsoft
 - Developers who want hands-free editor/terminal voice commands (undo, save, go-to-line, run tests, rename symbol)
-- Accessibility users who need hold-to-talk or EMG-triggered hands-free input with full privacy
+- Accessibility users who need hold-to-talk hands-free input with full privacy (an EMG trigger exists but is experimental)
 - Anyone who wants a self-improving, on-device dictation tool with no subscription
 
 ## What makes it different
@@ -20,7 +20,7 @@ YazSes is a hold-to-talk voice daemon that replaces cloud dictation tools. When 
 - **Hold-to-talk**: natural push-to-talk that works in any focused app
 - **Dysfluency-Friendly Mode**: opt-in collapse of stutters/repeats for stuttered or dysarthric speech
 - **Self-improving**: opt-in, encrypted on-device learning corpus; `yazses tune` proposes accuracy fixes from your own corrections
-- **EMG support**: can be triggered by a USB muscle sensor for hands-free use by people with motor disabilities
+- **EMG support** (experimental, off by default, no real-device evidence yet): a USB muscle sensor can act as a hold-to-talk trigger
 - **Experimental biosignal switches** (muscle squeeze, double blink, jaw clench) can read BrainFlow boards, Lab Streaming Layer streams, NeuroSky, BITalino, Myo and EDF/BDF/XDF recordings. Off by default. Not thought decoding. Not yet tested on real hardware.
 
 ## Compared to alternatives

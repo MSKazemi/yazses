@@ -120,9 +120,10 @@ of the pipeline is unchanged:
   knows a nod has started until it is finished. Chord actions are limited to pausing or
   recentering the pointer and reversible spoken commands (`command:undo`); anything else
   is refused. Every number here is provisional: no false-activation study exists yet.
-- **EMG muscle sensor.** A USB muscle sensor over serial can act as the
+- **EMG muscle sensor (experimental).** A USB muscle sensor over serial can act as the
   hold-to-talk trigger, so a small muscle contraction starts and stops dictation.
-  Configure it under `[emg]` with the serial device path.
+  Configure it under `[emg]` with the serial device path. It is off by default and has
+  no real-device evidence yet; see the [known limits](../roadmap.md#known-limits).
 - **Hands-Free Auto-Stop** (`yazses features enable autostop`, then restart) lets you tap the hotkey once
   instead of holding it: the burst ends on silence (or a second tap) rather than on key release. A tap is a
   press shorter than `[hotkey] hold_threshold_ms`; a longer hold is still ordinary hold-to-talk. It needs a

@@ -128,8 +128,10 @@ your app. It is optional and off by default in current releases. The full explan
 ## Does it support accessibility / hands-free use?
 
 Yes. YazSes includes VAD calibration, mic-level tuning, a **dysfluency-friendly
-mode** for stuttered or dysarthric speech, and an optional **EMG muscle-sensor
-trigger** for fully hands-free operation.
+mode** for stuttered or dysarthric speech. An optional, **experimental EMG
+muscle-sensor trigger** also exists as a hands-free alternative to holding a key; it is
+off by default and has no real-device evidence yet (see the
+[known limits](roadmap.md#known-limits)).
 
 ## Is YazSes an AI agent?
 

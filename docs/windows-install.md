@@ -323,7 +323,7 @@ YazSes. When it does not, the button is greyed out and says why: install YazSes 
 has.
 
 Two such features need no add-on, because their libraries are inside the installer
-from the release after v2.43.2: the Parakeet speech engine (`stt-parakeet`; its ~600 MB
+since v2.44.0: the Parakeet speech engine (`stt-parakeet`; its ~600 MB
 model still downloads on first use) and Chinese script conversion (`chinese-script`).
 They add about 4.5 MB to the installer (a wheel-size figure, not yet measured on a
 built installer). Speaker diarization (`diarize`, `meeting`, `recimport`) is the first

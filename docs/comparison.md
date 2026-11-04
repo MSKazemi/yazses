@@ -112,8 +112,9 @@ Otter-style meeting tools do meetings and are cloud services.
 **7. Built for the people a hotkey excludes.** Against every tool in the table:
 VAD calibration you run rather than guess at (`yazses mic-level`), a
 disfluency-friendly filter for stuttered and dysarthric speech, an on-device
-learning loop that adapts to *your* corrections, and a USB-serial or Bluetooth EMG
-muscle sensor as an alternative to pressing a key at all.
+learning loop that adapts to *your* corrections, and an experimental USB-serial or
+Bluetooth EMG muscle sensor as an alternative to pressing a key at all (off by
+default, not yet verified on hardware).
 *Check it:* `uv run yazses mic-level`, `src/yazses/stt/filters/disfluency.py`,
 `src/yazses/platform/emg/`.
 
@@ -161,8 +162,8 @@ transcription is.
 
 YazSes treats the activation channel as a **replaceable part**. A hotkey is one
 implementation of a protocol, not a built-in assumption, and other implementations
-already exist in the tree: a USB-serial EMG muscle sensor, a BLE variant, and
-gaze-based window targeting on X11.
+already exist in the tree: an experimental USB-serial EMG muscle sensor (not yet
+verified on hardware), a BLE variant, and gaze-based window targeting on X11.
 
 What that buys is a straight answer to a question the other tools cannot answer at
 all — *"I can't press a key. Can I still use this?"*
@@ -181,8 +182,10 @@ tool can add later without becoming a different program.
 !!! warning "What is real today, and what is not"
 
     This page's honesty rule applies here too, so to be precise about the state of
-    it: the **EMG serial and BLE backends exist and work** as a hold-to-talk
-    trigger, **gaze window-targeting works on X11**, and the **modality role
+    it: the **EMG serial and BLE backends exist** as an experimental
+    hold-to-talk trigger (off by default; they have synthetic and replay tests but
+    no real-device evidence, see the [known limits](roadmap.md#known-limits)),
+    **gaze window-targeting works on X11**, and the **modality role
     router is wired** — with `[modality]` enabled the daemon resolves a role map
     at start-up, `yazses doctor` prints it, and the *command* role is what then
     decides whether an EMG squeeze speaks a command or dictates prose, overriding
@@ -334,7 +337,7 @@ pick between three recognition engines.
 **Choose YazSes** if you need macOS or Windows too, in preview (Vocalinux is Linux-only), if
 you want the same install to also transcribe recordings and capture meetings with
 speaker labels, or if you need the accessibility-oriented pieces —
-dysfluency-friendly mode, EMG triggering, VAD calibration — and the opt-in
+dysfluency-friendly mode, VAD calibration, an experimental EMG trigger — and the opt-in
 on-device learning loop.
 
 YazSes deliberately targets **CPU int8** rather than GPU, so it runs on modest

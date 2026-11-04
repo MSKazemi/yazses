@@ -41,7 +41,7 @@ hide:
         "Hold-to-talk dictation into any focused application",
         "Voice commands and user-defined macros",
         "Dysfluency-friendly mode for stuttered or dysarthric speech",
-        "EMG/USB muscle-sensor trigger for hands-free accessibility use"
+        "Experimental EMG/USB muscle-sensor trigger (off by default; no real-device evidence yet)"
       ],
       "softwareVersion": "2.48.1",
       "mainEntityOfPage": { "@id": "https://mskazemi.com/yazses/index.html#webpage" },
@@ -187,7 +187,8 @@ hide:
     ---
 
     VAD calibration, mic-level tuning, dysfluency-friendly mode, and an
-    EMG muscle-sensor trigger for fully hands-free use.
+    experimental EMG muscle-sensor trigger (off by default; no real-device
+    evidence yet, see the [known limits](roadmap.md#known-limits)).
 
     [:octicons-arrow-right-24: Features](features.md)
 
@@ -302,7 +303,7 @@ yazses start             # start the dictation daemon
 
 On **macOS** (Homebrew or `.dmg`) and **Windows** (winget or the installer) there is
 nothing to type: open YazSes, grant the permissions it asks for, and it runs from the
-menu bar or system tray. From the release after 2.43.2 the Homebrew cask puts a `yazses` command on your
+menu bar or system tray. Since v2.44.0 the Homebrew cask puts a `yazses` command on your
 `PATH`; with the `.dmg`, the CLI is `/Applications/YazSes.app/Contents/MacOS/YazSes --cli doctor`.
 
 Hold the hotkey (Right Alt on Linux, Right Option on macOS, Right Ctrl on Windows), speak, release — the text appears in the focused app within one to two seconds on a laptop CPU. The [quick start](get-started.md) walks through each OS step by step.
@@ -315,7 +316,7 @@ Hold the hotkey (Right Alt on Linux, Right Option on macOS, Right Ctrl on Window
 - **Macros & personal vocabulary** — define multi-step commands and teach YazSes your mis-heard words.
 - **Dysfluency-Friendly Mode** — opt-in collapse of stutters/repeats for stuttered or dysarthric speech.
 - **Self-improving** — opt-in, encrypted on-device learning corpus; `yazses tune` proposes accuracy fixes from your own corrections.
-- **Accessibility** — VAD calibration, mic-level tuning, and EMG (muscle-sensor) trigger support.
+- **Accessibility** — VAD calibration, mic-level tuning, and an experimental EMG (muscle-sensor) trigger (off by default; no real-device evidence yet).
 
 ## What people use it for
 
