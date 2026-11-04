@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "fixture_scope": "synthetic",
+  "cases": [
+    {
+      "id": "SYN-WORD-001",
+      "stratum": "word_repetition",
+      "asr_text": "b-b-because i can",
+      "verbatim_reference": "b-b-because i can",
+      "semantic_reference": "because i can",
+      "expected_on": "because i can",
+      "oracle_label": "safe-cleanup",
+      "oracle_status": "confirmed"
+    },
+    {
+      "id": "SYN-SOUND-001",
+      "stratum": "sound_repetition",
+      "asr_text": "st st stop now",
+      "verbatim_reference": "st st stop now",
+      "semantic_reference": "stop now",
+      "expected_on": "stop now",
+      "oracle_label": "safe-cleanup",
+      "oracle_status": "confirmed"
+    },
+    {
+      "id": "SYN-PROLONG-001",
+      "stratum": "prolongation",
+      "asr_text": "sooo good",
+      "verbatim_reference": "sooo good",
+      "semantic_reference": "so good",
+      "expected_on": "so good",
+      "oracle_label": "safe-cleanup",
+      "oracle_status": "confirmed"
+    },
+    {
+      "id": "SYN-INTERJECT-001",
+      "stratum": "interjection",
+      "asr_text": "um the meeting starts now",
+      "verbatim_reference": "um the meeting starts now",
+      "semantic_reference": "the meeting starts now",
+      "expected_on": "the meeting starts now",
+      "oracle_label": "safe-cleanup",
+      "oracle_status": "confirmed"
+    },
+    {
+      "id": "SYN-BLOCK-001",
+      "stratum": "block",
+      "asr_text": "i can work tomorrow",
+      "verbatim_reference": "i can work tomorrow",
+      "semantic_reference": "i can work tomorrow",
+      "expected_on": "i can work tomorrow",
+      "oracle_label": "no-material-edit",
+      "oracle_status": "confirmed"
+    },
+    {
+      "id": "SYN-FLUENT-001",
+      "stratum": "fluent",
+      "asr_text": "she is sort of stable",
+      "verbatim_reference": "she is sort of stable",
+      "semantic_reference": "she is sort of stable",
+      "expected_on": "she is sort of stable",
+      "oracle_label": "no-material-edit",
+      "oracle_status": "confirmed"
+    },
+    {
+      "id": "SYN-FLUENT-002",
+      "stratum": "fluent",
+      "asr_text": "that dose is not right",
+      "verbatim_reference": "that dose is not right",
+      "semantic_reference": "that dose is not right",
+      "expected_on": "that dose is not right",
+      "oracle_label": "no-material-edit",
+      "oracle_status": "confirmed"
+    },
+    {
+      "id": "SYN-FLUENT-003",
+      "stratum": "fluent",
+      "asr_text": "call foo_bar in main.py",
+      "verbatim_reference": "call foo_bar in main.py",
+      "semantic_reference": "call foo_bar in main.py",
+      "expected_on": "call foo_bar in main.py",
+      "oracle_label": "no-material-edit",
+      "oracle_status": "confirmed"
+    },
+    {
+      "id": "SYN-FLUENT-004",
+      "stratum": "fluent",
+      "asr_text": "re-read the co-op file",
+      "verbatim_reference": "re-read the co-op file",
+      "semantic_reference": "re-read the co-op file",
+      "expected_on": "re-read the co-op file",
+      "oracle_label": "no-material-edit",
+      "oracle_status": "confirmed"
+    }
+  ]
+}

@@ -287,6 +287,13 @@ def _butterworth(kind: str, freq_hz: float, fs: float, order: int) -> list[Biqua
         sections.append(_rbj(kind, freq_hz, fs, q))
     if order % 2:
         sections.append(_first_order(kind, freq_hz, fs))
+    # Corner/fs far below float64 resolution rounds a pole onto the unit circle. Refuse here,
+    # where the cause is, rather than hand back a cascade that only SosFilter would reject.
+    if not all(s.is_stable() for s in sections):
+        raise ValueError(
+            f"{kind} filter of order {order} at {freq_hz!r} Hz is numerically unstable at "
+            f"fs={fs!r} Hz (corner/fs is below float64 resolution); use a realistic sampling rate"
+        )
     return sections
 
 
