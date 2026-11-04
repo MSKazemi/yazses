@@ -6,6 +6,20 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a microphone that disappears mid-hold is no longer filed as a silent room
+
+Was: when the input device was unplugged or switched while the dictation key was held, the
+recorder set `stream_interrupted`, but nothing in the daemon read it. The truncated take was
+discarded as `silent`, fed to the adaptive VAD (teaching it the room is quiet, which can lower
+and persist `vad_threshold`) and counted in the silent streak, whose advice is to retune a
+healthy microphone.
+
+Now: such a take is discarded as `device_lost`. It skips the adaptive VAD, the auto-retune and
+the silent streak, is listed in `CAPTURE_DOUBTING_DISCARDS`, and shows a toast naming the device
+that stopped delivering audio (it does not say silence). Real unplug behaviour depends on the
+PortAudio host API and is tested here only with injected fakes. Tests:
+`tests/test_recorder_device_change_mid_recording.py` (the former strict xfail now passes).
+
 ### Changed — CI: the macOS 3.11 test leg runs on `main` and manual runs, not on every pull request
 
 Over the last 30 `test.yml` runs on 2026-11-04, 12 of 42 macOS jobs (29%) were cancelled after about 15 minutes with no runner ever assigned (Linux 3 of 93, Windows 2 of 42, arm64 0 of 21), and the macOS queue wait had a median of 2.1 minutes and a maximum of 29, against a median of 0.1 for the other runners. A burst of 12 PRs put 24 macOS jobs into the free pool and the cancellations cascaded into `ci-gate` failures. Every PR launched two macOS legs, `macos-latest` on Python 3.11 and on 3.12. The 3.11 leg now runs on pushes to `main` and on `workflow_dispatch` only; `macos-latest` on 3.12 still runs on every PR, so OS coverage is unchanged, and Linux and Windows still prove 3.11 on every PR. No job was renamed, `ci-gate` is unchanged (a leg that does not exist is not a skipped job), and no macOS leg may fail. The matrix's `exclude` is now an expression on `github.event_name`, because GitHub does not allow `matrix` in a job-level `if:`. `.github/CI_POLICY.md` section 13.1 records the numbers and the reasoning; `tests/test_ci_test_matrix.py` renders both cases offline.
