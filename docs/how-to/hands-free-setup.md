@@ -133,7 +133,7 @@ state only while it is on screen, and opening it never opens the camera.
 4. Tray icon → **Settings…** → **Hands-free** page → **Resume hands-free input** to arm it.
 
 To turn it off the same way, untick **Hands-Free Preset**, click **Apply**, and restart the daemon from
-the tray. To stop what is moving *before* that restart, press **Pause** in the hands-free controls first.
+the tray. To stop what is moving *before* that restart, press **Pause** on the Settings → **Hands-free** page first.
 
 ### Choose only some of the roles
 
@@ -173,7 +173,7 @@ Then click into a text box, close your eyes for about a second, speak, and open 
 your eyes open. **Pause hands-free input** on the same page (or `yazses handsfree pause`) stops it. Test it
 with ordinary blinking first; `[facegesture] min_hold_frames` lengthens the hold further. The page's
 **Ways to stop without pointing** list, one Tab stop after **Recenter**, names only the stop routes your saved
-settings set up: Alt+P in the window, `yazses handsfree pause`, your stop phrase, and any face switch or chord
+settings set up: the Hands-free page itself (Alt+P on Windows and Linux; on macOS Tab reaches the buttons), `yazses handsfree pause`, your stop phrase, and any face switch or chord
 mapped to pause. It also says which of these is missing.
 The switch compares against a fixed threshold until you run `yazses facegesture calibrate` and set
 `[facegesture] use_baseline = true` (this step still needs a terminal).
@@ -210,7 +210,7 @@ Every one of these needs neither a precise pointer nor the camera, except the ch
 | Way to stop | Needs |
 |---|---|
 | `yazses handsfree pause` | a terminal or script; no pointer, no camera |
-| the **Pause** button in the hands-free controls of the settings window (keyboard letter **P**) | the settings window |
+| the **Pause** button on the Hands-free page of the settings window (keyboard letter **P** on Windows and Linux) | the settings window |
 | saying the stop phrase as a whole utterance, see [Stop hands-free input by voice](hands-free-voice-stop.md) | a dictation burst; it only pauses |
 | the chord brow-raise + shake | the camera, so it cannot help once the camera is lost |
 | a face switch you bound to `pause_pointer` (`[[facegesture.switches]]`) | the camera; with the global stop off it pauses the Head-Pointer only |

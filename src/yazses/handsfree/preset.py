@@ -98,7 +98,7 @@ def stop_paths(components: HandsfreeConfig) -> tuple[str, ...]:
         out.append(
             f'say the stop phrase ([handsfree_safety] stop_phrase, "{DEFAULT_STOP_PHRASE}" unless you '
             "set it) as a whole utterance in a dictation burst; it only pauses -- resume is "
-            "`yazses handsfree resume` or Settings -> Hands-free controls (the tray has no Resume item)"
+            "`yazses handsfree resume` or Settings -> Hands-free (the tray has no Resume item)"
         )
     if components.chords:
         out.append(

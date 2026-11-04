@@ -7683,7 +7683,7 @@ class Daemon:
         if ok:
             body = (
                 f"Paused by voice: {scope}. Resume with `yazses handsfree resume` or "
-                "Settings → Hands-free controls."
+                "Settings → Hands-free."
             )
         else:
             body = f"Heard the stop phrase but did not pause: {reply.get('reason', 'unknown reason')}."
