@@ -5,7 +5,7 @@
 **Tracking:** [NEXT-ASR-02 #793](https://github.com/MSKazemi/yazses/issues/793), [research epic #787](https://github.com/MSKazemi/yazses/issues/787)  
 **Repository snapshot:** MSKazemi/yazses, main at 1598e65b708b86c2f8d5fa51749407e4a18740be (YazSes 2.48.1)  
 **Policy:** [ADR-030](../adr/adr-030-agent-era-direction.md), [ADR-011](../adr/adr-011.md), [milestone policy](../milestone-policy.md)  
-**Related proposed decision:** [ADR-033](../adr/adr-033-reproducible-asr-evaluation-gate.md)
+**Related proposed decision:** [ADR-033 (reproducible ASR evaluation gate)](../adr/adr-033-reproducible-asr-evaluation-gate.md), not to be confused with ADR-v2-033 (wake word)
 
 > Evidence legend: **[R]** directly inspected repository code/documentation at the snapshot; **[P]** primary upstream publication or specification, not re-measured by YazSes; **[D]** research design choice requiring review; **[U]** unverified. No model was downloaded or benchmarked in this study. Numerical examples are mathematical test vectors, not model results.
 
@@ -172,7 +172,7 @@ No external service, cloud transcription, new default, new telemetry or user-dat
 
 ## 9. Concrete execution plan
 
-1. **Protocol review (#793).** Freeze data schema, metrics, explicit normalizer profiles and preregistration form; get a maintainer-approved proposed ADR-033 decision. No production code change.
+1. **Protocol review (#793).** Freeze data schema, metrics, explicit normalizer profiles and preregistration form; get a maintainer-approved decision on the proposed ADR-033 (reproducible ASR evaluation gate). No production code change.
 2. **Synthetic analyzer proof (#793).** Add a pure deterministic, no-network script and tests that consume synthetic v1 JSONL, enforce manifest completeness/fallback/normalizer invariants, produce counts + paired speaker-block bootstrap and privacy-safe summary. Make its versioned source public.
 3. **Reproducible English pilot (#793 with #792).** Pin a small controlled matrix: shipping faster-whisper base.en vs Parakeet and Moonshine where licenses support the arm; lock LibriSpeech test-clean/test-other sample manifests, weight hashes and exact dependency lockfiles. Measure on one isolated CPU and independently rerun on a second machine. **These data are not collected by this document.**
 4. **Broader data (#797).** FLEURS and Common Voice with per-language normalization, training overlap and coverage register; never test an English-only engine on Persian and call the result language support.

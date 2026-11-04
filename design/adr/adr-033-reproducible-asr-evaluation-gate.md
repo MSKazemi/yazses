@@ -1,6 +1,8 @@
 # ADR-033 — A reproducibility gate for offline ASR comparisons (proposed)
 
-**Status:** Proposed — 2026-11-03; **no runtime, model default, publication or implementation authorization**  
+*Not to be confused with ADR-v2-033 (wake word), which is in the separate v2 series.*
+
+**Status:** Proposed (2026-11-03) · no runtime, model default, publication or implementation authorization  
 **Decision owner:** YazSes maintainer (pending review)  
 **Research:** [#793](https://github.com/MSKazemi/yazses/issues/793), [2026-11-03 protocol](../research/2026-11-03-pinned-offline-asr-evaluation-protocol.md)  
 **Context:** [ADR-030](adr-030-agent-era-direction.md), [ADR-021](adr-021-invest-in-error-cost.md), [ADR-011](adr-011.md), [ADR-019](adr-019-egress-inventory-and-escalation.md), [engine/default decision #645](https://github.com/MSKazemi/yazses/issues/645), [ASR epic #787](https://github.com/MSKazemi/yazses/issues/787)
