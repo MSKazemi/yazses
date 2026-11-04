@@ -266,3 +266,12 @@ def test_module_imports_without_pyxdf():
                          encoding="utf-8", timeout=120, check=False)
     assert out.returncode == 0, out.stderr
     assert out.stdout.strip() == "ok"
+
+
+def test_non_finite_nominal_rate_is_not_a_regular_rate(fake_pyxdf, xdf_path):
+    """nominal_srate="1e400" parsed to inf and was returned as a recording at fs=inf."""
+    stream = _signal_stream(_data(n=50), 250.0)
+    stream["info"]["nominal_srate"] = ["1e400"]
+    fake_pyxdf.streams = [stream]
+    with pytest.raises(ValueError):
+        load_xdf(xdf_path)
