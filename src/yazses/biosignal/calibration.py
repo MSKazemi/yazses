@@ -797,7 +797,13 @@ class CalibrationSession:
 
     def _check_relax(self, data: np.ndarray) -> CalibrationIssue | None:
         rms = _window_rms(data[list(self._rest_idx)], self._win())
-        if rms.size < 4 or float(np.median(rms)) <= _MIN_SIGNAL_RMS:
+        if rms.size < 4:
+            # Too little rest for a median and a 95th percentile: say so, rather than
+            # claiming the electrodes are flat, which this check cannot tell from the data.
+            return self._reject(IssueCode.NO_SIGNAL, (
+                "Not enough resting signal was recorded yet. Rest a little longer."
+            ))
+        if float(np.median(rms)) <= _MIN_SIGNAL_RMS:
             return self._reject(IssueCode.NO_SIGNAL, (
                 "The signal is flat, so the electrodes do not seem to be picking anything "
                 "up. Check that they are attached and the board is streaming."

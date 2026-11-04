@@ -251,6 +251,18 @@ def _doctor_platform(info: dict):
     )
 
 
+@pytest.fixture(autouse=True)
+def _no_host_daemon_prefix(monkeypatch) -> None:
+    """The fake platform below reports daemon pid 4242, which is only a stub.
+
+    ``doctor._daemon_install_prefix`` reads ``/proc/<pid>/cmdline`` and accepts any process whose
+    argv mentions "yazses", so on a machine where pid 4242 is a live yazses process (a tray or a
+    pipx daemon) the check sees a "split install" and the row flips from OK to WARN. These tests
+    are about stale permissions, not install layout, so take the host out of them.
+    """
+    monkeypatch.setattr(doctor, "_daemon_install_prefix", lambda _pid: None)
+
+
 def test_doctor_warns_about_a_daemon_that_predates_a_grant(monkeypatch) -> None:
     monkeypatch.setattr(doctor, "_pkg_version", lambda _n: "9.9.9")
     row, _ = doctor._daemon_check(

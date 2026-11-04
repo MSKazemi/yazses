@@ -6,6 +6,98 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — design pages no longer publish a cut-off or fragment meta description
+
+Was: the description derived for a `design/` page kept straight `"` characters, and the Material
+theme writes it into `<meta name="description" content="…">` without escaping, so the first quote
+ended the attribute and a parser read only the text before it (68 of 402 pages in a built site;
+`adr-v2-080` read `Wave J research (#7) —`). A paragraph that only introduces a list or a quote
+("The brief was:") was also used whole, giving 60 pages a description that ends mid-thought.
+
+Now: `hooks/design_tier.py` writes typographic quotes (“ ”) in the text it derives, and skips a
+paragraph that ends in `:`, `(`, `,`, `;` or a dash, keeping the complete sentences before it or
+moving to the next paragraph. Measured on a strict build of the same tree before and after:
+quote-broken tags 68 → 0, fragment endings 60 → 0, descriptions under 45 characters 19 → 4 (each
+a complete short sentence). A test now renders every published page's description as the theme
+does and parses it back.
+### Tests — the brain's runner: dead time after a backlog discard and same-block release+blink, pinned
+
+Was: two soft spots of the opt-in biosignal runner were described in prose but not measured.
+
+Now: `tests/test_biosignal_runner_timing.py` pins them with a fake clock and synthetic blocks, and
+changes no behaviour. After a backlog discard the first accepted event comes 2.75 s after resume
+at the default thresholds (2.80 s with 0.10 s blocks), the quality monitor's warm-up. A blink in the
+same block as a release is dispatched after the release callback, 0 blocks late. Neither is
+changed: keeping detector state across a gap, or dispatching the blink first (the daemon ignores
+intents while recording), are design decisions.
+
+Not checked: real hardware or a real EMG signal; the probe used seeded noise.
+### Fixed — a Butterworth design at an impossible corner-to-rate ratio is refused where it is made
+
+Was: with the corner frequency far below float64 resolution of the sampling rate, the biosignal
+filter design returned sections sitting on the unit circle, and only the later `SosFilter` refused
+them.
+
+Now: `_butterworth` raises a `ValueError` naming the corner and rate. Realistic designs are
+unchanged. Sixteen property tests (arbitrary lengths including 0 and 1, extreme amplitudes,
+chunked equals whole, flat, railed and all-NaN channels never graded GOOD) back it.
+
+Known and left open as a strict xfail: one NaN in a 4 s window at 500 Hz still grades GOOD, because
+`nonfinite_frac_degraded` is 0.001. Capping at DEGRADED changes what counts as GOOD on real
+recordings, which is a threshold decision.
+
+Not checked: real recordings; Windows and FreeBSD.
+### Fixed — the biosignal false-activation upper bound is the exact Poisson limit
+
+Was: the one-sided 95% upper bound on a false-activation rate used a cube-root approximation. With
+zero events it gave 2.9687 events where the exact value is 2.9957, so the default 0.1 h idle run
+printed 29.7/hour instead of 30.0/hour, slightly optimistic. A rest phase with fewer than four
+windows told the user the electrodes were flat, which that check cannot know.
+
+Now: the bound is exact for counts up to 1000 (bisection on the Poisson CDF, standard library only),
+and the report no longer calls it approximate. A short rest phase says not enough resting signal
+was recorded. `evaluate_idle`'s docstring says the run may overshoot the requested time by one
+block. New `tests/test_biosignal_stats_audit.py` checks the Wilson interval, per-hour rates and
+zero-exposure cases against independent values.
+
+Known and left open as strict xfails: `LedgerStats.per_hour` returns 0.0 when there are
+activations but no active time, and `check_source` prints PASS for a 0.2 s run in which both rate
+checks were skipped. `fieldtest.py` and `fprate.py` keep the older approximation.
+
+Not checked: real recordings.
+### Tests — which synthetic shapes the EMG onset detector fires on, measured
+
+Was: the known limit (a smooth 50-120 ms unipolar bump still reads as a squeeze) was a prose
+sentence and one xfail.
+
+Now: `tests/test_biosignal_emg_onset_shapes.py` records, over 12 seeds at 250, 500 and 1000 Hz,
+which Hann bumps and zero-mean bursts fire and which do not, and changes no behaviour. A 30 ms
+bump never fires; 50-150 ms bumps at 600 uV or more fire most of the time; a held 500 ms
+contraction fires on every seed; plain relaxed noise never fires. No threshold tried separated
+bumps from true bursts without a regression: a raw-level mean test fails with a 100 uV electrode
+offset (true bursts 107/120 down to 0/120), and removing the pre-crossing mean costs a few true
+bursts and needs a new constant. The false squeeze stays open.
+
+Not checked: real hardware or recordings.
+### Fixed — hostile or corrupt biosignal recordings fail with a clear error, not a crash or a huge allocation
+
+Was: an empty `.npz` raised `EOFError`; a truncated zip raised `BadZipFile`; a `.npz` whose header
+claimed a billion samples allocated about 8 GB before failing; a corrupt `.npz` leaked its file
+handle; `# fs=1e400` in a CSV raised `OverflowError`; an XDF stream with `nominal_srate` `1e400`
+was returned at an infinite rate; a member named `data` without `.npy` raised `KeyError`.
+
+Now: each is a `ValueError` naming the file, the declared size is checked against the archive entry
+before numpy allocates, and a non-finite sampling rate counts as unknown. 53 seeded fuzz and totality
+tests cover the ThinkGear, BITalino, Myo and EDF parsers too (truncation, bit flips, bad checksums,
+split at every byte, garbage prefixes); they found no failure there.
+
+Known and left open: ThinkGear rescans a buffer of repeated `0xAA` bytes on each feed (CPU grows
+faster than linearly, memory stays bounded by its 64 KiB cap).
+
+Not checked: real XDF files (`pyxdf` was a stub), real devices.
+
+## [2.48.1] - 2026-11-03
+
 ### Fixed — the tray's "Stop daemon" stays stopped, and its menu actions report the real outcome
 
 Was: on Linux, "Stop daemon" sent only the `shutdown` request. The stop note that `yazses stop`
