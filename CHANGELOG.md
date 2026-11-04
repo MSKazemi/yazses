@@ -6,6 +6,12 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the Updates page says what checking does, in words the button uses
+
+Was: the line under "About and updates" read "Checking asks the place YazSes was installed from (PyPI, GitHub or the snap store) for its newest version." The subject was "Checking", which is not the button's name, and "asks the place" is hard to parse.
+
+Now: "Installed: YazSes 2.48.1. Check for updates asks where it was installed from (PyPI, GitHub or Snap) for the newest version." The same facts, and the line names the button it describes. The text is pinned by a test.
+
 ### Fixed — design pages no longer publish a cut-off or fragment meta description
 
 Was: the description derived for a `design/` page kept straight `"` characters, and the Material
