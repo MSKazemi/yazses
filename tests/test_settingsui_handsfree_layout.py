@@ -91,3 +91,18 @@ def test_the_action_the_state_calls_for_is_the_bold_one(qapp):
     running = _Rig(qapp, _inputs(SafetyState.ACTIVE))
     assert running.button("pause").font().bold()
     assert not running.button("resume").font().bold()
+
+
+# ----------------------------------------------------------------- the column decision (pure)
+
+
+def test_two_columns_need_the_threshold_and_room_for_both_columns():
+    from yazses.settingsui.handsfree_panel import wants_two_columns
+
+    assert wants_two_columns(TWO_COLUMN_MIN_PX, 400, 400, 24)
+    assert not wants_two_columns(TWO_COLUMN_MIN_PX - 1, 400, 400, 24)
+    # Wide enough by the threshold, but a large font makes the columns need more: one column.
+    assert not wants_two_columns(1100, 600, 600, 24)
+    assert wants_two_columns(1300, 600, 600, 24)
+    # The 24 pt case that scrolled 448 px: 685 px of viewport is never two columns.
+    assert not wants_two_columns(685, 560, 560, 24)

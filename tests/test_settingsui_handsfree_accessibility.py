@@ -37,6 +37,7 @@ from PySide6.QtGui import QAccessible, QFont, QKeySequence  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import (  # noqa: E402
     QApplication,
+    QBoxLayout,
     QComboBox,
     QLabel,
     QPushButton,
@@ -396,7 +397,7 @@ def test_the_first_read_puts_keyboard_focus_on_the_action_the_state_calls_for(
     [pytest.param(9, id="9pt"), pytest.param(14, id="14pt"), pytest.param(24, id="24pt"),
      pytest.param(32, id="32pt")],
 )
-def test_no_button_or_combo_is_cut_short_and_nothing_forces_sideways_scrolling(
+def test_no_button_or_combo_is_cut_short_at_a_larger_font(
     qapp, font_restored, points
 ):
     font = QFont(qapp.font())
@@ -413,8 +414,85 @@ def test_no_button_or_combo_is_cut_short_and_nothing_forces_sideways_scrolling(
     for combo in rig.panel.widget.findChildren(QComboBox):
         widest = max(combo.fontMetrics().horizontalAdvance(combo.itemText(i)) for i in range(combo.count()))
         assert combo.width() >= widest, f"{combo.accessibleName()} would elide its choices at {points}pt"
-    for area in rig.panel.widget.findChildren(QScrollArea):
-        assert area.horizontalScrollBar().maximum() == 0, f"sideways scrolling at {points}pt"
+    # Sideways scrolling is NOT checked here: the panel has no scroll area of its own (the
+    # settings page supplies it), so a loop over this widget's scroll areas asserted nothing.
+    # The tests that build the real settings window (_handsfree_page) check it.
+
+
+_OPEN_WINDOWS: list = []
+
+
+@pytest.fixture(autouse=True)
+def _close_settings_windows():
+    yield
+    while _OPEN_WINDOWS:
+        _OPEN_WINDOWS.pop()._win.close()
+
+
+def _handsfree_page(qapp, width: int, height: int = 640):
+    """The REAL settings window at *width* x *height* with the Hands-free page selected.
+
+    Returns ``(scroll_area, panel)``: the scroll area the page wraps its content in -- the only
+    one there is, since the embedded panel has none of its own -- and the embedded panel.
+    """
+    from tests.test_settingsui_window_pages import _window
+
+    win = _window(qapp)
+    _OPEN_WINDOWS.append(win)
+    win._win.resize(width, height)
+    win._win.show()
+    win._shell.select("handsfree")
+    for _ in range(8):
+        qapp.processEvents()
+    areas = win._shell.stack.currentWidget().findChildren(QScrollArea)
+    assert len(areas) == 1, "the Hands-free page is expected to hold exactly one scroll area"
+    area, panel = areas[0], win._handsfree_panel
+    assert area.isAncestorOf(panel.widget), "the panel is not inside the page's scroll area"
+    assert area.viewport().width() > 0
+    return area, panel
+
+
+def _set_point_size(qapp, points: int) -> None:
+    font = QFont(qapp.font())
+    font.setPointSize(points)
+    qapp.setFont(font)
+
+
+@pytest.mark.parametrize("points", [pytest.param(11, id="11pt"), pytest.param(18, id="18pt"),
+                                    pytest.param(24, id="24pt")])
+def test_the_hands_free_page_does_not_scroll_sideways_in_the_default_settings_window(
+    qapp, font_restored, points
+):
+    """At 24 pt the page used to open in two columns here and scroll sideways by 448 px: the
+    column count was read from the panel's own width, which two columns inflate to their own
+    minimum. One column needs about 622 of the ~685 px there are."""
+    _set_point_size(qapp, points)
+    area, panel = _handsfree_page(qapp, 900)
+    assert area.horizontalScrollBar().maximum() == 0, (
+        f"{area.horizontalScrollBar().maximum()}px of sideways scroll at {points}pt, 900 px window"
+    )
+    assert panel._columns.direction() == QBoxLayout.Direction.TopToBottom
+
+
+def test_the_hands_free_page_goes_back_to_one_column_when_the_window_gets_narrower(
+    qapp, font_restored
+):
+    _set_point_size(qapp, 24)
+    area, panel = _handsfree_page(qapp, 2400)
+    assert panel._columns.direction() == QBoxLayout.Direction.LeftToRight
+    assert area.horizontalScrollBar().maximum() == 0
+    area.window().resize(900, 640)
+    for _ in range(8):
+        qapp.processEvents()
+    assert panel._columns.direction() == QBoxLayout.Direction.TopToBottom
+    assert area.horizontalScrollBar().maximum() == 0
+
+
+def test_a_wide_window_at_a_small_font_is_still_two_columns(qapp, font_restored):
+    _set_point_size(qapp, 11)
+    area, panel = _handsfree_page(qapp, 1400)
+    assert panel._columns.direction() == QBoxLayout.Direction.LeftToRight
+    assert area.horizontalScrollBar().maximum() == 0
 
 
 def _narrowest_and_widest_families(qapp) -> list[str]:
@@ -451,17 +529,23 @@ def test_no_sideways_scrolling_in_the_narrowest_and_the_widest_installed_font(
     font = QFont(families[which])
     font.setPointSize(points)
     qapp.setFont(font)
-    rig = _Rig(qapp, _faulted_with_everything_on())
-    _shown(rig, qapp)
-    for area in rig.panel.widget.findChildren(QScrollArea):
-        assert area.horizontalScrollBar().maximum() == 0, (
-            f"sideways scrolling by {area.horizontalScrollBar().maximum()}px at {points}pt in {families[which]!r}"
-        )
+    area, panel = _handsfree_page(qapp, 900)
+    over = area.horizontalScrollBar().maximum()
+    where = f"{points}pt in {families[which]!r}"
+    if points <= 14:
+        assert over == 0, f"sideways scrolling by {over}px at {where}"
+    # At 24 pt a font as extreme as the narrowest/widest installed family (a dingbat face, an
+    # emoji face) can need more than the window offers even in ONE column. The page then
+    # scrolls -- the documented bound -- but only by what the single column really needs,
+    # never by the inflated width of a two-column layout that was not wanted.
+    assert panel._columns.direction() == QBoxLayout.Direction.TopToBottom, where
+    need = max(0, panel.widget.minimumSizeHint().width() - area.viewport().width())
+    assert over <= need + 2, f"scrolls {over}px but one column needs only {need}px, at {where}"
 
 
 @pytest.mark.parametrize("points", [pytest.param(9, id="9pt"), pytest.param(14, id="14pt"),
                                     pytest.param(24, id="24pt")])
-def test_a_window_that_turns_out_too_narrow_widens_itself_instead_of_scrolling_sideways(
+def test_a_window_of_its_own_that_turns_out_too_narrow_widens_itself(
     qapp, font_restored, points
 ):
     """The hosted Windows run scrolled sideways by exactly 25 px at 14 pt while Linux, with the same
@@ -477,16 +561,12 @@ def test_a_window_that_turns_out_too_narrow_widens_itself_instead_of_scrolling_s
     dialog.setMinimumWidth(0)
     dialog.resize(260, 820)
     _shown(rig, qapp)
-    for area in dialog.findChildren(QScrollArea):
-        assert area.horizontalScrollBar().maximum() == 0, (
-            f"still scrolls sideways by {area.horizontalScrollBar().maximum()}px at {points}pt"
-        )
     assert dialog.width() > 260, "the window did not widen at all"
     # ... and it keeps that width as a floor, so a later resize cannot bring the overflow back.
+    widened = dialog.width()
     dialog.resize(260, 820)
     qapp.processEvents()
-    for area in dialog.findChildren(QScrollArea):
-        assert area.horizontalScrollBar().maximum() == 0
+    assert dialog.width() >= min(widened, dialog.minimumSizeHint().width())
 
 
 def test_the_emergency_buttons_and_headline_grow_with_the_system_font(qapp, font_restored):

@@ -37,7 +37,8 @@ fails first.
   reads the daemon on a worker thread; until that answer arrives every other control is
   disabled and Pause makes its ordinary call.
 * *No action needs a pointer position.* Each button is a keyboard mnemonic (Alt+P, Alt+R,
-  Alt+C) and Enter on the focused button; the same actions exist as `yazses handsfree pause` /
+  Alt+C; Qt provides no Alt mnemonics on macOS, where Tab reaches the buttons) and Enter on the
+  focused button; the same actions exist as `yazses handsfree pause` /
   `resume` and `yazses headpointer recenter`, so a voice command, a switch or a script reaches
   them too.
 * *Refreshing never moves focus.* The window re-reads the daemon every second so a fault
@@ -94,6 +95,7 @@ __all__ = [
     "apply_control",
     "mnemonic",
     "stop_routes_text",
+    "wants_two_columns",
 ]
 
 #: Minimum height (and width) of any button, in pixels. Not a measured value: a conventional
@@ -104,6 +106,21 @@ MIN_TARGET_PX = 48
 #: Window width at and above which the controls sit in two columns. A layout choice, not a
 #: measured value: each column needs about as much room as the old single column (~480 px).
 TWO_COLUMN_MIN_PX = 980
+
+
+def wants_two_columns(available_px: int, left_min_px: int, right_min_px: int, gap_px: int = 0) -> bool:
+    """Two columns only when the room the page is *given* holds both of them. Pure.
+
+    *available_px* must be a width the layout does not decide for itself -- the scroll area's
+    viewport, not the panel's own width. In two columns the panel's minimum width is the sum of
+    the columns', and a scroll area never makes its content narrower than that, so the panel's
+    own width reads back as "wide enough" for as long as it stays two columns: at a 24 pt system
+    font the page opened in two columns in a 900 px window and could never leave them, scrolling
+    sideways by 448 px. Two columns need :data:`TWO_COLUMN_MIN_PX` *and* the columns' own
+    minimums, which is what a very large font makes the larger of the two.
+    """
+    return available_px >= max(TWO_COLUMN_MIN_PX, left_min_px + gap_px + right_min_px)
+
 
 #: Which letter each emergency action's Alt-mnemonic sits on.
 _MNEMONICS = {"pause": "P", "resume": "R", "recenter": "c"}
@@ -196,6 +213,7 @@ class HandsFreePanel:
         from PySide6.QtCore import QEvent, QObject, QTimer, Signal
         from PySide6.QtGui import QGuiApplication
         from PySide6.QtWidgets import (
+            QAbstractScrollArea,
             QBoxLayout,
             QComboBox,
             QFrame,
@@ -292,20 +310,62 @@ class HandsFreePanel:
             the width it was actually given, and recomputed whenever the layout changes.
             """
 
+            def available_width(self) -> int:
+                """The width the page is given: the enclosing scroll area's viewport, else our own.
+
+                Never the panel's own width inside a scroll area: that is inflated by the
+                two-column layout's minimum width (see :func:`wants_two_columns`).
+                """
+                area = self.scroll_area()
+                return area.viewport().width() if area is not None else root.width()
+
+            def scroll_area(self) -> Any:
+                parent = root.parentWidget()
+                while parent is not None:
+                    if isinstance(parent, QAbstractScrollArea):
+                        return parent
+                    parent = parent.parentWidget()
+                return None
+
+            def relayout(self) -> None:
+                gap = cols.spacing()
+                margins = cols.contentsMargins()
+                two = wants_two_columns(
+                    self.available_width(),
+                    now_w.minimumSizeHint().width(),
+                    setup_w.minimumSizeHint().width(),
+                    max(gap, 0) + margins.left() + margins.right(),
+                )
+                want = (
+                    QBoxLayout.Direction.LeftToRight
+                    if two
+                    else QBoxLayout.Direction.TopToBottom
+                )
+                if cols.direction() != want:
+                    cols.setDirection(want)
+
+            def watch_viewport(self) -> None:
+                area = self.scroll_area()
+                viewport = area.viewport() if area is not None else None
+                if viewport is not None and viewport is not self._watched:
+                    viewport.installEventFilter(self)
+                    self._watched = viewport
+
+            _watched: Any = None
+
             def eventFilter(self, obj: Any, event: Any) -> bool:  # noqa: N802 - Qt override
                 kind = event.type()
                 if obj is root and kind == QEvent.Type.Show:
                     panel._on_shown()
                 elif obj is root and kind == QEvent.Type.Hide:
                     panel.stop()
-                if kind == QEvent.Type.Resize and obj is root:
-                    want = (
-                        QBoxLayout.Direction.LeftToRight
-                        if root.width() >= TWO_COLUMN_MIN_PX
-                        else QBoxLayout.Direction.TopToBottom
-                    )
-                    if cols.direction() != want:
-                        cols.setDirection(want)
+                if obj is root and kind in (QEvent.Type.Show, QEvent.Type.ParentChange):
+                    self.watch_viewport()
+                if (obj is root and kind in (QEvent.Type.Resize, QEvent.Type.Show,
+                                             QEvent.Type.ParentChange)) or (
+                    obj is self._watched and kind == QEvent.Type.Resize
+                ):
+                    self.relayout()
                 if obj is body and kind in (QEvent.Type.Resize, QEvent.Type.LayoutRequest):
                     self._fit_height()
                 return False
