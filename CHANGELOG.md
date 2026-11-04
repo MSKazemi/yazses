@@ -6,6 +6,12 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the Features search hint explains its filters in words
+
+Was: the hint under the Features search box read "Narrow it down: tier:rec tier:exp on: off: — or just type a word.", a string of tokens with no explanation of what each does.
+
+Now: "Type a word to search. Add on: or off: to show only enabled or disabled features, or tier: plus a tier name (core, on, rec, opt, exp) to show one tier." The filters and the tier names are the same as before; the tier model is unchanged. A test checks the examples against the filter parser.
+
 ### Fixed — design pages no longer publish a cut-off or fragment meta description
 
 Was: the description derived for a `design/` page kept straight `"` characters, and the Material
