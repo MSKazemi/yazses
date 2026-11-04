@@ -64,17 +64,48 @@ _BIDI_CONTROLS_RE = re.compile("[\u202A-\u202E\u2066-\u2069]")
 # before a later alternative can match inside it; email before bare identifier
 # so `[\w.+-]+@` wins at the local-part's first character (`\w` is Unicode, so
 # an Arabic-script local part is protected too — §9 keeps addresses intact).
-_PROTECTED_SPAN_RE = re.compile(
-    r"""https?://\S+                       # URL
+_STRUCTURED_SPAN_PATTERN = r"""
+        https?://\S+                       # URL
       | www\.\S+                           # bare www host
       | [\w.+-]+@[\w-]+\.[\w.-]+           # email address
       | (?<!\w)(?:/[\w.\-]+)+              # absolute POSIX path, not the slash in "و/یا"
       | [A-Za-z]:[\\/](?:[\w.\-]+[\\/]?)*  # Windows drive path
       | \b\d+(?:\.\d+)+\b                  # dotted version: 3.13, 1.2.3
+"""
+
+_PROTECTED_SPAN_RE = re.compile(
+    _STRUCTURED_SPAN_PATTERN
+    + r"""
       | [A-Za-z0-9][A-Za-z0-9_.+\-]*       # Latin/digit identifier run
     """,
     re.VERBOSE,
 )
+
+# The structured spans above plus the shapes a bare identifier run would also swallow:
+# a file name, a relative path, a "v1.2" version. For callers that must leave exactly
+# those alone while still treating an ordinary Latin word as a word (the phonetic
+# corrector): the identifier-run alternative of `_PROTECTED_SPAN_RE` matches every Latin
+# word, so it cannot be reused for that. One module owns the shapes; this only adds to them.
+_STRUCTURED_TOKEN_RE = re.compile(
+    _STRUCTURED_SPAN_PATTERN
+    + r"""
+      | [\w.\-]+(?:/[\w.\-]+)+             # relative path: src/app/main.py
+      | \b[\w\-]+\.[A-Za-z][A-Za-z0-9]{0,7}\b  # file name: notes.txt
+      | \bv\d+(?:\.\d+)*\b                  # version tag: v2, v1.2.3
+    """,
+    re.VERBOSE,
+)
+
+
+def structured_spans(text: str) -> list[tuple[int, int]]:
+    """``(start, end)`` of every URL, email, path, file name and version in *text*. Pure.
+
+    These are strings whose bytes are an identifier: a rewrite of one letter yields a
+    different file or address. Ordinary words, including Latin words inside Persian
+    prose, are not spans.
+    """
+    return [m.span() for m in _STRUCTURED_TOKEN_RE.finditer(text or "")]
+
 
 # §2 fast path: Arabic block + supplement + presentation forms, so an English
 # burst never pays for a normalisation that cannot change it.

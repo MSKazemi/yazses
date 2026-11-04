@@ -6,6 +6,19 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the phonetic corrector no longer rewrites paths, URLs, e-mail addresses, file names or versions
+
+Was: with `[phonetic] enabled` and "Sara" in the vocabulary, `/home/user/notes.txt` came out as
+`/home/Sara/notes.txt`, because "user" and "Sara" share a phonetic key. The same happened inside
+URLs, e-mail addresses (`user@example.com`), Windows paths and `user.txt`. The corrector is off by
+default, so this reached only people who turned it on.
+
+Now: a token inside any of those shapes is left byte for byte; ordinary words beside them are still
+corrected. The shapes come from `postprocess/persian_text.py` (`structured_spans`), which already
+defined them for the Persian normaliser, rather than a second pattern set. Tests:
+`tests/test_phonetic_skips_identifiers.py`; the strict xfail in
+`tests/test_persian_pipeline_preservation.py` is now an ordinary passing test.
+
 ### Changed — CI: the macOS 3.11 test leg runs on `main` and manual runs, not on every pull request
 
 Over the last 30 `test.yml` runs on 2026-11-04, 12 of 42 macOS jobs (29%) were cancelled after about 15 minutes with no runner ever assigned (Linux 3 of 93, Windows 2 of 42, arm64 0 of 21), and the macOS queue wait had a median of 2.1 minutes and a maximum of 29, against a median of 0.1 for the other runners. A burst of 12 PRs put 24 macOS jobs into the free pool and the cancellations cascaded into `ci-gate` failures. Every PR launched two macOS legs, `macos-latest` on Python 3.11 and on 3.12. The 3.11 leg now runs on pushes to `main` and on `workflow_dispatch` only; `macos-latest` on 3.12 still runs on every PR, so OS coverage is unchanged, and Linux and Windows still prove 3.11 on every PR. No job was renamed, `ci-gate` is unchanged (a leg that does not exist is not a skipped job), and no macOS leg may fail. The matrix's `exclude` is now an expression on `github.event_name`, because GitHub does not allow `matrix` in a job-level `if:`. `.github/CI_POLICY.md` section 13.1 records the numbers and the reasoning; `tests/test_ci_test_matrix.py` renders both cases offline.

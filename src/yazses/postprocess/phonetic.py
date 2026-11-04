@@ -114,11 +114,22 @@ def correct_word(token: str, vocab, *, max_distance: float = 0.34, known=None):
 
 
 def correct_text(text, vocab, *, max_distance: float = 0.34, known=None) -> str:
-    """Apply :func:`correct_word` token-wise, preserving separators. Pure."""
+    """Apply :func:`correct_word` token-wise, preserving separators. Pure.
+
+    A token inside a URL, e-mail address, file path, file name or version string is left
+    alone: there the letters are an identifier, and "correcting" ``user`` to ``Sara`` in
+    ``/home/user/notes.txt`` names a different directory. The shapes come from
+    :func:`yazses.postprocess.persian_text.structured_spans`, the one place they are defined.
+    """
     if not text or not vocab:
         return text
-    return re.sub(
-        r"[A-Za-z]+",
-        lambda m: correct_word(m.group(0), vocab, max_distance=max_distance, known=known),
-        text,
-    )
+    from yazses.postprocess.persian_text import structured_spans
+
+    spans = structured_spans(text)
+
+    def _fix(m: re.Match[str]) -> str:
+        if any(a <= m.start() < b for a, b in spans):
+            return m.group(0)
+        return correct_word(m.group(0), vocab, max_distance=max_distance, known=known)
+
+    return re.sub(r"[A-Za-z]+", _fix, text)

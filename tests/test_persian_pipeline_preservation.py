@@ -179,10 +179,8 @@ _EXACT: Equivalence = lambda out, text: out == text  # noqa: E731
 STAGES: dict[str, tuple[Callable[[str], str], frozenset[str], Equivalence]] = {
     "clean_text": (clean_text, frozenset(), _EXACT),
     "vocab_correct": (lambda s: vocab_correct.correct(s, _HOTWORD_VOCAB)[0], frozenset(), _EXACT),
-    # Path segments are rewritten by the phonetic corrector for English too; that case has its
-    # own strict xfail below, so it is excluded from the shared table.
     "phonetic_correct": (
-        lambda s: phonetic.correct_text(s, _HOTWORD_VOCAB), frozenset({"path"}), _EXACT,
+        lambda s: phonetic.correct_text(s, _HOTWORD_VOCAB), frozenset(), _EXACT,
     ),
     "hallucination_guard": (_halluc_stage, frozenset(), _EXACT),
     "disfluency": (lambda s: filter_transcript(s, _DISFLUENCY).text, frozenset(), _EXACT),
@@ -227,14 +225,6 @@ def test_stage_leaves_persian_that_needs_no_change_untouched(stage: str, text: s
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "src/yazses/postprocess/phonetic.py::correct_text rewrites a path segment "
-        "('user' -> 'Sara'). This is English-shaped, not Persian-specific, and fixing it "
-        "would change English output, so it is reported rather than fixed in this change."
-    ),
-)
 def test_phonetic_corrector_leaves_a_path_inside_persian_prose_alone() -> None:
     text = "فایل را در /home/user/notes.txt ذخیره کن."
     assert phonetic.correct_text(text, _HOTWORD_VOCAB) == text
