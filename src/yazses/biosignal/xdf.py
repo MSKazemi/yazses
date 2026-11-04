@@ -41,6 +41,7 @@ raises ``ImportError`` naming the ``xdf`` extra.
 from __future__ import annotations
 
 import logging
+import math
 import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -122,9 +123,10 @@ def _text(node: Any, key: str) -> str:
 
 def _srate(info: Any) -> float:
     try:
-        return float(_text(info, "nominal_srate") or 0.0)
+        value = float(_text(info, "nominal_srate") or 0.0)
     except ValueError:
         return 0.0
+    return value if math.isfinite(value) else 0.0      # "1e400" is not a sampling rate
 
 
 def _channel_meta(info: Any, n_ch: int, where: str) -> list[tuple[str, str, str]]:

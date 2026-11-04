@@ -389,14 +389,40 @@ def _short_title(title: str, budget: int = _TITLE_BUDGET) -> str:
     return title[:budget].rstrip(" ,;:—–-") or title[:budget]
 
 
+#: What may stand just before an opening quote; anything else makes a quote a closing one.
+_OPENS_A_QUOTE = frozenset("([{/\u2014\u2013-")
+
+
+def _curl_quotes(text: str) -> str:
+    """Straight double quotes replaced by typographic ones.
+
+    Material writes the description as ``content="{{ page.meta.description }}"`` without
+    escaping, so one straight ``"`` in the text ended the attribute there and a parser read
+    only what came before it (65 design pages served ``content="Wave J research (#7) — "``).
+    A quote opens after the start of the text, a space or an opening bracket or dash, and
+    closes anywhere else.
+    """
+    out = []
+    for i, ch in enumerate(text):
+        if ch != '"':
+            out.append(ch)
+            continue
+        before = text[i - 1] if i else " "
+        out.append("\u201c" if before.isspace() or before in _OPENS_A_QUOTE else "\u201d")
+    return "".join(out)
+
+
 def _plain(text: str) -> str:
-    """Markdown inline syntax removed, for use in a meta description."""
+    """Markdown inline syntax removed, for use in a meta description (or a title).
+
+    The result never holds a straight ``"``: it is written into an HTML attribute.
+    """
     text = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", text)              # images
     text = re.sub(r"\[\[([^\]|]+)(?:\|[^\]]*)?\]\]", r"\1", text)  # [[wiki]] links
     text = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", text)           # [text](url)
     text = re.sub(r"<[^>]+>", "", text)                            # raw HTML
     text = re.sub(r"[`*_]{1,3}", "", text)                         # code and emphasis marks
-    return " ".join(text.split())
+    return _curl_quotes(" ".join(text.split()))
 
 
 def _fit(text: str, budget: int = _DESCRIPTION_BUDGET) -> str:
@@ -408,6 +434,16 @@ def _fit(text: str, budget: int = _DESCRIPTION_BUDGET) -> str:
     if ends and ends[-1] >= 70:
         return window[: ends[-1]].rstrip()
     return window[:budget].rsplit(" ", 1)[0].rstrip(" ,;:—-") + "…"
+
+
+#: A paragraph ending like this is a lead-in to a list, a quote or a code block, not a statement.
+_LEAD_IN = (":", "(", ",", ";", "\u2014", "\u2013", "-")
+
+
+def _before_lead_in(text: str) -> str:
+    """The complete sentences of *text* that come before its trailing lead-in, or ``""``."""
+    ends = [m.end() for m in re.finditer(r"[.!?][\"\u201d)]*(?=\s)", text)]
+    return text[: ends[-1]].rstrip() if ends else ""
 
 
 def _describe(markdown: str) -> str:
@@ -424,6 +460,10 @@ def _describe(markdown: str) -> str:
         if _METADATA_LINE.match(block):
             continue
         text = _plain(block)
+        if text.endswith(_LEAD_IN):
+            # "The brief was:" introduces what follows; as a description it is a fragment.
+            # Keep the full sentences before the lead-in if there are any, else move on.
+            text = _before_lead_in(text)
         if len(text) >= 40:
             return _fit(text)
     return ""
