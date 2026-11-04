@@ -23,9 +23,9 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.48.0](v2.48.0.md)** — biosignal switches (off by default and not yet tried on real hardware), an
-opt-in setting that frees the latency model's memory when idle, fixes that stop Persian and other non-Latin text
-from being damaged, and corrected voice-command claims on 22 translated pages.
+**[YazSes 2.48.1](v2.48.1.md)** — a fixes-only release: the tray's Stop daemon stays stopped, Apply no longer
+erases a pinned microphone, Persian dictation loses fewer words, and several commands fail with one clear
+message instead of a traceback.
 
 Install it with:
 
@@ -36,6 +36,7 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.48.0](v2.48.0.md) — biosignal switches (off by default, not yet tried on real hardware), an opt-in idle release of the latency model's memory, and fixes that stop Persian and other non-Latin text from being damaged.
 - [v2.47.0](v2.47.0.md) — updates that actually apply: "Install now" on a pipx install, the Windows installer over a running YazSes, `doctor --mic` on the pinned microphone, and `transcribe` on a fresh pip install
 - [v2.46.0](v2.46.0.md) — a Settings window you can actually see: a sidebar of pages with a full-height Features list and search, a dot on pages with unapplied changes, and a restart from the tray or Settings that no longer leaves the daemon stopped
 - [v2.45.0](v2.45.0.md) — your words no longer go missing: Windows administrator windows, crash restarts on pip/pipx/uv installs and `scoop update` autostart are fixed, failed Spoken Edit, Punch-In and proofreading corrections give your words back, `yazses status` names the engine actually decoding (#644), camera features download OpenCV once, and the new off-by-default "send to Claude" and a one-click MCP bundle.

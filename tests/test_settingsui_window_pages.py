@@ -308,3 +308,28 @@ def test_the_marker_map_and_the_apply_paths_name_the_same_widgets(qapp):
     win = _window(qapp)
     for baseline, widget_attr, _read in _FORM_FIELDS:
         assert getattr(win, widget_attr, None) is not None, (baseline, widget_attr)
+
+
+def test_the_search_hint_says_in_words_what_each_filter_does(qapp):
+    """The hint names the filters in plain words, and every filter it names really parses.
+
+    The old hint was a bare string of tokens ("tier:rec tier:exp on: off:"). The new one
+    explains each token. Checking the examples against ``parse_query`` keeps the hint from
+    promising a filter the box does not apply.
+    """
+    from PySide6.QtWidgets import QLabel
+
+    from yazses.settingsui.search import parse_query
+
+    win = _window(qapp)
+    page = win._shell.stack.widget(3)
+    hint = next(
+        label.text() for label in page.findChildren(QLabel) if label.text().startswith("Type a word")
+    )
+    assert "Narrow it down" not in hint
+    assert "on:" in hint and "off:" in hint and "tier:" in hint
+    assert "core, on, rec, opt, exp" in hint
+    assert parse_query("on:")[1] is True
+    assert parse_query("off:")[1] is False
+    for tier in ("core", "on", "rec", "opt", "exp"):
+        assert parse_query(f"tier:{tier}")[2] is not None, tier

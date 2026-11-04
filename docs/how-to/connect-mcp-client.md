@@ -34,7 +34,7 @@ The YazSes bundle, `yazses-<version>.mcpb`, contains no copy of YazSes: it tells
 client to run `yazses mcp-server`, so your model, your settings and your microphone
 permission stay with the install you already have.
 
-1. Get the bundle. It ships from the **next release after v2.44.0** on: download
+1. Get the bundle. It ships with every release from **v2.45.0** on: download
    `yazses-<version>.mcpb` from the
    [GitHub release](https://github.com/MSKazemi/yazses/releases), where it sits beside
    the other downloads. Each release builds it from its own tagged source, lists it in
@@ -78,8 +78,8 @@ claude mcp add yazses -- yazses mcp-server
 ## Route 3: the MCP registry
 
 The official [MCP registry](https://registry.modelcontextprotocol.io) lists servers that
-clients can search for. YazSes is **not listed yet**. The entry is ready, and the
-maintainer will publish it from a release. Once it is listed, it will appear as
+clients can search for. YazSes is **not listed yet**. The entry is ready, but
+publishing it is switched off until the maintainer turns it on. Once it is listed, it will appear as
 `io.github.MSKazemi/yazses`, pointing at the `yazses` package on PyPI with the argument
 `mcp-server`.
 

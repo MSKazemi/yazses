@@ -61,8 +61,9 @@ a ⏳ on a file that shipped.
 ## Linux
 
 Python 3.11+ required. **CI runs the full suite on 3.11, 3.12, 3.13 and 3.14** —
-3.11 and 3.12 on all three operating systems, 3.13 and 3.14 on Linux, since what
-those catch is interpreter behaviour rather than OS behaviour. Nothing above 3.11
+3.11 and 3.12 on all three operating systems (macOS 3.11 on `main` and manual runs,
+not on every pull request), 3.13 and 3.14 on Linux, since what those catch is
+interpreter behaviour rather than OS behaviour. Nothing above 3.11
 is merely assumed to work: `pyproject.toml` may not claim an interpreter the matrix
 does not run, nor omit one it does, and
 [`tests/test_platform_support_claims.py`](https://github.com/MSKazemi/yazses/blob/main/tests/test_platform_support_claims.py)
@@ -99,7 +100,7 @@ install:
 
 - **The snap is on `stable` for arm64**, not edge-only. The Snap Store API answers
   `stable arm64` directly — the command is in [Verifying this page](#verifying-this-page-yourself).
-  Both architectures are on `stable` at the current release (2.43.2 on 2026-10-21) —
+  Both architectures were on `stable` at the 2026-10-21 release (2.43.2) —
   run that command for today's answer.
 - **The `.deb` and the APT repo are architecture-independent by construction.** The
   package declares `Architecture: all` and carries no compiled code: it installs a

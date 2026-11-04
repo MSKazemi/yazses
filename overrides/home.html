@@ -323,41 +323,70 @@
   <section class="yzl-road" id="roadmap-at-a-glance" aria-labelledby="yzl-road-h">
     <div class="yzl-wrap">
       <header class="yzl-head yzl-reveal">
-        <p class="yzl-kicker">The future</p>
-        <h2 id="yzl-road-h">From a dictation tool to keyboard&#8209;optional computing</h2>
-        <p>Four eras. Each is a promise kept before the next begins — and every step stays offline,
-          encrypted on-device, and off until you turn it on.</p>
+        <p class="yzl-kicker">Where things stand</p>
+        <h2 id="yzl-road-h">What is released, what is experimental, what is research</h2>
+        <p>Four independent summaries, each using the status words of the
+          <a href="{{ 'roadmap.html' | url }}#what-our-status-words-mean">roadmap</a>. They are not stages: none of
+          them leads to the next, and nothing here is a delivery date. Nothing leaves your machine, and new
+          features start switched off.</p>
       </header>
 
-      <div class="yzl-eras" data-yzl-eras style="--progress:.55">
-        <div class="yzl-eras__rail" aria-hidden="true"><span></span></div>
-        {% set eras = [
-          ("shipped", "Foundation", "Shipped", "a tool that works", "history",
-            ["Hold-to-talk dictation into any app", "Linux, macOS and Windows", "Voice commands & macros", "Encrypted on-device learning loop"]),
-          ("now", "Perception", "Shipped · hands-free maturing", "it hears and sees well", "ear-hearing",
-            ["Meeting Mode with speaker labels", "Parakeet TDT and Moonshine engines", "Gaze targeting & EMG activation", "Head-Pointer & face switch (experimental)"]),
-          ("next", "Understanding", "Next · under way", "it knows what you mean", "brain",
-            ["Offline command mode over selected text (shipped)", "Settings that install what they enable", "Windows add-ons for Parakeet & speaker labels", "Android dictation keyboard"]),
-          ("horizon", "Recall", "The horizon", "it remembers for you", "message-text-clock",
-            ["Recall by meaning over everything you dictated", "An ambient scribe you control", "A computer you talk with — that stays yours"]),
+      {# Four INDEPENDENT status summaries, not a timeline. Each carries its status in words (never colour
+         alone), the evidence for it, and what is not yet established. The wording follows docs/roadmap.md
+         ("Current technical position") and docs/validation-matrix.md; change those first, then this. #}
+      <div class="yzl-fams">
+        {% set fams = [
+          ("released", "Released", "Desktop dictation core", "package-variant-closed",
+            "Local hold-to-talk dictation, file transcription and opt-in Meeting Mode, with several local speech engines.",
+            ["Installers and packages exist for Linux, macOS and Windows",
+             "Windows and macOS are preview-level: an install is not the same as a successful dictation",
+             "Capture, transcription and typing still need per-platform checks on real machines, including X11 and GNOME/KDE Wayland"],
+            "Claim limit: released means reachable in a tagged build, not verified on every OS or app.",
+            [("Current position", "roadmap.html#current-technical-position--november-2026"), ("Validation matrix", "validation-matrix.html")]),
+          ("released-unverified", "Released · real-client check pending", "Agent-era interfaces", "robot-outline",
+            "The local MCP server (stdio) with ask_human, an opt-in send-to hand-off, and a one-click .mcpb bundle.",
+            ["ask_human and the MCP server are released",
+             "send-to is off by default: it opens the Claude or Codex desktop app with your prompt filled in, and never sends it",
+             "send-to and the .mcpb bundle have not yet been tried in the real Claude or Codex apps",
+             "Not available: a listing in the official MCP registry"],
+            "Claim limit: pre-fill without sending is the vendors’ documented behaviour, not yet observed here.",
+            [("Current position", "roadmap.html#current-technical-position--november-2026"), ("How a claim gets earned", "roadmap.html#how-a-claim-gets-earned")]),
+          ("experimental", "Experimental · hardware-unverified", "Hands-free input", "eye-outline",
+            "Gaze targeting, head pointer and Voice Pilot, plus EMG, blink and jaw-clench switches. All opt-in and off by default.",
+            ["Source readers and synthetic or replay paths exist",
+             "Passing simulated tests is not proof on a physical device, and acceptable false-activation rates are not established",
+             "These switches do not read thoughts and are not medical devices"],
+            "Claim limit: real-device evidence is not established; a shipped reader is not a qualified hardware device.",
+            [("Current position", "roadmap.html#current-technical-position--november-2026"), ("Hardware guide", "how-to/biosignal-hardware.html")]),
+          ("research", "Research · Deferred · not scheduled", "Android, recall, XR", "flask-outline",
+            "Ideas that are open to evaluation or waiting on a decision. None is a promised release.",
+            ["Android: source foundations and early Kotlin modules only. There is no installable app or APK",
+             "Semantic, cited recall: research only. Today only keyword recall of your own dictation ships, and it is opt-in",
+             "XR and wider HCI studies: research only",
+             "Mixed-language switching: deferred, designed but not wired"],
+            "Claim limit: ADR-030 freezes new capability waves outside its four pillars; lifting that takes a recorded decision with evidence.",
+            [("The destination", "roadmap.html#the-destination"), ("Android programme", "mobile/index.html")]),
         ] %}
-        {% for key, name, status, tag, icon, items in eras %}
-        <article class="yzl-era yzl-era--{{ key }} yzl-reveal" style="--n:{{ loop.index0 }}">
-          <span class="yzl-era__node" aria-hidden="true">{{ ic(icon) }}</span>
-          <p class="yzl-era__status">{{ status }}</p>
-          <h3>{{ name }}</h3>
-          <p class="yzl-era__tag">{{ tag }}</p>
+        {% for key, status, name, icon, lede, items, limit, links in fams %}
+        <article class="yzl-fam yzl-fam--{{ key }} yzl-reveal" style="--n:{{ loop.index0 }}" aria-labelledby="yzl-fam-{{ key }}">
+          <p class="yzl-fam__status"><span class="yzl-fam__sr">Status: </span>{{ status }}</p>
+          <h3 id="yzl-fam-{{ key }}">{{ ic(icon) }}{{ name }}</h3>
+          <p class="yzl-fam__lede">{{ lede }}</p>
           <ul>
             {% for it in items %}<li>{{ it }}</li>{% endfor %}
           </ul>
+          <p class="yzl-fam__limit">{{ limit }}</p>
+          <p class="yzl-fam__links">
+            {% for label, href in links %}<a href="{{ href | url }}">{{ label }} {{ ic("arrow-right") }}</a>{% endfor %}
+          </p>
         </article>
         {% endfor %}
       </div>
 
-      <div class="yzl-legend yzl-reveal" aria-label="Legend">
-        <span class="is-shipped">shipped</span><span class="is-now">in progress</span>
-        <span class="is-next">designed, ahead</span><span class="is-horizon">research horizon</span>
-      </div>
+      <p class="yzl-legend yzl-reveal">Status words, as the roadmap defines them:
+        <b>Released</b> is in a tagged build; <b>Experimental</b> is opt-in with synthetic or CI evidence only;
+        <b>Research</b> and <b>Deferred</b> are not scheduled.
+        <a href="{{ 'roadmap.html' | url }}#what-our-status-words-mean">What each word does and does not establish</a></p>
 
       <div class="yzl-principles">
         <article class="yzl-card yzl-reveal">
@@ -386,12 +415,12 @@
       <h3 class="yzl-sub yzl-reveal">Join a milestone</h3>
       <div class="yzl-miles">
         {% set miles = [
-          ("eye-outline", "Hands-free", "Eyes, head and voice instead of hands", "Perception · a11y", "https://github.com/MSKazemi/yazses/milestone/10"),
-          ("rocket-launch", "Install anywhere", "One command on every distro and OS", "Packaging", "https://github.com/MSKazemi/yazses/milestone/6"),
+          ("eye-outline", "Hands-free", "Experimental; still to be qualified on real devices", "Perception · a11y", "https://github.com/MSKazemi/yazses/milestone/10"),
+          ("rocket-launch", "Install anywhere", "Packaging for more distros and OSes", "Packaging", "https://github.com/MSKazemi/yazses/milestone/6"),
           ("ear-hearing", "Speech accuracy", "Accuracy measured, not asserted", "Speech · ML", "https://github.com/MSKazemi/yazses/milestone/7"),
           ("account-voice", "Voice control", "Git, files, windows — commanded", "Systems · HCI", "https://github.com/MSKazemi/yazses/milestone/8"),
           ("account-group", "Contributor experience", "An easy first hour and first PR", "Docs · no-code", "https://github.com/MSKazemi/yazses/milestone/9"),
-          ("android", "Android", "An offline keyboard in your pocket", "Mobile · Kotlin", "https://github.com/MSKazemi/yazses/issues/81"),
+          ("android", "Android", "Source foundations only; no app yet", "Mobile · Kotlin", "https://github.com/MSKazemi/yazses/issues/81"),
         ] %}
         {% for icon, name, promise, flavour, href in miles %}
         <a class="yzl-mile yzl-reveal" href="{{ href }}" rel="noopener" style="--n:{{ loop.index0 }}">

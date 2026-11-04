@@ -341,7 +341,7 @@ Stage by stage:
 
 1. **Hotkey.** A hold-to-talk key press starts a recording; releasing it ends
    the burst. The trigger is usually a keyboard key, but it can also be an
-   **EMG muscle-sensor** connected over USB serial — a hands-free / silent-input
+   **EMG muscle-sensor** (experimental, off by default) connected over USB serial — a hands-free / silent-input
    option (`src/yazses/platform/emg/`).
 2. **Audio capture.** The microphone is recorded into an in-memory buffer for the
    duration of the hold (`src/yazses/audio/recorder.py`).

@@ -32,6 +32,173 @@ how-to pages name the page, not a button.
 Not measured: a very large system font, where a mapping row can need more than the page's width and the
 page then scrolls sideways (the old window widened itself to avoid that).
 
+### Changed — CI: the macOS 3.11 test leg runs on `main` and manual runs, not on every pull request
+
+Over the last 30 `test.yml` runs on 2026-11-04, 12 of 42 macOS jobs (29%) were cancelled after about 15 minutes with no runner ever assigned (Linux 3 of 93, Windows 2 of 42, arm64 0 of 21), and the macOS queue wait had a median of 2.1 minutes and a maximum of 29, against a median of 0.1 for the other runners. A burst of 12 PRs put 24 macOS jobs into the free pool and the cancellations cascaded into `ci-gate` failures. Every PR launched two macOS legs, `macos-latest` on Python 3.11 and on 3.12. The 3.11 leg now runs on pushes to `main` and on `workflow_dispatch` only; `macos-latest` on 3.12 still runs on every PR, so OS coverage is unchanged, and Linux and Windows still prove 3.11 on every PR. No job was renamed, `ci-gate` is unchanged (a leg that does not exist is not a skipped job), and no macOS leg may fail. The matrix's `exclude` is now an expression on `github.event_name`, because GitHub does not allow `matrix` in a job-level `if:`. `.github/CI_POLICY.md` section 13.1 records the numbers and the reasoning; `tests/test_ci_test_matrix.py` renders both cases offline.
+
+### Added — a synthetic motor-imagery EEG negative-control replay (research script, not a feature)
+
+`python scripts/hci_eeg_mi_synthetic.py --seed 0` replays an invented 10 Hz signal through a causal,
+rest-calibrated detector and reports where it fires wrongly (a drifted rest block is the one false
+candidate on all of seeds 0 to 7). Standard library only, no network, no devices, no human data; it
+cannot drive YazSes and says it is not evidence of brain decoding (#696). Tests:
+`tests/test_hci_eeg_mi_synthetic.py`; write-up: `design/hci-huggingface/EEG_MI_SYNTHETIC_STRESS_RESULTS.md`.
+### Fixed — the channel checker no longer reports a published Docker image as missing
+
+Was: `scripts/check-release-channels.py` decided whether GHCR had a release by reading the first
+page of `tags/list`. GHCR returns at most 100 tags a page and the attestation step adds a
+`sha256-…` tag per image, so on 2026-11-04 (105 tags, 40 of them attestations) `2.48.0`, `2.48` and
+`2.48.1` sat on page two. The channel-drift watcher filed #844, "Docker is behind v2.48.1", while
+`GET /v2/mskazemi/yazses/manifests/2.48.1` answered 200 and the `docker.yml` run for `v2.48.1`
+had succeeded. It would have recurred on every later release as tags accumulated.
+
+Now: the verdict comes from the manifest of the exact tag (200 published, 404 not), so it no longer
+depends on how many tags exist. A token or manifest answer of 429, 5xx or no answer at all is
+reported as unreachable, not as missing. The `tags=` evidence is best-effort: it follows `last=`
+pagination (at most 10 pages), leaves out the `sha256-…` tags and orders versions numerically so the
+newest lead. The Chocolatey check had the same single-page flaw (its feed pages at 15 entries and
+links the rest) and now asks for the exact version. A regression test puts the version on page two
+of a 106-tag registry. `packaging/README.md` no longer recommends searching `tags/list`.
+### Fixed — the homepage roadmap preview no longer contradicts the canonical roadmap
+
+Was: the `roadmap-at-a-glance` section of the home page still showed "Four eras. Each is a promise
+kept before the next begins", an animated progress rail fixed at 55 %, and cards labelled Shipped /
+Next · under way / The horizon. It listed an "Android dictation keyboard" as under way when no
+installable Android app exists, and "Recall by meaning" without saying it is research only. The
+merged `docs/roadmap.md` (#840, #842) had already dropped that timeline, so the two public surfaces
+disagreed (#843).
+
+Now: four independent cards, each printing its status in words with the roadmap's own vocabulary and
+linking the canonical section or the validation matrix. Released: desktop dictation core (end-to-end
+checks per platform still open). Released, real-client check pending: the MCP server, opt-in send-to
+and the `.mcpb` bundle (never sent automatically; not yet tried in the real apps). Experimental,
+hardware-unverified: gaze, head pointer, Voice Pilot and the EMG, blink and jaw-clench switches.
+Research and Deferred: Android (no APK), semantic cited recall, XR, mixed-language switching. The
+rail, the `--progress` variable, the era animations and the colour-only legend are removed from
+`overrides/home.html`, `docs/assets/landing.css` and `docs/assets/landing.js`, and two milestone
+labels (Android, Install anywhere) no longer promise more than exists. `tests/test_homepage_roadmap_status_cards.py`
+pins the retired copy out and checks every link target against a real heading. No runtime change.
+### Changed — docs: EMG is no longer sold as a working accessibility feature, and "the release after 2.43.2" now names the release
+
+Was: the README, the home page (including its search-engine description), the FAQ, the comparison pages, `llms.txt` and four
+translated home pages presented the EMG muscle-sensor trigger as a working, "fully hands-free" option for people with motor
+disabilities, although `docs/validation-matrix.md` has no EMG row and the roadmap lists EMG, blink and jaw-clench switches as
+experimental with real-device evidence not established. Pages also pointed at "the release after 2.43.2" or "the next release after
+v2.44.0" for changes that shipped in v2.44.0 and v2.45.0, `docs/desktop-validation-campaign.md` called the shipped Send-to and MCP
+bundle work "proposed" and named v2.47.0 as current, and the MCP registry page implied a queued publish that is switched off.
+
+Now: every such sentence says the EMG trigger is experimental and off by default with no real-device evidence yet, and links the
+roadmap's known limits; the version pointers name v2.44.0 and v2.45.0; the campaign page says the Accepted ADR-031 and ADR-032 work
+has shipped but has not been tried in the real Claude or Codex apps; and the registry page says publishing is switched off. No code
+and no generated page changed.
+### Fixed — the Updates page says what checking does, in words the button uses
+
+Was: the line under "About and updates" read "Checking asks the place YazSes was installed from (PyPI, GitHub or the snap store) for its newest version." The subject was "Checking", which is not the button's name, and "asks the place" is hard to parse.
+
+Now: "Installed: YazSes 2.48.1. Check for updates asks where it was installed from (PyPI, GitHub or Snap) for the newest version." The same facts, and the line names the button it describes. The text is pinned by a test.
+### Fixed — the Speech page says why its Language box is greyed
+
+Was: while a language profile was selected, the Language box was disabled with no reason given, so it looked broken.
+
+Now: the box shows "Set by the language profile above. Choose Custom / advanced to pick the language yourself." while it is disabled, and the line is hidden under Custom / advanced. The wording is checked in tests against each profile's own speech language, on the real preview path.
+### Fixed — the Features search hint explains its filters in words
+
+Was: the hint under the Features search box read "Narrow it down: tier:rec tier:exp on: off: — or just type a word.", a string of tokens with no explanation of what each does.
+
+Now: "Type a word to search. Add on: or off: to show only enabled or disabled features, or tier: plus a tier name (core, on, rec, opt, exp) to show one tier." The filters and the tier names are the same as before; the tier model is unchanged. A test checks the examples against the filter parser.
+
+### Fixed — design pages no longer publish a cut-off or fragment meta description
+
+Was: the description derived for a `design/` page kept straight `"` characters, and the Material
+theme writes it into `<meta name="description" content="…">` without escaping, so the first quote
+ended the attribute and a parser read only the text before it (68 of 402 pages in a built site;
+`adr-v2-080` read `Wave J research (#7) —`). A paragraph that only introduces a list or a quote
+("The brief was:") was also used whole, giving 60 pages a description that ends mid-thought.
+
+Now: `hooks/design_tier.py` writes typographic quotes (“ ”) in the text it derives, and skips a
+paragraph that ends in `:`, `(`, `,`, `;` or a dash, keeping the complete sentences before it or
+moving to the next paragraph. Measured on a strict build of the same tree before and after:
+quote-broken tags 68 → 0, fragment endings 60 → 0, descriptions under 45 characters 19 → 4 (each
+a complete short sentence). A test now renders every published page's description as the theme
+does and parses it back.
+### Tests — the brain's runner: dead time after a backlog discard and same-block release+blink, pinned
+
+Was: two soft spots of the opt-in biosignal runner were described in prose but not measured.
+
+Now: `tests/test_biosignal_runner_timing.py` pins them with a fake clock and synthetic blocks, and
+changes no behaviour. After a backlog discard the first accepted event comes 2.75 s after resume
+at the default thresholds (2.80 s with 0.10 s blocks), the quality monitor's warm-up. A blink in the
+same block as a release is dispatched after the release callback, 0 blocks late. Neither is
+changed: keeping detector state across a gap, or dispatching the blink first (the daemon ignores
+intents while recording), are design decisions.
+
+Not checked: real hardware or a real EMG signal; the probe used seeded noise.
+### Fixed — a Butterworth design at an impossible corner-to-rate ratio is refused where it is made
+
+Was: with the corner frequency far below float64 resolution of the sampling rate, the biosignal
+filter design returned sections sitting on the unit circle, and only the later `SosFilter` refused
+them.
+
+Now: `_butterworth` raises a `ValueError` naming the corner and rate. Realistic designs are
+unchanged. Sixteen property tests (arbitrary lengths including 0 and 1, extreme amplitudes,
+chunked equals whole, flat, railed and all-NaN channels never graded GOOD) back it.
+
+Known and left open as a strict xfail: one NaN in a 4 s window at 500 Hz still grades GOOD, because
+`nonfinite_frac_degraded` is 0.001. Capping at DEGRADED changes what counts as GOOD on real
+recordings, which is a threshold decision.
+
+Not checked: real recordings; Windows and FreeBSD.
+### Fixed — the biosignal false-activation upper bound is the exact Poisson limit
+
+Was: the one-sided 95% upper bound on a false-activation rate used a cube-root approximation. With
+zero events it gave 2.9687 events where the exact value is 2.9957, so the default 0.1 h idle run
+printed 29.7/hour instead of 30.0/hour, slightly optimistic. A rest phase with fewer than four
+windows told the user the electrodes were flat, which that check cannot know.
+
+Now: the bound is exact for counts up to 1000 (bisection on the Poisson CDF, standard library only),
+and the report no longer calls it approximate. A short rest phase says not enough resting signal
+was recorded. `evaluate_idle`'s docstring says the run may overshoot the requested time by one
+block. New `tests/test_biosignal_stats_audit.py` checks the Wilson interval, per-hour rates and
+zero-exposure cases against independent values.
+
+Known and left open as strict xfails: `LedgerStats.per_hour` returns 0.0 when there are
+activations but no active time, and `check_source` prints PASS for a 0.2 s run in which both rate
+checks were skipped. `fieldtest.py` and `fprate.py` keep the older approximation.
+
+Not checked: real recordings.
+### Tests — which synthetic shapes the EMG onset detector fires on, measured
+
+Was: the known limit (a smooth 50-120 ms unipolar bump still reads as a squeeze) was a prose
+sentence and one xfail.
+
+Now: `tests/test_biosignal_emg_onset_shapes.py` records, over 12 seeds at 250, 500 and 1000 Hz,
+which Hann bumps and zero-mean bursts fire and which do not, and changes no behaviour. A 30 ms
+bump never fires; 50-150 ms bumps at 600 uV or more fire most of the time; a held 500 ms
+contraction fires on every seed; plain relaxed noise never fires. No threshold tried separated
+bumps from true bursts without a regression: a raw-level mean test fails with a 100 uV electrode
+offset (true bursts 107/120 down to 0/120), and removing the pre-crossing mean costs a few true
+bursts and needs a new constant. The false squeeze stays open.
+
+Not checked: real hardware or recordings.
+### Fixed — hostile or corrupt biosignal recordings fail with a clear error, not a crash or a huge allocation
+
+Was: an empty `.npz` raised `EOFError`; a truncated zip raised `BadZipFile`; a `.npz` whose header
+claimed a billion samples allocated about 8 GB before failing; a corrupt `.npz` leaked its file
+handle; `# fs=1e400` in a CSV raised `OverflowError`; an XDF stream with `nominal_srate` `1e400`
+was returned at an infinite rate; a member named `data` without `.npy` raised `KeyError`.
+
+Now: each is a `ValueError` naming the file, the declared size is checked against the archive entry
+before numpy allocates, and a non-finite sampling rate counts as unknown. 53 seeded fuzz and totality
+tests cover the ThinkGear, BITalino, Myo and EDF parsers too (truncation, bit flips, bad checksums,
+split at every byte, garbage prefixes); they found no failure there.
+
+Known and left open: ThinkGear rescans a buffer of repeated `0xAA` bytes on each feed (CPU grows
+faster than linearly, memory stays bounded by its 64 KiB cap).
+
+Not checked: real XDF files (`pyxdf` was a stub), real devices.
+
+## [2.48.1] - 2026-11-03
+
 ### Fixed — the tray's "Stop daemon" stays stopped, and its menu actions report the real outcome
 
 Was: on Linux, "Stop daemon" sent only the `shutdown` request. The stop note that `yazses stop`

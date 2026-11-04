@@ -45,8 +45,9 @@ If you are choosing a tool for this month, compare features. If you are choosing
 project to depend on or contribute to, the more useful question is what it is
 structurally able to become. Every dictation tool here answers *"how does the user
 start talking?"* with a hardcoded hotkey. YazSes treats that activation channel as
-a replaceable part — which is why an EMG muscle sensor and gaze-based targeting
-already exist in its tree, and why it can serve people who cannot press a key.
+a replaceable part — which is why an experimental EMG muscle sensor and gaze-based
+targeting already exist in its tree. Neither has real-device evidence yet, so this is
+a design direction, not a proven answer for people who cannot press a key.
 
 That is the difference that is not a feature, and it is the one worth choosing on.
 
