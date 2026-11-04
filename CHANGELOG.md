@@ -61,6 +61,11 @@ Now: every such sentence says the EMG trigger is experimental and off by default
 roadmap's known limits; the version pointers name v2.44.0 and v2.45.0; the campaign page says the Accepted ADR-031 and ADR-032 work
 has shipped but has not been tried in the real Claude or Codex apps; and the registry page says publishing is switched off. No code
 and no generated page changed.
+### Fixed — the Updates page says what checking does, in words the button uses
+
+Was: the line under "About and updates" read "Checking asks the place YazSes was installed from (PyPI, GitHub or the snap store) for its newest version." The subject was "Checking", which is not the button's name, and "asks the place" is hard to parse.
+
+Now: "Installed: YazSes 2.48.1. Check for updates asks where it was installed from (PyPI, GitHub or Snap) for the newest version." The same facts, and the line names the button it describes. The text is pinned by a test.
 
 ### Fixed — design pages no longer publish a cut-off or fragment meta description
 
