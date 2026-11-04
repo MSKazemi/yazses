@@ -41,6 +41,7 @@ import re
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -265,7 +266,14 @@ def check_winget(version: str) -> tuple[bool | None, str]:
 
 
 def check_chocolatey(version: str) -> tuple[bool | None, str]:
-    url = "https://community.chocolatey.org/api/v2/Packages()?$filter=Id%20eq%20'yazses'"
+    # Ask for this exact version rather than listing the package. The OData feed
+    # pages at 15 entries in no particular version order and links the rest from
+    # `rel="next"`, so a list-and-search verdict is only right while the package
+    # has fewer versions than one page -- the same single-page truncation that made
+    # `check_docker` report a published image as missing (#844).
+    quoted = version.replace("'", "''")
+    flt = urllib.parse.quote(f"Id eq 'yazses' and Version eq '{quoted}'", safe="")
+    url = f"https://community.chocolatey.org/api/v2/Packages()?$filter={flt}"
     status, body = _get(url)
     if status != 200:
         return _verdict(status, False), f"HTTP {status}"
@@ -301,27 +309,102 @@ def check_nix(version: str) -> tuple[bool | None, str]:
     return _verdict(status, status == 200), f"nixpkgs HTTP {status}"
 
 
+# Every manifest media type GHCR may hold for a tag; a multi-arch tag is an index.
+_MANIFEST_ACCEPT = ", ".join(
+    (
+        "application/vnd.oci.image.index.v1+json",
+        "application/vnd.docker.distribution.manifest.list.v2+json",
+        "application/vnd.oci.image.manifest.v1+json",
+        "application/vnd.docker.distribution.manifest.v2+json",
+    )
+)
+
+# GHCR returns at most 100 tags a page. 10 pages is 1000 tags, an order of
+# magnitude past today's ~105. Only the human-readable evidence depends on this,
+# never the verdict, so reaching the cap costs a shorter "tags=" line, not a lie.
+_TAG_PAGE_SIZE = 100
+_TAG_MAX_PAGES = 10
+
+
+def _ghcr_tags(base: str, headers: dict[str, str]) -> list[str]:
+    """Every tag the registry will list, following OCI ``last=`` pagination.
+
+    Best effort and evidence only: a failed or truncated listing returns what was
+    read so far. ``check_docker`` never derives its verdict from this.
+    """
+    tags: list[str] = []
+    last = ""
+    for _ in range(_TAG_MAX_PAGES):
+        url = f"{base}/tags/list?n={_TAG_PAGE_SIZE}"
+        if last:
+            url += "&last=" + urllib.parse.quote(last, safe="")
+        status, data = _json(url, headers)
+        page = (data or {}).get("tags") if status == 200 else None
+        if not page or page[-1] == last:
+            break
+        tags.extend(page)
+        last = page[-1]
+    return tags
+
+
+def _version_key(tag: str) -> tuple[int, tuple[int, ...], str]:
+    """Order tags so the tail is the newest release rather than the lexical last.
+
+    The registry sorts lexically, so ``2.9.0`` lands after ``2.48.1``. Plain
+    version numbers sort numerically after everything else (``latest``, branches).
+    """
+    if re.fullmatch(r"\d+(?:\.\d+)*", tag):
+        return 1, tuple(int(p) for p in tag.split(".")), tag
+    return 0, (), tag
+
+
 def check_docker(version: str) -> tuple[bool | None, str]:
-    """GHCR needs a pull token even for public images; 401 is 'no such package'."""
+    """GHCR needs a pull token even for public images; 401 is 'no such package'.
+
+    The verdict comes from asking for the manifest of exactly this tag: 200 means
+    published, 404 means it is not. It must NOT come from searching ``tags/list``.
+    That endpoint pages at 100 tags, sorted lexically, and attestation artifacts
+    (``sha256-…``) are tags too -- so once the package passed 100 tags (2026-11-04:
+    105, 40 of them ``sha256-…``) every release after ``2.47.x`` fell on page two
+    and was reported missing while ``docker pull`` worked (#844). It would have
+    recurred on every later release as tags accumulate.
+    """
     owner, image = REPO.split("/")
+    base = f"https://ghcr.io/v2/{owner.lower()}/{image}"
     status, tok = _json(
         f"https://ghcr.io/token?scope=repository:{owner.lower()}/{image}:pull&service=ghcr.io"
     )
     if status != 200 or not tok or "token" not in tok:
+        # A token endpoint that is down says nothing about the image.
+        if status == 429 or status >= 500:
+            return UNKNOWN, f"token HTTP {status}"
         return _verdict(status, False), f"token HTTP {status}"
-    status, data = _json(
-        f"https://ghcr.io/v2/{owner.lower()}/{image}/tags/list",
-        {"Authorization": f"Bearer {tok['token']}"},
+    headers = {"Authorization": f"Bearer {tok['token']}"}
+    status, _ = _get(
+        f"{base}/manifests/{urllib.parse.quote(version, safe='')}",
+        {**headers, "Accept": _MANIFEST_ACCEPT},
     )
-    if status != 200 or not data:
-        return _verdict(status, False), f"tags HTTP {status}"
-    tags = data.get("tags") or []
+    # Only a definite answer is a verdict: 200 published; 404 (or the 401/403 GHCR
+    # gives a package it will not show) not published. Never-answered, 429 and 5xx
+    # mean the registry failed to answer, and reporting that as "missing" is how a
+    # blip becomes a false alarm or a demotion.
+    if status != 200 and status not in (401, 403, 404):
+        return UNKNOWN, f"manifest HTTP {status}"
     # `sha256-…` entries are the attestation/referrer artifacts the attest step
     # pushes alongside the image. They are tags as far as the registry is concerned
     # and noise as far as a human reading "is 2.22.0 published?" is concerned, so
-    # they are excluded from the evidence — never from the verdict.
-    readable = [t for t in tags if not t.startswith("sha256-")]
-    return version in tags, _evidence("tags", readable, version)
+    # they are excluded from the evidence -- never from the verdict.
+    readable = sorted(
+        (t for t in _ghcr_tags(base, headers) if not t.startswith("sha256-")),
+        key=_version_key,
+    )
+    if status == 200:
+        if version not in readable:  # listing failed or capped; the manifest is the proof
+            readable.append(version)
+        return True, _evidence("tags", readable, version)
+    if not readable:
+        return False, f"manifest HTTP {status}"
+    return False, _evidence("tags", readable, version)
 
 
 CHECKS = [
