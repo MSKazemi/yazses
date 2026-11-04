@@ -6,6 +6,23 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the channel checker no longer reports a published Docker image as missing
+
+Was: `scripts/check-release-channels.py` decided whether GHCR had a release by reading the first
+page of `tags/list`. GHCR returns at most 100 tags a page and the attestation step adds a
+`sha256-…` tag per image, so on 2026-11-04 (105 tags, 40 of them attestations) `2.48.0`, `2.48` and
+`2.48.1` sat on page two. The channel-drift watcher filed #844, "Docker is behind v2.48.1", while
+`GET /v2/mskazemi/yazses/manifests/2.48.1` answered 200 and the `docker.yml` run for `v2.48.1`
+had succeeded. It would have recurred on every later release as tags accumulated.
+
+Now: the verdict comes from the manifest of the exact tag (200 published, 404 not), so it no longer
+depends on how many tags exist. A token or manifest answer of 429, 5xx or no answer at all is
+reported as unreachable, not as missing. The `tags=` evidence is best-effort: it follows `last=`
+pagination (at most 10 pages), leaves out the `sha256-…` tags and orders versions numerically so the
+newest lead. The Chocolatey check had the same single-page flaw (its feed pages at 15 entries and
+links the rest) and now asks for the exact version. A regression test puts the version on page two
+of a 106-tag registry. `packaging/README.md` no longer recommends searching `tags/list`.
+
 ### Fixed — design pages no longer publish a cut-off or fragment meta description
 
 Was: the description derived for a `design/` page kept straight `"` characters, and the Material

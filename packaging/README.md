@@ -48,9 +48,15 @@ in-repo manifests being at 2.40.0 says nothing about what a user gets today.
 >
 > ```bash
 > TOK=$(curl -s "https://ghcr.io/token?scope=repository:mskazemi/yazses:pull&service=ghcr.io" | jq -r .token)
-> curl -s -H "Authorization: Bearer $TOK" https://ghcr.io/v2/mskazemi/yazses/tags/list
+> curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $TOK" \
+>   -H "Accept: application/vnd.oci.image.index.v1+json" \
+>   https://ghcr.io/v2/mskazemi/yazses/manifests/2.48.1   # 200 published, 404 not
 > ```
 >
+> Ask for the manifest of the exact tag; do **not** search `tags/list` for it. That
+> endpoint returns at most 100 tags a page (the `sha256-…` attestation tags count), so a
+> published release on page two looks absent — issue #844 reported 2.48.1 missing for that
+> reason while it pulled fine.
 > **Do not hand-check any of this.** `scripts/check-release-channels.py --version <v>`
 > queries every channel in this table the correct way and prints it as a table;
 > `release-complete.yml` runs it on every tag.
