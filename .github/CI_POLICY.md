@@ -152,7 +152,7 @@ Optimization must preserve evidence, not redefine green.
 | `changes` | fast | every run; decides `full` |
 | `repo-hygiene` (size, translations, ruff, dependency budget, CI contract and generated-file drift tests) | fast | every run |
 | `test-linux`: the whole suite on ubuntu-latest / 3.12 | Linux baseline | every run |
-| `test` (the rest of the OS/interpreter matrix), `gui`, `extras` | full | `full` is not `false` |
+| `test` (the rest of the OS/interpreter matrix; the macOS 3.11 leg only off `pull_request`, §13.1), `gui`, `extras` | full | `full` is not `false` |
 | `freebsd`, `windows-update-handoff` (both advisory) | full | `full` is not `false` |
 | `ci-gate` | aggregate | always; see section 6 |
 
@@ -891,6 +891,57 @@ When Actions becomes heavily queued or broadly red:
 The September 2026 queue storm is the reference case: superseded PR runs were the dominant
 capacity problem, while several red matrices shared one deterministic generated-doc
 failure.
+
+### 13.1 macOS runner starvation (2026-11-04): macOS 3.11 is main-only
+
+This is a §13 step 6 structural correction, not a symptom cleared. Over the last 30
+`test.yml` runs on 2026-11-04:
+
+| OS | Jobs | Cancelled with no runner | Queue wait |
+|---|---:|---:|---|
+| macOS | 42 | 12 (29%), after about 15 minutes, `runner_name` empty, no step ever ran | median 2.1 min, max 29 min |
+| Linux | 93 | 3 | median 0.1 min |
+| Windows | 42 | 2 | median 0.1 min |
+| arm64 Linux | 21 | 0 | median 0.1 min |
+
+A burst of 12 PRs put 24 macOS jobs, plus `main`, into the free macOS pool, and the
+cancellations cascaded into `ci-gate` failures. The cause was demand, not code: every PR
+launched two macOS legs (`macos-latest` on 3.11 and on 3.12) into the one pool that is short
+of runners. These are runner incidents (§9.5), so none of them is a flake and none is a
+reason to rerun until green (§9.1).
+
+The correction: the `macos-latest` / 3.11 leg of the `test` matrix runs on pushes to
+`main` and on `workflow_dispatch`, and **not on `pull_request`**. `macos-latest` / 3.12 runs
+on every PR and on `main`, so OS coverage is unchanged. The reason a second macOS
+interpreter is the one to drop is the one the matrix comment already gives: extra
+interpreter versions exist to catch interpreter behaviour, which Linux covers on 3.11, 3.12,
+3.13 and 3.14 (and Windows on 3.11 and 3.12), not OS behaviour. A PR therefore still proves
+the `requires-python` floor on Linux and Windows, and `main` proves it on macOS as well.
+
+How it is built, and what each part means:
+
+- `test.yml` cannot skip one leg with a job-level `if:`, because `matrix` is not an
+  available context there. The matrix's `exclude` is an expression on `github.event_name`
+  that adds the macOS 3.11 pair to the list only for `pull_request`. The always-excluded
+  ubuntu 3.12 pair (it runs as `test-linux`) is in both branches.
+- A leg removed by `exclude` does not exist. It is not a skipped job, so `needs.test.result`
+  is `success` when every remaining leg succeeds, and `failure` or `cancelled` when any
+  remaining leg does. `ci-gate` is unchanged, and no macOS leg is `continue-on-error`.
+- No job was renamed. The remaining legs are still `test (macos-latest, 3.12)` and so on.
+- `tests/test_ci_test_matrix.py` renders the real expression offline: macOS 3.12 and not
+  3.11 on a PR, both on a push or a manual run, and every Linux and Windows leg identical
+  on every event.
+
+A PR labelled `ci:full` (§5) still takes the full lane, but a pull request never runs
+macOS 3.11. Run `workflow_dispatch` on the branch to get it before merging.
+
+If macOS starvation continues after this, the next options are, in order: stagger or
+serialise the macOS leg, then move macOS 3.12 to `main` plus a label-gated PR leg. Either
+trades OS evidence for capacity, so it needs a measurement and an owner decision first.
+To re-measure, list the jobs of the next 30 `test.yml` runs (`gh api
+repos/MSKazemi/yazses/actions/runs/<id>/jobs`) and compare the macOS cancel rate and queue
+wait with the 29% and 2.1 minutes above. The §12.1 report gives queue latency per
+workflow, not per OS, so it will not show this by itself.
 
 ---
 
