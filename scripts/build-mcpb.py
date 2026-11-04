@@ -8,9 +8,11 @@ already installed on the machine. The model, the daemon, the user's config and t
 microphone permission all belong to that install, and a second copy inside a client's
 extension directory would be updated by nobody.
 
-So the bundle is two files: ``manifest.json``, rendered from
+So the bundle is three files: ``manifest.json``, rendered from
 ``packaging/mcpb/manifest.template.json`` with the version from ``pyproject.toml``,
-and ``icon.png``. Nothing else goes in, and ``tests/test_build_mcpb.py`` holds that.
+``icon.png``, and ``server/launcher.js`` (``packaging/mcpb/launcher.js``), a few lines of
+Node that run ``yazses mcp-server`` and, if ``yazses`` is not on PATH, print the install
+URL and exit 127. Nothing else goes in, and ``tests/test_build_mcpb.py`` holds that.
 
 Usage
 -----
@@ -49,7 +51,10 @@ TEMPLATE_REL = "packaging/mcpb/manifest.template.json"
 TEMPLATE = ROOT / TEMPLATE_REL
 #: Bundle path -> source file, relative to the repository root. The manifest's
 #: ``icon`` field names the bundle path.
-EXTRA_FILES: dict[str, str] = {"icon.png": "contrib/icons/yazses-256.png"}
+EXTRA_FILES: dict[str, str] = {
+    "icon.png": "contrib/icons/yazses-256.png",
+    "server/launcher.js": "packaging/mcpb/launcher.js",
+}
 
 #: The placeholder the template carries wherever the release version belongs. Not a
 #: literal version, so `tests/test_packaging_manifest_versions.py` does not see a

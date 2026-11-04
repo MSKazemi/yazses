@@ -505,8 +505,10 @@ tagged checkout with `--expect-tag`, which refuses a tag that is not
 and attaches both files to the GitHub Release; `checksums.yml` adds the bundle to
 `SHA256SUMS.txt`. To check a release by hand, rebuild from the tag
 (`python3 scripts/build-mcpb.py --out-dir /tmp/mcpb` in a checkout of `v<version>`) and
-compare `sha256sum /tmp/mcpb/*.mcpb` with the published line. Not yet installed in a
-real client.
+compare `sha256sum /tmp/mcpb/*.mcpb` with the published line. The bundle holds three
+files: the manifest, the icon and `server/launcher.js` (source: `mcpb/launcher.js`), which
+runs the installed `yazses mcp-server` and, if `yazses` is not on PATH, prints the install
+URL on stderr and exits 127. Not yet installed in a real client.
 
 **The MCP registry entry.** `python3 scripts/render-mcp-server-json.py` writes
 `dist/server.json` from `mcp-registry/server.template.json`. It names the server

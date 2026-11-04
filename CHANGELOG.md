@@ -6,6 +6,16 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the `.mcpb` bundle tells you how to install YazSes when `yazses` is not on PATH
+
+Was: the bundle's manifest ran `yazses` directly, so on a machine without it a client showed a bare
+"command not found" and nothing about where to get YazSes (#638, ADR-032 section 1). Now: the manifest
+runs a small bundled Node launcher (`server/launcher.js`, source `packaging/mcpb/launcher.js`) that
+starts the installed `yazses mcp-server` and passes stdio and the exit status straight through. If
+`yazses` cannot be found it prints the install page (https://mskazemi.com/yazses/get-started.html) on
+stderr and exits 127. The bundle still contains no YazSes. Tests: `tests/test_build_mcpb.py` runs the
+launcher with an empty PATH. Not yet tried in a real MCP client.
+
 ### Changed — CI: the macOS 3.11 test leg runs on `main` and manual runs, not on every pull request
 
 Over the last 30 `test.yml` runs on 2026-11-04, 12 of 42 macOS jobs (29%) were cancelled after about 15 minutes with no runner ever assigned (Linux 3 of 93, Windows 2 of 42, arm64 0 of 21), and the macOS queue wait had a median of 2.1 minutes and a maximum of 29, against a median of 0.1 for the other runners. A burst of 12 PRs put 24 macOS jobs into the free pool and the cancellations cascaded into `ci-gate` failures. Every PR launched two macOS legs, `macos-latest` on Python 3.11 and on 3.12. The 3.11 leg now runs on pushes to `main` and on `workflow_dispatch` only; `macos-latest` on 3.12 still runs on every PR, so OS coverage is unchanged, and Linux and Windows still prove 3.11 on every PR. No job was renamed, `ci-gate` is unchanged (a leg that does not exist is not a skipped job), and no macOS leg may fail. The matrix's `exclude` is now an expression on `github.event_name`, because GitHub does not allow `matrix` in a job-level `if:`. `.github/CI_POLICY.md` section 13.1 records the numbers and the reasoning; `tests/test_ci_test_matrix.py` renders both cases offline.
