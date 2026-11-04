@@ -6,6 +6,12 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the Speech page says why its Language box is greyed
+
+Was: while a language profile was selected, the Language box was disabled with no reason given, so it looked broken.
+
+Now: the box shows "Set by the language profile above. Choose Custom / advanced to pick the language yourself." while it is disabled, and the line is hidden under Custom / advanced. The wording is checked in tests against each profile's own speech language, on the real preview path.
+
 ### Fixed — design pages no longer publish a cut-off or fragment meta description
 
 Was: the description derived for a `design/` page kept straight `"` characters, and the Material
