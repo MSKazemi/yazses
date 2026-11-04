@@ -2,7 +2,7 @@
 
 **Status:** research-only synthetic software experiment. **Not** BCI efficacy evidence, human EEG classification, a benchmark on real devices, a shipped feature, a clinical/medical claim or an approved ADR.
 
-**Tracking:** [#696 — EEG/EOG feasibility](https://github.com/MSKazemi/yazses/issues/696), [#692 — HCI lab](https://github.com/MSKazemi/yazses/issues/692), [#790 — accessible workspace research](https://github.com/MSKazemi/yazses/issues/790), [#817 — evaluation](https://github.com/MSKazemi/yazses/issues/817).
+**Tracking:** [#696 — EEG/EOG feasibility (closed 2026-11-03)](https://github.com/MSKazemi/yazses/issues/696), [#692 — HCI lab](https://github.com/MSKazemi/yazses/issues/692), [#790 — accessible workspace research](https://github.com/MSKazemi/yazses/issues/790), [#817 — evaluation](https://github.com/MSKazemi/yazses/issues/817).
 
 **Existing research to reuse, not duplicate:** [P0/P1 artifact study](EEG_EOG_FEASIBILITY_PROTOCOL.md), [existing EEG/EOG synthetic replay](../../scripts/hci_eegeog_replay.py), [multimodal fixture schema](../../examples/hci-hf-lab/fixtures.schema.json) (#699), [2026 brain interface feasibility report](../research/state-of-the-art/2026-11-03-brain-interface-feasibility.md).
 
@@ -74,7 +74,7 @@ Seeds **0–7** were also executed locally. Each had two artificial hits and one
 3. **Signal quality and stop must be fail-closed.** A recent flatline window initially produced a false candidate; adding a short recent-sample quality check prevented that case in this synthetic test, but does **not** solve baseline drift or all unknown states.
 4. **Report proper denominators on real data.** The scripted 88 seconds is not real usable idle exposure. Only a sufficiently long, predeclared prospective evaluation can estimate false activations per usable hour with uncertainty.
 5. **Do not confuse neural EEG with blink/jaw artifacts.** The existing EMG/EOG paths remain the appropriate practical baseline; this is a separate experimental motor-imagery question.
-6. **Keep neural candidates out of product actions.** No model, recording, calibration profile or signal stream may be uploaded or silently sent. ADR-030 and the existing biosignal-switch scope remain binding.
+6. **Keep neural candidates out of product actions.** No model, recording, calibration profile or signal stream may be uploaded or silently sent. ADR-030 (Accepted) governs; the biosignal-switch scope in ADR-v2-152 is still Proposed, so it is a boundary this experiment respects rather than a binding decision.
 
 ## Next gate: independent neural dataset study, not yet started
 
@@ -87,4 +87,4 @@ Before any real motor-imagery inference is claimed:
 5. No dataset may be interpreted as having measured speech/blink/head-motion rejection unless it explicitly contains those labelled controls. Missing classes must be reported as **not tested**, not as zero errors.
 6. Human use of hardware, photosensitive stimuli, participant data or live interaction remains separately gated by review/consent, accessibility and safety requirements under #425/#427/#814, plus the accepted ADR-030 direction.
 
-**Recommendation:** leave #696 open as a research issue; do not open a production neural-activation task, claim mind reading, or propose an ADR change until independent cross-session results and user-demand evidence exist.
+**Recommendation:** #696 is closed (2026-11-03), so this follow-up is not tracked on an open issue. Reopening #696, or opening a new research issue, is a maintainer decision. Until independent cross-session results and user-demand evidence exist, do not open a production neural-activation task, claim mind reading, or propose an ADR change.

@@ -6,6 +6,14 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — a synthetic motor-imagery EEG negative-control replay (research script, not a feature)
+
+`python scripts/hci_eeg_mi_synthetic.py --seed 0` replays an invented 10 Hz signal through a causal,
+rest-calibrated detector and reports where it fires wrongly (a drifted rest block is the one false
+candidate on all of seeds 0 to 7). Standard library only, no network, no devices, no human data; it
+cannot drive YazSes and says it is not evidence of brain decoding (#696). Tests:
+`tests/test_hci_eeg_mi_synthetic.py`; write-up: `design/hci-huggingface/EEG_MI_SYNTHETIC_STRESS_RESULTS.md`.
+
 ### Fixed — design pages no longer publish a cut-off or fragment meta description
 
 Was: the description derived for a `design/` page kept straight `"` characters, and the Material
