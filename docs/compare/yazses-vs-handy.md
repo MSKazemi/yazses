@@ -64,7 +64,7 @@ answer.
   speaker-labelled transcript, optionally with minutes written by a local LLM.
 - **Accessibility.** VAD calibration, a dysfluency-friendly mode for stuttered or
   dysarthric speech, and an activation layer where the hotkey is a replaceable part
-  — an EMG muscle sensor is an existing alternative for people who cannot hold a key.
+  — an experimental EMG muscle sensor (off by default, no real-device evidence yet) is one such alternative.
 - **An opt-in on-device learning loop.** `yazses tune` proposes accuracy fixes from
   your own corrections, all encrypted and local.
 

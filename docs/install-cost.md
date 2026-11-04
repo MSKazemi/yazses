@@ -135,7 +135,7 @@ decides for you:
 | The Windows installer (`.exe`) | **Yes** (bundled) | Same, plus the Parakeet engine's library and Chinese script conversion built in; speaker diarization as a download-on-request add-on | ~188 MB download (v2.43.2) |
 
 **What the Windows installer carries.** It is a frozen bundle, so it cannot `pip install`
-a feature later. From the release after v2.43.2 it also carries two small libraries that
+a feature later. Since v2.44.0 it also carries two small libraries that
 used to need a Python install: `onnx-asr`, the engine behind `stt-parakeet` (MIT, about
 4 MB), and `opencc-python-reimplemented`, behind `chinese-script` (Apache-2.0, about
 0.5 MB). Together they add about 4.5 MB, roughly 2.4% of the v2.43.2 installer. Those

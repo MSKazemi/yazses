@@ -213,7 +213,7 @@ Measured on a 13th-gen Core i7 laptop, int8 on CPU: **4.07 % WER** on LibriSpeec
 - **Dysfluency-Friendly Mode** — opt-in collapse of stutters/repeats (`b-b-because` → `because`) for stuttered or dysarthric speech
 - **Self-improving** — opt-in, encrypted on-device learning corpus; `yazses tune` proposes accuracy fixes from your own corrections (nothing leaves the machine)
 - **Editor context** — optional Neovim / VS Code LSP context improves accuracy on code identifiers
-- **Accessibility** — VAD calibration wizard, mic-level tuning, and EMG (muscle-sensor) trigger support for motor-disability use
+- **Accessibility** — VAD calibration wizard, mic-level tuning, and an experimental EMG (muscle-sensor) trigger (off by default; no real-device evidence yet)
 - **Voice-activity overlay** — optional sonar rings near the cursor while you speak
 
 ---
@@ -226,7 +226,7 @@ Measured on a 13th-gen Core i7 laptop, int8 on CPU: **4.07 % WER** on LibriSpeec
 - **Privacy-conscious professionals** — dictate in fields like law, medicine, or research where audio must never touch a cloud service.
 - **Teams with confidential meetings** — record and summarise internal, clinical, legal, or pre-publication research meetings without uploading them to a note-taking SaaS or inviting a bot into the call.
 - **Researchers & journalists with recordings** — batch-transcribe interviews, lectures, and field recordings offline, with speaker tags, under your own retention rules.
-- **Accessibility & motor-disability users** — hold-to-talk or EMG (muscle-sensor) triggering for hands-free input, with Dysfluency-Friendly Mode for stuttered or dysarthric speech.
+- **Accessibility & motor-disability users** — offline hold-to-talk dictation, with Dysfluency-Friendly Mode for stuttered or dysarthric speech. An EMG (muscle-sensor) trigger exists but is experimental, off by default, with no real-device evidence yet.
 - **Offline / air-gapped environments** — dictation on machines with no reliable internet or where external network calls are disallowed.
 
 **In depth, with setup steps for each:**

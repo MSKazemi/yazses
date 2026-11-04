@@ -40,7 +40,7 @@ YazSes என்பது Linux, macOS மற்றும் Windows ஆகி�
 
 * **அனைவரும் எளிதாகப் பயன்படுத்தும் வகையில் வடிவமைக்கப்பட்டுள்ளது**
 
-  `VAD` calibration, mic-level tuning, dysfluency-friendly mode மற்றும் `EMG` muscle-sensor trigger போன்ற அம்சங்கள் இதில் உள்ளன. இதனால் கைகளைப் பயன்படுத்தாமலேயே YazSes-ஐ இயக்க முடியும்.
+  `VAD` calibration, mic-level tuning, dysfluency-friendly mode போன்ற அம்சங்கள் இதில் உள்ளன். மேலும் சோதனை நிலையிலான (experimental) `EMG` muscle-sensor trigger-உம் உள்ளது; அது இயல்பாக முடக்கப்பட்டிருக்கும், உண்மையான சாதனச் சான்று இன்னும் இல்லை.
 
 * **உங்கள் தேவைக்கேற்ப தானாக மேம்படுத்திக்கொள்ளும்**
 

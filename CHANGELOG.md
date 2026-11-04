@@ -48,6 +48,19 @@ rail, the `--progress` variable, the era animations and the colour-only legend a
 `overrides/home.html`, `docs/assets/landing.css` and `docs/assets/landing.js`, and two milestone
 labels (Android, Install anywhere) no longer promise more than exists. `tests/test_homepage_roadmap_status_cards.py`
 pins the retired copy out and checks every link target against a real heading. No runtime change.
+### Changed — docs: EMG is no longer sold as a working accessibility feature, and "the release after 2.43.2" now names the release
+
+Was: the README, the home page (including its search-engine description), the FAQ, the comparison pages, `llms.txt` and four
+translated home pages presented the EMG muscle-sensor trigger as a working, "fully hands-free" option for people with motor
+disabilities, although `docs/validation-matrix.md` has no EMG row and the roadmap lists EMG, blink and jaw-clench switches as
+experimental with real-device evidence not established. Pages also pointed at "the release after 2.43.2" or "the next release after
+v2.44.0" for changes that shipped in v2.44.0 and v2.45.0, `docs/desktop-validation-campaign.md` called the shipped Send-to and MCP
+bundle work "proposed" and named v2.47.0 as current, and the MCP registry page implied a queued publish that is switched off.
+
+Now: every such sentence says the EMG trigger is experimental and off by default with no real-device evidence yet, and links the
+roadmap's known limits; the version pointers name v2.44.0 and v2.45.0; the campaign page says the Accepted ADR-031 and ADR-032 work
+has shipped but has not been tried in the real Claude or Codex apps; and the registry page says publishing is switched off. No code
+and no generated page changed.
 
 ### Fixed — design pages no longer publish a cut-off or fragment meta description
 

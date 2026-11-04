@@ -99,7 +99,7 @@ install:
 
 - **The snap is on `stable` for arm64**, not edge-only. The Snap Store API answers
   `stable arm64` directly — the command is in [Verifying this page](#verifying-this-page-yourself).
-  Both architectures are on `stable` at the current release (2.43.2 on 2026-10-21) —
+  Both architectures were on `stable` at the 2026-10-21 release (2.43.2) —
   run that command for today's answer.
 - **The `.deb` and the APT repo are architecture-independent by construction.** The
   package declares `Architecture: all` and carries no compiled code: it installs a

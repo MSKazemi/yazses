@@ -36,7 +36,7 @@ the general case, and it names the fix for anything missing.
 | Meeting Mode, diarization | ✅ | ✅ | ✅⁴ | ✅⁴ |
 | **Voice window focus** ("focus the browser") | ✅ xdotool | ❌ **not possible** | ❌ | ❌ |
 | **Glance-Type gaze routing** | ✅ | ❌ **not possible** | ❌ | ❌ |
-| EMG / BrainFlow activation | ✅ | ✅ | ✅ | ✅ |
+| EMG / BrainFlow activation (experimental, no real-device evidence) | ✅ | ✅ | ✅ | ✅ |
 
 ³ The level ring is drawn by the Qt tray, which repaints on the 0.15 s recording poll.
 The macOS and Windows trays render through `rumps`/`pystray` and repaint far less often,

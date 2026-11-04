@@ -61,8 +61,9 @@ These follow from running on your own machine rather than from being newer:
   labels (`yazses meeting`).
 - **Voice commands**, mapped by a regex grammar to real key sequences.
 - **Accessibility work** — VAD calibration, a dysfluency-friendly mode for
-  stuttered or dysarthric speech, and an optional EMG muscle-sensor trigger for
-  people who cannot hold a key.
+  stuttered or dysarthric speech, and an experimental, off-by-default EMG
+  muscle-sensor trigger as a possible alternative to holding a key (no real-device
+  evidence yet).
 
 ## What you should expect to give up
 
