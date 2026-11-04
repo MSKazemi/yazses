@@ -1,4 +1,4 @@
-# ADR-v2-154 — Fail-closed ThinkGear stream health before first physical-device qualification
+# ADR-v2-155 — Fail-closed ThinkGear stream health before first physical-device qualification
 
 **Status:** Proposed (2026-11-03); requires maintainer review before any runtime patch  
 **Scope:** Device-specific correctness hardening of the already-shipped, opt-in biosignal source; **not** a new capability or a claim of hardware support  

@@ -4,7 +4,7 @@
 **Status:** Research/design proposal; code and hardware changes NOT performed  
 **Scope:** public engineering only, independent of any particular supplier relationship  
 **Baseline:** `main` as inspected on 2026-11-03; existing implementation in `src/yazses/biosignal/`  
-**Decision companion:** [ADR-v2-154](../adr/adr-v2-154-thinkgear-transport-safety.md)  
+**Decision companion:** [ADR-v2-155](../adr/adr-v2-155-thinkgear-transport-safety.md)  
 **Implementation contract:** [ThinkGear qualification spec](../specs/thinkgear-hardware-qualification.md)  
 **Existing governing work:** [ADR-v2-152](../adr/adr-v2-152-biosignal-artifact-switches.md), [ADR-v2-153](../adr/adr-v2-153-biosignal-false-positive-governor.md), [biosignal validation protocol](../specs/biosignal-validation-protocol.md), [ADR-030](../adr/adr-030-agent-era-direction.md).
 
@@ -74,7 +74,7 @@ These are observations from code inspection, **not** observed defects on a real 
 
 ## Safety, validity and ethics boundary
 
-- Keep `[biosignal] enabled=false` and `double_blink=false` in defaults.
+- Keep `[biosignal] enabled=false` as the default; it keeps the whole stack inert. `double_blink` currently defaults to true (`src/yazses/config.py`) but has no effect while `enabled` is false.
 - No EEG-to-text, attention/emotion/health classification, continuous listening or medical claims.
 - Do not grant the source any action capability; existing runner translates bounded events under existing activation policy.
 - The first-device test is a single-person **engineering feasibility pilot**, not an effectiveness study and **not** satisfaction of ADR-v2-152's acceptance gate (at least five participants and two configurations). No external participant recruitment or publication of personal biosignals without separate review under ADR-v2-150.

@@ -4,7 +4,7 @@
 **Owner/decision authority:** project maintainer (architecture, release claims); cloud coder may implement reviewed synthetic-only tasks; a human must run physical device tests  
 **Canonical epic:** [#826](https://github.com/MSKazemi/yazses/issues/826)  
 **Existing delivery milestone:** GitHub **milestone #10** for bounded accessibility/validation delivery. This roadmap defines *phases and gates*, **not** additional GitHub milestones.  
-**Decision/spec:** [ADR-v2-154](../adr/adr-v2-154-thinkgear-transport-safety.md), [implementation contract](../specs/thinkgear-hardware-qualification.md), [evidence review](../research/2026-11-03-thinkgear-first-device-evidence.md).
+**Decision/spec:** [ADR-v2-155](../adr/adr-v2-155-thinkgear-transport-safety.md), [implementation contract](../specs/thinkgear-hardware-qualification.md), [evidence review](../research/2026-11-03-thinkgear-first-device-evidence.md).
 
 ## Why this workstream, why now
 
@@ -55,9 +55,9 @@ G0 can reject or revise the approach; if so, update blocked implementation issue
 ## Done vs. not done (as of 2026-11-03)
 
 **Done (design artifacts):**
-- Repository/AGENTS.md and code path inspected; related epic #102, EEG/EOG #696, biosignal ADRs and field protocol cross-checked.
+- `AGENTS.md` (repo root) and code path inspected; related epic #102, EEG/EOG #696, biosignal ADRs and field protocol cross-checked.
 - A source-specific evidence/alternatives and limitations report drafted.
-- An explicit, **proposed** ADR-v2-154 and implementation contract including TG-01..18 synthetic test cases drafted.
+- An explicit, **proposed** ADR-v2-155 and implementation contract including TG-01..18 synthetic test cases drafted.
 - Seven bounded issues plus scoped epic created in existing milestone #10.
 
 **Not done:** maintainer architectural approval; any runtime code modifications; any test or CI execution; any real-unit pairing, contact test or blink measurement; native GitHub sub-issue linkage (connector does not expose the write API); any supported-device claim or release.

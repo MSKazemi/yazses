@@ -3,17 +3,17 @@
 | Field | Value |
 |---|---|
 | ID | `spec-thinkgear-first-device-qualification` |
-| Status | **Proposed; implementation not authorized until maintainer reviews ADR-v2-154** |
+| Status | **Proposed; implementation not authorized until maintainer reviews ADR-v2-155** |
 | Date | 2026-11-03 |
 | Scope | Narrow hardening of an existing opt-in ThinkGear source, then physical Linux feasibility |
-| Companion decision | [ADR-v2-154](../adr/adr-v2-154-thinkgear-transport-safety.md) |
+| Companion decision | [ADR-v2-155](../adr/adr-v2-155-thinkgear-transport-safety.md) |
 | Research baseline | [Evidence inventory](../research/2026-11-03-thinkgear-first-device-evidence.md) |
 | Higher-priority constraints | [AGENTS.md](../../AGENTS.md); [ADR-030](../adr/adr-030-agent-era-direction.md); [ADR-v2-152](../adr/adr-v2-152-biosignal-artifact-switches.md); [current field protocol](biosignal-validation-protocol.md) |
 | Hardware | **Not yet available or measured** for this work; no product-specific compatibility claim |
 
 ## 0. What coding agents must do first
 
-1. Read `AGENTS.md`, `design/architecture.md`, ADR-030, ADR-v2-152/153/154, this spec, the existing validation protocol, then **re-inspect latest main** before editing. This audit is tied to the 2026-11-03 tree; a later PR may already solve part of it.
+1. Read `AGENTS.md`, `design/architecture.md`, ADR-030, ADR-v2-152/153/155, this spec, the existing validation protocol, then **re-inspect latest main** before editing. This audit is tied to the 2026-11-03 tree; a later PR may already solve part of it.
 2. Do not build a parallel biosignal pipeline, replace `BlockSource`, introduce EEG/attention/brain-intent decoding, add a network dependency, alter default-on behavior, or change the public command contract without a reviewed ADR.
 3. Work in **small separate PRs**: PR A pure health-state unit tests / source behavior; PR B safe guard composition + shared CLI wiring; PR C diagnostics/docs; PR D real hardware results only after there is hardware and explicit human control. The human author reviews every PR before opening it.
 4. All automated fixtures are **synthetic bytes and fake clocks**. Do not upload actual raw signals, files of a person's calibration, device identifiers, video or audio to any cloud coding service.
@@ -199,7 +199,7 @@ yazses biosignal monitor --source 'thinkgear:/dev/rfcomm0' --blink --seconds 60
 
 | Gate | Requirement | Evidence artifact | Cannot claim |
 |---|---|---|---|
-| G0 — Architecture review | Maintainer reviews proposed ADR-v2-154 against ADR-030/152 and accepts or revises its conservative thresholds | Dated ADR decision; implementation issues refined | Feature ready |
+| G0 — Architecture review | Maintainer reviews proposed ADR-v2-155 against ADR-030/152 and accepts or revises its conservative thresholds | Dated ADR decision; implementation issues refined | Feature ready |
 | G1 — Source health | TG-01..11 deterministic fake-serial tests pass | Green targeted/whole pytest, ruff and typed check output | Any real hardware supported |
 | G2 — Parity and privacy | TG-12..18 pass; field-test and runtime use same admission path | Trace comparison, redacted report schema test, generated-doc check | Statistical real-world performance |
 | G3 — Hardware feasibility | Human records local raw link, contact, sample coverage, quality, safe failure handling | Dated engineering report with negative results included | ADR Accepted, clinical/accessibility efficacy |

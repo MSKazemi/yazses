@@ -5,7 +5,7 @@
 **Research branch:** `research/thinkgear-first-device-2026-11-03`  
 **Roadmap:** [dependency and evidence gates](2026-11-03-first-device-roadmap.md)  
 **Detailed technical contract:** [spec-thinkgear-first-device-qualification](../specs/thinkgear-hardware-qualification.md)  
-**ADR:** [ADR-v2-154 — proposed](../adr/adr-v2-154-thinkgear-transport-safety.md).
+**ADR:** [ADR-v2-155 — proposed](../adr/adr-v2-155-thinkgear-transport-safety.md).
 
 ## Explicit guardrails for a coding agent
 
@@ -18,7 +18,7 @@
 
 ## Copy-paste starter task (only AFTER issue #827's decision)
 
-> Work in the **public MSKazemi/yazses repository**, with #826 as epic. First read AGENTS.md, ADR-030, ADR-v2-152/153, the reviewed ADR-v2-154 and the ThinkGear qualification spec. Re-inspect main for overlapping changes. Work **only on #828**: implement a stdlib-only, injected-clock ThinkGear protocol-health state machine and per-read block health snapshots using the existing ThinkGearParser/ThinkGearSource. Treat unknown, stale or any nonzero POOR_SIGNAL, all parser-rejected packets and intra-read 0/200/0 contamination as untrusted. Never fabricate lost-sample timestamps or turn vendor attention/meditation/blink-strength scores into events. No new public config/CLI/IPC. Add independent fake-serial and fake-clock tests TG-01..TG-11. Run targeted and whole tests, Ruff and mypy; clearly distinguish output observed from not run. Produce a minimal human-reviewable diff and **do not open PR until the author has read it**. Do not touch runtime guard composition; that is #829 after #828.
+> Work in the **public MSKazemi/yazses repository**, with #826 as epic. First read AGENTS.md, ADR-030, ADR-v2-152/153, the reviewed ADR-v2-155 and the ThinkGear qualification spec. Re-inspect main for overlapping changes. Work **only on #828**: implement a stdlib-only, injected-clock ThinkGear protocol-health state machine and per-read block health snapshots using the existing ThinkGearParser/ThinkGearSource. Treat unknown, stale or any nonzero POOR_SIGNAL, all parser-rejected packets and intra-read 0/200/0 contamination as untrusted. Never fabricate lost-sample timestamps or turn vendor attention/meditation/blink-strength scores into events. No new public config/CLI/IPC. Add independent fake-serial and fake-clock tests TG-01..TG-11. Run targeted and whole tests, Ruff and mypy; clearly distinguish output observed from not run. Produce a minimal human-reviewable diff and **do not open PR until the author has read it**. Do not touch runtime guard composition; that is #829 after #828.
 
 ### After #828 has a reviewed merge
 
