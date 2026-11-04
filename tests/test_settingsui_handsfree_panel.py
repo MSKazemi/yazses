@@ -431,3 +431,44 @@ def test_a_saved_mapping_says_saved_once(qapp):
     combo.setCurrentIndex(combo.findData("hold_to_command"))
     rig.button("map_smile").click()
     assert rig.panel._result.text() == "Saved. It applies after `yazses restart`."
+
+
+# ---------------------------------------------------- embedded=True, the way the settings page builds it
+
+
+def test_an_embedded_panel_is_a_plain_widget_not_a_window_of_its_own(qapp):
+    """The page supplies the heading and the size; the panel must add neither a window title nor a
+    size of its own (a top-level panel does both)."""
+    embedded = _Rig(qapp, embedded=True)
+    standalone = _Rig(qapp)
+    assert embedded.panel.widget.windowTitle() == ""
+    assert "Hands-free" in standalone.panel.widget.windowTitle()
+    assert embedded.panel.widget.size() != standalone.panel.widget.size()
+    for rig in (embedded, standalone):
+        rig.panel.widget.close()
+
+
+@pytest.mark.parametrize(("embedded", "focuses"), [(True, False), (False, True)])
+def test_showing_an_embedded_panel_does_not_put_focus_on_pause(qapp, embedded, focuses):
+    """A page that is merely arrowed onto must not take keyboard focus from the sidebar; a window
+    of its own focuses Pause, the one stop that works before the first read."""
+    calls: list = []
+    panel = HandsFreePanel(
+        lambda: _inputs(), lambda spec: None, poll_ms=0, threaded=False, embedded=embedded
+    )
+    panel._buttons["pause"].setFocus = lambda *a, **k: calls.append(1)  # type: ignore[method-assign]
+    panel._buttons["pause"].setEnabled(True)
+    panel._on_shown()
+    assert bool(calls) is focuses
+    panel.widget.close()
+
+
+def test_the_page_says_that_displaying_it_does_not_open_the_camera(qapp):
+    """The reassurance sits at the bottom of the Set up column since the redesign; it must stay
+    visible on the embedded page, not only be present in the view-model."""
+    rig = _Rig(qapp, embedded=True)
+    rig.panel.widget.show()
+    qapp.processEvents()
+    assert "does not open the camera" in rig.panel._notes.text()
+    assert not rig.panel._notes.isHidden()
+    rig.panel.widget.close()

@@ -264,3 +264,45 @@ def test_apply_follows_the_settings_window_while_it_installs():
     assert not enabled
     assert why.startswith("Busy: Installing mediapipe") and "Pause, Resume and Recenter" in why
     assert apply_control(False, "")[0] is False
+
+
+# ------------------------------------------------------------------ the keyboard shortcut sentence
+
+
+def test_the_window_line_names_the_alt_shortcuts_where_qt_provides_them():
+    from yazses.handsfree.panel import window_shortcuts_sentence
+
+    for name in ("linux", "win32", "freebsd14", ""):
+        text = window_shortcuts_sentence(name)
+        assert "Alt+P" in text and "Alt+R" in text, name
+        assert text.startswith("This page (Settings → Hands-free): ")
+
+
+def test_the_window_line_does_not_promise_alt_shortcuts_on_macos():
+    from yazses.handsfree.panel import window_shortcuts_sentence
+
+    text = window_shortcuts_sentence("darwin")
+    assert "Alt" not in text
+    assert "Tab reaches" in text
+    assert text.startswith("This page (Settings → Hands-free): ")
+
+
+def test_the_stop_routes_follow_the_platform_in_the_inputs():
+    from dataclasses import replace
+
+    mac = " ".join(stop_routes(replace(_inputs(), platform_name="darwin")))
+    other = " ".join(stop_routes(replace(_inputs(), platform_name="linux")))
+    assert "Alt+P" not in mac and "Alt+P" in other
+
+
+def test_the_gatherer_passes_the_platform_name_to_the_inputs(tmp_path):
+    platform = _Platform(tmp_path)
+    platform.name = "darwin"
+    inputs = gather_panel_inputs(
+        Config(), platform, None,
+        deps_probe=lambda _m: [], blocked_probe=lambda _p: None,
+        camera_gate=CameraGate(True, CameraBlocker.NONE, "camera ok"),
+        read_context=lambda: None,
+    )
+    assert inputs.platform_name == "darwin"
+    assert _gather(Config(), tmp_path).platform_name == ""  # a platform without a name
