@@ -20,6 +20,8 @@ from pathlib import Path
 import pytest
 import yaml
 
+from tests.test_ci_test_matrix import rendered_exclude
+
 ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = ROOT / ".github" / "workflows"
 TEST_YML = WORKFLOWS / "test.yml"
@@ -358,11 +360,16 @@ def test_the_linux_baseline_runs_the_same_steps_as_the_matrix(jobs: dict) -> Non
     assert jobs["test-linux"]["name"] == "test (${{ matrix.os }}, ${{ matrix.python-version }})"
 
 
-def test_the_matrix_excludes_exactly_the_baseline_leg(jobs: dict) -> None:
+def test_the_matrix_always_excludes_the_baseline_leg(jobs: dict) -> None:
+    """The `exclude` is an expression since macOS 3.11 became main-only (see
+    `tests/test_ci_test_matrix.py`, which renders it); the baseline leg must still be
+    excluded on every event, whatever else the expression drops."""
     baseline = jobs["test-linux"]["strategy"]["matrix"]
     leg = {"os": baseline["os"][0], "python-version": baseline["python-version"][0]}
     assert len(baseline["os"]) == len(baseline["python-version"]) == 1
-    assert jobs["test"]["strategy"]["matrix"]["exclude"] == [leg]
+    exclude = jobs["test"]["strategy"]["matrix"]["exclude"]
+    for event in ("pull_request", "push", "workflow_dispatch"):
+        assert leg in rendered_exclude(exclude, event), event
 
 
 def test_the_only_required_workflow_is_never_path_filtered() -> None:

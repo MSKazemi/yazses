@@ -313,3 +313,16 @@ def test_a_pack_result_passes_the_add_on_message_and_steps_through():
 def test_offer_reasons_are_used_verbatim():
     view = m.plan_update(_status(), Offer(False, "A reason with a remedy."))
     assert "A reason with a remedy." in view.text
+
+
+def test_the_idle_line_names_the_version_and_says_what_checking_does():
+    """The first line of the Updates page: says the version, then what the check asks.
+
+    The old sentence ("Checking asks the place YazSes was installed from ...") read as
+    a riddle; "Check for updates" is the button's own name, so the line points at it.
+    """
+    text = m.idle_text("2.48.1")
+    assert text.startswith("Installed: YazSes 2.48.1.")
+    assert "Check for updates asks where it was installed from" in text
+    assert "(PyPI, GitHub or Snap)" in text
+    assert "Checking asks" not in text

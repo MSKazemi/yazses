@@ -38,8 +38,9 @@ variants = ["US"]
 ignore_case = false        # only the uppercase "US" is rewritten, not "us"
 ```
 
-- Matching is whole-word and case-insensitive by default (`ignore_case = true`);
-  set `ignore_case = false` for terms where case carries meaning.
+- Matching is whole-word and case-insensitive by default (`ignore_case = true`); a
+  `regex = true` rule is used exactly as written, with no whole-word wrapping. Set
+  `ignore_case = false` for terms where case carries meaning.
 - Set `regex = true` on a rule to read each entry in `variants` as a regular
   expression instead of a literal word — `preferred` is still the literal text
   that replaces it:

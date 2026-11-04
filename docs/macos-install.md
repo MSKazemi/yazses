@@ -285,9 +285,9 @@ The `.app` ships a CLI alongside the tray:
 /Applications/YazSes.app/Contents/MacOS/YazSes --cli status
 ```
 
-**Installed with Homebrew?** From the release after 2.43.2 the cask links a `yazses`
+**Installed with Homebrew?** Since v2.44.0 the cask links a `yazses`
 command onto your `PATH` that runs this CLI, so `yazses doctor` works directly. With the
-`.dmg`, or on 2.43.2, make the same shortcut yourself:
+`.dmg`, or on 2.43.2 or earlier, make the same shortcut yourself:
 
 ```sh
 printf '#!/bin/sh\nexec /Applications/YazSes.app/Contents/MacOS/YazSes --cli "$@"\n' | sudo tee /usr/local/bin/yazses >/dev/null

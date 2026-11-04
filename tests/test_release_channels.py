@@ -244,10 +244,178 @@ def test_ghcr_tag_missing(crc, responses):
     responses(
         {
             "ghcr.io/token": (200, _body({"token": "abc"})),
+            "/manifests/": (404, b'{"errors":[{"code":"MANIFEST_UNKNOWN"}]}'),
             "ghcr.io/v2/": (200, _body({"tags": ["2.17.0"]})),
         }
     )
-    assert crc.check_docker("2.18.2")[0] is False
+    ok, detail = crc.check_docker("2.18.2")
+    assert ok is False
+    assert "2.17.0" in detail, "absence should still show what the registry holds"
+
+
+# --- GHCR: the verdict must not depend on how many tags exist (#844) ----------
+#
+# GHCR lists at most 100 tags a page, lexically, and the attestation step adds a
+# `sha256-…` tag per image. On 2026-11-04 the package had 105 tags, so 2.48.0,
+# 2.48 and 2.48.1 sat on page two; the old check read page one only and reported
+# a published image as missing -- and would have on every later release.
+
+
+def _ghcr_paged_registry(crc, monkeypatch, *, manifests, pages):
+    """A fake GHCR: a token endpoint, per-tag manifests, and `last=`-paged listing.
+
+    `manifests` maps tag -> HTTP status for GET /manifests/<tag> (default 404).
+    `pages` is the full sorted tag list, served 100 at a time exactly as GHCR does.
+    Records every URL and the headers sent with it.
+    """
+    calls: list[tuple[str, dict]] = []
+
+    def fake_get(url: str, headers=None):
+        calls.append((url, headers or {}))
+        if "ghcr.io/token" in url:
+            return 200, _body({"token": "abc"})
+        if "/manifests/" in url:
+            tag = url.rsplit("/manifests/", 1)[1]
+            return manifests.get(tag, 404), b"{}"
+        if "/tags/list" in url:
+            last = url.split("last=", 1)[1] if "last=" in url else ""
+            # Resume after `last` in the registry's own order, as GHCR does.
+            rest = pages[pages.index(last) + 1 :] if last in pages else list(pages)
+            chunk = rest[:100]
+            return 200, _body({"name": "mskazemi/yazses", "tags": chunk or None})
+        return 404, b""
+
+    monkeypatch.setattr(crc, "_get", fake_get)
+    return calls
+
+
+def _many_tags():
+    """106 tags in the registry's order, the newest releases last (page two).
+
+    Mirrors the real package: 40 `sha256-…` attestation tags plus older releases fill
+    page one, and 2.48.0 / 2.48 / 2.48.1 spill onto page two.
+    """
+    sha = [f"sha256-{i:064x}" for i in range(40)]
+    filler = [f"2.{n}.0" for n in range(10, 40)] + [f"2.{n}" for n in range(10, 40)]
+    newest = ["2.47.0", "2.47", "latest", "2.48.0", "2.48", "2.48.1"]
+    return [*sha, *filler, *newest]
+
+
+def test_ghcr_version_beyond_the_first_100_tags_is_published(crc, monkeypatch):
+    """The real #844 shape: the version is on page two of the tag list."""
+    tags = _many_tags()
+    assert len(tags) > 100 and tags.index("2.48.1") >= 100, "fixture must put it on page 2"
+    _ghcr_paged_registry(crc, monkeypatch, manifests={"2.48.1": 200}, pages=tags)
+    ok, detail = crc.check_docker("2.48.1")
+    assert ok is True, detail
+    assert detail.startswith("tags=2.48.1"), detail
+    assert "sha256-" not in detail
+
+
+def test_ghcr_verdict_comes_from_the_manifest_not_the_tag_list(crc, monkeypatch):
+    """Even a registry whose tag listing is empty or broken must not flip the verdict."""
+    calls = _ghcr_paged_registry(crc, monkeypatch, manifests={"2.48.1": 200}, pages=[])
+    ok, detail = crc.check_docker("2.48.1")
+    assert ok is True, detail
+    assert "2.48.1" in detail
+    manifest_calls = [(u, h) for u, h in calls if "/manifests/2.48.1" in u]
+    assert manifest_calls, "the exact tag's manifest was never requested"
+    accept = manifest_calls[0][1].get("Accept", "")
+    assert "image.index" in accept and "manifest.list" in accept, accept
+    assert manifest_calls[0][1].get("Authorization") == "Bearer abc"
+
+
+def test_ghcr_version_genuinely_absent_is_false_even_with_many_tags(crc, monkeypatch):
+    _ghcr_paged_registry(crc, monkeypatch, manifests={"2.48.0": 200}, pages=_many_tags())
+    ok, detail = crc.check_docker("9.99.0")
+    assert ok is False, detail
+    # Evidence names the newest releases, not the lexical head of the list.
+    assert "2.48.1" in detail, detail
+
+
+def test_ghcr_tag_evidence_follows_pagination_and_is_bounded(crc, monkeypatch):
+    calls = _ghcr_paged_registry(crc, monkeypatch, manifests={}, pages=_many_tags())
+    crc.check_docker("9.99.0")
+    listings = [u for u, _ in calls if "/tags/list" in u]
+    assert 2 <= len(listings) <= crc._TAG_MAX_PAGES, listings
+
+
+def test_ghcr_pagination_stops_when_the_registry_ignores_last(crc, monkeypatch):
+    """A server that keeps returning the same page must not loop forever."""
+    seen = []
+
+    def fake_get(url: str, headers=None):
+        seen.append(url)
+        if "ghcr.io/token" in url:
+            return 200, _body({"token": "abc"})
+        if "/manifests/" in url:
+            return 404, b"{}"
+        return 200, _body({"tags": ["2.1.0", "2.2.0"]})
+
+    monkeypatch.setattr(crc, "_get", fake_get)
+    assert crc.check_docker("9.9.9")[0] is False
+    assert len([u for u in seen if "/tags/list" in u]) <= 2
+
+
+@pytest.mark.parametrize("status", [0, 429, 500, 502, 503])
+def test_ghcr_outage_on_the_manifest_is_unknown_not_missing(crc, monkeypatch, status):
+    """A registry that fails to answer has not said the image is absent."""
+    _ghcr_paged_registry(crc, monkeypatch, manifests={"2.48.1": status}, pages=_many_tags())
+    ok, detail = crc.check_docker("2.48.1")
+    assert ok is crc.UNKNOWN, (ok, detail)
+    assert str(status) in detail
+
+
+@pytest.mark.parametrize("status", [0, 429, 500, 503])
+def test_ghcr_outage_on_the_token_is_unknown_not_missing(crc, responses, status):
+    responses({"ghcr.io/token": (status, b"")})
+    ok, detail = crc.check_docker("2.48.1")
+    assert ok is crc.UNKNOWN, (ok, detail)
+    assert "token" in detail
+
+
+def test_ghcr_listing_failure_after_a_published_manifest_still_says_published(
+    crc, monkeypatch
+):
+    """The tag list is evidence only: if it 500s the manifest's 200 stands."""
+
+    def fake_get(url: str, headers=None):
+        if "ghcr.io/token" in url:
+            return 200, _body({"token": "abc"})
+        if "/manifests/" in url:
+            return 200, b"{}"
+        return 503, b""
+
+    monkeypatch.setattr(crc, "_get", fake_get)
+    ok, detail = crc.check_docker("2.48.1")
+    assert ok is True
+    assert detail == "tags=2.48.1"
+
+
+def test_ghcr_tags_are_ordered_by_version_not_lexically(crc):
+    """Lexical order puts 2.9.0 after 2.48.1; the evidence must lead with the newest."""
+    tags = sorted(["2.9.0", "2.48.1", "2.10.0", "latest"], key=crc._version_key)
+    assert tags == ["latest", "2.9.0", "2.10.0", "2.48.1"]
+
+
+def test_chocolatey_asks_for_the_exact_version_not_the_first_page(crc, monkeypatch):
+    """The OData feed pages at 15 entries in no version order (checked 2026-11-04).
+
+    A list-and-search verdict is right only while the package fits one page, so the
+    request must carry the version in its filter.
+    """
+    urls: list[str] = []
+
+    def fake_get(url: str, headers=None):
+        urls.append(url)
+        if "Version%20eq%20%272.48.1%27" in url:
+            return 200, b"<feed><entry><d:Version>2.48.1</d:Version></entry></feed>"
+        return 200, b"<feed></feed>"
+
+    monkeypatch.setattr(crc, "_get", fake_get)
+    assert crc.check_chocolatey("2.48.1")[0] is True
+    assert crc.check_chocolatey("9.9.9")[0] is False
+    assert all("Version%20eq" in u for u in urls), urls
 
 
 # --------------------------------------------------------------------------

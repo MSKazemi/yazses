@@ -305,7 +305,7 @@ showing whether each is on/off, its toggle name, what enabling it downloads, and
 advice tier.
 
 The **DOWNLOAD** column is what a fresh install fetches in total — the whole
-dependency closure, so `cocktail` reads as `~3.1 GB` rather than as the one package
+dependency closure, so `cocktail` reads as `~3.4 GB` rather than as the one package
 you type, **plus** any model files the capability downloads the first time it runs,
 so `read-back` reads as `~352 MB` rather than as its 12 MB of packages. Blank means
 nothing to download, which is true of most capabilities. See
@@ -1408,7 +1408,11 @@ uploaded.
 - **`wordfind`** ranks a small built-in lexicon by content-word overlap with your
   description; extend it with `--lexicon` (a JSON `{word: definition}` object).
 - **`cite`** parses a local `.bib`, matches a spoken `author year` query, and formats
-  the entry (`--style latex|plain|apa`); exits non-zero if nothing matches confidently.
+  the entry (`--style latex|plain|apa`: `\cite{key}` or `Vaswani et al. (2017)`; `plain`
+  currently prints the same as `apa`, its own format is undecided); an unknown style exits
+  2 and lists the valid ones. A `.bib`
+  that is not UTF-8 is read as Latin-1. Exits non-zero if the file has no entries, the
+  query is empty, or nothing matches confidently.
 - **`slotfill`** extracts structured fields from one utterance: each `--slot` is either
   `NAME:after=kw1,kw2` (capture the token after a keyword) or `NAME:choices=a,b,c` (pick
   the first enum member present); prints a JSON object of the matched fields.
@@ -1556,9 +1560,9 @@ Muscle-squeeze, blink and jaw-clench switches read from an EEG/EMG/EOG board (`[
 | Command | What it does |
 |---|---|
 | `yazses biosignal` | List the commands below. |
-| `yazses biosignal doctor` | Check the board, BrainFlow, serial ports and your calibration profile, then run a synthetic self-check and end with one `Verdict:` line (ready, or the next step). `--boards` lists every board BrainFlow supports. |
+| `yazses biosignal doctor` | Check the board, BrainFlow, serial ports and your calibration profile, then run a synthetic self-check and end with one `Verdict:` line (ready, or the next step). `--boards` lists every board BrainFlow supports. Takes `synthetic`, `file:` and `brainflow:` sources; for `lsl:`, `thinkgear:`, `bitalino:` or `myo:` it reports "unknown source". Use `check-source` for those, and the system `yazses doctor` row for their advice. |
 | `yazses biosignal calibrate` | Guided calibration (relax, light squeeze, hard squeeze, blinks, clenches). Saves a profile; without one the squeeze switch stays off. |
-| `yazses biosignal monitor` | Live signal quality and detections, with your last few events (accepted or dropped, and why). Ctrl-C to stop; `--seconds` limits it. |
+| `yazses biosignal monitor` | Live signal quality and detections, with your last few events (accepted or dropped, and why). Ctrl-C to stop; `--seconds` limits it. While the stream itself is at fault it holds events and says why (`Events HELD`). |
 | `yazses biosignal replay` | Run a recording through the pipeline and print the detections and the false-positive summary. |
 | `yazses biosignal report` | Your own measured activation and cancel rate, with its confidence interval and the note that cancels are a proxy for false positives. |
 | `yazses biosignal record` | Record a session to a CSV, `.npz`, `.edf` or `.bdf` file (mode 0600). EDF+/BDF+ open in EDFbrowser and MNE. Refuses to overwrite without `--force`. |

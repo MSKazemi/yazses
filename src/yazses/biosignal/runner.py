@@ -96,6 +96,13 @@ DEFAULT_MODE_MAP: dict[str, str] = {"light": "full_text", "hard": "command", "on
 DEFAULT_WATCHDOG_SECONDS = 1.5
 _POLL_SECONDS = 0.01         # idle wait when the source has no new block yet
 
+# A daemon callback runs on this thread, and a squeeze's transcription can take many seconds.
+# The device keeps sending meanwhile, so what is queued afterwards describes the past: a blink
+# in it would act now on a gesture made back then. A callback this long discards the queue.
+_STALE_AFTER_CALLBACK_S = 1.0
+_MAX_DISCARD_READS = 100_000  # bound on the discard loop: a source may never report empty
+_MAX_DISCARD_SECONDS = 0.5
+
 # How often the aggregate counters are written. A design choice: a hard kill (power loss,
 # SIGKILL) then costs at most a minute of counts, while a few hundred bytes once a minute
 # is no I/O load at all.
@@ -142,8 +149,11 @@ class BiosignalRunner:
         clock: Callable[[], float] = time.monotonic,
         ledger_path: str | Path | None = None,
         autosave_seconds: float = DEFAULT_AUTOSAVE_SECONDS,
+        live: bool = False,
     ) -> None:
         cb = callbacks or RunnerCallbacks()
+        self._live = bool(live)
+        self._backlogs_discarded = 0
         self._source_factory = source_factory
         self._pipeline_factory = pipeline_factory
         self._on_start, self._on_end, self._on_intent = (
@@ -392,8 +402,34 @@ class BiosignalRunner:
             self._pipeline_status = result.status
             self._events += len(result.events)
             self._journal_locked(now, result.events, result.dropped)
+        started = self._clock()
         self._handle_events(result.events)
+        if self._live and self._clock() - started >= _STALE_AFTER_CALLBACK_S:
+            self._discard_backlog(source, pipeline)
         return True
+
+    def _discard_backlog(self, source: BlockSource, pipeline: BiosignalPipeline) -> None:
+        """Drop what queued up during a slow callback, so it cannot fire events late.
+
+        Not while a squeeze is held: the turn is still open, its release is in that queue,
+        and resetting would forget it. A replay never comes here (``live`` is False), since
+        its blocks are the data being scored rather than a device's backlog.
+        """
+        with self._lock:
+            if self._mode:
+                return
+        begun = self._clock()
+        dropped = 0
+        while dropped < _MAX_DISCARD_READS and self._clock() - begun < _MAX_DISCARD_SECONDS:
+            if source.read() is None:
+                break
+            dropped += 1
+        pipeline.reset(keep_governor_state=True)
+        with self._lock:
+            self._last_block = self._clock()
+            self._backlogs_discarded += 1
+        log.info("Biosignal: discarded %d queued block(s) after a slow callback; "
+                 "gestures made during it are ignored.", dropped)
 
     def check_watchdog(self, now: float | None = None) -> bool:
         """Release a held squeeze if no block has arrived for the watchdog period.
@@ -431,6 +467,7 @@ class BiosignalRunner:
                 "intents": self._intents,
                 "last_block_age_s": None if age is None else round(age, 3),
                 "watchdog_trips": self._watchdog_trips,
+                "backlogs_discarded": self._backlogs_discarded,
                 "last_error": self._last_error,
                 "vocabulary": list(self.vocabulary),
                 "pipeline": snap.as_dict(),
@@ -892,4 +929,5 @@ def build_runner_from_config(
         ledger_path=resolved,
         autosave_seconds=autosave_seconds,
         watchdog_seconds=watchdog_s,
+        live=live,
     )

@@ -1705,7 +1705,8 @@ class HotwordsConfig:
     """v2.5 Wave I — Hotwords (ADR-v2-069, folded into vocab_correct #73). OFF by default.
 
     Turns on the guarded post-decode vocabulary correction (`postprocess/vocab_correct.py`)
-    for your `yazses vocab` dictionary, the same switch as `[stt] vocab_correction`. It does
+    for your `yazses vocab` dictionary: the same corrector as `[stt] vocab_correction`, which
+    turns it on too (either one is enough). It does
     not touch decoding: the original N-best rescorer had no producer, because faster-whisper
     exposes no N-best list.
 

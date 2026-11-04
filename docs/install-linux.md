@@ -23,7 +23,8 @@ as silent failure later:
 bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)
 ```
 
-That is the whole install. Skip to [§2](#2-finish-setup).
+That is the whole install. Skip to [§2](#2-finish-setup). If you are unsure what is left to do,
+`yazses quickstart` looks at this machine and prints the next steps; it changes nothing.
 
 > **Build prerequisites are handled for you.** The script needs `git` (it installs
 > the latest code straight from the repo) and a C compiler with the Python headers
@@ -396,7 +397,7 @@ After installing, `yazses doctor` will still ask you to join the `input` group
 needs a full logout.
 
 > **Status:** live, but hand-published — it serves 2.36.0 while the current
-> release is 2.48.0.
+> release is 2.48.1.
 
 ## 4. Start at login
 
@@ -466,8 +467,11 @@ your speech is below the VAD gate. Measure and set it:
 
 ```bash
 yazses mic-level --set      # records ~4s; writes a fitting vad_threshold
-systemctl --user restart yazses.service
+yazses restart              # a running daemon ignores a changed threshold until restarted
 ```
+
+`yazses restart` works with or without the systemd unit: it stops every daemon and starts exactly
+one, through the unit when one is installed.
 
 Re-run whenever your speaking volume changes (e.g. quiet late-night dictation).
 

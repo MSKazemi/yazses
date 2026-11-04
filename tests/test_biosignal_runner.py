@@ -972,3 +972,130 @@ def test_governor_release_is_forwarded_to_the_pipeline_and_is_idempotent():
     assert rig.runner.pipeline.status.suspended is False
     assert rig.runner.governor_release().kind.value == "ok"
     assert gov.releases == 2
+
+
+# ---------------------------------------------------------------------------
+# A slow callback: what the device queued meanwhile describes the past
+
+
+def _slow_transcription(rig, seconds, queued):
+    """The turn's end: holds the runner's thread while the device keeps sending."""
+    def end():
+        rig.log.append("end")
+        rig.ends += 1
+        rig.advance(seconds)
+        rig.source.items.extend(blk(1000 + i) for i in range(queued))
+    rig.runner._on_end = end
+
+
+def test_a_gesture_queued_during_a_long_transcription_does_not_fire_afterwards():
+    rig = Rig(watchdog=1.5).attach()
+    rig.runner._live = True
+    _slow_transcription(rig, 8.0, queued=3)
+    rig.detector.push([ev(ON)])
+    rig.source.items.append(blk(0))
+    assert rig.runner.step() is True
+    rig.detector.push([ev(OFF)])
+    rig.detector.push([ev(EventKind.DOUBLE_BLINK, 0.9)])   # what the first queued block holds
+    rig.source.items.append(blk(1))
+    assert rig.runner.step() is True
+
+    assert rig.source.items == []                          # the queue went unprocessed
+    assert rig.intents == []
+    assert "reset" in rig.log
+    status = rig.runner.status()
+    assert status["backlogs_discarded"] == 1
+    assert status["last_block_age_s"] == 0.0               # no second "stream gap" reset
+    assert rig.log.count("reset") == 1
+
+
+def test_without_the_discard_the_queued_gesture_would_fire():
+    """The fixture is the case under test: the same run on a non-live source fires late."""
+    rig = Rig(watchdog=1.5).attach()
+    _slow_transcription(rig, 8.0, queued=3)
+    rig.detector.push([ev(ON)])
+    rig.source.items.append(blk(0))
+    rig.runner.step()
+    rig.detector.push([ev(OFF)])
+    rig.source.items.append(blk(1))
+    rig.runner.step()
+    rig.detector.queue.clear()
+    rig.detector.push([ev(EventKind.DOUBLE_BLINK, 0.9)])
+    assert rig.runner.step() is True
+    assert [i.label for i in rig.intents] == ["undo"]
+
+
+def test_a_quick_callback_discards_nothing():
+    rig = Rig().attach()
+    rig.runner._live = True
+    _slow_transcription(rig, 0.2, queued=2)
+    rig.step([ev(ON)])
+    rig.step([ev(OFF)])
+    assert len(rig.source.items) == 2
+    assert rig.runner.status()["backlogs_discarded"] == 0
+
+
+def test_a_slow_start_keeps_the_queue_because_the_squeeze_is_still_held():
+    """Resetting here would forget the held squeeze and lose the release in that queue."""
+    rig = Rig().attach()
+    rig.runner._live = True
+
+    def start(mode):
+        rig.starts.append(mode)
+        rig.advance(3.0)
+        rig.source.items.append(blk(500))
+
+    rig.runner._on_start = start
+    rig.step([ev(ON)])
+    assert len(rig.source.items) == 1
+    assert "reset" not in rig.log
+    assert rig.runner.status()["backlogs_discarded"] == 0
+
+
+def test_the_discard_is_bounded_for_a_source_that_never_runs_dry():
+    rig = Rig().attach()
+    rig.runner._live = True
+    _slow_transcription(rig, 8.0, queued=0)
+
+    class Endless(FakeSource):
+        def read(self):
+            rig.advance(0.01)                # each read costs time on the runner's clock
+            return blk(0)
+
+    rig.source = Endless()
+    rig.runner._source = rig.source
+    rig.detector.push([ev(ON)])
+    rig.runner.step()
+    rig.detector.push([ev(OFF)])
+    rig.runner.step()                        # returns, rather than reading for ever
+    assert rig.runner.status()["backlogs_discarded"] == 1
+
+
+def test_build_runner_marks_hardware_live_and_a_replay_not():
+    from types import SimpleNamespace
+
+    from yazses.biosignal.runner import build_runner_from_config
+
+    def build(source):
+        cfg = SimpleNamespace(biosignal=SimpleNamespace(enabled=True, source=source))
+        return build_runner_from_config(cfg, ledger_path=None)
+
+    assert build("synthetic")._live is False
+    assert build("file:/nonexistent.csv")._live is False
+    assert build("thinkgear:/dev/ttyUSB0")._live is True
+
+
+def test_KNOWN_LIMIT_a_blink_in_the_same_block_as_a_release_still_acts_after_the_slow_turn():
+    """Pinned, not endorsed. One block holds SQUEEZE_OFF and a DOUBLE_BLINK. Events run in order:
+    the release (and the seconds-long transcription behind it) comes first, then the blink's
+    action, so the blink acts seconds after it was made. The discard only drops LATER blocks.
+    If this is ever fixed, this test fails: change it and the 'known limits' text with it."""
+    rig = Rig(watchdog=1.5).attach()
+    rig.runner._live = True
+    rig.step([ev(ON)])
+    _slow_transcription(rig, 8.0, queued=2)
+    rig.step([ev(OFF), ev(EventKind.DOUBLE_BLINK, 0.9)])
+
+    assert [i.label for i in rig.intents] == ["undo"]        # acted after the 8 s turn
+    assert rig.source.items == []                            # the later blocks WERE discarded
+    assert rig.runner.status()["backlogs_discarded"] == 1

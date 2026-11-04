@@ -25,7 +25,13 @@ from dataclasses import dataclass, field
 from yazses.config import Config
 from yazses.language.service import LanguageApplyResult, PreparedLanguageChange
 from yazses.system.deps import install_blocked_reason, missing_modules
-from yazses.system.features import EXPERIMENTAL, PRESET_SLUG, enable_refusal, find_feature
+from yazses.system.features import (
+    EXPERIMENTAL,
+    PRESET_SLUG,
+    enable_caveat,
+    enable_refusal,
+    find_feature,
+)
 
 # Same shape as configedit.set_config_key(path, section, key, value, quote=...),
 # with the path already bound by the caller.
@@ -142,6 +148,12 @@ class ApplyReport:
     errors: list[str] = field(default_factory=list)
     unconfirmed: list[str] = field(default_factory=list)
     missing_packages: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    # Slugs this Apply turned ON, in apply order. The window reads them back through
+    # :meth:`SettingsController.caveats_for` once *every* write has landed, because a
+    # caveat that depends on another setting (the language) must see that setting's
+    # final value, not the one before this Apply.
+    enabled: list[str] = field(default_factory=list)
+    caveats: dict[str, str] = field(default_factory=dict)
 
     @property
     def ok(self) -> bool:
@@ -623,6 +635,8 @@ class SettingsController:
             if result.ok:
                 pending.settle(slug, result.enabled)
                 report.applied += 1
+                if result.enabled:
+                    report.enabled.append(slug)
                 if result.missing_packages:
                     report.missing_packages[slug] = result.missing_packages
             elif result.needs_confirmation:
@@ -630,6 +644,25 @@ class SettingsController:
             else:
                 report.errors.append(result.error or f"{slug}: unknown error")
         return report
+
+    def caveats_for(self, slugs: Iterable[str]) -> dict[str, str]:
+        """The CLI's ``enable_caveat`` advice for each slug, read from the config as it is NOW.
+
+        ``yazses features enable`` prints this after the write; the window used to say
+        nothing, so a capability that changes nothing in the current configuration
+        (Persian text with a non-Persian language) read ON and did nothing. Advice only:
+        nothing is refused. Never raises; an unreadable config yields no advice.
+        """
+        try:
+            cfg = self._load_config()
+        except Exception:  # noqa: BLE001 - advice is optional, never a reason to fail Apply
+            return {}
+        out: dict[str, str] = {}
+        for slug in slugs:
+            advice = enable_caveat(slug, cfg)
+            if advice:
+                out[slug] = advice
+        return out
 
     def _raw_config(self) -> Mapping[str, object] | None:
         if self._raw_config_loader is None:

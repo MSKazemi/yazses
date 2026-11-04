@@ -56,7 +56,7 @@ from yazses.settingsui.pages import (
 )
 from yazses.settingsui.search import describe_filter, matches, visible_counts
 from yazses.settingsui.shell import SettingsShell, build_page
-from yazses.settingsui.theme import mute_label, muted_style_for
+from yazses.settingsui.theme import FOCUS_RING_CSS, mute_label, muted_style_for
 from yazses.system.relaunch import Mode, command_for
 
 log = logging.getLogger(__name__)
@@ -287,6 +287,14 @@ _FORM_FIELDS = (
 )
 
 
+#: Why the Language box is greyed. True in code: an exact profile sets the language
+#: (``_on_language_profile_selection_changed`` and the profile-sync path), and the
+#: Custom / advanced entry is what hands the picker back.
+LANGUAGE_REASON = (
+    "Set by the language profile above. Choose Custom / advanced to pick the language yourself."
+)
+
+
 class SettingsWindow:
     """The settings window itself. Only imports Qt when instantiated."""
 
@@ -374,8 +382,9 @@ class SettingsWindow:
         buttons.addStretch(1)
 
         apply_btn = QPushButton("Apply")
-        # Enter applies; the destructive-ish button never gets that for free.
-        apply_btn.setDefault(True)
+        # Ctrl+Return applies (see _install_shortcuts). Not a default button: a QMainWindow
+        # has none, and a plain Enter in a text field must never write changes.
+        apply_btn.setToolTip("Apply the staged changes (Ctrl+Return).")
         self._apply_button = apply_btn
         # Dependency-install state (#135). `_auto_install` mirrors the CLI's
         # --no-install; the thread/worker refs keep Qt from collecting a
@@ -473,7 +482,11 @@ class SettingsWindow:
         about.setWordWrap(True)
         mute_label(about, "margin-bottom: 6px;")
         layout.addWidget(about)
-        layout.addWidget(self._build_handsfree_button())
+        # Left-aligned at its own size hint: stretched to the page, it was narrower than its
+        # text on Windows fonts at 2x ("&Open hands-free controls…" needed 624 px, had 614).
+        from PySide6.QtCore import Qt
+
+        layout.addWidget(self._build_handsfree_button(), 0, Qt.AlignmentFlag.AlignLeft)
         return page
 
     def _build_handsfree_button(self):
@@ -705,6 +718,10 @@ class SettingsWindow:
         self._language_box = language_box
         self._language_baseline = model.language
         form.addRow(QLabel("Language:"), language_box)
+        # Shown only while the profile owns the field: a greyed box with no reason looks broken.
+        self._language_reason = QLabel(LANGUAGE_REASON)
+        self._language_reason.setWordWrap(True)
+        form.addRow(QLabel(""), self._language_reason)
 
         profile_box.currentIndexChanged.connect(
             self._on_language_profile_selection_changed
@@ -714,7 +731,7 @@ class SettingsWindow:
         )
         # An exact profile owns the speech-language field. Custom/advanced mode
         # exposes the low-level language picker instead.
-        language_box.setEnabled(not bool(model.language_profile))
+        self._set_language_field_enabled(not bool(model.language_profile))
 
         computes = compute_type_choices(model.stt_device, current=model.compute_type)
         compute_box = QComboBox()
@@ -855,6 +872,9 @@ class SettingsWindow:
 
         box = QGroupBox("Audio")
         form = QFormLayout(box)
+        # A row too wide for the window puts its field under its label instead of squeezing
+        # the label: at a large font "Silence threshold:" was cut to "Silence thre".
+        form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
 
         devices, default_name = self._probe_devices()
         choices = mic_choices(devices, default_name=default_name, pinned=model.microphone)
@@ -919,6 +939,7 @@ class SettingsWindow:
         meter.setAccessibleName("Microphone level")
         self._meter = meter
         self._meter_label = QLabel("")
+        self._meter_label.setWordWrap(True)
         self._meter_label.setStyleSheet(muted_style_for(self._meter_label))
         self._latest_level: float | None = None
 
@@ -1047,7 +1068,11 @@ class SettingsWindow:
         wrap.addLayout(line)
 
         # The syntax used to live only in a tooltip, which nobody finds unprompted.
-        syntax = QLabel("Narrow it down:  tier:rec   tier:exp   on:   off:   — or just type a word.")
+        syntax = QLabel(
+            "Type a word to search. Add on: or off: to show only enabled or disabled "
+            "features, or tier: plus a tier name (core, on, rec, opt, exp) to show one tier."
+        )
+        syntax.setWordWrap(True)
         syntax.setStyleSheet(muted_style_for(syntax))
         wrap.addWidget(syntax)
 
@@ -1103,10 +1128,11 @@ class SettingsWindow:
         cats.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         cats.setTextElideMode(Qt.TextElideMode.ElideNone)
         cats.setStyleSheet(
-            "QListWidget { background: transparent; outline: 0; }"
+            "QListWidget { background: transparent; }"
             "QListWidget::item { padding: 6px 8px; border-radius: 5px; }"
             "QListWidget::item:selected { background: palette(highlight);"
             " color: palette(highlighted-text); }"
+            f"QListWidget::item:focus {{ {FOCUS_RING_CSS} }}"
         )
         cats.setAccessibleName("Capability categories")
         cats.setAccessibleDescription(
@@ -1252,11 +1278,18 @@ class SettingsWindow:
         self._filter_status.setVisible(bool(status))
 
     def _install_shortcuts(self) -> None:
-        """Ctrl+F: jump to the capability search. (Ctrl+1..6 are installed by the shell.)"""
+        """Ctrl+F: jump to the capability search. Ctrl+Return: Apply. (Ctrl+1..6 are the shell's.)"""
         from PySide6.QtGui import QKeySequence, QShortcut
 
         self._find_shortcut = QShortcut(QKeySequence.StandardKey.Find, self._win)
         self._find_shortcut.activated.connect(self._focus_filter)
+        # Through the button, so a disabled Apply (an install is running) stays disabled.
+        # Ctrl+Enter is the keypad's Enter key, so both Enter keys work.
+        self._apply_shortcuts = [
+            QShortcut(QKeySequence(sequence), self._win) for sequence in ("Ctrl+Return", "Ctrl+Enter")
+        ]
+        for shortcut in self._apply_shortcuts:
+            shortcut.activated.connect(lambda: self._apply_button.click())
 
     def _focus_filter(self) -> None:
         self._shell.select("features")
@@ -1475,9 +1508,14 @@ class SettingsWindow:
         chosen = self._model_box.currentText().strip() if self._model_box else ""
         return chosen or None
 
+    def _set_language_field_enabled(self, enabled: bool) -> None:
+        """The Language box is editable only under Custom / advanced; the reason shows otherwise."""
+        self._language_box.setEnabled(enabled)
+        self._language_reason.setVisible(not enabled)
+
     def _on_language_profile_selection_changed(self, _index: int) -> None:
         profile = self._selected_language_profile()
-        self._language_box.setEnabled(not bool(profile))
+        self._set_language_field_enabled(not bool(profile))
         self._profile_model_user_choice = False
         if not profile:
             self._profile_auto_model = None
@@ -1621,6 +1659,14 @@ class SettingsWindow:
         # sidebar dots, the row accents and the category counts must follow.
         self._refresh_staged_views()
 
+        # Advice for capabilities that read ON yet change nothing in this configuration
+        # (the CLI prints the same after `features enable`). Read after every write above
+        # so a language chosen in this same Apply counts; skipped while a language profile
+        # is still being prepared, because that write has not landed and the advice could
+        # be wrong.
+        if not language_started:
+            report.caveats.update(self._controller.caveats_for(report.enabled))
+
         summary = self._summarise(report)
         if hotkey_changed:
             summary = f"Hold-to-talk key set to {self._hotkey_baseline}. {summary}".strip()
@@ -1684,7 +1730,7 @@ class SettingsWindow:
                 language_index = self._language_box.findData(candidate.language)
                 if language_index >= 0:
                     self._language_box.setCurrentIndex(language_index)
-                self._language_box.setEnabled(False)
+                self._set_language_field_enabled(False)
             finally:
                 self._profile_syncing = False
 
@@ -2093,6 +2139,7 @@ class SettingsWindow:
                 f"{slug} needs packages that are not installed ({' '.join(packages)}). "
                 f"Install them with: yazses features enable {slug}"
             )
+        parts.extend(report.caveats.values())
         return "  ".join(parts)
 
     def _warn(self, title: str, body: str) -> None:

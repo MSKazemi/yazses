@@ -75,8 +75,9 @@ These are outside Vocalinux's scope rather than places it falls short:
   optional local-LLM minutes (`yazses meeting`).
 - **Accessibility as an architecture, not a checkbox.** VAD calibration, a
   dysfluency-friendly filter for stuttered or dysarthric speech, and an activation
-  layer that treats the hotkey as a replaceable part — a USB-serial EMG muscle
-  sensor is an existing alternative implementation for people who cannot hold a key.
+  layer that treats the hotkey as a replaceable part — an experimental USB-serial
+  EMG muscle sensor (off by default, no real-device evidence yet) is an alternative
+  implementation.
 - **An opt-in on-device learning loop.** `yazses tune` reads an encrypted local
   corpus of your own corrections and proposes concrete config changes.
 - **macOS and Windows**, with the same configuration file, in preview (see the [validation matrix](../validation-matrix.md)).

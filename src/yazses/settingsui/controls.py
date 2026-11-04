@@ -334,6 +334,17 @@ def mic_choices(
             is_default=bool(default_name and name == default_name),
             is_pinned=bool(pinned and pinned.lower() in name.lower()),
         ))
+    # A pin the user did not touch must stay selected and must not read as "follow
+    # the default". The dropdown selects by value, so when no row carries the pinned
+    # value (device unplugged, or a substring pin) add one that does, and say why.
+    if pinned and not any(row.value == pinned for row in rows):
+        connected = any(pinned.lower() in getattr(d, "name", str(d)).lower() for d in devices)
+        note = "matches a connected device" if connected else "not connected"
+        rows.append(MicChoice(
+            label=f"{wrap_user_text(pinned)} ★ ({note})",
+            value=pinned,
+            is_pinned=True,
+        ))
     return rows
 
 

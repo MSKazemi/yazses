@@ -390,19 +390,54 @@ Known limits from this round:
   an int8 8-channel burst. A 50 ms step window removes those cuts but is **not** adopted: a
   200 µV, 40 ms rectangular bump, rejected every time today (0 of 200), then fires every time
   (200 of 200) at both 200 and 250 Hz. An early release is the cheaper error, so the default stays.
-- **Artifacts that do fire the squeeze switch** (false ON, synthetic, 200 seeds). A 1000 µV step with a
-  25 ms rise: 192 at 200 Hz, 172 at 250 Hz, 181 at 500 Hz, 130 at 1000 Hz, so not a low-rate problem.
-  Below 500 Hz only: a 15 ms bump (66 of 200 at 200 µV, 200 Hz) and a 1000 µV single-sample pop
-  (20 of 200, 200 Hz). None has been compared with what a real electrode does; a jolted cable on real
-  skin is the measurement that would say whether these shapes matter.
-- **The gate reads as a stretch of time, so a noisy quality monitor costs more events.** On the clean
-  synthetic EOG stream with its default 10 µV hum the quality monitor already drops most double blinks
-  (seen while writing the end-to-end tests, not investigated). Judging events by when they happened
-  can only increase that. Worth measuring before reading blink rates from that fixture.
-- **Counts, not microvolts.** Myo (int8) and the gForce boards report ADC counts. Relative thresholds
-  work after calibration on the same stream, but `quality.py`'s µV limits (flatline 0.5/0.1 µV, EMG
-  saturation 10 000 µV, drift 50 µV) do not mean what they say there. An 8-bit band also clips during
-  an ordinary hard squeeze, so its rail must not be used as `rail_limit_uv`.
+- **Steps, rectangular bumps and pops no longer fire the squeeze switch on this fixture; a smooth bump still
+  does** (synthetic, white noise at 5 µV, 20-40 seeds per cell, 1 and 4 channels, 200-1000 Hz). A step of
+  300-5000 µV with a 25-200 ms rise, a rectangular bump of 15-120 ms and a single-sample pop: 0 false ON.
+  **Not handled:** a Hann (smooth, unipolar) bump of 50-120 ms fired 7-20 of 20 at 600 µV and 16-20 of 20
+  at 1000 µV or more, at 250, 500 and 1000 Hz; 300 µV fired 0-6 of 20; 30 ms never fired. It returns to
+  zero, so its net level change is small, it keeps its energy through the confirmation window, and its
+  gentle edges are not blanked by the artifact stage. Pinned by a strict xfail in
+  `tests/test_biosignal_emg_onset.py`. A test of the window's DC share is a candidate; it would be one more
+  synthetic-tuned threshold, so it is not added. With the two new tests off, a 1000 µV step with a 25 ms rise fired 38 of
+  40 at 200 Hz and a 60 ms rise 40 of 40. A burst now confirms only while the later half of its energy
+  holds up against the earlier half (`min_sustain_ratio`, 0.25) and the raw level is not moving mostly one
+  way (`max_level_drift`, 0.5). Failing either only postpones the confirmation. A 500 ms burst at 3-10
+  times the noise still confirmed in the same runs, at the same median latency; a very short 80 ms burst
+  at 200 Hz confirms less often (26 of 40, was 31). White noise is not real EMG and a jolted cable on real
+  skin has not been measured, so both limits are design choices to re-check on a recording.
+- **Hum on EOG is graded as the blink detector reads it** (synthetic, 100 seeds, 500 double blinks). The
+  mains check graded the raw block while the 0.1-20 Hz EOG chain removes most of a 50 Hz hum, so the
+  default 10 µV fixture delivered 0 of 500 with the monitor on against 411 with it off, and the monitor
+  removed no false events. The spectrum is now read through that low-pass (`mains_detector_edge_hz`). Hum
+  0 µV: 415 of 500. 10 µV: 411. 20 µV: 356. 50 µV: 0. False events on the no-blink fixture: 0 at 10 and
+  30 µV. The 10 µV default has no real recording behind it, so whether real hum warrants more suppression
+  is unmeasured. Other kinds are still graded raw.
+- **A slow callback discards the device's queue.** A squeeze's transcription runs on the runner's thread.
+  After a callback of 1 s or more on a live source, the runner drops what queued up and resets the
+  detectors (`backlogs_discarded` in the status), so a gesture made during it is ignored rather than acted
+  on late. Not while a squeeze is held (by reading: if the watchdog releases a squeeze during a slow
+  start, the discard can then run). Lost serial bytes during that time are unmeasured on a real device;
+  the parsers resynchronise on the next valid packet in fixtures.
+  **Dead time:** the discard resets the quality monitor too, which refills for `min_fill_s` = 2.0 s before
+  it judges anything. Synthetic blink stream, 40 seeds per delay: a double blink 2.5 s after the reset
+  was lost 40 of 40; at 2.6 s and later it was delivered 26-28 of 40, against 29-32 of 40 without a
+  reset. After a dictation turn over about a second the switch ignores gestures for about 2.5 s. The
+  squeeze path shares the 2 s warm-up and was not measured. **Known limit (tested):** a block that holds
+  a release and a blink runs the release's slow turn first and acts on the blink seconds late; the
+  discard only drops later blocks.
+- **Counts, not microvolts.** Myo (int8) and the gForce boards report ADC counts. Their preset says
+  `unit = "counts"` (`boards.py`), and the pipeline's quality monitor then uses
+  `quality.thresholds_for_unit("counts")`: the µV-absolute limits (flatline 0.5/0.1 µV, EMG
+  saturation 10 000 µV, drift 50 µV, EEG/EOG noise sigma) are off, flatline is judged only as exactly
+  zero variance, and every report says so (`absolute_checks_skipped`). Still checked: non-finite
+  samples, packet loss, mains share, clipping plateaus, lead-off steps, shared movement. Measured on
+  synthetic count streams only (2026-11-02): a 0.4-count live channel was called flat before the
+  switch and is GOOD after it; a dead channel stays BAD; a rail-clipped one stays BAD. Not measured on
+  a real band, so the thresholds for counts are untuned design choices. The lead-off step is measured
+  against at least the rounding noise of an integer stream (`COUNT_QUANTISATION_SIGMA`, 1/sqrt(12)
+  count): without that floor, more than half identical samples gave a MAD of 0 and a one-count tail
+  read as a step of about 1e11 sigmas. An 8-bit band also clips
+  during an ordinary hard squeeze, so its rail must not be used as `rail_limit_uv`.
 - **LSL** holds its machine-only pin only if YazSes makes the first liblsl call in the process.
 - **Integrity thresholds** (gap tolerance, 1 s recovery, rate-drift window) are untuned design choices.
 

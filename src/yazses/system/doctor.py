@@ -10,6 +10,7 @@ from __future__ import annotations
 import importlib.util
 import os
 import platform as platform_module  # `platform` is a local in run_doctor (the Platform bundle)
+import re
 import shutil
 import sys
 from dataclasses import replace
@@ -231,6 +232,51 @@ def _injection_readiness(
         else:
             out.append(("Injection", "FAIL", "no X11 injector — run `yazses setup`"))
     return out
+
+
+def _injection_layout_check(cfg, *, detect=None) -> _Check:
+    """One row: the speech language, the XKB layout keys resolve against, and what Persian needs.
+
+    The Unicode injector sends keycodes and the compositor maps them with its own active
+    layout, so Persian letters are typed only while an ``ir`` layout is the one the
+    compositor is using. ``detect`` is injectable; the default is read-only and local.
+    Not verified against a live compositor: the row states what YazSes reads, not what
+    the windows receive.
+    """
+    from yazses.inject.unicode import PERSIAN_LAYOUT, detect_layout
+    from yazses.language.capability import normalise_language
+
+    try:
+        language = normalise_language(getattr(getattr(cfg, "stt", None), "language", "en"))
+        found = (detect or detect_layout)()
+    except Exception as exc:  # noqa: BLE001 - a diagnostic never raises
+        return ("Injection layout", "WARN", f"could not be checked ({exc})")
+
+    listed = ", ".join(found.listed) or "none reported"
+    facts = (
+        f"speech language {language}; keys resolve against layout {found.active!r} "
+        f"(from {found.source}); layouts the session lists: {listed}"
+    )
+    if language != "fa":
+        return ("Injection layout", "OK", facts)
+    if found.active == PERSIAN_LAYOUT:
+        return (
+            "Injection layout", "OK",
+            f"{facts}. Persian letters can be typed while the compositor is on the "
+            f"{PERSIAN_LAYOUT!r} layout. Not verified against a live compositor.",
+        )
+    also = (
+        f" The session also lists {PERSIAN_LAYOUT!r}, but YazSes uses the layout the "
+        f"session reports as active, so Persian typing needs {PERSIAN_LAYOUT!r} to be "
+        "the active layout."
+        if PERSIAN_LAYOUT in found.listed else ""
+    )
+    return (
+        "Injection layout", "WARN",
+        f"{facts}. Persian letters need an active Persian ({PERSIAN_LAYOUT!r}) layout in "
+        "the compositor. Otherwise YazSes pastes the text through the clipboard instead "
+        f"(the fallback).{also}",
+    )
 
 
 def _prosody_check(enabled: bool) -> _Check | None:
@@ -1137,6 +1183,69 @@ _BIOSIGNAL_SCHEME_DEPS: dict[str, tuple[str, str, str]] = {
 }
 
 
+#: A Windows serial port name as configs write it: ``COM3``, ``com12``, or the device
+#: namespace form ``\\.\COM3`` (one or two leading backslashes, any case).
+_COM_PORT_RE = re.compile(r"^(?:\\{1,2}\.\\)?com\d+$", re.IGNORECASE)
+
+
+def serial_port_status(port: str) -> tuple[str, str]:
+    """``(status, detail)`` for a configured serial port, without opening it.
+
+    A POSIX device path (``/dev/ttyUSB0``) is checked for existence, as before. A Windows
+    COM name is not a file, so a file lookup is the wrong question: ``Path("COM3").exists()``
+    is False on a correct Windows config. Its presence cannot be checked that way, so it is
+    SKIP ("will be tried at start"), never OK and never FAIL. Pure: no platform branch and
+    no pyserial import.
+    """
+    text = port.strip()
+    if _COM_PORT_RE.match(text):
+        return ("SKIP", f"{text} cannot be checked this way (a Windows COM port is not a "
+                        "file); it will be tried when YazSes starts")
+    found = Path(text).exists()
+    return ("OK" if found else "FAIL", f"{text} {'accessible' if found else 'not found'}")
+
+
+#: A port that is a path to a file: POSIX absolute (``/dev/rfcomm0``) or a Windows drive path
+#: (``C:\\dev\\x``, ``C:/dev/x``). Anything else (``COM3``, ``\\\\.\\COM3``) is a name the OS
+#: resolves, which a file lookup cannot answer.
+_PORT_PATH_RE = re.compile(r"^(?:/|[A-Za-z]:[\\/])")
+
+
+def port_is_a_path(port: str) -> bool:
+    """True when *port* names a file whose existence can be checked (not a COM name)."""
+    return bool(_PORT_PATH_RE.match((port or "").strip()))
+
+
+def _spec_port(scheme: str, spec: str) -> str:
+    """The serial port a ``thinkgear:`` or ``bitalino:`` spec names, as the source parses it.
+
+    The parsers split the port from its ``key=value`` options at the last colon, so a Windows
+    drive path (``thinkgear:C:\\dev\\x``) keeps its drive letter. Splitting at the first colon
+    here read that port as ``C`` and skipped the existence check. Falls back to the text after
+    the scheme when the spec does not parse (the row reports the parse error separately).
+    """
+    try:
+        if scheme == "thinkgear":
+            from yazses.biosignal.thinkgear import parse_thinkgear_spec
+
+            return str(parse_thinkgear_spec(spec).get("port", "")).strip()
+        if scheme == "bitalino":
+            from yazses.biosignal.bitalino import parse_bitalino_spec
+
+            return str(parse_bitalino_spec(spec).get("port", "")).strip()
+    except ValueError:
+        pass
+    return spec.partition(":")[2].partition(":")[0].strip()
+
+
+def _emg_port_check(port: str) -> _Check | None:
+    """The ``[emg] device_port`` row, or None when no port is configured."""
+    if not (port or "").strip():
+        return None
+    status, detail = serial_port_status(port)
+    return ("EMG serial port", status, detail)
+
+
 def _biosignal_check(
     cfg, data_dir: Path, *, brainflow_present: bool | None = None, now=None
 ) -> _Check:
@@ -1179,11 +1288,17 @@ def _biosignal_check(
             if scheme != "file":
                 open_source(spec)  # constructs only: starts nothing, opens no hardware
         except (ValueError, OSError) as exc:
-            fails.append((
-                f"source {spec!r} is not usable: {exc}",
-                "use \"synthetic\", \"file:<recording>\", \"brainflow:<board id>[:<port>]\", "
-                "\"lsl:<stream>\", \"thinkgear:<port>\", \"bitalino:<port>\" or \"myo:<address>\""))
-            scheme = ""
+            if scheme in ("lsl", "thinkgear", "bitalino", "myo") and "<" in spec:
+                # An unfilled template (`myo:<address>`): the placeholder line below names
+                # what is missing and gives a real example, which is more use than the
+                # parser's "no valid address". Any other bad spec still fails here.
+                pass
+            else:
+                fails.append((
+                    f"source {spec!r} is not usable: {exc}",
+                    "use \"synthetic\", \"file:<recording>\", \"brainflow:<board id>[:<port>]\", "
+                    "\"lsl:<stream>\", \"thinkgear:<port>\", \"bitalino:<port>\" or \"myo:<address>\""))
+                scheme = ""
 
     # The device sources keep their library optional; name the extra that brings it.
     needs = _BIOSIGNAL_SCHEME_DEPS.get(scheme)
@@ -1217,6 +1332,38 @@ def _biosignal_check(
                           "plug the board or its dongle in; on Linux your user may need to be in "
                           "the `dialout` group"))
 
+    # The device sources that are not BrainFlow boards, and the count-unit armbands: say what
+    # the spec does and does not yet carry, per device. Advice only; nothing is opened.
+    from yazses.biosignal.boards import preset_for, unit_of
+
+    preset = preset_for(spec) if spec else None
+    note_parts: list[str] = []
+    if preset is not None and preset.spec_template and scheme != "brainflow":
+        if "<" in spec:
+            example = (preset.source_spec("/dev/ttyUSB0") if preset.serial_required
+                       else preset.spec_template.replace("<address>", "AA:BB:CC:DD:EE:FF"))
+            what = {"lsl": "stream name", "myo": "Bluetooth address"}.get(scheme, "serial port")
+            warns.append((
+                f"the source still holds a placeholder ({spec}): no {what} is set",
+                f"write the real value in the spec, e.g. \"{example}\""))
+        elif preset.serial_required:
+            port = _spec_port(scheme, spec)
+            if not port:
+                warns.append((
+                    f"{preset.name} needs a serial port and the source names none",
+                    f"write it after the scheme, e.g. \"{preset.source_spec('/dev/ttyUSB0')}\" "
+                    "(on Windows, COM3)"))
+            elif port_is_a_path(port) and not Path(port).exists():
+                warns.append((f"serial port {port} is not there",
+                              "plug the board or its dongle in; on Linux your user may need to "
+                              "be in the `dialout` group"))
+    if preset is not None and preset.spec_template:
+        note_parts.append(f"{preset.name}: {preset.channels_hint}.")
+    if unit_of(spec) == "counts":
+        note_parts.append("Its values are counts, not microvolts: absolute amplitude checks "
+                          "are skipped, so calibrate on the same stream.")
+    note = " ".join(note_parts)
+
     if scheme and scheme != "synthetic":
         from datetime import UTC, datetime
 
@@ -1241,10 +1388,12 @@ def _biosignal_check(
 
     if not fails and not warns:
         return ("Biosignal switch", "OK",
-                f"on, source {spec} -- no problems found. Nothing was opened; "
-                "`yazses biosignal doctor` runs a self-check and "
+                f"on, source {spec} -- no problems found. {note + ' ' if note else ''}"
+                "Nothing was opened; `yazses biosignal doctor` runs a self-check and "
                 "`yazses biosignal report` measures your false-positive rate")
     lines = [f"{text}\n    fix: {fix}" for text, fix in fails + warns]
+    if note:
+        lines.append(note)
     return ("Biosignal switch", "FAIL" if fails else "WARN", "\n  ".join(lines))
 
 
@@ -1342,6 +1491,7 @@ def _config_summary(
     # Every source `core/daemon.py::_effective_initial_prompt` merges, not just the
     # config key -- this row read "app name only" on a machine with 24 words in its
     # personal dictionary, all of them in use on every burst.
+    from yazses.stt.vocabulary import builtin_prompt_applies
     from yazses.system.vocabulary import load_vocab, prompt_summary, vocab_path
 
     words = load_vocab(vocab_path(config_file.parent))
@@ -1357,6 +1507,7 @@ def _config_summary(
             cfg.stt.initial_prompt, words, env_terms,
             mined=mined, context=bool(cfg.context.enabled),
             screen=bool(cfg.screengrounded.enabled),
+            app_name=builtin_prompt_applies(cfg.stt.language),
         ),
     ))
     return out
@@ -2413,6 +2564,7 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
 
         configured = getattr(getattr(cfg, "injection", None), "backend", "auto")
         checks.extend(_injection_readiness(is_wayland, is_x11, configured))
+        checks.append(_injection_layout_check(cfg))
 
         # Whether "focus the browser" can work here. Wayland cannot, by design.
         window_focus = _window_focus_check(is_wayland, is_x11, cfg)
@@ -2466,13 +2618,9 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     try:
         if cfg is None:
             raise RuntimeError("config unavailable")
-        if cfg.emg.device_port:
-            port = Path(cfg.emg.device_port)
-            checks.append((
-                "EMG serial port",
-                "OK" if port.exists() else "FAIL",
-                f"{port} {'accessible' if port.exists() else 'not found'}",
-            ))
+        emg_port = _emg_port_check(cfg.emg.device_port)
+        if emg_port is not None:
+            checks.append(emg_port)
         if cfg.emg.ble_address:
             # This row used to print a flat OK for the configured address, which was
             # a claim about nothing: `_build_activation_sources` read only

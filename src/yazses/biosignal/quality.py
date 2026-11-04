@@ -105,9 +105,16 @@ __all__ = [
     "saturation_fraction",
     "segment_excursions",
     "suppress_events",
+    "thresholds_for_unit",
+    "COUNT_QUANTISATION_SIGMA",
 ]
 
 _EPS = 1e-12
+
+#: Standard deviation of the rounding error of an integer stream: a uniform error of +-0.5
+#: count has sigma 1/sqrt(12). Nothing a count stream reports can be resolved finer, so it is
+#: the smallest sigma a step may honestly be measured against (see ``lead_off_metrics``).
+COUNT_QUANTISATION_SIGMA = 1.0 / math.sqrt(12.0)
 
 
 class QualityStatus(Enum):
@@ -134,6 +141,13 @@ class Reason:
     MOTION = "motion_artifact"
     TOO_FEW_CHANNELS = "too_few_channels"
     REQUIRED_MISSING = "required_channel_unusable"
+    # Not a fault: set on a report whose source reports counts, so the microvolt-absolute
+    # checks were skipped (see thresholds_for_unit). Never changes a verdict by itself.
+    ABSOLUTE_SKIPPED = "absolute_checks_skipped"
+
+
+#: The units a stream can declare. ``"uV"`` is the SampleBlock contract.
+_UNITS = ("uV", "counts")
 
 
 @dataclass(frozen=True)
@@ -184,6 +198,12 @@ class QualityThresholds:
     mains_half_width_hz: float = 1.0
     mains_ratio_degraded: float = 0.3
     mains_ratio_bad: float = 0.7
+    # The upper edge of the band a kind's detector actually reads, in Hz. Hum above it reaches
+    # that detector already filtered, so it counts as the detector would see it, through a
+    # second-order low-pass (build_eog_chain). A kind not listed is graded on the raw spectrum.
+    mains_detector_edge_hz: Mapping[SignalKind, float] = field(
+        default_factory=lambda: {SignalKind.EOG: 20.0}
+    )
 
     # --- drift ----------------------------------------------------------------------
     # Variance share of a cubic trend over the window; only counted when the trend
@@ -239,7 +259,14 @@ class QualityThresholds:
     motion_frac_bad: float = 0.75
     motion_min_channels: int = 2
 
+    # --- unit of the stream -------------------------------------------------------
+    # "uV" (the default, and every µV board) or "counts" (raw ADC counts, a Myo or gForce).
+    # Set through thresholds_for_unit, which also neutralises the µV-absolute limits above.
+    unit: str = "uV"
+
     def __post_init__(self) -> None:
+        if self.unit not in _UNITS:
+            raise ValueError(f"unit must be one of {_UNITS}, got {self.unit!r}")
         if self.window_s <= 0 or self.hop_s <= 0 or self.min_fill_s <= 0:
             raise ValueError("window_s, hop_s and min_fill_s must be positive")
         if self.min_fill_s > self.window_s:
@@ -262,6 +289,44 @@ class QualityThresholds:
 
 
 DEFAULT_THRESHOLDS = QualityThresholds()
+
+
+def thresholds_for_unit(
+    unit: str, base: QualityThresholds | None = None
+) -> QualityThresholds:
+    """The thresholds for a stream whose samples are in ``unit``.
+
+    ``"uV"`` returns ``base`` (the defaults) unchanged, so every microvolt board runs exactly
+    as before. ``"counts"`` (a Myo or gForce: raw ADC counts, not microvolts) switches off the
+    checks whose limit is an absolute microvolt figure, because a count is not a microvolt
+    and the same number would mean something else:
+
+    * flatline is judged only as exactly zero variance (both limits 0), and the lead-off
+      flat tail uses the same zero (its step test is relative and stays);
+    * the absolute saturation level (``saturation_uv``) is off; a flat-topped plateau at the
+      rail is unit-free and still counts;
+    * the drift amplitude gate (``drift_min_p2p_uv``) is off, so drift is not graded;
+    * the EEG/EOG robust-sigma limits (``noise_sigma_uv``) are off, with the bursts and
+      kurtosis that ride on them.
+
+    Still checked, unit-free: non-finite samples, packet loss, mains-band share, shared
+    movement, and the lead-off step. The report carries :attr:`Reason.ABSOLUTE_SKIPPED`
+    so the skip is never silent. Raises ``ValueError`` for an unknown unit.
+    """
+    if unit not in _UNITS:
+        raise ValueError(f"unit must be one of {_UNITS}, got {unit!r}")
+    thr = base or DEFAULT_THRESHOLDS
+    if unit == "uV":
+        return thr
+    return replace(
+        thr,
+        unit="counts",
+        flat_degraded_uv=0.0,
+        flat_bad_uv=0.0,
+        saturation_uv={},
+        drift_min_p2p_uv=math.inf,
+        noise_sigma_uv={},
+    )
 
 
 @dataclass(frozen=True)
@@ -416,12 +481,20 @@ def saturation_fraction(
 
 
 def mains_ratio(
-    x: np.ndarray, fs: float, mains_hz: float, half_width_hz: float = 1.0
+    x: np.ndarray,
+    fs: float,
+    mains_hz: float,
+    half_width_hz: float = 1.0,
+    detector_edge_hz: float | None = None,
 ) -> float:
     """Power within ``mains_hz`` +- half-width as a share of power from 1 Hz to Nyquist.
 
     Hann-windowed FFT of the whole window. Returns 0.0 when the line is above (or too
     near) Nyquist and so cannot be observed at this sampling rate.
+
+    ``detector_edge_hz``: read the spectrum through the low-pass a detector applies, so a hum
+    that detector removes is not held against a signal it can still read. A 10 uV hum on 3 uV
+    of noise is about 0.85 raw, and about 0.35 through the EOG chain.
     """
     n = x.size
     if n < 8 or fs <= 0.0:
@@ -433,6 +506,8 @@ def mains_ratio(
     seg = (x - x.mean()) * np.hanning(n)
     power = np.abs(np.fft.rfft(seg)) ** 2
     freqs = np.fft.rfftfreq(n, 1.0 / fs)
+    if detector_edge_hz is not None:
+        power = power / (1.0 + (freqs / detector_edge_hz) ** 4)  # second-order magnitude, squared
     total = float(power[freqs >= 1.0].sum())
     if total <= _EPS:
         return 0.0
@@ -473,6 +548,7 @@ def lead_off_metrics(
     segment_s: float = 0.05,
     flat_uv: float = 0.5,
     min_live_s: float = 0.2,
+    sigma_floor: float = 0.0,
 ) -> tuple[float, float]:
     """``(flat tail seconds, step in robust sigmas)`` of an abrupt step then a flat tail.
 
@@ -484,6 +560,12 @@ def lead_off_metrics(
     window that is flat throughout, or one that merely goes quiet without a step, returns
     ``(0.0, 0.0)`` and is left to the flatline check. Callers decide how large a step
     counts; the step is returned so it can be reported.
+
+    ``sigma_floor`` is the smallest sigma the step is measured against. A microvolt stream
+    leaves it 0 (``flat_uv`` is already the floor). A count stream has ``flat_uv == 0`` and,
+    when more than half of its live samples are identical, a median absolute deviation of
+    exactly 0, so a flat tail one count away read as a step of ~1e12 sigmas and graded lead-off;
+    ``COUNT_QUANTISATION_SIGMA`` is passed there instead.
     """
     seg = max(4, int(round(segment_s * fs)))
     n_seg = x.size // seg
@@ -500,7 +582,9 @@ def lead_off_metrics(
         return 0.0, 0.0
     if float(np.median(sd[:live])) <= flat_uv:
         return 0.0, 0.0
-    sigma = max(robust_sigma(segs[:live].ravel()), flat_uv)
+    # The floor must stay positive: a count stream (flat_uv == 0) can have a live part whose
+    # MAD is exactly zero, and dividing by it would raise and disable the quality gate.
+    sigma = max(robust_sigma(segs[:live].ravel()), flat_uv, sigma_floor, _EPS)
     ref = float(np.median(mu[max(0, live - 5) : live]))
     step = abs(float(mu[live:].mean()) - ref) / sigma
     return k * seg / fs, float(step)
@@ -657,7 +741,10 @@ def _assess_results(
     if not flat_bad:   # spectral / trend / noise statistics of a dead channel are meaningless
         worst_ratio, worst_hz = 0.0, 0.0
         for hz in thr.mains_hz:
-            r = mains_ratio(finite, fs, hz, thr.mains_half_width_hz)
+            r = mains_ratio(
+                finite, fs, hz, thr.mains_half_width_hz,
+                detector_edge_hz=thr.mains_detector_edge_hz.get(kind),
+            )
             if r > worst_ratio:
                 worst_ratio, worst_hz = r, hz
         metrics["mains_ratio"] = worst_ratio
@@ -668,7 +755,8 @@ def _assess_results(
         # Lead-off first: a step then a flat tail looks like a strong cubic trend, and the
         # drift advice ("let it settle") would be wrong for an electrode that came off.
         flat_s, step_sigma = lead_off_metrics(
-            finite, fs, thr.leadoff_segment_s, thr.flat_degraded_uv
+            finite, fs, thr.leadoff_segment_s, thr.flat_degraded_uv,
+            sigma_floor=COUNT_QUANTISATION_SIGMA if thr.unit == "counts" else 0.0,
         )
         if step_sigma < thr.leadoff_step_sigma:
             flat_s = 0.0
@@ -985,6 +1073,8 @@ class SignalQualityMonitor:
             overall = QualityStatus.GOOD
         if any(Reason.MOTION in c.reasons for c in smoothed):
             reasons.append(Reason.MOTION)
+        if thr.unit != "uV":
+            reasons.append(Reason.ABSOLUTE_SKIPPED)
         return QualityReport(
             tuple(smoothed),
             overall,
@@ -1181,11 +1271,20 @@ def explain(report: QualityReport) -> list[str]:
     amplitudes appear (privacy rule). Intended for a doctor/CLI command.
     """
     lines: list[str] = []
+    skipped = (
+        "Absolute amplitude checks were skipped: this source reports counts, not microvolts, "
+        "so the microvolt limits (flatline except exactly zero, saturation level, drift "
+        "amplitude, EEG/EOG noise) do not apply. Missing samples, packet loss, mains hum, "
+        "clipping plateaus, lead-off steps and shared movement are still checked."
+    )
+    counts = Reason.ABSOLUTE_SKIPPED in report.reasons
     if report.overall is QualityStatus.GOOD:
         lines.append(
             f"Signal quality is good on all {len(report.channels)} channel(s); "
             "detectors are active."
         )
+        if counts:
+            lines.append(skipped)
         return lines
 
     if Reason.WARMING_UP in report.reasons:
@@ -1204,6 +1303,8 @@ def explain(report: QualityReport) -> list[str]:
         lines.append(
             "Signal is usable but degraded: expect more false triggers or missed events."
         )
+    if counts:
+        lines.append(skipped)
     if Reason.TOO_FEW_CHANNELS in report.reasons:
         lines.append(
             f"Only {len(report.usable_channels)} of {len(report.channels)} channel(s) are "

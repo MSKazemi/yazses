@@ -136,7 +136,10 @@ def apply_corrections(text: str, table: dict) -> str:
     for key in sorted(table, key=len, reverse=True):
         repl = table[key]
         # \b only helps when the key edges are word chars; fall back to a plain replace otherwise.
-        left = r"\b" if key[:1].isalnum() else ""
-        right = r"\b" if key[-1:].isalnum() else ""
+        # ZWNJ (U+200C) is not a \w character, so a bare \b matches inside a Persian compound:
+        # "کتاب‌ها" is one word, and a correction for "کتاب" must not rewrite its first half.
+        # Both guards are inert for English, which never contains ZWNJ.
+        left = r"(?<!\u200c)\b" if key[:1].isalnum() else ""
+        right = r"\b(?!\u200c\w)" if key[-1:].isalnum() else ""
         out = re.sub(f"{left}{re.escape(key)}{right}", _literal(repl), out)
     return out

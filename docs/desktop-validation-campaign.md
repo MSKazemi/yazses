@@ -5,11 +5,11 @@ description: Evidence-led plan for validating YazSes desktop releases before bro
 
 # Desktop reliability and first-user validation campaign
 
-**Proposed 29 October 2026.** This is a coordination plan, **not** a declaration that its gates have passed. The current stable release is **v2.47.0**; always record the actual release under test. It implements the existing [ADR-030 direction](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-030-agent-era-direction.md) and does not replace the authoritative [release evidence standard](contribute/validation.md) or [validation matrix](validation-matrix.md).
+**Proposed 29 October 2026.** This is a coordination plan, **not** a declaration that its gates have passed. The stable release when this plan was written was **v2.47.0**; the current one is named in the [roadmap](roadmap.md), and you should always record the actual release under test. It implements the existing [ADR-030 direction](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-030-agent-era-direction.md) and does not replace the authoritative [release evidence standard](contribute/validation.md) or [validation matrix](validation-matrix.md).
 
 ## Scope and freeze
 
-Prioritize a reliable desktop hold-to-talk path (Linux first, Windows/macOS preview) and independently observed first use. Freeze *new* desktop capability waves, not defect fixes, release tooling, security maintenance, the two ADR-030 Pillar 2 bridges ("Send to" prefill, [#637](https://github.com/MSKazemi/yazses/issues/637); the discoverable MCP server, [#638](https://github.com/MSKazemi/yazses/issues/638) and [#639](https://github.com/MSKazemi/yazses/issues/639)), or Android's separately managed M1 work. The opt-in camera, eye, EMG and HCI/Hugging Face research tracks are not implied to be production-ready by this campaign.
+Prioritize a reliable desktop hold-to-talk path (Linux first, Windows/macOS preview) and independently observed first use. Freeze *new* desktop capability waves, not defect fixes, release tooling, security maintenance, the two ADR-030 Pillar 2 bridges ("Send to" prefill, [#637](https://github.com/MSKazemi/yazses/issues/637), [ADR-031](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-031-send-to-prefill-handoff.md); the discoverable MCP server, [#638](https://github.com/MSKazemi/yazses/issues/638) and [#639](https://github.com/MSKazemi/yazses/issues/639), [ADR-032](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-032-mcp-discoverability.md)), or Android's separately managed M1 work. ADR-031 and ADR-032 are Accepted. "Send to" and the `.mcpb` bundle have shipped (v2.45.0) but have not been tried in the real Claude or Codex apps, and the MCP registry listing is still switched off, so all three issues stay open. The opt-in camera, eye, EMG and HCI/Hugging Face research tracks are not implied to be production-ready by this campaign.
 
 **CI success is not human hardware validation.** The matrix retains the precise result wording and version-specific citations; failures stay visible until a later hardware retest. Do not promote preview claims, cross-platform support, or hands-free defaults from a green test suite.
 
@@ -55,7 +55,7 @@ Publish aggregates only when meaningful, label sample size, and preserve negativ
 
 ## Parallel work that does **not** block desktop maintenance
 
-Android M1 remains tracked by [#81](https://github.com/MSKazemi/yazses/issues/81), especially the [engine #87](https://github.com/MSKazemi/yazses/issues/87) and [IME #89](https://github.com/MSKazemi/yazses/issues/89). Proposed agent handoffs ([#637](https://github.com/MSKazemi/yazses/issues/637)–[#639](https://github.com/MSKazemi/yazses/issues/639)) and HCI research should not override the safety and hardware-truth gates. Review existing draft PRs rather than merging them automatically.
+Android M1 remains tracked by [#81](https://github.com/MSKazemi/yazses/issues/81), especially the [engine #87](https://github.com/MSKazemi/yazses/issues/87) and [IME #89](https://github.com/MSKazemi/yazses/issues/89). The agent handoffs ([#637](https://github.com/MSKazemi/yazses/issues/637)–[#639](https://github.com/MSKazemi/yazses/issues/639); released, but not yet verified in real clients) and HCI research should not override the safety and hardware-truth gates. Review existing draft PRs rather than merging them automatically.
 
 ## Tracking etiquette
 

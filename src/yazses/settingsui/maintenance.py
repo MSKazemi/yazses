@@ -58,8 +58,8 @@ CHECK_LABEL = "Check for updates"
 def idle_text(current: str) -> str:
     """The line before anything was checked. Says the version: the first thing asked."""
     return (
-        f"Installed: YazSes {current}. Checking asks the place YazSes was installed "
-        "from (PyPI, GitHub or the snap store) for its newest version."
+        f"Installed: YazSes {current}. Check for updates asks where it was installed "
+        "from (PyPI, GitHub or Snap) for the newest version."
     )
 
 

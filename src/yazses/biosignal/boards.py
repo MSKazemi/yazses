@@ -51,6 +51,10 @@ class BoardPreset:
     serial_required: bool
     notes: str = ""
     spec_template: str = ""
+    #: What the samples are in: ``"uV"`` (microvolts, the SampleBlock contract) or
+    #: ``"counts"`` for a source that reports raw ADC counts (the Myo and gForce armbands).
+    #: A count stream is judged without the microvolt-absolute quality limits (quality.py).
+    unit: str = "uV"
 
     def source_spec(self, serial_port: str = "") -> str:
         """The ``[biosignal] source`` string for this preset, or ``""`` when it has none.
@@ -170,6 +174,7 @@ _BOARDS: tuple[BoardPreset, ...] = (
         notes="OYMotion gForce Pro armband. Windows only (BrainFlow loads OYMotion's SDK "
               "library). Reports ADC values, not microvolts: calibrate on the same stream. "
               + _EXTRA_NOTE + ".",
+        unit="counts",
     ),
     BoardPreset(
         name="gforce-dual",
@@ -179,6 +184,7 @@ _BOARDS: tuple[BoardPreset, ...] = (
         serial_required=False,
         notes="OYMotion gForce Dual. Windows only; ADC values, not microvolts. "
               + _EXTRA_NOTE + ".",
+        unit="counts",
     ),
     BoardPreset(
         name="ant-neuro-ee410",
@@ -288,8 +294,19 @@ _BOARDS: tuple[BoardPreset, ...] = (
         notes="Thalmic Myo armband over Bluetooth LE, by its address. Values are raw counts, "
               "so calibrate on the same stream. Needs the `ble` extra (bleak).",
         spec_template="myo:<address>",
+        unit="counts",
     ),
 )
+
+#: The `[biosignal] source` schemes that are not BrainFlow boards, each with its preset. A
+#: spec with one of these schemes resolves to that preset whatever follows the colon (a
+#: port, an address, a placeholder), because the preset describes the device, not the port.
+_SCHEME_PRESETS: dict[str, str] = {
+    "lsl": "lsl-stream",
+    "thinkgear": "neurosky-thinkgear",
+    "bitalino": "bitalino",
+    "myo": "myo",
+}
 
 
 def known_boards() -> tuple[BoardPreset, ...]:
@@ -329,6 +346,11 @@ def preset_for(name_or_id: str | int) -> BoardPreset | None:
     signal kind) resolve to the ``synthetic`` preset with ``kind_hint`` overridden to
     that kind, so the doctor reasons about the stream the source will actually produce
     rather than the ``"mixed"`` default. Any other ``synthetic:<x>`` returns ``None``.
+
+    ``lsl:<...>``, ``thinkgear:<...>``, ``bitalino:<...>`` and ``myo:<...>`` resolve to
+    their presets (``lsl-stream``, ``neurosky-thinkgear``, ``bitalino``, ``myo``), with a
+    port, an address or a ``<placeholder>`` after the colon. None of them ever resolves to
+    a BrainFlow id: the ``brainflow:`` allowlist is the BrainFlow rows and nothing else.
     """
     if isinstance(name_or_id, bool):
         return None
@@ -339,19 +361,23 @@ def preset_for(name_or_id: str | int) -> BoardPreset | None:
     text = name_or_id.strip()
     if not text:
         return None
-    scheme, _, rest = text.partition(":")
-    if scheme.strip().lower() == "synthetic":
+    scheme, colon, rest = text.partition(":")
+    scheme = scheme.strip().lower()
+    if scheme == "synthetic":
         kind = rest.strip().lower()
         base = next(b for b in _BOARDS if b.name == "synthetic")
         if kind in ("emg", "eeg"):
             return replace(base, kind_hint=kind)
         return base if not kind else None
-    if scheme.strip().lower() == "brainflow":
+    if scheme == "brainflow":
         board = rest.partition(":")[0].strip()
         try:
             return preset_for(int(board))
         except ValueError:
             return None
+    if colon and scheme in _SCHEME_PRESETS:
+        key = _SCHEME_PRESETS[scheme]
+        return next(b for b in _BOARDS if b.name == key)
     try:
         return preset_for(int(text))
     except ValueError:
@@ -360,4 +386,15 @@ def preset_for(name_or_id: str | int) -> BoardPreset | None:
     return next((b for b in _BOARDS if b.name == key), None)
 
 
-__all__ = ["BRAINFLOW_SYNTHETIC_ID", "BoardPreset", "known_boards", "preset_for"]
+def unit_of(spec: str) -> str:
+    """The unit a ``[biosignal] source`` spec reports its samples in: ``"counts"`` or ``"uV"``.
+
+    ``"counts"`` only for a source whose preset says so (the Myo, and the gForce armbands
+    through BrainFlow). Every other spec -- including one the table does not know -- is
+    ``"uV"``, the SampleBlock contract. Never raises.
+    """
+    preset = preset_for(spec) if isinstance(spec, str) else None
+    return preset.unit if preset is not None else "uV"
+
+
+__all__ = ["BRAINFLOW_SYNTHETIC_ID", "BoardPreset", "known_boards", "preset_for", "unit_of"]

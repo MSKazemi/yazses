@@ -380,10 +380,11 @@ def _registry() -> list[_Def]:
         _Def("persian-normalisation", "Persian text (فارسی)", "[stt] persian_normalisation",
              OPTIONAL,
              "Writes Arabic Yeh (ي), Alef Maksura (ى) and Arabic Kaf (ك) as the Persian "
-             "letters ی and ک, composes the text to Unicode NFC, collapses runs of "
-             "zero-width non-joiners and removes one at the start or end of the "
-             "text, and strips bidi override controls. Leaves URLs, emails, paths, version "
-             "numbers and Latin identifiers byte-for-byte. It is not a grammar corrector: it "
+             "letters ی and ک, collapses runs of zero-width non-joiners, removes any at the "
+             "very start or end of the text, composes the text to Unicode NFC and strips bidi "
+             "override controls. Leaves the letters of URLs, emails, paths, version numbers "
+             "and Latin identifiers as dictated (the NFC and bidi steps still reach them). "
+             "It is not a grammar corrector: it "
              "does not change words, spelling, digits or punctuation. Only applies when "
              "[stt] language is Persian (\"fa\"); on any other language it does nothing. "
              "Off by default, so an upgrade does not change the text you already get.",
@@ -596,8 +597,8 @@ def _registry() -> list[_Def]:
         _Def("checkdigit", "Checksum-Validated Entry", "[checkdigit] — verify dictated ID numbers",
              RECOMMENDED,
              "Runs dictated account/ID numbers (credit card, IBAN, ISBN) through their check-digit "
-             "algorithm and flags a mis-heard digit before it lands — with fix suggestions. Off by "
-             "default.",
+             "algorithm and flags a mis-heard digit before it lands — with fix suggestions. "
+             "On after first-run setup (the config key itself defaults to off).",
              lambda c: c.checkdigit.enabled, ckd_on, ckd_off),
         _Def("mouthswitch", "Mouth-Sound Switch Access", "[mouthswitch] — scan-and-select by mouth sounds",
              EXPERIMENTAL,
@@ -668,7 +669,7 @@ def _registry() -> list[_Def]:
         _Def("focusprofile", "Focus-Class Auto-Profile", "[focusprofile] — auto grammar per app class",
              RECOMMENDED,
              "Auto-selects the dictation profile from the focused window's class (terminal→shell, "
-             "editor→code, browser→prose) so you never switch profiles by hand. Off by default.",
+             "editor→code, browser→prose) so you never switch profiles by hand. On after first-run setup (the config key itself defaults to off).",
              lambda c: c.focusprofile.enabled, fp_on, fp_off),
         _Def("tablecsv", "Spoken Table Entry", "[tablecsv] — dictate rows of data", OPTIONAL,
              "Bulk data entry by voice: 'row: Ada, 1815, London' types tab/comma cells and 'next "
@@ -680,7 +681,7 @@ def _registry() -> list[_Def]:
              lambda c: c.wordgoal.enabled, wg_on, wg_off),
         _Def("timeline", "Voice Undo/Redo Timeline", "[timeline] — undo YazSes output by voice", RECOMMENDED,
              "Undo/redo YazSes's own output across bursts by voice — 'undo the last sentence', "
-             "'redo' — even where the app's Ctrl+Z is unreliable. Off by default.",
+             "'redo' — even where the app's Ctrl+Z is unreliable. On after first-run setup (the config key itself defaults to off).",
              lambda c: c.timeline.enabled, tl_on, tl_off),
         _Def("bookmarks", "Session Bookmarks", "[bookmarks] — checkpoints in a long session", OPTIONAL,
              "Drop named anchors in a long dictation ('bookmark here as intro') and jump back "
@@ -711,7 +712,7 @@ def _registry() -> list[_Def]:
              lambda c: c.chords.enabled, chd_on, chd_off),
         _Def("compute", "Inline Compute", "[compute] — types the answer", RECOMMENDED,
              "Say 'what's 15% of 240' and it types 36. On-device arithmetic and percentages, no "
-             "cloud calculator. Off by default.",
+             "cloud calculator. On after first-run setup (the config key itself defaults to off).",
              lambda c: c.compute.enabled, cmp_on, cmp_off),
         _Def("recimport", "Recording Import", "[recimport] — transcribe existing files", OPTIONAL,
              "Run `yazses transcribe <file>` to batch-transcribe voice memos/lectures/meetings "
@@ -743,7 +744,7 @@ def _registry() -> list[_Def]:
              lambda c: c.shellpipe.enabled, shp_on, shp_off),
         _Def("corrdict", "Self-Learning Correction Dictionary", "[corrdict] — auto-fix your recurring errors", RECOMMENDED,
              "Learns the ASR errors you keep fixing (e.g. 'yaz says' → 'YazSes') and applies them "
-             "automatically to future output. High-precision, from your own edits. Off by default.",
+             "automatically to future output. High-precision, from your own edits. On after first-run setup (the config key itself defaults to off).",
              lambda c: c.corrdict.enabled, cdx_on, cdx_off),
         _Def("fileopen", "Voice Fuzzy File Open", "[fileopen] — open files by voice", OPTIONAL,
              "Run `yazses fileopen \"<spoken query>\"` to fuzzy-match your local files and open "
@@ -761,12 +762,12 @@ def _registry() -> list[_Def]:
              lambda c: c.reask.enabled, rk_on, rk_off),
         _Def("verbatim", "Verbatim / Autoformat Toggle", "[verbatim] — freeze formatting on command", RECOMMENDED,
              "Say 'dictate verbatim' to freeze all formatting (ITN, punctuation, reflow) for exact "
-             "capture, 'resume formatting' to restore — mid-burst. Off by default.",
+             "capture, 'resume formatting' to restore — mid-burst. On after first-run setup (the config key itself defaults to off).",
              lambda c: c.verbatim.enabled, vbt_on, vbt_off),
         _Def("spelling", "Phonetic Spelling Mode", "[spelling] — NATO → exact characters", RECOMMENDED,
              "A character-exact mode for passwords/codes/IDs: hold the command key and say "
              "'spell capital alpha bravo double lima' → 'Abll'. Handles digits and symbols. "
-             "Needs [hotkey] command_key bound. Off by default.",
+             "Needs [hotkey] command_key bound. On after first-run setup (the config key itself defaults to off).",
              lambda c: c.spelling.enabled, spl_on, spl_off),
         # A command-line tool, not a voice path: `yazses gitvoice` is the only way in, and
         # it never consults `[gitvoice] enabled`. This text used to promise a spoken
@@ -845,7 +846,7 @@ def _registry() -> list[_Def]:
         _Def("cmdsafety", "Command Safety Gate", "[cmdsafety] — confirm dangerous commands", RECOMMENDED,
              "Holds a destructive dictated command (rm -rf, mkfs, dd, curl|sh, force-push) until "
              "you say 'confirm', so a misrecognition can't fire it. Judged on the command text, "
-             "not on which window is focused, so it still protects on Wayland. Off by default.",
+             "not on which window is focused, so it still protects on Wayland. On after first-run setup (the config key itself defaults to off).",
              lambda c: c.cmdsafety.enabled, csf_on, csf_off),
         _Def("spokenregex", "Spoken Regex Builder", "[spokenregex] — dictate search patterns", OPTIONAL,
              "Build regexes by voice: hold the command key and say 'regex four digits dash "

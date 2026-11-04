@@ -13,6 +13,7 @@ import numpy as np
 import pytest
 
 from yazses.biosignal.quality import (
+    DEFAULT_THRESHOLDS,
     ChannelQuality,
     QualityReport,
     QualityStatus,
@@ -25,11 +26,13 @@ from yazses.biosignal.quality import (
     excess_kurtosis,
     explain,
     flatline_std,
+    lead_off_metrics,
     mains_ratio,
     nonfinite_fraction,
     robust_sigma,
     saturation_fraction,
     suppress_events,
+    thresholds_for_unit,
 )
 from yazses.biosignal.types import ChannelInfo, SampleBlock, SignalKind
 
@@ -1015,3 +1018,210 @@ def test_explain_never_raises_on_any_reason_combination():
     rep = QualityReport(chans, QualityStatus.BAD, (), (Reason.TOO_FEW_CHANNELS,), ("c0",), 0.5)
     lines = explain(rep)
     assert all(isinstance(ln, str) and ln for ln in lines)
+
+
+# --------------------------------------------------------------------------------------
+# Count-unit streams: a Myo or gForce reports ADC counts, not microvolts
+# --------------------------------------------------------------------------------------
+
+MYO_FS = 200.0
+MYO8 = _chans(*((f"EMG{i + 1}", SignalKind.EMG) for i in range(8)))
+MYO_SPEC = "myo:AA:BB:CC:DD:EE:FF"
+
+
+def _int8(x: np.ndarray) -> np.ndarray:
+    """What an 8-bit band delivers: whole counts clipped to the int8 range."""
+    return np.clip(np.round(x), -128, 127)
+
+
+def _pipeline_reports(spec: str, data: np.ndarray, fs: float, channels, tmp_path):
+    """Reports from the quality monitor the pipeline itself builds for ``spec``."""
+    from yazses.biosignal.pipeline import PartsRequest, build_parts
+
+    parts = build_parts(PartsRequest(
+        fs=fs, channels=channels, source_spec=spec,
+        calibration_file=str(tmp_path / "no-profile.json"),   # never read the host profile
+    ))
+    return _feed(parts.quality, data, fs, channels)
+
+
+def test_a_quiet_live_count_channel_is_not_called_flat_by_the_pipeline(tmp_path):
+    """Half a count of noise is a live channel. In microvolt terms the flatline limits (0.5 and
+    0.1) would call it flat; in counts they do not apply, so it must stay GOOD."""
+    rng = np.random.default_rng(7)
+    data = _int8(rng.normal(0.0, 0.4, (8, int(20 * MYO_FS))))
+    rep = _pipeline_reports(MYO_SPEC, data, MYO_FS, MYO8, tmp_path)[-1]
+    assert rep.overall is QualityStatus.GOOD
+    assert all(c.status is QualityStatus.GOOD for c in rep.channels), [
+        (c.name, c.reasons) for c in rep.channels]
+
+
+def test_a_count_stream_report_says_plainly_that_absolute_checks_were_skipped(tmp_path):
+    rng = np.random.default_rng(8)
+    data = _int8(rng.normal(0.0, 3.0, (8, int(20 * MYO_FS))))
+    rep = _pipeline_reports(MYO_SPEC, data, MYO_FS, MYO8, tmp_path)[-1]
+    text = " ".join(explain(rep))
+    assert "counts, not microvolts" in text
+    assert "skipped" in text
+    assert Reason.ABSOLUTE_SKIPPED in rep.reasons
+
+
+def test_a_dead_count_channel_is_still_bad(tmp_path):
+    """Exactly zero variance is unit-free and stays a flatline in counts."""
+    data = np.zeros((8, int(8 * MYO_FS)))
+    rep = _pipeline_reports(MYO_SPEC, data, MYO_FS, MYO8, tmp_path)[-1]
+    assert rep.overall is QualityStatus.BAD
+    assert all(c.status is QualityStatus.BAD and Reason.FLATLINE in c.reasons for c in rep.channels)
+
+
+def test_a_railed_count_channel_is_still_caught_by_its_clipping_plateau(tmp_path):
+    """The absolute saturation level is in microvolts and is off for counts, but a flat-topped
+    plateau at the int8 rail is unit-free and still fails the channel."""
+    t = np.arange(int(12 * MYO_FS)) / MYO_FS
+    railed = _int8(400.0 * np.sin(2 * np.pi * 3.0 * t))
+    data = np.tile(railed, (8, 1))
+    rep = _pipeline_reports(MYO_SPEC, data, MYO_FS, MYO8, tmp_path)[-1]
+    assert rep.overall is QualityStatus.BAD
+    assert Reason.SATURATION in rep.channels[0].reasons
+
+
+def test_mains_hum_is_still_caught_in_counts(tmp_path):
+    t = np.arange(int(20 * MYO_FS)) / MYO_FS
+    hum = 40.0 * np.sin(2 * np.pi * 50.0 * t)
+    data = np.tile(_int8(hum), (8, 1))
+    rep = _pipeline_reports(MYO_SPEC, data, MYO_FS, MYO8, tmp_path)[-1]
+    assert Reason.MAINS in rep.channels[0].reasons
+    assert rep.channels[0].status is not QualityStatus.GOOD
+
+
+def test_a_slow_wander_in_counts_is_not_judged_by_a_microvolt_amplitude_gate(tmp_path):
+    """A 60-count swing is not a 60 microvolt swing: the drift amplitude gate (50 uV) is
+    skipped for counts, so the wander is not reported as drift."""
+    rng = np.random.default_rng(9)
+    t = np.arange(int(20 * MYO_FS)) / MYO_FS
+    data = _int8(60.0 * np.sin(2 * np.pi * 0.05 * t)[None, :] + rng.normal(0, 3, (8, t.size)))
+    rep = _pipeline_reports(MYO_SPEC, data, MYO_FS, MYO8, tmp_path)[-1]
+    assert all(Reason.DRIFT not in c.reasons for c in rep.channels)
+
+
+def test_uv_thresholds_are_the_defaults_untouched():
+    """The switch must leave every microvolt stream exactly as it was."""
+    assert thresholds_for_unit("uV") == QualityThresholds()
+    assert thresholds_for_unit("uV") is not None
+
+
+def test_a_uv_stream_gives_identical_reports_with_and_without_the_unit_switch():
+    rng = np.random.default_rng(10)
+    x = 12.0 * rng.normal(size=(2, int(10 * FS)))
+    x[0, 500:900] += 300.0      # a step-like excursion, so several checks are exercised
+    chans = _chans(("A", SignalKind.EEG), ("B", SignalKind.EOG))
+    base = _feed(SignalQualityMonitor(), x, FS, chans)
+    unit = _feed(SignalQualityMonitor(thresholds_for_unit("uV")), x, FS, chans)
+    assert base == unit
+    assert all(Reason.ABSOLUTE_SKIPPED not in r.reasons for r in base)
+    assert "skipped" not in " ".join(explain(base[-1]))
+
+
+@pytest.mark.parametrize("seed", range(6))
+def test_count_streams_that_are_mostly_zero_never_raise(seed):
+    """Sparse +-1 blips on a zero baseline, then a flat tail: a zero MAD on the live part once
+    divided by zero, and the monitor raised (the pipeline would then switch the gate off)."""
+    rng = np.random.default_rng(seed)
+    n = int(12 * MYO_FS)
+    x = np.zeros((8, n))
+    blips = rng.random((8, n)) < 0.02
+    x[blips] = rng.choice([-1.0, 1.0], size=int(blips.sum()))
+    x[:, n // 2:] = 0.0 if seed % 2 == 0 else 5.0      # an abrupt step, then a flat tail
+    mon = SignalQualityMonitor(thresholds_for_unit("counts"))
+    reports = _feed(mon, x, MYO_FS, MYO8)
+    assert reports and all(isinstance(r, QualityReport) for r in reports)
+
+
+def test_an_unknown_unit_is_refused():
+    with pytest.raises(ValueError, match="unit"):
+        QualityThresholds(unit="mV")
+
+
+# -- hum on EOG: graded as the blink detector reads it --------------------------------------
+
+
+def _eog_with_hum(hum_uv: float, *, seed: int = 0, fs: float = 250.0, seconds: float = 4.0):
+    rng = np.random.default_rng(seed)
+    t = np.arange(int(fs * seconds)) / fs
+    return rng.normal(0.0, 3.0, t.size) + hum_uv * np.sin(2.0 * np.pi * 50.0 * t)
+
+
+def test_a_hum_the_blink_detector_filters_out_does_not_condemn_an_eog_channel():
+    x = _eog_with_hum(10.0)
+    assert mains_ratio(x, 250.0, 50.0) > DEFAULT_THRESHOLDS.mains_ratio_bad  # the raw reading
+    q = assess_channel("eog", SignalKind.EOG, x, 250.0)
+    assert q.status is not QualityStatus.BAD
+
+
+def test_a_hum_too_strong_for_the_detector_filter_still_suppresses_eog():
+    q = assess_channel("eog", SignalKind.EOG, _eog_with_hum(60.0), 250.0)
+    assert q.status is QualityStatus.BAD
+    assert Reason.MAINS in q.reasons
+
+
+def test_other_kinds_are_still_graded_on_the_raw_spectrum():
+    x = _eog_with_hum(10.0)
+    assert mains_ratio(x, 250.0, 50.0, detector_edge_hz=20.0) < mains_ratio(x, 250.0, 50.0)
+    q = assess_channel("eeg", SignalKind.EEG, x, 250.0)
+    assert q.status is QualityStatus.BAD
+    assert Reason.MAINS in q.reasons
+
+
+def test_the_weighted_ratio_tracks_what_the_eog_chain_passes():
+    """The weighting stands in for the real filter, so it must agree with the real filter."""
+    from yazses.biosignal.filters import build_eog_chain
+
+    for hum in (5.0, 10.0, 20.0, 40.0):
+        x = _eog_with_hum(hum, seconds=8.0)
+        filtered = build_eog_chain(250.0).process(x)[500:]
+        real = mains_ratio(filtered, 250.0, 50.0)
+        assert mains_ratio(x, 250.0, 50.0, detector_edge_hz=20.0) == pytest.approx(real, abs=0.12)
+
+
+# -- lead-off on a count stream: the sigma cannot be finer than one count's rounding ------------
+
+
+def _zero_mad_counts(fs: float = 200.0):
+    live = np.zeros(int(fs))
+    live[::5] = 1.0                       # more than half identical: MAD is exactly 0
+    return live
+
+
+def test_a_one_count_tail_after_a_mostly_constant_count_stream_is_not_a_lead_off():
+    from yazses.biosignal.quality import COUNT_QUANTISATION_SIGMA
+
+    fs = 200.0
+    x = np.concatenate([_zero_mad_counts(fs), np.full(int(fs), 1.0)])
+    _flat, before = lead_off_metrics(x, fs, 0.05, 0.0)
+    assert before > 1e6                                   # the defect: a one-count change read as ~1e11 sigma
+    _flat, after = lead_off_metrics(x, fs, 0.05, 0.0, sigma_floor=COUNT_QUANTISATION_SIGMA)
+    assert 0.0 < after < DEFAULT_THRESHOLDS.leadoff_step_sigma     # a one-count change is not a step
+
+
+def test_a_real_step_on_a_count_stream_is_still_a_lead_off():
+    from yazses.biosignal.quality import COUNT_QUANTISATION_SIGMA
+
+    fs = 200.0
+    x = np.concatenate([_zero_mad_counts(fs), np.full(int(fs), 4.0)])     # four counts away
+    _flat, step = lead_off_metrics(x, fs, 0.05, 0.0, sigma_floor=COUNT_QUANTISATION_SIGMA)
+    assert step > DEFAULT_THRESHOLDS.leadoff_step_sigma
+
+
+def test_the_microvolt_path_is_unchanged_by_the_floor():
+    rng = np.random.default_rng(3)
+    fs = 250.0
+    x = np.concatenate([rng.normal(0, 20, int(fs)), np.full(int(fs), 300.0)])
+    assert lead_off_metrics(x, fs, 0.05, 0.5) == lead_off_metrics(x, fs, 0.05, 0.5, sigma_floor=0.0)
+
+
+def test_the_pipeline_thresholds_for_counts_floor_the_lead_off_sigma():
+    """Through the real assess path: a zero-MAD count channel one count off is not lead-off."""
+    fs = 200.0
+    x = np.concatenate([_zero_mad_counts(fs), np.full(int(fs), 1.0)])
+    q = assess_channel("emg", SignalKind.EMG, x, fs, thresholds_for_unit("counts"))
+    assert Reason.LEAD_OFF not in q.reasons

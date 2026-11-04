@@ -180,8 +180,8 @@ clicks, which is why it is testable without a desktop.
 
 **Three STT engines now sit behind one seam.** `faster-whisper` (default),
 `parakeet` (accuracy), and `moonshine` (#74 — built for short segments on CPU,
-which is the shape of hold-to-talk, and needs only `onnxruntime` + `tokenizers`,
-so it installs without torch). `stt/factory.py` selects on `[stt] engine` and
+which is the shape of hold-to-talk, and needs `onnxruntime` + `tokenizers` plus
+`librosa`, `numba` and `huggingface-hub`, but no torch). `stt/factory.py` selects on `[stt] engine` and
 falls back to faster-whisper with a warning whenever an engine's optional
 dependency is absent or its model fails to load — dictation always comes up.
 
@@ -246,8 +246,8 @@ the tray all speak to the daemon over the same JSON-RPC channel, which is why
 `yazses status` reports the truth rather than a guess, and why the tray can be
 killed and relaunched without disturbing dictation.
 
-Both front ends also share one definition of *enabling* a capability. Fifteen of
-the ~140 rows need an optional Python package (`gaze` needs mediapipe, `cocktail`
+Both front ends also share one definition of *enabling* a capability. Twenty-four of
+the 152 rows need an optional Python package (`gaze` needs mediapipe, `cocktail`
 needs speechbrain, and so on), and `yazses features enable` has always installed
 those before telling you to restart. The settings window now does the same, on a
 worker thread, through the identical `system/deps.py` call — so the two cannot
@@ -341,7 +341,7 @@ Stage by stage:
 
 1. **Hotkey.** A hold-to-talk key press starts a recording; releasing it ends
    the burst. The trigger is usually a keyboard key, but it can also be an
-   **EMG muscle-sensor** connected over USB serial — a hands-free / silent-input
+   **EMG muscle-sensor** (experimental, off by default) connected over USB serial — a hands-free / silent-input
    option (`src/yazses/platform/emg/`).
 2. **Audio capture.** The microphone is recorded into an in-memory buffer for the
    duration of the hold (`src/yazses/audio/recorder.py`).
@@ -358,7 +358,8 @@ Stage by stage:
    whisper-large-v3's 3.23 % on 200 LibriSpeech utterances, at roughly twice
    whisper-small's CPU speed, and an eighth of large-v3's insertions
    ([benchmarks](benchmarks.md)). On the Whisper path an `initial_prompt` biases the model
-   toward the right words — the app name and your personal vocabulary.
+   toward the right words — your personal vocabulary, and for English and auto-detect the app name (the
+   English app-name phrase is withheld when `[stt] language` is another language).
    (An editor-context prefix was designed and is **not wired**: the daemon never
    constructs `LspContextProvider`, so nothing from your editor reaches the prompt.)
 6. **Text cleanup.** `clean_text()` strips Whisper artefacts such as
@@ -405,7 +406,7 @@ Most of these stages are configurable or can be turned off; see the
 
 <figure class="yz-figbox">
 --8<-- "assets/arch/latency.svg"
-<figcaption>Decode time for one utterance, measured 30 times per model on a 13th Gen Intel Core i7-1370P, int8 on CPU, no GPU.</figcaption>
+<figcaption>Decode time per utterance, measured on 30 utterances per model (median 7.3 s of audio) on a 13th Gen Intel Core i7-1370P, int8 on CPU, no GPU.</figcaption>
 </figure>
 
 | Model | WER on LibriSpeech `test-clean` | Cold start | Decode, median | Decode, p95 | On disk |
@@ -594,7 +595,7 @@ picks one automatically (`src/yazses/inject/`):
   `snap connect`, since access rides on the `desktop` plug the snap already
   declares. Selected on the snap build's Wayland path, after ydotool and before
   wtype; types by keysym so it stays layout-independent.
-- **unicode** (`inject/unicode_injector.py`, opt-in) — resolves each character
+- **unicode** (`inject/unicode.py`, opt-in) — resolves each character
   through `libxkbcommon`'s XKB state and emits key events via a private
   `/dev/uinput` keyboard, to type the non-ASCII characters (accented letters,
   most non-Latin scripts) the ydotool path silently drops on Wayland. Ships
@@ -657,7 +658,7 @@ and reports the download size before anything is fetched — the *marginal* size
 feature whose packages you already have reports as free rather than as its full
 weight. The table holds fully **resolved dependency closures**, not wheel sizes,
 because the two differ by orders of magnitude where it matters: `speechbrain` is a
-few MB of its own and 3.1 GB resolved, since it pulls PyTorch and the NVIDIA CUDA
+few MB of its own and about 3.4 GB resolved, since it pulls PyTorch and the NVIDIA CUDA
 stack that a CPU-only tool never uses. Model files are added on top of the pip
 figure, because the generator resolves packages and a model is not one: the
 catalogue priced `read-back` at 12 MB while `tts/download.py` said in its own
@@ -678,26 +679,26 @@ the dictation hot path with the microphone, the transcript and the injector.
 
 | Category | Wired | Designed, not wired | Total |
 |---|---:|---:|---:|
-| Formatting & structure | 20 | 11 | 31 |
-| Core dictation | 13 | 7 | 20 |
-| Accuracy & correction | 11 | 9 | 20 |
-| Accessibility & input modalities | 2 | 18 | 20 |
-| Editing & navigation | 10 | 3 | 13 |
-| Commands & automation | 5 | 7 | 12 |
-| Learning, memory & analytics | 5 | 4 | 9 |
-| Conversation & recording capture | 4 | 4 | 8 |
-| Multilingual | 3 | 4 | 7 |
-| **Total** | **73** | **67** | **140** |
+| Formatting & structure | 31 | 1 | 32 |
+| Accessibility & input modalities | 20 | 5 | 25 |
+| Core dictation | 20 | 3 | 23 |
+| Accuracy & correction | 19 | 1 | 20 |
+| Editing & navigation | 13 | 1 | 14 |
+| Commands & automation | 10 | 3 | 13 |
+| Learning, memory & analytics | 6 | 3 | 9 |
+| Conversation & recording capture | 5 | 3 | 8 |
+| Multilingual | 3 | 5 | 8 |
+| **Total** | **127** | **25** | **152** |
 
 Two readings of that chart matter.
 
 **The core is dense and the frontier is thin.** The categories a daily user
-touches — core dictation, formatting, editing — are majority-wired. The one
-category that is almost entirely designed is **accessibility and input
-modalities** (2 of 20), and that is not an accident: those are the capabilities
-gated on hardware nobody has yet (sEMG wristbands, switch access rigs) or on a
-platform capability that isn't universal (gaze on Wayland). They are specified so
-that when the hardware arrives the work is integration, not invention.
+touches — core dictation, formatting, editing — are almost entirely wired. The
+category furthest from done is **multilingual** (5 of 7 designed: `polyglot`,
+`langroute`, `compose`, `interpret`, `pronunciation`). Accessibility and input
+modalities is now mostly wired (20 of 25); the five still designed there are
+`loadguard`, `spatialvad`, `lipread`, `sign` and the `[tts] clone_voice` option.
+Each is specified so that when it is wired the work is integration, not invention.
 
 **A designed row is a contribution-shaped hole.** Several of these have a tested,
 dependency-free pure core and no caller — the design is done and the wiring is

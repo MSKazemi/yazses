@@ -109,7 +109,8 @@ def gen_features() -> str:
     out.write(_front("Feature Reference",
                      f"All {total} YazSes capabilities, what each does, and how to turn it on."))
     out.write(
-        f"YazSes ships **{total} capabilities**. All but the core are **off by default** — "
+        f"YazSes ships **{total} capabilities**. The core and the capabilities marked "
+        "`recommended (on by default)` are on from the start; the rest are **off by default** — "
         "turn one on with `yazses features enable <toggle>` and apply with `yazses restart`. "
         "Browse them interactively with `yazses features` (grouped) or `yazses features info "
         "<toggle>` (one card).\n\n"

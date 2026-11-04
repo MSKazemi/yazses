@@ -134,7 +134,7 @@ session is up.
     was typed into the focused window on **your own machine**, because the daemon
     chose the remote injector only while its state read "remote active", which a
     hold-to-talk burst always leaves. The fix makes the choice follow the session
-    itself; it ships in the first release after v2.43.2.
+    itself; it is fixed in v2.44.0.
 
 ## 3. Disconnect
 
@@ -168,9 +168,10 @@ ssh_port = 22            # accepted, but see below
 key_file = ""            # accepted, but see below
 ```
 
-`ssh_port` and `key_file` are accepted, but `yazses remote` always sends its own
-`-p`/`-i` values (22 and no key file when you omit them), so the config values never
-apply. Pass the port and key on the command line.
+`ssh_port` and `key_file` are accepted, but `yazses remote` always passes its own port
+(22 when you omit `-p`) and key file (none when you omit `-i`), so the config values never
+apply. The `ssh` command line gets `-p` only when the port is not 22 and `-i` only when a key
+file is given. Pass the port and key on the command line.
 
 !!! warning "`default_host` is accepted but not implemented"
 

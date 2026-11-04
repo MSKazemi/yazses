@@ -50,8 +50,8 @@ real; the command-line typing was re-enacted so it is easier to read.*
 mishears · **Dysfluency-Friendly Mode**, which collapses stutters and repeats
 (`b-b-because` → `because`) · opt-in, encrypted **on-device learning**, where `yazses tune`
 proposes accuracy fixes from your own corrections · **editor navigation** through your
-editor's LSP (`yazses jump`, Neovim bridge, opt-in) · **EMG (muscle-sensor) triggering** and
-mic calibration for accessibility · an optional **voice-activity overlay** near the cursor.
+editor's LSP (`yazses jump`, Neovim bridge, opt-in) · mic calibration for accessibility, and
+an **experimental** EMG (muscle-sensor) trigger (off by default; no real-device evidence yet) · an optional **voice-activity overlay** near the cursor.
 The [feature catalog](docs/features.md) lists every capability and how to turn it on.
 
 > **What's optional:** dictation works out of the box. Speaker labels need the
@@ -359,7 +359,7 @@ desktop experience where one exists.
 | **Privacy-conscious professionals** | Dictate in law, medicine or research, where audio must never touch a cloud service. |
 | **Teams with confidential meetings** | Record and summarise internal, clinical, legal or pre-publication meetings without a note-taking SaaS or a bot in the call. |
 | **Researchers with recordings** | Batch-transcribe interviews, lectures and field recordings offline, with speaker labels, under your own retention rules. |
-| **People with motor disabilities** | Hold-to-talk or EMG (muscle-sensor) triggering for hands-free input, with Dysfluency-Friendly Mode for stuttered or dysarthric speech. |
+| **People with motor disabilities** | Offline hold-to-talk dictation, with Dysfluency-Friendly Mode for stuttered or dysarthric speech. An EMG (muscle-sensor) trigger exists but is [experimental, off by default, with no real-device evidence yet](docs/roadmap.md#known-limits). |
 | **Offline and air-gapped sites** | Dictation on machines with no reliable internet, or where outbound network calls are not allowed. |
 
 **Guides with setup steps:**
@@ -390,7 +390,7 @@ desktop experience where one exists.
 - **It is desktop only, for now.** There is no mobile or web build. An **Android app is in
   design**: the architecture and its ten decision records are public at
   [docs/mobile](docs/mobile/index.md), and contributors are building it in the open. iOS and
-  iPadOS will follow Android.
+  iPadOS are planned after Android (ADR-MOB-010), with no date.
 
 ---
 
@@ -816,7 +816,7 @@ depends on it.
 | | **Python** · `main` | **Rust HCI exploration** · `61025cca^` (last commit with the crates) |
 |---|---|---|
 | What it is | The shipping app — dictation, file transcription, Meeting Mode, voice commands, macros | An early-stage rewrite exploring deeper **human–computer interaction**: an on-device *agent* (LLM tool-use, personal memory, editor awareness) |
-| Status | ✅ **Active — current product** (v2.48.0, installed & maintained) | ⏸️ **Paused / archived** — not shipped, not installable |
+| Status | ✅ **Active — current product** (v2.48.1, installed & maintained) | ⏸️ **Paused / archived** — not shipped, not installable |
 | Offline STT | ✅ faster-whisper (CPU int8) | ✅ Whisper + Moonshine v2 (~9 ms) |
 | Voice commands | ✅ regex grammar (+ optional SLM router) → key sequences | ✅ via LLM tool-calls |
 | Voice macros · Mid-Thought Undo · Punch-In · Prosody Ink · Ghost Ahead | ✅ | ❌ |
