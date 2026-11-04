@@ -936,3 +936,15 @@ def test_detrender_validation():
     with pytest.raises(ValueError, match="window_s"):
         RunningMeanDetrender(FS, window_s=float("nan"))
     assert detrend_running_mean(np.arange(10.0), FS).shape == (10,)
+
+
+def test_design_refuses_sections_that_round_onto_the_unit_circle():
+    # Found by the property tests: at a 1 Hz corner and fs = 1 GHz, order 2, the cascade
+    # rounds onto the unit circle. The design returned those sections silently; only the
+    # later SosFilter constructor caught them. The design contract is "stable or ValueError".
+    with pytest.raises(ValueError, match="unstable"):
+        design_butterworth_bandpass(1.0, 2.0, 1e9, 2)
+    with pytest.raises(ValueError, match="unstable"):
+        design_lowpass(1.0, 1e9, 2)
+    # Realistic rates keep working.
+    assert all(s.is_stable() for s in design_butterworth_bandpass(20.0, 450.0, 2000.0, 4))

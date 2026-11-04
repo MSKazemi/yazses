@@ -1528,3 +1528,72 @@ def test_recording_never_touches_the_real_home(tmp_path: Path):
     before = set(os.listdir(tmp_path))
     drain(RecordingTap(SyntheticSource("emg", duration=0.1), tmp_path / "x.csv"))
     assert set(os.listdir(tmp_path)) - before == {"x.csv"}
+
+
+# ====================================================================================
+# Regression: malformed recording files must raise ValueError, not a library exception
+# ====================================================================================
+
+
+@pytest.mark.parametrize("text", ["# fs=1e400\nFp1:eeg\n1\n2\n", "# fs=inf\nFp1:eeg\n1\n",
+                                  "# fs=nan\nFp1:eeg\n1\n"])
+def test_csv_non_finite_sample_rate_is_a_value_error(tmp_path: Path, text: str):
+    """fs=1e400 used to pass the positivity check and then raise OverflowError."""
+    path = tmp_path / "rate.csv"
+    path.write_text(text, encoding="utf-8")
+    with pytest.raises(ValueError, match="sampling rate"):
+        FileReplaySource(path)
+
+
+@pytest.mark.parametrize("blob", [b"", b"PK\x03\x04" + b"\x00" * 40, b"\x93NUMPY\x01\x00"])
+def test_npz_unreadable_archive_is_a_value_error(tmp_path: Path, blob: bytes):
+    """An empty or non-zip .npz used to escape as EOFError or zipfile.BadZipFile."""
+    path = tmp_path / "bad.npz"
+    path.write_bytes(blob)
+    with pytest.raises(ValueError):
+        FileReplaySource(path)
+
+
+def test_npz_lying_array_header_is_refused_before_allocation(tmp_path: Path):
+    """A .npy header claiming 10**9 float64 must not allocate 8 GB before failing."""
+    import io
+    import tracemalloc
+    import zipfile
+
+    header = "{'descr': '<f8', 'fortran_order': False, 'shape': (1000000000,), }"
+    header = header.ljust(127) + "\n"
+    npy = (b"\x93NUMPY\x01\x00" + len(header).to_bytes(2, "little")
+           + header.encode("latin-1") + np.zeros(4, dtype="<f8").tobytes())
+    channels = io.BytesIO()
+    np.lib.format.write_array(channels, np.array(["Fp1:eeg"]))
+    zbuf = io.BytesIO()
+    with zipfile.ZipFile(zbuf, "w", zipfile.ZIP_STORED) as z:
+        z.writestr("data.npy", npy)
+        z.writestr("channels.npy", channels.getvalue())
+    path = tmp_path / "lying.npz"
+    path.write_bytes(zbuf.getvalue())
+    tracemalloc.start()
+    try:
+        with pytest.raises(ValueError):
+            FileReplaySource(path)
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert peak < 32 << 20, f"allocated {peak} bytes for a 40-byte archive"
+
+
+def test_npz_member_without_npy_suffix_is_a_value_error(tmp_path: Path):
+    """A zip entry named 'data' (no .npy) is listed as 'data' by numpy, then KeyError."""
+    import io
+    import zipfile
+
+    chan = io.BytesIO()
+    np.lib.format.write_array(chan, np.array(["Fp1:eeg"]))
+    zbuf = io.BytesIO()
+    with zipfile.ZipFile(zbuf, "w", zipfile.ZIP_STORED) as z:
+        z.writestr("data", b"not an npy")
+        z.writestr("channels.npy", chan.getvalue())
+    path = tmp_path / "suffixless.npz"
+    path.write_bytes(zbuf.getvalue())
+    with pytest.raises(ValueError):
+        FileReplaySource(path)

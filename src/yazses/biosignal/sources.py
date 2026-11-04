@@ -53,8 +53,11 @@ from __future__ import annotations
 
 import io
 import logging
+import math
 import os
 import time
+import zipfile
+import zlib
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -637,17 +640,50 @@ def _load_csv(path: Path, fs_override: float | None) -> _Recording:
     if fs is None and times is not None and times.size > 1:
         step = float(np.median(np.diff(times)))
         fs = 1.0 / step if step > 0 else None
-    if fs is None or fs <= 0:
-        raise ValueError(f"{path}: sampling rate unknown — add a '# fs=250' line, a time "
-                         f"column, or pass fs=")
+    if fs is None or not math.isfinite(fs) or fs <= 0:
+        raise ValueError(f"{path}: sampling rate unknown or invalid — add a '# fs=250' line, "
+                         f"a time column, or pass fs=")
     t0 = float(meta["t0"]) if "t0" in meta else (float(times[0]) if times is not None and times.size else 0.0)
     return _Recording(np.ascontiguousarray(data), float(fs), channels, t0)
 
 
+def _check_npz_member_size(z: Any, key: str, path: Path) -> None:
+    """Refuse a member whose .npy header claims more bytes than its archive entry holds.
+
+    numpy allocates the claimed shape before it notices the data is short, so a 128-byte
+    header can ask for gigabytes. The entry's own uncompressed size bounds what is real.
+    """
+    info = z.zip.getinfo(f"{key}.npy")
+    with z.zip.open(info) as fh:
+        version = np.lib.format.read_magic(fh)
+        if version == (1, 0):
+            shape, _, dtype = np.lib.format.read_array_header_1_0(fh)
+        elif version == (2, 0):
+            shape, _, dtype = np.lib.format.read_array_header_2_0(fh)
+        else:
+            raise ValueError(f"{path}: '{key}' uses an unsupported .npy version {version}")
+    needed = math.prod(shape) * dtype.itemsize
+    if needed > info.file_size:
+        raise ValueError(f"{path}: '{key}' declares {needed} bytes but its archive entry "
+                         f"holds {info.file_size}")
+
+
 def _load_npz(path: Path, fs_override: float | None) -> _Recording:
-    with np.load(path, allow_pickle=False) as z:
+    try:
+        return _read_npz(path, fs_override)
+    except (EOFError, KeyError, zipfile.BadZipFile, zlib.error) as exc:
+        raise ValueError(f"{path}: not a readable .npz archive ({exc})") from exc
+
+
+def _read_npz(path: Path, fs_override: float | None) -> _Recording:
+    # Open the file here: when np.load opens it from a path and the archive is corrupt, the
+    # handle it made is never closed (a ResourceWarning and a leaked descriptor per file).
+    with path.open("rb") as fh, np.load(fh, allow_pickle=False) as z:
         if "data" not in z or "channels" not in z:
             raise ValueError(f"{path}: .npz needs 'data' and 'channels' arrays")
+        for key in ("data", "channels", "fs", "t0"):
+            if key in z:
+                _check_npz_member_size(z, key, path)
         data = np.asarray(z["data"], dtype=np.float64)
         channels = tuple(_parse_channel_spec(str(s)) for s in z["channels"])
         fs = fs_override if fs_override is not None else (float(z["fs"]) if "fs" in z else None)
@@ -655,8 +691,8 @@ def _load_npz(path: Path, fs_override: float | None) -> _Recording:
     if data.ndim != 2 or data.shape[0] != len(channels):
         raise ValueError(f"{path}: 'data' must be (channels, samples) matching the "
                          f"{len(channels)} channel names")
-    if fs is None or fs <= 0:
-        raise ValueError(f"{path}: sampling rate unknown — store 'fs' or pass fs=")
+    if fs is None or not math.isfinite(fs) or fs <= 0:
+        raise ValueError(f"{path}: sampling rate unknown or invalid — store 'fs' or pass fs=")
     return _Recording(np.ascontiguousarray(_finite(data, str(path))), float(fs), channels, t0)
 
 
