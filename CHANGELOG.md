@@ -6,6 +6,26 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the homepage roadmap preview no longer contradicts the canonical roadmap
+
+Was: the `roadmap-at-a-glance` section of the home page still showed "Four eras. Each is a promise
+kept before the next begins", an animated progress rail fixed at 55 %, and cards labelled Shipped /
+Next · under way / The horizon. It listed an "Android dictation keyboard" as under way when no
+installable Android app exists, and "Recall by meaning" without saying it is research only. The
+merged `docs/roadmap.md` (#840, #842) had already dropped that timeline, so the two public surfaces
+disagreed (#843).
+
+Now: four independent cards, each printing its status in words with the roadmap's own vocabulary and
+linking the canonical section or the validation matrix. Released: desktop dictation core (end-to-end
+checks per platform still open). Released, real-client check pending: the MCP server, opt-in send-to
+and the `.mcpb` bundle (never sent automatically; not yet tried in the real apps). Experimental,
+hardware-unverified: gaze, head pointer, Voice Pilot and the EMG, blink and jaw-clench switches.
+Research and Deferred: Android (no APK), semantic cited recall, XR, mixed-language switching. The
+rail, the `--progress` variable, the era animations and the colour-only legend are removed from
+`overrides/home.html`, `docs/assets/landing.css` and `docs/assets/landing.js`, and two milestone
+labels (Android, Install anywhere) no longer promise more than exists. `tests/test_homepage_roadmap_status_cards.py`
+pins the retired copy out and checks every link target against a real heading. No runtime change.
+
 ### Fixed — design pages no longer publish a cut-off or fragment meta description
 
 Was: the description derived for a `design/` page kept straight `"` characters, and the Material

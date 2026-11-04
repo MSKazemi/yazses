@@ -24,9 +24,9 @@
     return id;
   }
 
-  /* ---- Scroll reveal + counters + roadmap progress -------------------- */
+  /* ---- Scroll reveal + counters -------------------- */
   function reveal(root) {
-    var nodes = root.querySelectorAll(".yzl-reveal, [data-yzl-eras]");
+    var nodes = root.querySelectorAll(".yzl-reveal");
     if (reduced || !("IntersectionObserver" in window)) {
       nodes.forEach(function (n) { n.classList.add("is-in"); });
       return;
