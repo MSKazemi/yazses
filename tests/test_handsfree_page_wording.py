@@ -16,5 +16,5 @@ def test_no_source_or_doc_names_a_settings_location_that_no_longer_exists():
             if path.suffix not in {".py", ".md"} or not path.is_file():
                 continue
             if STALE.search(path.read_text(encoding="utf-8", errors="replace")):
-                hits.append(str(path.relative_to(ROOT)))
+                hits.append(path.relative_to(ROOT).as_posix())
     assert hits == [], f"say 'Settings -> Hands-free' instead in: {hits}"

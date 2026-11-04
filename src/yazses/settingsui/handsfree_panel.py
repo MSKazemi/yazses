@@ -344,14 +344,14 @@ class HandsFreePanel:
                 if cols.direction() != want:
                     cols.setDirection(want)
 
+            _watched: Any = None
+
             def watch_viewport(self) -> None:
                 area = self.scroll_area()
                 viewport = area.viewport() if area is not None else None
                 if viewport is not None and viewport is not self._watched:
                     viewport.installEventFilter(self)
                     self._watched = viewport
-
-            _watched: Any = None
 
             def eventFilter(self, obj: Any, event: Any) -> bool:  # noqa: N802 - Qt override
                 kind = event.type()

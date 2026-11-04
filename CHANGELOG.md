@@ -29,8 +29,16 @@ Recenter first in the Tab order, and the Tab order independent of the width. The
 straight after the ways to stop, where it sits on screen, instead of after the camera switches. The
 how-to pages name the page, not a button.
 
-Not measured: a very large system font, where a mapping row can need more than the page's width and the
-page then scrolls sideways (the old window widened itself to avoid that).
+The column count is decided from the room the page is given (the scroll area's viewport, and the room
+both columns need at the current font), not from the panel's own width: at a 24 pt system font in the
+default 900 px window the page is one column and does not scroll sideways (an offscreen measurement; an
+earlier draft of this change stayed in two columns and scrolled 448 px). The sentence about keyboard
+shortcuts no longer promises Alt+P and Alt+R on macOS, where Qt provides no Alt mnemonics; there it says
+only that Tab reaches the buttons. That wording is true by construction and has not been tried on a Mac.
+The pointers to "Settings → Hands-free controls" now say "Settings → Hands-free".
+
+Not measured: a real screen, and fonts wider than the installed ones the tests use; when even one column
+is wider than the window (an extreme font) the page scrolls sideways by only what one column needs.
 
 ### Changed — CI: the macOS 3.11 test leg runs on `main` and manual runs, not on every pull request
 
