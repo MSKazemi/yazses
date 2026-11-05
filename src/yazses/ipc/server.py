@@ -71,7 +71,18 @@ class JsonRpcServer:
             except OSError as exc:
                 log.warning("Could not remove stale socket %s: %s", self._socket_path, exc)
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        sock.bind(str(self._socket_path))
+        # Bind under a 0o177 umask so the socket file is born owner-only (0o600); the
+        # chmod below is then only defence in depth, with no window at 0o755. umask is
+        # process-wide, so hold it for the bind alone and always restore it.
+        old_umask = os.umask(0o177) if os.name != "nt" else None
+        try:
+            sock.bind(str(self._socket_path))
+        except BaseException:
+            sock.close()
+            raise
+        finally:
+            if old_umask is not None:
+                os.umask(old_umask)
         try:
             os.chmod(self._socket_path, 0o600)
         except OSError:
