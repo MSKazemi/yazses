@@ -101,6 +101,9 @@ The models, benchmarks and low-RAM pages gave same-laptop latency figures that d
 ### Fixed — docs: the packaging channel table is re-verified against v2.48.1, and gaze is no longer described as shipped
 
 `packaging/README.md` was audited against 2.40.0. Its Snap, winget, Homebrew, Scoop, Chocolatey and GHCR rows now match the live registries as read on 2026-11-05, and the closed issues it cited are annotated. Cells that were not re-checked say so. `docs/comparison.md` and `docs/roadmap.md` said gaze targeting "works on" or "ships on" X11; it is experimental, off by default and not hardware-validated, as the rest of the roadmap already said.
+### Added — research: a dated evidence log for XR (VRChat OSC, WebXR, OpenXR)
+
+`design/xr/EVIDENCE.md` records what the primary sources say and do not say, the constraints they imply for any future adapter (never send without confirmation, 144-character limit, no delivery acknowledgement, a likely third send path under ADR-019), and an experiment described but not built. Research only: nothing was tested on a headset or VRChat client and the ADR-030 freeze is unchanged. WebXR and the OpenXR specification were read only in part.
 
 ### Added — Persian text normalisation has a checkbox in Settings
 

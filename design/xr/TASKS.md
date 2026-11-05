@@ -5,7 +5,7 @@
 | ID | Phase | Deliverable | Depends on | Acceptance evidence |
 |---|---|---|---|---|
 | XR-R01 | R0 | Demand summary with explicit problem statements | None | Non-contributor evidence, anonymized, no invented demand |
-| XR-R02 | R0 | Current official VRChat OSC prefill/avatar API audit | None | Versioned doc links and real-client unknowns recorded |
+| XR-R02 | R0 | Current official VRChat OSC prefill/avatar API audit | None | Versioned doc links and real-client unknowns recorded. **Documentation audit recorded 2026-11-05 in [EVIDENCE.md](EVIDENCE.md); real-client verification (H1 to H3) still open, so not complete.** |
 | XR-R03 | R0 | Compare in-process callbacks vs OSC vs WebSocket | XR-R02 | Dependency, privacy and lifecycle comparison |
 | XR-R04 | R0 | Privacy/egress and permissions threat review | XR-R03 | Revocation, trust boundary and external-action policy |
 | XR-R05 | R0 | ADR-030 decision memo | XR-R01–R04 | Approved decision or documented deferral |
