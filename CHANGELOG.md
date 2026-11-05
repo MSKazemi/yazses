@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — research: GNOME and KDE Wayland assistive-technology limits ([#818](https://github.com/MSKazemi/yazses/issues/818))
+
+`design/research/2026-11-05-gnome-kde-wayland-assistive-tech-limits.md` maps what injection, focus read-back and semantic targeting can and cannot do on each compositor to the existing backends and validation records, with a hardware checklist. Nothing was tested on any compositor; some sources were not readable.
+
 ### Added — Persian text normalisation has a checkbox in Settings
 
 `[stt] persian_normalisation` could only be turned on by editing `config.toml`. It is now a
