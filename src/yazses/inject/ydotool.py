@@ -1,7 +1,6 @@
 import itertools
 import logging
 import subprocess
-import sys
 from collections.abc import Iterable, Sequence
 
 from yazses.inject.keycodes import KEYCODES
@@ -415,6 +414,10 @@ class YdotoolInjector:
     def inject(self, text: str) -> None:
         if not text:
             return
+        # An explicit outcome of THIS typing, not `sys.exc_info()`: that is also set when
+        # the caller happens to be inside an unrelated `except` block, which made a
+        # failing release-all on a good type look like a protected, swallowable one.
+        typing_failed = True
         try:
             if text.isascii():
                 # The overwhelmingly common case (and everything this backend could
@@ -422,6 +425,7 @@ class YdotoolInjector:
                 self._type_ascii_run(text)
             else:
                 self._inject_mixed(text)
+            typing_failed = False
         finally:
             # Flood guard -- release any key the compositor failed to release. It
             # runs on failure too: a `type` that timed out or died mid-string may
@@ -429,7 +433,7 @@ class YdotoolInjector:
             # command sequence; not observed on hardware). Read the dialect AFTER
             # typing: a run may have downgraded it. 0.1.x cannot express a bare
             # key-up at all, so there the guard is a no-op by construction.
-            self._release_all_typed_keys(typing_failed=sys.exc_info()[0] is not None)
+            self._release_all_typed_keys(typing_failed=typing_failed)
 
     @staticmethod
     def _release_all_typed_keys(*, typing_failed: bool) -> None:

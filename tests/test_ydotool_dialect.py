@@ -553,3 +553,40 @@ def test_a_failing_release_after_a_successful_type_still_surfaces(monkeypatch):
 
     with pytest.raises(subprocess.TimeoutExpired):
         yd.YdotoolInjector().inject("hello")
+
+
+def test_a_failing_release_surfaces_even_when_inject_runs_inside_an_except_block(monkeypatch):
+    """Whether typing failed is the typing's own outcome, not 'is any exception in flight'.
+
+    The release used to be told `typing_failed=sys.exc_info()[0] is not None`, so a caller
+    that invoked `inject()` while handling some unrelated exception had a failing
+    release-all swallowed on a perfectly good type.
+    """
+    yd.set_ydotool_dialect(yd.DIALECT_V1)
+    release_error = yd.YdotoolCliError("release failed")
+    run = _FailingType(key_exc=release_error)
+    monkeypatch.setattr(subprocess, "run", run)
+
+    with pytest.raises(yd.YdotoolCliError) as caught:
+        try:
+            raise ValueError("an unrelated error being handled")
+        except ValueError:
+            yd.YdotoolInjector().inject("hello")
+
+    assert caught.value is release_error
+    assert [a[1] for a in run.argvs] == ["type", "key"]
+
+
+def test_a_typing_error_still_wins_when_inject_runs_inside_an_except_block(monkeypatch):
+    yd.set_ydotool_dialect(yd.DIALECT_V1)
+    original = subprocess.TimeoutExpired(["ydotool", "type"], 10.0)
+    run = _FailingType(type_exc=original, key_exc=subprocess.TimeoutExpired(["ydotool", "key"], 5))
+    monkeypatch.setattr(subprocess, "run", run)
+
+    with pytest.raises(subprocess.TimeoutExpired) as caught:
+        try:
+            raise ValueError("an unrelated error being handled")
+        except ValueError:
+            yd.YdotoolInjector().inject("hello")
+
+    assert caught.value is original
