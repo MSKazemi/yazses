@@ -80,6 +80,10 @@ class TrayMenuModel:
     # `[stt] idle_unload_s` (ADR-029): "Speech model: loaded, idle 45 s of 300 s", or None
     # at the default of 0 and on an older daemon. Defaulted for the same reason.
     residency: str | None = None
+    # "Dictating with no text field focused": the words go to the clipboard, not the
+    # page. The icon turns yellow and the tooltip says so; a menu has to as well, or a
+    # tray whose icon cannot be seen (a GNOME appindicator, a crowded panel) hides it.
+    target_warning: str | None = None
 
 
 def build_menu_model(
@@ -98,7 +102,10 @@ def build_menu_model(
     input_device = wrap_user_text(status.get("input_device") or "default")
     mic_line = f"Mic: {input_device}"
 
-    warning = silent_streak_warning(status)
+    # The same one-line warning the macOS menu shows (`top_warning`): the daemon's error,
+    # an engine fallback, or a silent streak. This menu used to read only the streak, so
+    # a daemon in `error` showed a header of "error" and no reason.
+    warning = top_warning(status)
 
     pinned = (pinned or "").strip()
     resolved_index = resolve_input_device(pinned, devices) if pinned else None
@@ -120,6 +127,7 @@ def build_menu_model(
         devices=items,
         settings_label=SETTINGS_LABEL,
         residency=residency_line(status),
+        target_warning=no_target_warning(status),
     )
 
 
@@ -157,6 +165,27 @@ def silent_streak_warning(status: dict) -> str | None:
     if not streak:
         return None
     return f"⚠ {streak} silent clip{'s' if streak != 1 else ''} in a row"
+
+
+#: Shown (tooltip and menu) while dictation has nowhere to type.
+NO_TARGET_WARNING = "⚠ no text field focused — will save to clipboard"
+
+
+def no_target_warning(status: dict) -> str | None:
+    """``NO_TARGET_WARNING`` while dictating with no text field focused, else ``None``.
+
+    The one rule the icon colour (yellow), the tooltip and the Linux menu share, so the
+    three cannot disagree about when your words would go nowhere. Command mode is not
+    dictation, so it never warns.
+    """
+    state = str(status.get("state") or "idle")
+    if (
+        state in _RECORDING_STATES
+        and not bool(status.get("command_mode"))
+        and status.get("target_ok") is False
+    ):
+        return NO_TARGET_WARNING
+    return None
 
 
 def engine_line(status: dict) -> str:
@@ -473,8 +502,9 @@ def icon_spec(status: dict) -> tuple[str, str]:
         tooltip += "\n⌘ command mode — parsing a command, not typing"
     if streak:
         tooltip += f"\n⚠ {streak} silent clip(s) in a row"
-    if state in _RECORDING_STATES and not command_mode and target_ok is False:
-        tooltip += "\n⚠ no text field focused — will save to clipboard"
+    no_target = no_target_warning(status)
+    if no_target is not None:
+        tooltip += f"\n{no_target}"
     reason = _error_reason(status) if state == "error" else None
     if reason is not None:
         tooltip += f"\n⚠ {reason}"

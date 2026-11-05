@@ -127,7 +127,8 @@ class SettingsShell:
         self.sidebar.setStyleSheet(_SIDEBAR_STYLE)
         self.sidebar.setAccessibleName("Settings sections")
         self.sidebar.setAccessibleDescription(
-            "Choose a page. Ctrl+1 to Ctrl+6 jump to one; Ctrl+F searches the features."
+            "Choose a page. Ctrl+1 to Ctrl+6 jump to one; Ctrl+F searches the features; "
+            "Ctrl+Return applies the staged changes."
         )
         self.sidebar.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         for i, spec in enumerate(PAGES, start=1):

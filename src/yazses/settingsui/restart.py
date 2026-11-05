@@ -72,22 +72,16 @@ def describe_status(status: dict | None) -> str:
     return f"Running ({', '.join(parts)})." if parts else "Running."
 
 
-def apply_and_restart(
+def decide_restart(
     *,
     is_running: Callable[[], bool],
     confirm: Callable[[], bool],
-    restart: Callable[[], tuple[bool, str]],
-    status: Callable[[], dict | None],
-    ready_timeout_s: float = 30.0,
-    poll_interval_s: float = 0.5,
-    sleep: Callable[[float], None] = time.sleep,
-    now: Callable[[], float] = time.monotonic,
-) -> RestartOutcome:
-    """Offer a restart, perform it, and confirm the daemon really came back.
+) -> RestartOutcome | None:
+    """The quick half: is there anything to restart, and did the user say yes?
 
-    Every effect is injected: `is_running`/`status` come from the IPC client,
-    `restart` runs the same path as `yazses restart`, and `confirm` is the Qt
-    dialog. Nothing here imports Qt.
+    ``None`` means "go ahead and restart"; any outcome means the flow ends here. This is
+    the half that must run on the GUI thread (it shows the dialog) and is cheap. The slow
+    half, `perform_restart`, is the one that must not.
     """
     if not is_running():
         # Nothing to restart. Prompting anyway would be a dialog whose only honest
@@ -96,7 +90,24 @@ def apply_and_restart(
 
     if not confirm():
         return RestartOutcome(RestartState.PENDING)
+    return None
 
+
+def perform_restart(
+    *,
+    restart: Callable[[], tuple[bool, str]],
+    status: Callable[[], dict | None],
+    ready_timeout_s: float = 30.0,
+    poll_interval_s: float = 0.5,
+    sleep: Callable[[float], None] = time.sleep,
+    now: Callable[[], float] = time.monotonic,
+) -> RestartOutcome:
+    """The slow half: run the restart, then wait for the daemon to answer.
+
+    The restart command can take up to 90 s and the poll up to ``ready_timeout_s`` more,
+    so a window must call this off its GUI thread (`settingsui/worker.py::RestartWorker`).
+    Nothing here imports Qt.
+    """
     try:
         ok, detail = restart()
     except Exception as exc:  # noqa: BLE001 - surfaced to the user, never raised at Qt
@@ -121,4 +132,36 @@ def apply_and_restart(
         RestartState.FAILED,
         f"it did not answer within {ready_timeout_s:.0f}s"
         + (f" ({last_error})" if last_error else ""),
+    )
+
+
+def apply_and_restart(
+    *,
+    is_running: Callable[[], bool],
+    confirm: Callable[[], bool],
+    restart: Callable[[], tuple[bool, str]],
+    status: Callable[[], dict | None],
+    ready_timeout_s: float = 30.0,
+    poll_interval_s: float = 0.5,
+    sleep: Callable[[float], None] = time.sleep,
+    now: Callable[[], float] = time.monotonic,
+) -> RestartOutcome:
+    """Offer a restart, perform it, and confirm the daemon really came back.
+
+    Every effect is injected: `is_running`/`status` come from the IPC client,
+    `restart` runs the same path as `yazses restart`, and `confirm` is the Qt
+    dialog. Nothing here imports Qt. The window itself calls the two halves
+    (`decide_restart`, then `perform_restart` on a worker thread); this composes them
+    for callers that have no event loop to keep alive.
+    """
+    decided = decide_restart(is_running=is_running, confirm=confirm)
+    if decided is not None:
+        return decided
+    return perform_restart(
+        restart=restart,
+        status=status,
+        ready_timeout_s=ready_timeout_s,
+        poll_interval_s=poll_interval_s,
+        sleep=sleep,
+        now=now,
     )
