@@ -763,7 +763,7 @@ def _model_check(model: str, hf_cache: Path) -> _Check:
     return (
         "STT model",
         "WARN",
-        f"{model} not downloaded — fetched automatically on first dictation "
+        f"{model} not downloaded — fetched automatically the first time the daemon starts "
         f"(needs network once). To do it now: yazses model download {model}",
     )
 

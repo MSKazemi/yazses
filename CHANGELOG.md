@@ -95,6 +95,9 @@ What was checked: nine static tests, and a local render in a browser (0 text cha
 ### Fixed — docs: latency figures are marked as single-run, decode-only, ranking-only
 
 The models, benchmarks and low-RAM pages gave same-laptop latency figures that disagree by 4–7× without saying so, and one sentence ("most people… go back to base.en") had no data behind it. The sentence is removed, the tables now say they are decode-only and good for ranking, and the pages note that the model revision and the machine load were not recorded. No number changed. Re-measuring needs the hardware and the private harness.
+### Fixed — docs: the speech model downloads the first time the daemon starts, not on first dictation
+
+`yazses doctor` and the get-started guide said the model is fetched on first dictation. In the code it is downloaded when the daemon starts, and the hotkey is not created until that finishes, so a key held during the first start does nothing. Both now say so. `docs/models.md`, `docs/windows-install.md` and `docs/cli-reference.md` still say "first use" and are listed for a follow-up. What was not checked: a fresh install on any OS.
 
 ### Added — Persian text normalisation has a checkbox in Settings
 
