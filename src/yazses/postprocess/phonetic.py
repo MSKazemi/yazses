@@ -36,6 +36,7 @@ Pure and conservative; a stronger G2P backend is opt-in elsewhere.
 from __future__ import annotations
 
 import re
+from bisect import bisect_right
 
 _VOWELS = set("aeiou")
 # Rough homophone folding so near-sounds share a key (c→k, ph→f, etc.).
@@ -113,6 +114,28 @@ def correct_word(token: str, vocab, *, max_distance: float = 0.34, known=None):
     return token
 
 
+def _merged_span_bounds(spans) -> tuple[list[int], list[int]]:
+    """Sorted, disjoint ``(starts, ends)`` covering exactly the positions in ``spans``.
+
+    ``pos`` lies in some span ``a <= pos < b`` iff it lies in one merged interval, so a
+    membership test is one bisect (``O(log m)``) instead of a scan of every span. Empty or
+    inverted spans cover nothing and are dropped; overlapping and touching spans are merged.
+    One sort, one pass: ``O(m log m)``. Pure.
+    """
+    starts: list[int] = []
+    ends: list[int] = []
+    pairs = [(a, b) for a, b in spans if a < b]
+    pairs.sort()
+    for a, b in pairs:
+        if ends and a <= ends[-1]:
+            if b > ends[-1]:
+                ends[-1] = b
+        else:
+            starts.append(a)
+            ends.append(b)
+    return starts, ends
+
+
 def correct_text(text, vocab, *, max_distance: float = 0.34, known=None) -> str:
     """Apply :func:`correct_word` token-wise, preserving separators. Pure.
 
@@ -125,10 +148,14 @@ def correct_text(text, vocab, *, max_distance: float = 0.34, known=None) -> str:
         return text
     from yazses.postprocess.persian_text import structured_spans
 
-    spans = structured_spans(text)
+    starts, ends = _merged_span_bounds(structured_spans(text))
+
+    def _protected(pos: int) -> bool:
+        i = bisect_right(starts, pos) - 1
+        return i >= 0 and pos < ends[i]
 
     def _fix(m: re.Match[str]) -> str:
-        if any(a <= m.start() < b for a, b in spans):
+        if _protected(m.start()):
             return m.group(0)
         return correct_word(m.group(0), vocab, max_distance=max_distance, known=known)
 
