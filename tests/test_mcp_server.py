@@ -261,3 +261,155 @@ def test_a_handler_exception_on_a_notification_stays_silent_on_stdout(monkeypatc
     monkeypatch.setattr(server_mod, "handle", boom)
     notification = json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized"})
     assert _drive([notification]) == []
+
+
+# --- ping, and a long-lived session survives a bad byte -----------------------
+
+
+def test_ping_is_answered_through_the_loop() -> None:
+    assert _drive([_req("ping", rid="p")]) == [{"jsonrpc": "2.0", "id": "p", "result": {}}]
+
+
+class _StrictLines:
+    """An injected stream that raises UnicodeDecodeError, as a strict one would."""
+
+    def __init__(self, lines: list[str], bad_at: int) -> None:
+        self._lines = lines
+        self._bad_at = bad_at
+
+    def __iter__(self):
+        for i, line in enumerate(self._lines):
+            if i == self._bad_at:
+                raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte")
+            yield line
+
+
+def test_a_decode_error_is_a_parse_error_not_the_end_of_the_session() -> None:
+    """Invalid UTF-8 on stdin used to raise out of `for line in source`, outside the
+    try, and end the server. JSON-RPC's answer to bytes it cannot read is -32700."""
+    out = io.StringIO()
+    source = _StrictLines([_req("ping", rid=1) + "\n", _req("ping", rid=2) + "\n"], bad_at=1)
+    assert serve(Config(), stdin=source, stdout=out) == 0
+    replies = [json.loads(line) for line in out.getvalue().splitlines()]
+    assert replies[0]["id"] == 1
+    assert replies[1]["error"]["code"] == -32700 and replies[1]["id"] is None
+
+
+def test_invalid_utf8_on_real_stdin_does_not_end_the_process(tmp_path) -> None:
+    """A real process: the default stdin is strict UTF-8 on a UTF-8 locale, and one
+    stray byte used to end the session (exit 1, traceback on stderr)."""
+    import os
+    import subprocess
+    import sys
+
+    env = dict(
+        os.environ, HOME=str(tmp_path), USERPROFILE=str(tmp_path),
+        XDG_CONFIG_HOME=str(tmp_path / "c"), XDG_DATA_HOME=str(tmp_path / "d"),
+        XDG_CACHE_HOME=str(tmp_path / "k"), APPDATA=str(tmp_path / "a"),
+        LOCALAPPDATA=str(tmp_path / "l"), PYTHONIOENCODING="utf-8",
+    )
+    good = (_req("tools/list", rid=7) + "\n").encode()
+    later = (_req("tools/list", rid=9) + "\n").encode()
+    done = subprocess.run(
+        [sys.executable, "-m", "yazses", "mcp-server"],
+        input=b"\xff\xfe\n" + good + b'{"id": 8, "x": "\xc3\x28"}\n' + later,
+        capture_output=True, env=env, timeout=120,
+    )
+    replies = [json.loads(line) for line in done.stdout.splitlines() if line.strip()]
+    ids = [r.get("id") for r in replies]
+    assert 7 in ids and 9 in ids, (done.returncode, ids, done.stderr[-400:])
+    assert replies[0]["error"]["code"] == -32700
+    assert done.returncode == 0, done.stderr[-400:]
+
+
+# --- ask_human waits as long as the answer takes ------------------------------
+
+
+@pytest.mark.parametrize(
+    "asked, expected",
+    [(30, 40.0), (5, 15.0), (120, 130.0), (9999, 130.0), (None, 40.0), ("x", 40.0),
+     (-3, 40.0), (float("nan"), 40.0)],
+)
+def test_the_ask_human_wait_is_the_listen_time_plus_ten_seconds(asked, expected) -> None:
+    from yazses.mcp.server import ask_human_wait_s
+
+    assert ask_human_wait_s(asked) == expected
+
+
+def _ask_tool():
+    cfg = Config()
+    object.__setattr__(cfg.mcp, "ask_human", True)
+    return [t for t in build_tools(cfg) if t.name == "ask_human"][0]
+
+
+def _patch_platform(monkeypatch, client) -> None:
+    import yazses.platform as platform_mod
+
+    monkeypatch.setattr(platform_mod, "get_platform", lambda: _FakePlatform(client))
+
+
+def test_ask_human_gives_the_ipc_call_a_wait_that_covers_the_answer(monkeypatch) -> None:
+    seen: dict = {}
+
+    class _Client:
+        def call(self, method, **params):
+            seen.update(method=method, params=params)
+            return {"ok": True, "answer": "yes"}
+
+    _patch_platform(monkeypatch, _Client())
+    assert _ask_tool().run(question="go?", timeout_s=45) == "yes"
+    assert seen["method"] == "ask_human"
+    assert seen["params"]["wait_s"] == 55.0
+    assert seen["params"]["timeout_s"] == 45, "the daemon still gets the listen time"
+
+
+def test_a_slow_answer_is_not_reported_as_a_stopped_daemon(monkeypatch) -> None:
+    """Over a real socket: the daemon takes longer than the client's default wait to
+    answer (it is listening to a person), and the answer still arrives."""
+    import sys
+    import tempfile
+    import time
+    import types
+    from pathlib import Path
+
+    if sys.platform not in ("linux", "darwin"):
+        pytest.skip("Unix-domain sockets are POSIX-only")
+    from yazses.ipc.client import JsonRpcClient
+    from yazses.ipc.server import JsonRpcServer
+
+    with tempfile.TemporaryDirectory(prefix="nv-", dir="/tmp") as d:
+        sock = Path(d) / "a.sock"
+        srv = JsonRpcServer.unix(sock)
+        srv.register("ask_human", lambda r: (time.sleep(0.8), {"ok": True, "answer": "yes"})[1])
+        srv.serve_in_thread()
+        for _ in range(200):
+            if sock.exists():
+                break
+            time.sleep(0.01)
+        try:
+            platform = types.SimpleNamespace(
+                paths=types.SimpleNamespace(ipc_socket=sock),
+                ipc_client_factory=lambda p: JsonRpcClient.unix(p, timeout_s=0.2),
+            )
+            import yazses.platform as platform_mod
+
+            monkeypatch.setattr(platform_mod, "get_platform", lambda: platform)
+            assert _ask_tool().run(question="proceed?") == "yes"
+        finally:
+            srv.shutdown()
+
+
+def test_a_daemon_that_does_not_answer_is_not_reported_as_stopped(monkeypatch) -> None:
+    from yazses.ipc.client import IpcTimeoutError
+
+    class _Slow:
+        def call(self, method, **params):
+            err = IpcTimeoutError("sock")
+            err.timeout_s = 55.0
+            raise err
+
+    _patch_platform(monkeypatch, _Slow())
+    out = _ask_tool().run(question="go?")
+    assert "not running" not in out.lower()
+    assert "running but did not reply within 55 s" in out
+    assert "may or may not have been asked" in out

@@ -81,6 +81,33 @@ def transcribe_tool(config) -> ToolSpec:
     )
 
 
+#: The daemon caps the listening time itself (see ``[mcp] ask_human_*``); this
+#: bounds how long the *client* waits for that answer to come back over IPC.
+_ASK_HUMAN_LISTEN_CAP_S = 120.0
+_ASK_HUMAN_MARGIN_S = 10.0
+
+
+def ask_human_wait_s(timeout_s: object) -> float:
+    """How long to wait on the daemon for an ``ask_human`` reply.
+
+    The requested listening time (capped at 120 s) plus 10 s for speaking the
+    question and finishing the transcription. The IPC client's default 2 s is
+    shorter than a spoken answer, so the old call gave up while the user was
+    still talking and reported a running daemon as not running.
+    """
+    try:
+        listen = float(timeout_s)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        listen = 30.0
+    if listen != listen or listen < 0:  # NaN or negative
+        listen = 30.0
+    return min(listen, _ASK_HUMAN_LISTEN_CAP_S) + _ASK_HUMAN_MARGIN_S
+
+
+def _seconds(value: float | None) -> str:
+    return f"{value:g} s" if value is not None else "the wait"
+
+
 def ask_human_tool(config) -> ToolSpec:
     """`ask_human(question, timeout_s)` — ask the person out loud, get their answer.
 
@@ -93,7 +120,7 @@ def ask_human_tool(config) -> ToolSpec:
     should read and act on, not transport failures.
     """
     def _run(question: str, timeout_s: float = 30.0) -> str:
-        from yazses.ipc.client import IpcUnreachableError
+        from yazses.ipc.client import IpcTimeoutError, IpcUnreachableError
         from yazses.platform import get_platform
 
         platform = get_platform()
@@ -104,7 +131,20 @@ def ask_human_tool(config) -> ToolSpec:
             # touched. Caught by running it against the live daemon; the unit
             # tests used a fake client that accepted anything.
             reply = client.call(
-                "ask_human", question=question, timeout_s=timeout_s, caller="mcp"
+                "ask_human",
+                wait_s=ask_human_wait_s(timeout_s),
+                question=question,
+                timeout_s=timeout_s,
+                caller="mcp",
+            )
+        except IpcTimeoutError as exc:
+            # The daemon is there but did not answer in time: the question may
+            # well have been asked (and charged to the hour's budget). Saying
+            # "not running" here sent the model off to restart a healthy daemon.
+            return (
+                f"YazSes is running but did not reply within {_seconds(exc.timeout_s)}, so "
+                "the question may or may not have been asked. Do not assume the "
+                "answer is no; wait, then ask again only if you must."
             )
         except IpcUnreachableError:
             return (
@@ -162,11 +202,28 @@ def serve(config, stdin: TextIO | None = None, stdout: TextIO | None = None) -> 
 
     Streams are injectable so the loop is testable without a subprocess.
     """
+    if stdin is None:
+        _reconfigure(sys.stdin, errors="replace")
+    if stdout is None:
+        _reconfigure(sys.stdout, newline="\n")
     source = stdin if stdin is not None else sys.stdin
     sink = stdout if stdout is not None else sys.stdout
     tools = build_tools(config)
 
-    for line in source:
+    lines = iter(source)
+    while True:
+        try:
+            line = next(lines)
+        except StopIteration:
+            break
+        except UnicodeDecodeError:
+            # Bytes that are not UTF-8 are one bad frame, not the end of the
+            # session: JSON-RPC's answer is a parse error, then carry on. (The
+            # default streams are switched to ``errors="replace"`` above, so this
+            # is for an injected stream that is stricter.)
+            _write(sink, {"jsonrpc": "2.0", "id": None,
+                          "error": {"code": -32700, "message": "Invalid JSON."}})
+            continue
         line = line.strip()
         if not line:
             continue
@@ -203,6 +260,23 @@ def serve(config, stdin: TextIO | None = None, stdout: TextIO | None = None) -> 
         if reply is not None:
             _write(sink, reply)
     return 0
+
+
+def _reconfigure(stream: object, **settings: Any) -> None:
+    """Make a default text stream UTF-8, which is what MCP's stdio transport is.
+
+    Without this the stream uses the locale's encoding with ``errors="strict"``, so
+    one invalid byte on stdin raised ``UnicodeDecodeError`` out of the read loop and
+    ended a session the client cannot restart, and Windows wrote ``\r\n``. A stream
+    without ``reconfigure`` (a replaced ``sys.stdin``) is left as it is.
+    """
+    reconfigure = getattr(stream, "reconfigure", None)
+    if reconfigure is None:
+        return
+    try:
+        reconfigure(encoding="utf-8", **settings)
+    except (OSError, ValueError):
+        log.debug("mcp: could not reconfigure a standard stream", exc_info=True)
 
 
 def _write(sink: TextIO, payload: dict[str, Any]) -> None:

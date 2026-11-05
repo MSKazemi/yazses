@@ -8,6 +8,7 @@ is launched and no daemon is needed.
 
 from __future__ import annotations
 
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -127,7 +128,9 @@ def test_without_text_the_daemon_is_asked_by_target_only(monkeypatch, tmp_path, 
     _platform(monkeypatch, tmp_path, ON, running=True, client=_Client())
     result = runner.invoke(app, ["send-to", "codex"])
     assert result.exit_code == 0, result.output
-    assert calls == [("send_to", {"target": "codex"})]
+    # The text is not sent; `wait_s` is the client's own per-call wait, not a daemon parameter.
+    assert calls == [("send_to", {"target": "codex", "wait_s": cli._SEND_TO_WAIT_S})]
+    assert cli._SEND_TO_WAIT_S >= 10.0
     assert "Opened Codex" in result.output
     assert opener.calls == [], "the daemon opens it, not the CLI"
 
@@ -153,3 +156,84 @@ def test_an_older_daemon_without_the_method_is_explained(monkeypatch, tmp_path, 
     result = runner.invoke(app, ["send-to", "claude"])
     assert result.exit_code == 1
     assert "yazses restart" in result.output
+
+
+# --- the hand-off may take longer than the client's default 2 s ---------------
+
+
+def test_a_daemon_that_is_slow_is_not_reported_as_starting_up(monkeypatch, tmp_path, opener):
+    """It used to read "starting up -- try again" when the daemon had already opened the
+    app and emptied the staged buffer, inviting a second hand-off of text that was gone."""
+    from yazses.ipc.client import IpcTimeoutError
+
+    class _Client:
+        def call(self, method, **params):
+            err = IpcTimeoutError("sock")
+            err.timeout_s = params["wait_s"]
+            raise err
+
+    _platform(monkeypatch, tmp_path, ON, running=True, client=_Client())
+    result = runner.invoke(app, ["send-to", "claude"])
+    assert result.exit_code == 1
+    assert "starting up" not in result.output
+    assert "did not answer within 12 s" in result.output
+    assert "may still have opened" in result.output
+
+
+def test_a_daemon_that_is_unreachable_still_reads_as_starting_up(monkeypatch, tmp_path, opener):
+    from yazses.ipc.client import IpcUnreachableError
+
+    class _Client:
+        def call(self, method, **params):
+            raise IpcUnreachableError("sock")
+
+    _platform(monkeypatch, tmp_path, ON, running=True, client=_Client())
+    result = runner.invoke(app, ["send-to", "claude"])
+    assert result.exit_code == 1
+    assert "starting up" in result.output
+
+
+@pytest.mark.skipif(
+    sys.platform not in ("linux", "darwin"), reason="Unix-domain sockets are POSIX-only"
+)
+def test_a_slow_hand_off_over_a_real_socket_reports_success(monkeypatch, tmp_path):
+    """Real socket, daemon handler slower than the client's (shortened) default wait."""
+    import tempfile
+    import time
+    from pathlib import Path
+
+    from yazses.ipc.client import JsonRpcClient
+    from yazses.ipc.server import JsonRpcServer
+    from yazses.sendto.handoff import hand_off
+
+    opened: list[str] = []
+
+    def slow_opener(url: str) -> bool:
+        time.sleep(0.8)
+        opened.append(url)
+        return True
+
+    with tempfile.TemporaryDirectory(prefix="nv-", dir="/tmp") as d:
+        sock = Path(d) / "s.sock"
+        srv = JsonRpcServer.unix(sock)
+        srv.register(
+            "send_to",
+            lambda r: hand_off(r.params["target"], "hello", opener=slow_opener).as_dict(),
+        )
+        srv.serve_in_thread()
+        for _ in range(200):
+            if sock.exists():
+                break
+            time.sleep(0.01)
+        try:
+            plat = SimpleNamespace(
+                paths=SimpleNamespace(ipc_socket=sock),
+                lifecycle=SimpleNamespace(is_running=lambda: True),
+                ipc_client_factory=lambda p: JsonRpcClient.unix(p, timeout_s=0.2),
+            )
+            monkeypatch.setattr(cli, "get_platform", lambda: plat)
+            info = cli._send_to_call("claude")
+        finally:
+            srv.shutdown()
+    assert info is not None and info["ok"], info
+    assert opened, "the hand-off did happen"

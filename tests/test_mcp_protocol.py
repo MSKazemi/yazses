@@ -71,14 +71,16 @@ def test_calling_a_tool_runs_it_and_wraps_the_result_as_content() -> None:
     assert reply["result"].get("isError") in (None, False)
 
 
-def test_an_unknown_tool_is_an_error_result_not_a_protocol_error() -> None:
+def test_an_unknown_tool_is_a_protocol_error() -> None:
     """MCP distinguishes the two, and clients rely on it: a protocol error means
-    the *call* was malformed, while a failed tool is a normal result the model can
-    read and react to."""
+    the *call* was malformed (2025-06-18 "Tools / Error Handling": "Unknown tools",
+    code -32602), while a failed tool is a normal result the model can read and
+    react to. This used to be an `isError` result."""
     reply = handle(_req("tools/call", {"name": "nope", "arguments": {}}), TOOLS)
-    assert "error" not in reply
-    assert reply["result"]["isError"] is True
-    assert "nope" in reply["result"]["content"][0]["text"]
+    assert "result" not in reply
+    assert reply["error"]["code"] == -32602
+    assert "transcribe" in reply["error"]["message"], "names what is offered"
+    assert "nope" not in reply["error"]["message"], "the caller's value is not reflected"
 
 
 def test_a_tool_that_raises_becomes_an_error_result_not_a_crash() -> None:
@@ -90,7 +92,9 @@ def test_a_tool_that_raises_becomes_an_error_result_not_a_crash() -> None:
     tools = (ToolSpec(name="boom", description="", schema={}, run=_boom),)
     reply = handle(_req("tools/call", {"name": "boom", "arguments": {}}), tools)
     assert reply["result"]["isError"] is True
-    assert "no such file" in reply["result"]["content"][0]["text"]
+    # A stable public message per failure class; the exception text stays server-side.
+    assert "no such file" not in reply["result"]["content"][0]["text"]
+    assert reply["result"]["content"][0]["text"].startswith("boom failed:")
 
 
 def test_an_unknown_method_is_a_jsonrpc_error() -> None:
@@ -158,18 +162,25 @@ def test_a_missing_argument_is_explained_from_the_schema():
 
 
 def test_a_missing_tool_name_says_which_field_is_missing():
-    """"No tool named None" reads as though None were a name that was tried."""
+    """"No tool named None" reads as though None were a name that was tried. A
+    missing name is a malformed call: a protocol error, not a tool result."""
     reply = _call([_Tool()], arguments={})
-    text = reply["result"]["content"][0]["text"]
-    assert reply["result"]["isError"] is True
-    assert "needs a 'name'" in text, text
+    text = reply["error"]["message"]
+    assert reply["error"]["code"] == -32602
+    assert "needs a string 'name'" in text, text
     assert "None" not in text, f"Python's None leaked into the message: {text}"
+
+
+@pytest.mark.parametrize("name", [1, True, [], {}, ""], ids=repr)
+def test_a_non_string_tool_name_is_a_protocol_error(name):
+    assert _call([_Tool()], name=name)["error"]["code"] == -32602
 
 
 def test_an_unknown_tool_still_lists_what_is_offered():
     reply = _call([_Tool()], name="nope", arguments={})
-    text = reply["result"]["content"][0]["text"]
-    assert "No tool named 'nope'" in text and "transcribe" in text
+    text = reply["error"]["message"]
+    assert reply["error"]["code"] == -32602
+    assert "Unknown tool" in text and "transcribe" in text
 
 
 def test_a_good_call_still_runs():
@@ -188,7 +199,7 @@ def test_an_error_inside_the_tool_is_still_reported_as_a_result():
 
     reply = _call([_Boom()], name="transcribe", arguments={"path": "/tmp/a.wav"})
     assert reply["result"]["isError"] is True
-    assert "decode failed" in reply["result"]["content"][0]["text"]
+    assert reply["result"]["content"][0]["text"].startswith("transcribe failed:")
 
 
 # ---- a non-object `params` is answered, not raised ----------------------------
@@ -236,8 +247,8 @@ def test_absent_or_null_params_are_still_accepted_for_initialize():
 
 def test_tools_call_without_params_still_names_the_missing_field():
     reply = handle({"jsonrpc": "2.0", "id": 1, "method": "tools/call"}, TOOLS)
-    assert reply["result"]["isError"] is True
-    assert "needs a 'name'" in reply["result"]["content"][0]["text"]
+    assert reply["error"]["code"] == -32602
+    assert "needs a string 'name'" in reply["error"]["message"]
 
 
 def test_a_large_valid_call_is_unchanged():
@@ -245,3 +256,159 @@ def test_a_large_valid_call_is_unchanged():
     reply = _call([_Tool()], name="transcribe", arguments={"path": big})
     assert not reply["result"].get("isError")
     assert big in reply["result"]["content"][0]["text"]
+
+
+# ---- ping (2025-06-18 basic/utilities/ping) ------------------------------------
+
+
+@pytest.mark.parametrize("rid", [1, "p", 0])
+def test_ping_is_answered_with_an_empty_result(rid):
+    """"The receiver MUST respond promptly with an empty response". It used to be
+    -32601 Unknown method, which a client that pings for liveness reads as a dead
+    server."""
+    assert handle(_req("ping", rid=rid), TOOLS) == {"jsonrpc": "2.0", "id": rid, "result": {}}
+
+
+def test_ping_with_odd_params_is_still_answered():
+    assert handle(_req("ping", {"x": 1}), TOOLS)["result"] == {}
+
+
+def test_a_ping_notification_gets_no_reply():
+    assert handle({"jsonrpc": "2.0", "method": "ping"}, TOOLS) is None
+
+
+# ---- version negotiation (2025-06-18 basic/lifecycle) --------------------------
+
+
+@pytest.mark.parametrize("asked", ["2025-06-18", "2025-03-26", "2024-11-05"])
+def test_a_supported_version_is_echoed(asked):
+    got = handle(_req("initialize", {"protocolVersion": asked}), TOOLS)
+    assert got["result"]["protocolVersion"] == asked
+
+
+@pytest.mark.parametrize("asked", ["1999-01-01", 5, {"a": 1}, ["x"], "garbage", None, "", True],
+                         ids=repr)
+def test_an_unsupported_version_is_answered_with_the_latest_supported(asked):
+    """"Otherwise, the server MUST respond with another protocol version it
+    supports. This SHOULD be the latest version supported by the server." It used
+    to echo whatever the client sent -- a number, a list -- back as the version."""
+    got = handle(_req("initialize", {"protocolVersion": asked}), TOOLS)["result"]["protocolVersion"]
+    assert got == "2025-06-18"
+
+
+# ---- tools/call: arguments are checked against the published schema ------------
+
+
+class _Flag:
+    name = "flag"
+    description = ""
+    schema = {
+        "type": "object",
+        "properties": {
+            "path": {"type": "string"},
+            "diarize": {"type": "boolean"},
+            "n": {"type": "integer"},
+            "t": {"type": "number"},
+        },
+        "required": ["path"],
+    }
+    seen: list = []
+
+    @classmethod
+    def run(cls, path, diarize=None, n=None, t=None):
+        cls.seen.append((path, diarize, n, t))
+        return "ran"
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        {"path": "a", "diarize": "false"},
+        {"path": "a", "diarize": 0},
+        {"path": "a", "diarize": "true"},
+        {"path": 5},
+        {"path": "a", "n": 1.5},
+        {"path": "a", "n": True},
+        {"path": "a", "t": "3"},
+        {"path": "a", "t": False},
+        {"path": None},
+    ],
+    ids=repr,
+)
+def test_a_mistyped_argument_is_refused_before_the_tool_runs(arguments):
+    """The string "false" is truthy in Python: `bool("false")` turned diarization ON
+    for a caller that asked for it OFF. The schema says boolean, so the call is
+    refused -- as a result the model can read and retry, naming the field."""
+    _Flag.seen.clear()
+    reply = _call([_Flag()], name="flag", arguments=arguments)
+    assert reply["result"]["isError"] is True
+    assert "invalid arguments" in reply["result"]["content"][0]["text"]
+    assert _Flag.seen == [], "the tool must not run on a mistyped call"
+
+
+def test_correctly_typed_arguments_run_and_null_means_omitted():
+    _Flag.seen.clear()
+    ok = _call([_Flag()], name="flag",
+               arguments={"path": "a", "diarize": False, "n": 2, "t": 1.5})
+    nulls = _call([_Flag()], name="flag", arguments={"path": "a", "diarize": None})
+    assert not ok["result"].get("isError") and not nulls["result"].get("isError")
+    assert _Flag.seen == [("a", False, 2, 1.5), ("a", None, None, None)]
+
+
+def test_an_int_is_a_valid_number():
+    _Flag.seen.clear()
+    assert not _call([_Flag()], name="flag", arguments={"path": "a", "t": 3})["result"].get("isError")
+
+
+@pytest.mark.parametrize("arguments", ["x", [1], 5, True], ids=repr)
+def test_non_object_arguments_are_invalid_params(arguments):
+    reply = _call([_Flag()], name="flag", arguments=arguments)
+    assert reply["error"]["code"] == -32602
+
+
+def test_an_unexpected_argument_name_is_not_reflected():
+    reply = _call([_Flag()], name="flag", arguments={"path": "a", "SECRET-NAME": 1})
+    text = reply["result"]["content"][0]["text"]
+    assert reply["result"]["isError"] is True
+    assert "SECRET-NAME" not in text and "Accepts: path" in text
+
+
+# ---- a failing tool does not leak its exception text ---------------------------
+
+SENTINEL = "/home/someone/SENTINEL-TOKEN-7731/credentials.json"
+
+
+@pytest.mark.parametrize(
+    "exc, fragment",
+    [
+        (FileNotFoundError(SENTINEL), "not found"),
+        (PermissionError(SENTINEL), "permission"),
+        (OSError(SENTINEL), "I/O"),
+        (ValueError(SENTINEL), "could not be processed"),
+        (ImportError(SENTINEL), "not installed"),
+        (RuntimeError(SENTINEL), "unexpectedly"),
+        (KeyError(SENTINEL), "unexpectedly"),
+        (TypeError(SENTINEL), "unexpectedly"),
+    ],
+    ids=lambda v: type(v).__name__ if isinstance(v, BaseException) else v,
+)
+def test_a_tool_failure_gets_a_stable_public_message(exc, fragment, capfd, caplog):
+    """The raw `ExcName: message` used to reach the client, so a path or token inside
+    an exception was disclosed to whatever agent called the tool. The wire carries a
+    fixed sentence per failure class; the exception goes to stderr, never stdout."""
+    def _boom(**kwargs):
+        raise exc
+
+    tools = (ToolSpec(name="boom", description="", schema={}, run=_boom),)
+    reply = handle(_req("tools/call", {"name": "boom", "arguments": {}}), tools)
+
+    wire = repr(reply)
+    assert reply["result"]["isError"] is True
+    assert "SENTINEL-TOKEN-7731" not in wire
+    assert type(exc).__name__ not in wire
+    assert fragment in reply["result"]["content"][0]["text"]
+    captured = capfd.readouterr()
+    assert captured.out == "", "stdout carries the protocol and nothing else"
+    # Logged, not printed: the logging system's destination is stderr (see the
+    # subprocess test in test_mcp_server.py for the unconfigured, real-process case).
+    assert "SENTINEL-TOKEN-7731" in caplog.text, "the full exception is logged"
