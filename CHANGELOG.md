@@ -22,6 +22,11 @@ What was not checked: Windows ACLs, network or FAT/NTFS mounts, and the daemon's
 Under the usual umask 022 these stores were world-readable (files `0644` in `0755` folders). On Linux and macOS they are now created `0600` in `0700` folders with no readable window, and an existing looser file or folder is tightened on its next write. The clipboard history lives in the config folder, which therefore also becomes `0700`. Windows behaviour is unchanged (no ACLs are applied).
 
 What was checked: 19 tests under umask 022 and 000 (17 fail on the old code), content bytes unchanged. What was not checked: Windows ACLs, network or FAT/NTFS mounts (only a mocked `chmod` failure).
+### Fixed — `yazses start`/`restart` stop only your own real YazSes daemons, and never delete a lock a live daemon holds
+
+The restart path found daemons with `pgrep -f` across all users, so an unrelated process with `yazses.main` anywhere in its arguments could be sent SIGTERM, and another user's matching process crashed the restart with `PermissionError`. It also deleted `daemon.lock` even when the old daemon survived, which allowed a second daemon (double typing). It now reads `/proc`, signals only same-uid processes with a real daemon command line that are not the caller or its ancestors, skips what it may not signal, and stops with an error instead of starting a second daemon while the lock is held.
+
+What was checked: 27 tests with a fake process table and a real lock-holding helper process. What was not checked: a multi-user machine, Windows, macOS, Flatpak. Not changed: `system/pid.py` still ignores `XDG_DATA_HOME`.
 
 ### Added — Persian text normalisation has a checkbox in Settings
 
