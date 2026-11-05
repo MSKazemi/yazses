@@ -11,6 +11,9 @@ ways to make that happen.
 
 from __future__ import annotations
 
+import os
+import re
+
 from yazses.stt.download import hub_cache_dir, whisper_model_url
 
 # Markers that identify "the network refused us" rather than "the download was
@@ -105,6 +108,95 @@ def supported_compute_types(device: str) -> list[str]:
         return sorted(ctranslate2.get_supported_compute_types(device))
     except Exception:  # noqa: BLE001 - a hint must never become a second failure
         return []
+
+
+# Words that name the accelerator rather than the model file. Matched
+# case-insensitively against the cause of a failed load on a non-CPU device.
+_DEVICE_MARKERS = (
+    "cuda",
+    "cudnn",
+    "cublas",
+    "nvidia",
+    "gpu",
+    "driver",
+    "device",
+)
+
+# A phrase that contains "device" but is a disk problem, not an accelerator one.
+_NOT_A_DEVICE_PHRASES = ("no space left on device",)
+
+_REASON_LIMIT = 120
+
+# An absolute path (POSIX, Windows drive or ``~/``) inside an error text. Matches up to
+# the next whitespace or quote, so "libcublas.so.12" (no leading slash) is untouched.
+_PATH_RE = re.compile(r"""(?:[A-Za-z]:[\\/]|~[\\/]|/)[^\s'"]*""")
+
+
+def _scrub_paths(text: str) -> str:
+    """Replace every path-like token (and the home directory) with ``<path>``."""
+    home = os.path.expanduser("~")
+    if home and home not in ("~", "/"):
+        text = text.replace(home, "<path>")
+    return _PATH_RE.sub("<path>", text)
+
+
+def short_reason(cause: BaseException | str) -> str:
+    """Class name plus the first line of *cause*, path-free and at most 120 characters.
+
+    The full text, with paths, stays in the log; this is what goes on a toast and in
+    ``yazses status``-style output that users paste into bug reports.
+    """
+    if isinstance(cause, BaseException):
+        first = (str(cause).strip().splitlines() or [""])[0]
+        reason = f"{type(cause).__name__}: {first}" if first else type(cause).__name__
+    else:
+        reason = (str(cause).strip().splitlines() or [""])[0]
+    reason = _scrub_paths(reason).strip()
+    if len(reason) > _REASON_LIMIT:
+        reason = reason[: _REASON_LIMIT - 3].rstrip() + "..."
+    return reason
+
+
+def looks_like_a_device_failure(cause: BaseException | str, device: str) -> bool:
+    """True when a failed load on *device* is the accelerator's fault, not the model's.
+
+    Never true for ``cpu``: a CPU failure keeps the wording it always had. For any
+    other device a failure is the device's unless it reads purely as a blocked
+    network (a download problem that happens to run on a GPU box). Used only to pick
+    the explanation, never whether to fail or retry.
+    """
+    if (device or "cpu").strip().lower() == "cpu":
+        return False
+    text = str(cause).lower()
+    disk = any(phrase in text for phrase in _NOT_A_DEVICE_PHRASES)
+    for phrase in _NOT_A_DEVICE_PHRASES:
+        text = text.replace(phrase, "")
+    if any(marker in text for marker in _DEVICE_MARKERS):
+        return True
+    return not (disk or looks_like_a_blocked_network(cause))
+
+
+def device_unavailable_message(
+    model: str, device: str, cause: BaseException | str
+) -> str:
+    """The full, actionable text for a device that could not run the model."""
+    lines = [
+        f"YazSes could not start the speech model {model!r} on [stt] device = "
+        f"{device!r}.",
+        "",
+        f"  Cause: {short_reason(cause)}",
+        "",
+        "This is a problem with the device, not a missing model, so downloading "
+        "the model again will not help. The full error is in `yazses logs`.",
+        "",
+        "  Fix it by setting `device = \"cpu\"` under `[stt]` in your config.toml, "
+        "then: yazses restart",
+        "  (`yazses doctor` prints the path to that file.)",
+        "",
+        "Dictation stays unavailable until the device works or the setting is "
+        "changed. Everything that does not transcribe keeps working.",
+    ]
+    return "\n".join(lines)
 
 
 def model_unavailable_message(model: str, cause: BaseException | str) -> str:
@@ -206,6 +298,29 @@ class ComputeTypeUnsupportedError(ModelUnavailableError):
             "YazSes cannot start dictation",
             f"[stt] compute_type = {self.compute_type!r} is not supported on this "
             "machine. Remove it to use the default int8, then: yazses restart",
+        )
+
+
+class DeviceUnavailableError(ModelUnavailableError):
+    """`[stt] device` names an accelerator that could not run the model.
+
+    A subclass for the reason `ComputeTypeUnsupportedError` is one: `core/daemon.py`
+    catches `ModelUnavailableError` to hold the process in ERROR state, and that
+    handling is right. Only the explanation was wrong: a missing cuDNN or an
+    insufficient driver was reported as "the model is not on this machine".
+    """
+
+    def __init__(self, model: str, device: str, cause: BaseException | str) -> None:
+        self.model = model
+        self.device = device
+        self.cause = cause
+        RuntimeError.__init__(self, device_unavailable_message(model, device, cause))
+
+    def notification(self) -> tuple[str, str]:
+        return (
+            "YazSes cannot start dictation",
+            f"[stt] device = {self.device!r} failed: {short_reason(self.cause)}. "
+            'Set device = "cpu" under [stt] in config.toml, then: yazses restart',
         )
 
 

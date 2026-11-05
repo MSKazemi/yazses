@@ -73,7 +73,9 @@ def _load_model(model_name: str, device: str, compute_type: str,
         # ModelUnavailableError carries the three ways to get the model instead.
         from yazses.stt.errors import (
             ComputeTypeUnsupportedError,
+            DeviceUnavailableError,
             ModelUnavailableError,
+            looks_like_a_device_failure,
             looks_like_an_unsupported_compute_type,
         )
 
@@ -81,6 +83,10 @@ def _load_model(model_name: str, device: str, compute_type: str,
             raise ComputeTypeUnsupportedError(
                 model_name, compute_type, device, exc
             ) from exc
+        # A non-CPU device that would not start is not a missing model; say which
+        # device and why. Same exception family, so the daemon holds in ERROR as before.
+        if looks_like_a_device_failure(exc, device):
+            raise DeviceUnavailableError(model_name, device, exc) from exc
         raise ModelUnavailableError(model_name, exc) from exc
 
 

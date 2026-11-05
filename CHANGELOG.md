@@ -73,6 +73,11 @@ Not done: showing `stalled_s` in `yazses meeting status`. What was not checked: 
 With `engine = "parakeet"`, a language Parakeet supports (for example `de`) and the `stt-parakeet` extra missing, the fallback model `base.en` is English-only, so the error told the user to change a model they never chose and never said the extra was missing. The error (same type, so the daemon's error hold is unchanged) now opens with the requested engine's failure and its fix (`yazses features enable stt-parakeet`). English and auto-detect configs still fall back to `base.en` as before.
 
 What was checked: six tests with a fake engine loader. What was not checked: a real model load.
+### Fixed — a speech device that will not start names the device and the cause, not a missing model
+
+When a non-CPU `[stt] device` failed to load (no usable CUDA or cuDNN, a missing shared library, a driver error), YazSes reported that the model was not on the machine and could not be downloaded, with three download remedies. It now says which device failed, a short cause without file paths, and the supported action: set `[stt] device = "cpu"` in `config.toml` and run `yazses restart`. Only the message changed: same exception, same retries, same device. CPU failures, blocked downloads and compute-type errors keep their wording.
+
+What was not checked: a real GPU. The CUDA error strings the classifier recognises come from library documentation, not from a failing machine.
 
 ### Added — Persian text normalisation has a checkbox in Settings
 
