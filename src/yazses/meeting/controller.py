@@ -95,6 +95,13 @@ class MeetingController:
 
     def start(self) -> None:
         self._running = True
+        # Seeded here, not left ``None`` until the first chunk: an input that opens and
+        # then never calls back is the same stall as one that dies mid-meeting, and
+        # measuring from the first chunk made it invisible (``stalled_s`` stayed 0.0 and
+        # no notice was sent). ``feed`` overwrites this on every chunk, so a meeting whose
+        # first chunk arrives promptly reads exactly as before.
+        if self._clock is not None:
+            self._last_chunk_at = self._clock()
         if self._seg is not None:
             self._worker = threading.Thread(
                 target=self._live_loop, name="meeting-live", daemon=True
@@ -113,6 +120,11 @@ class MeetingController:
             if utt is not None:
                 self._queue.put(utt)
         self._check_auto_stop()
+
+    @property
+    def has_time_limit(self) -> bool:
+        """True when a stalled meeting will end by itself at ``max_seconds``."""
+        return bool(self._max_seconds) and self._on_auto_stop is not None
 
     def tick(self) -> None:
         """Re-check the cap without a chunk; the daemon's watchdog calls this.
@@ -170,9 +182,11 @@ class MeetingController:
     def stalled_s(self) -> float:
         """Seconds since the last chunk arrived while capturing; ``0.0`` otherwise.
 
-        Zero when healthy (under ``_STALL_REPORT_S``), before the first chunk, after stop,
-        or without a clock. Nothing acts on it here: the cap in :meth:`_check_auto_stop`
-        runs only inside :meth:`feed`, so a dead input device is reported, not stopped.
+        Zero when healthy (under ``_STALL_REPORT_S``), before :meth:`start`, after stop,
+        or without a clock. Before the first chunk it counts from :meth:`start`, so an
+        input that never delivers anything is a stall too. Nothing acts on it here: the
+        cap is re-checked by :meth:`tick`, so a dead input device is reported and ends at
+        the cap.
         """
         if not self._running or self._clock is None or self._last_chunk_at is None:
             return 0.0

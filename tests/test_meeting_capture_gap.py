@@ -18,6 +18,7 @@ from yazses.config import MeetingConfig
 from yazses.meeting import store
 from yazses.meeting.controller import MeetingController
 from yazses.meeting.session import read_wav_mono_f32
+from yazses.meeting.stall import StallNotice
 from yazses.postprocess.prosody import Word
 from yazses.recimport.diarizer import DiarTurn
 
@@ -205,12 +206,51 @@ def test_long_meeting_uses_the_two_percent_bar(tmp_path):
 # ---- stalled_s ---------------------------------------------------------------------
 
 
-def test_stalled_s_is_zero_before_the_first_chunk_and_after_stop(tmp_path):
+def test_stalled_s_counts_from_start_when_no_chunk_ever_arrives(tmp_path):
+    """An input that opens and never calls back is a stall, not 'a meeting not begun'."""
+    t = [0.0]
+    ctl = _meeting(tmp_path, t, max_seconds=3600.0, on_auto_stop=lambda: None)
+    assert ctl.status()["stalled_s"] == 0.0  # not started: nothing is capturing
+    t[0] = 100.0
+    ctl.start()  # a meeting that begins late counts from its own start
+    assert ctl.status()["stalled_s"] == 0.0
+    t[0] = 104.9
+    assert ctl.status()["stalled_s"] == 0.0  # under the report floor, as ever
+    t[0] = 160.0
+    assert ctl.status()["stalled_s"] == 60.0
+    t[0] = 100.0 + 40 * 60
+    assert ctl.status()["stalled_s"] == 2400.0  # 40 minutes, zero chunks
+    assert StallNotice().observe(ctl.status()["stalled_s"]) is True  # and the toast fires
+    ctl.stop_capture()
+    assert ctl.status()["stalled_s"] == 0.0
+
+
+def test_the_seed_does_not_touch_a_healthy_meetings_outputs(tmp_path):
+    """First chunk prompt: metadata and summary are what they were without the seed."""
+    outs = []
+    for unseeded in (False, True):
+        sub = tmp_path / str(unseeded)
+        sub.mkdir()
+        t = [0.0]
+        ctl = _meeting(sub, t)
+        ctl.start()
+        if unseeded:
+            ctl._last_chunk_at = None  # the behaviour before the seed existed
+        for _ in range(10):
+            ctl.feed(np.ones(SR, dtype="float32"))
+            t[0] += 1.0
+        assert ctl.status()["stalled_s"] == 0.0
+        _info, meta, summary = _finish(ctl)
+        outs.append((meta, summary.replace(str(sub), "<dir>")))
+    assert outs[0] == outs[1]
+    assert "capture_gap_s" not in outs[0][0]
+
+
+def test_stalled_s_is_zero_after_stop_and_below_the_floor(tmp_path):
     t = [0.0]
     ctl = _meeting(tmp_path, t)
     ctl.start()
     t[0] = 500.0
-    assert ctl.status()["stalled_s"] == 0.0  # none yet: not a stall, a meeting not begun
     ctl.feed(np.ones(SR, dtype="float32"))
     t[0] += 60.0
     assert ctl.status()["stalled_s"] == 60.0

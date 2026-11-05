@@ -9,7 +9,8 @@ that earns a notification is a separate decision, and the rule is deliberately n
   separate stall is announced again.
 
 Nothing here stops the meeting. A device may come back, and the one thing that ends a
-stalled meeting is the wall-clock cap in ``MeetingController``.
+stalled meeting is the wall-clock cap in ``MeetingController`` -- which does not exist
+when ``max_minutes`` is 0, so the text differs there (:func:`stall_body`).
 """
 from __future__ import annotations
 
@@ -26,6 +27,18 @@ STALL_BODY = (
     "No audio has arrived for over 30 seconds. Check that the microphone is connected "
     "and not in use elsewhere. The meeting stays open and ends at its time limit."
 )
+#: Same, for ``[meeting] max_minutes = 0`` (unlimited): there is no time limit to wait for,
+#: so the text must not promise one. Also fixed, also free of anything the user said.
+STALL_BODY_NO_LIMIT = (
+    "No audio has arrived for over 30 seconds. Check that the microphone is connected "
+    "and not in use elsewhere. The meeting stays open until you stop it "
+    "(yazses meeting stop)."
+)
+
+
+def stall_body(has_time_limit: bool) -> str:
+    """The fixed notification body for a stall, honest about whether a cap will end it."""
+    return STALL_BODY if has_time_limit else STALL_BODY_NO_LIMIT
 
 
 class StallNotice:

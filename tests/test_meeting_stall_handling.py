@@ -26,9 +26,11 @@ from yazses.meeting.controller import MeetingController
 from yazses.meeting.session import read_wav_mono_f32
 from yazses.meeting.stall import (
     STALL_BODY,
+    STALL_BODY_NO_LIMIT,
     STALL_NOTIFY_S,
     STALL_TITLE,
     StallNotice,
+    stall_body,
 )
 from yazses.platform import get_platform
 
@@ -323,3 +325,44 @@ def test_recover_drops_a_malformed_gap_instead_of_carrying_it(tmp_path):
     store.write_meta(d, meta)
     recover.recover_meeting(d, _cfg(tmp_path), engine=_Engine(), sample_rate=SR)
     assert "capture_gap_s" not in store.read_meta(d)
+
+
+# ---- the toast must not promise a time limit that does not exist --------------------
+
+
+def test_stall_body_is_honest_about_the_time_limit():
+    assert stall_body(True) == STALL_BODY and "time limit" in STALL_BODY
+    assert stall_body(False) == STALL_BODY_NO_LIMIT
+    assert "time limit" not in STALL_BODY_NO_LIMIT
+    assert "yazses meeting stop" in STALL_BODY_NO_LIMIT
+    text = f"{STALL_TITLE}\n{STALL_BODY_NO_LIMIT}"
+    assert "30 seconds" in STALL_BODY_NO_LIMIT and "{" not in text and "%" not in text
+
+
+def test_controller_reports_whether_a_cap_will_end_a_stalled_meeting(tmp_path):
+    t = [0.0]
+    assert _meeting(tmp_path, t, [], max_seconds=3600.0).has_time_limit is True
+    assert _meeting(tmp_path, t, [], max_seconds=0.0).has_time_limit is False
+    no_hook = _meeting(tmp_path, t, [])
+    no_hook._on_auto_stop = None  # a cap with nobody to call never fires
+    assert no_hook.has_time_limit is False
+
+
+def test_watchdog_toast_for_an_unlimited_meeting_promises_no_time_limit(tmp_path, monkeypatch):
+    sent = []
+    from yazses.system import notify as notify_mod
+
+    monkeypatch.setattr(notify_mod, "notify", lambda title, body, **k: sent.append((title, body)))
+    d = _daemon(tmp_path)
+    t = [0.0]
+    ctl = _meeting(tmp_path, t, [], max_seconds=0.0)  # [meeting] max_minutes = 0
+    ctl.start()
+    t[0] = 31.0  # no chunk ever arrived
+    d._meeting_watch_tick(ctl, StallNotice())
+    assert sent == [(STALL_TITLE, STALL_BODY_NO_LIMIT)]
+    sent.clear()
+    capped = _meeting(tmp_path, t, [], max_seconds=3600.0)
+    capped.start()
+    t[0] = 70.0
+    d._meeting_watch_tick(capped, StallNotice())
+    assert sent == [(STALL_TITLE, STALL_BODY)]
