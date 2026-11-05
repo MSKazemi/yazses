@@ -6,6 +6,90 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `ask_human` can no longer exceed its hourly budget when several agents ask at once
+
+The budget was checked before the question was spoken and charged only after the answer, so concurrent callers all passed the check (8 simultaneous asks with a limit of 1 spoke 8 questions). The slot is now reserved atomically and handed back if the question goes unanswered; unanswered questions are still not counted. While one question is in flight, a concurrent caller is told to try again shortly instead of speaking over it. The daemon also builds its budget at start-up rather than on the first request.
+
+What was not checked: real audio or a live daemon; the daemon-level test uses the real `Daemon` with a faked speaker and listener.
+
+### Fixed — a deeply nested JSON line no longer ends an MCP stdio session
+
+A line nested 100,000 levels deep raised `RecursionError` out of the server loop and ended the session. It now gets a parse error and the session carries on. Request size is still not capped (AGT-05, an open decision).
+
+### Security — the owner-only file helpers no longer follow symbolic links
+
+A symlink placed where a private store file belongs was written through, and the file it pointed at had its permissions changed. Files are now opened with `O_NOFOLLOW` and tightened through the open descriptor; a symlinked store file is refused with an error, and a symlinked directory is used as it is without changing the target's mode. Windows is unchanged. Anyone who symlinks a single store file onto another disk now gets an error; symlinked directories still work.
+
+What was not checked: macOS, Windows, non-POSIX filesystems, FIFOs and hard links.
+
+### Security — `daemon.log` and its rotated backups are created owner-only
+
+The log took the process umask (`0644` under 022) and holds dictated text at DEBUG; rotation re-created it under the umask as well. On Linux and macOS the log is now `0600` in a `0700` folder, rotated backups included, and a looser existing file is tightened, never widened. Windows is unchanged.
+
+### Fixed — with `XDG_DATA_HOME` set, the daemon's lock and pid file are found where the daemon put them
+
+`system/pid.py` hard-coded `~/.local/share/yazses` while the daemon follows the platform data directory, so `yazses status` and the tray could report a running daemon as not running, and a sandboxed run could touch the real `daemon.pid`. Normal installs are unchanged.
+
+### Fixed — `yazses hotkey show` prints an unreadable-config warning once, not three times
+
+### Fixed — `yazses corpus destroy` says what it deletes
+
+It removes `corpus.db` and `clips/` only and leaves `corpus.key`, which also keys the voiceprints, so the help, the privacy statement and the uninstall page no longer say "everything". The uninstall page also no longer says the command asks for confirmation: it takes `--i-mean-it`.
+
+### Fixed — a wrong model name, a 404, a timeout or a rate limit on `cuda` or `auto` is no longer blamed on the GPU
+
+A failed model load on a non-CPU device was reported as a device problem with the advice to set `device = "cpu"` for any error that was not a network or disk-full marker. It is now blamed on the device only when the error text names CUDA, cuDNN, cuBLAS, NVIDIA, a driver or a GPU; everything else keeps the model-download guidance. The marker strings were read from the installed CTranslate2 library.
+
+What was not checked: a real GPU, and onnxruntime CUDA error texts.
+
+### Fixed — the short device-failure reason keeps URLs and C++ locations
+
+It no longer turns `https://docs.nvidia.com/cuda/x` or `cuda/cuda_utils.h:61` into `<path>`. It still hides real filesystem paths, and now also `file://` and UNC paths.
+
+### Fixed — the phonetic corrector no longer takes seconds on a very long unbroken word
+
+The path, file-name and e-mail patterns scanned in quadratic time (20,000 Latin characters: 6.4 s). They are now linear and bounded to 255 characters per component. Which paths, file names and addresses are protected is unchanged on 450,000 fuzzed strings and 45 realistic cases. A separate loop in `correct_text` is still quadratic on very span-dense text.
+
+### Fixed — a failing key-release after a successful ydotool type is reported even inside an unrelated error handler
+
+### Fixed — a meeting whose microphone opens but never delivers audio is reported as stalled
+
+It stayed silent until the time limit (up to 3 hours by default). The stall clock now starts when the meeting starts. With `[meeting] max_minutes = 0` the notice no longer claims the meeting ends at a time limit. A meeting that gets its first chunk promptly produces identical output.
+
+What was not checked: a real microphone.
+
+### Fixed — the tray icon recovers from the error state on its own
+
+After "daemon did not start" or a status-poll failure it kept an error icon forever. It now keeps checking (every 5 s, or with backoff up to 10 s after a crash), so starting the daemon clears the error. It never shows idle while it does not know.
+
+What was not checked: a real tray on macOS, Windows or Qt.
+
+### Fixed — ticking Persian normalisation and changing the language profile in one Apply now shows the "changes nothing" advice
+
+The advice was skipped while the profile write was running and never recomputed. It is now computed once the language has landed.
+
+What was not checked: the real worker thread (the tests call the completion handler directly).
+
+### Fixed — the homepage architecture pipeline: the Pause button, the live region and the stage controls
+
+The button now says "Resume auto-advance" with a play icon once paused. A person's own stage inspection is announced through a permanent, visually hidden polite node, while auto-advance and the first paint stay silent. Each stage is a real button that takes Enter and Space.
+
+What was not checked: any screen reader (NVDA, VoiceOver, Orca), Firefox or Safari, and the full built page.
+
+### Added — a machine-readable model manifest and an offline validator (research catalogue, not a feature)
+
+`design/hci-huggingface/model-manifest.json` holds the 54 rows of the model provenance inventory (#694) as data under `model-manifest.schema.json`: licence, revision kind and value, per-artifact sha256, runtime, download method, offline behaviour, consent and fallback. A value the inventory does not state is `unknown` and never guessed (7 entries have no stated licence, 3 no revision, and the bundled Silero file is the only recorded sha256). `python scripts/check_model_manifest.py` validates the schema, resolves cross-references and `code_refs`, requires every Hub id, revision and hash to be quoted whole in the inventory, and with `--artifact-root DIR` recomputes sha256 of files already on disk. Standard library only: no network, no Hugging Face import, no download. It adds no CLI command, config key or runtime read. Tests: `tests/test_model_manifest.py`.
+
+What was not checked: that each `code_refs` line means what the inventory says; the 2026-10-28 revisions against the live Hub; any weight hash other than Silero's.
+
+### Documentation — Proposed ADR-034 on whether to recommend Parakeet where it loads; stale statuses in the Chinese and Hugging Face design docs
+
+ADR-034 is Proposed and changes no behaviour (tracked in #645; changing the default is L3 work under ADR-030). The Chinese design notes record the MCP `transcribe` configuration defect (F6) as fixed in `8523d472`; the Hugging Face notes record PRs #697, #703, #704, #708, #710 and #711 as merged and the ownership decision of 2026-10-29, and still list the canonical Collection as an open owner decision.
+
+### Changed — tests only: the wall-clock budgets are checked by what they must catch
+
+Six converted tests (streaming `request_stop`, earcon play, portal fail-fast, `open_pointer_sink`, the X11 idle timeout, the hands-free panel refresh) now spy on the blocking call. Each survived a blocking mutant before and fails it now.
+
 ### Fixed — the disfluency filter no longer deletes repeated spoken digits
 
 The default-on 2-gram de-duplication collapsed repeated pairs, so `my pin is 4 7 4 7` became `my pin is 4 7` and `9 9 9 9 9 9 9 9` became `9 9`, silently, for any script. A pair containing a decimal digit (any script) or an English digit word (zero to ten) is now left alone. Other repeated phrases behave as before, including "New York New York", and the Persian emphatic-repeat case is still an expected failure (a maintainer decision). Digit words in other languages are not protected.
