@@ -317,6 +317,23 @@ LANGUAGE_REASON = (
 )
 
 
+def _guarded_main_window(base, close_allowed):
+    """A *base* (QMainWindow) that refuses to close while ``close_allowed()`` is false.
+
+    The subclass is made here, not at module scope, because the base class is Qt's and
+    this module must import without PySide6 (AGENTS.md rule 3).
+    """
+
+    class _GuardedWindow(base):  # type: ignore[misc, valid-type]
+        def closeEvent(self, event):  # noqa: N802 - Qt's name
+            if close_allowed():
+                super().closeEvent(event)
+            else:
+                event.ignore()
+
+    return _GuardedWindow()
+
+
 class SettingsWindow:
     """The settings window itself. Only imports Qt when instantiated."""
 
@@ -343,7 +360,7 @@ class SettingsWindow:
             {slug: row.enabled for slug, row in self._rows.items()}
         )
 
-        self._win = QMainWindow()
+        self._win = _guarded_main_window(QMainWindow, self._close_allowed)
         self._win.setWindowTitle("YazSes Settings")
         self._win.resize(900, 640)
         self._win.setMinimumSize(760, 520)
@@ -428,6 +445,14 @@ class SettingsWindow:
         self._restart_worker: Any = None
         self._restart_summary = ""
         self._restart_relay: Any = None
+        # A QThread destroyed while it still runs aborts the process. Quitting the
+        # application (the last window closing, the tray's Quit, a signal) must wait for
+        # a running worker rather than tear it down.
+        from PySide6.QtWidgets import QApplication
+
+        _app = QApplication.instance()
+        if _app is not None:
+            _app.aboutToQuit.connect(self._finish_workers)
         # High-level language application has its own worker because it may install
         # OpenCC and download a Whisper model before the atomic config commit.
         self._language_thread: Any = None
@@ -2023,6 +2048,34 @@ class SettingsWindow:
         self._hint.setText("  ".join(part for part in (summary, outcome.message) if part))
         self._restart_pending = outcome.needs_restart_hint
 
+    def _close_allowed(self) -> bool:
+        """The window may close unless the daemon is being restarted from it.
+
+        Closing mid-restart would end the application while `yazses restart` runs, and
+        the user would never see whether it worked. Ignore the close and say why; the
+        window closes normally once the outcome has been shown.
+        """
+        if self._restart_thread is None:
+            return True
+        self._hint.setText("Restarting YazSes… please wait, then close the window.")
+        return False
+
+    def _finish_workers(self) -> None:
+        """Wait for every worker thread; run on application quit.
+
+        `quit()` only asks a thread's event loop to stop, and these workers are blocked
+        in their job, so `wait()` is what actually holds the process until each is done.
+        """
+        for name in ("_restart_thread", "_install_thread", "_language_thread"):
+            thread = getattr(self, name, None)
+            if thread is None:
+                continue
+            try:
+                thread.quit()
+                thread.wait()
+            except RuntimeError:  # the C++ thread object is already gone: nothing to wait for
+                pass
+
     def _start_restart_worker(self, summary: str) -> None:
         from PySide6.QtCore import QThread
 
@@ -2046,15 +2099,21 @@ class SettingsWindow:
         worker.finished.connect(relay.deliver)
         self._restart_relay = relay
         worker.finished.connect(thread.quit)
+        thread.finished.connect(self._forget_restart_thread)
         thread.finished.connect(worker.deleteLater)
         thread.finished.connect(thread.deleteLater)
         self._restart_thread, self._restart_worker = thread, worker
         thread.start()
 
     def _on_restart_finished(self, outcome) -> None:
-        self._restart_thread = self._restart_worker = None
         self._apply_button.setEnabled(True)
         self._show_restart_outcome(self._restart_summary, outcome)
+
+    def _forget_restart_thread(self) -> None:
+        # Only a plain attribute write, so it is safe wherever Qt runs it. Done on the
+        # thread's own `finished`, not when the outcome arrives: until the thread has
+        # really stopped, closing the window or quitting must still wait for it.
+        self._restart_thread = self._restart_worker = None
 
     def _confirm_restart(self) -> bool:
         from PySide6.QtWidgets import QMessageBox

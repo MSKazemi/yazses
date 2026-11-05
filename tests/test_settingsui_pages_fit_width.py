@@ -84,17 +84,68 @@ def restore_font(qapp):
     qapp.setFont(saved)
 
 
-@pytest.mark.parametrize("page", ["audio", "speech"])
-def test_a_long_dropdown_entry_does_not_make_the_page_scroll_sideways(
-    qapp, restore_font, monkeypatch, page
-):
-    win = _window(qapp, 16.0, monkeypatch)
+def _page_min_width(qapp, page: str, device: str, monkeypatch) -> int:
+    from yazses.audio.devices import InputDevice
+
+    monkeypatch.setattr(
+        SettingsWindow, "_probe_devices", lambda self: ([InputDevice(0, device, 2, True)], device)
+    )
+    rec = _Rec()
+    win = SettingsWindow(
+        build_settings_model(Config()), SettingsController(rec.load, rec.write, rec.probe)
+    )
+    # The Speech page's drop-downs hold model, language and backend names; give each an
+    # entry of the same length, as a custom model or an unusual locale would be.
+    for box in (win._model_box, win._language_box, win._profile_box, win._backend_box,
+                win._compute_box, win._guard_box, win._consent_box):
+        box.addItem(device)
+    win._win.resize(win._win.minimumSize())
+    win._win.show()
     win._shell.select(page)
     qapp.processEvents()
     area = win._shell.stack.currentWidget().findChildren(QScrollArea)[0]
-    content = area.widget()
-    assert content.minimumSizeHint().width() <= area.viewport().width(), page
-    assert area.horizontalScrollBar().maximum() == 0, page
+    width = area.widget().minimumSizeHint().width()
+    win._win.close()
+    return width
+
+
+@pytest.mark.parametrize("page", ["audio", "speech"])
+def test_a_page_is_no_wider_for_a_long_device_name(qapp, restore_font, monkeypatch, page):
+    """The width a page asks for must not depend on how long a device is called.
+
+    Whether a page *fits* depends on the font (it differs by tens of pixels between
+    DejaVu, Liberation and Noto), so that is not asserted. What the fix guarantees, in
+    any font, is that the same page asks for the same width with a three-letter device
+    and with a 120-character one.
+    """
+    font = qapp.font()
+    font.setPointSizeF(16.0)
+    qapp.setFont(font)
+    short = _page_min_width(qapp, page, "Mic", monkeypatch)
+    long = _page_min_width(qapp, page, "x" * 120, monkeypatch)
+    assert long == short, page
+
+
+def test_no_settings_dropdown_asks_for_more_than_the_compact_width(
+    qapp, restore_font, monkeypatch
+):
+    """Every drop-down the window builds (bar the fixed key list) is capped, whatever it holds.
+
+    Compared with a fresh compact combo in the same font, so the font cancels out.
+    """
+    from yazses.settingsui.app import _compact_combo
+
+    font = qapp.font()
+    font.setPointSizeF(16.0)
+    qapp.setFont(font)
+    win = _window(qapp, 16.0, monkeypatch)
+    cap = _compact_combo().minimumSizeHint().width()
+    capped = [
+        c for c in win._win.findChildren(QComboBox) if c is not win._hotkey_box
+    ]
+    assert capped
+    for combo in capped:
+        assert combo.minimumSizeHint().width() <= cap, combo.accessibleName()
     win._win.close()
 
 

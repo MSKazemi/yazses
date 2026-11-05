@@ -182,16 +182,14 @@ class GuiRelay(_QObject):  # type: ignore[misc,valid-type]
     on the GUI thread and connect the worker's signal to :meth:`deliver`.
     """
 
-    if _Signal is not None:  # pragma: no branch - class body runs once
-        from PySide6.QtCore import Slot as _Slot
-
-        @_Slot(object)
-        def deliver(self, value) -> None:
-            self._callback(value)
-
     def __init__(self, callback: Callable[[object], None]) -> None:
         super().__init__()
         self._callback = callback
+
+    # A bound method of a QObject: Qt delivers it on this object's thread, so no
+    # `Slot` decorator (and no module-scope PySide6 import for it) is needed.
+    def deliver(self, value) -> None:
+        self._callback(value)
 
 
 def _make_installer(echo):
