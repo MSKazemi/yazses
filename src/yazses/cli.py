@@ -1371,44 +1371,125 @@ def _force_kill_signal():
     return getattr(signal, "SIGKILL", None)
 
 
-def _kill_yazses_daemons(sig) -> int:
+def _read_proc_table() -> list[tuple[int, int, int, list[str]]]:
+    """Linux process table as ``(pid, ppid, real_uid, argv)`` rows, read from ``/proc``.
+
+    A process that exits mid-scan, or whose files are unreadable, is skipped: the
+    table is a snapshot and the caller re-checks nothing it cannot afford to miss.
+    Kernel threads and zombies have an empty ``cmdline`` and so an empty ``argv``.
+    """
+    import os
+
+    rows: list[tuple[int, int, int, list[str]]] = []
+    try:
+        names = os.listdir("/proc")
+    except OSError:
+        return rows
+    for name in names:
+        if not name.isdigit():
+            continue
+        try:
+            with open(f"/proc/{name}/cmdline", "rb") as fh:
+                raw = fh.read()
+            with open(f"/proc/{name}/status", encoding="utf-8", errors="replace") as fh:
+                status = fh.read()
+        except OSError:
+            continue
+        ppid = uid = -1
+        for line in status.splitlines():
+            if line.startswith("PPid:"):
+                ppid = int(line.split()[1])
+            elif line.startswith("Uid:"):
+                uid = int(line.split()[1])  # real uid, first of the four fields
+        argv = [a.decode("utf-8", "replace") for a in raw.split(b"\0") if a]
+        rows.append((int(name), ppid, uid, argv))
+    return rows
+
+
+def _is_daemon_argv(argv: list[str]) -> bool:
+    """True when *argv* is shaped like a real YazSes daemon launch -- not merely
+    mentioning one.
+
+    ``command_for(Mode.DAEMON)`` yields no arguments past the entry point, so the
+    accepted shapes are exactly these, with nothing after them:
+
+    * ``…/yazses-daemon`` (the console script, a packaged unit's ``ExecStart``);
+    * ``python -m yazses.main``;
+    * ``python …/yazses-daemon`` (the console script run through its shebang).
+
+    The old hunt was ``pgrep -f`` on the substring, so ``tail -f yazses.main.log`` or
+    an editor with that file open matched, and was sent SIGTERM.
+    """
+    import os.path
+
+    if not argv:
+        return False
+    if os.path.basename(argv[0]) == "yazses-daemon":
+        return len(argv) == 1
+    if not os.path.basename(argv[0]).startswith("python"):
+        return False
+    i = 1
+    while i < len(argv):
+        arg = argv[i]
+        if arg == "-m":
+            return argv[i + 1 :] == ["yazses.main"]
+        if arg in ("-X", "-W"):  # interpreter options that take a separate value
+            i += 2
+            continue
+        if arg == "-c" or not arg.startswith("-"):
+            return os.path.basename(arg) == "yazses-daemon" and i == len(argv) - 1
+        i += 1
+    return False
+
+
+def _kill_yazses_daemons(sig, process_table=None, *, uid=None, pid=None) -> int:
     """Linux: signal every yazses daemon process (systemd + detached `yazses.main`).
 
     Returns the count signalled. The detached `yazses start` path reparents to the
     systemd user manager and survives `systemctl stop`, so a clean restart must hunt
     them by command line, not just the PID file.
 
+    A process is signalled only if all of these hold: it belongs to the current user,
+    its argv is a real daemon launch (:func:`_is_daemon_argv`), and it is not this
+    process or any ancestor of it. A match owned by someone else is not ours to stop,
+    and a failed ``os.kill`` on any single process never aborts the restart.
+
     ``sig`` of ``None`` is a no-op, so a platform with no force-kill signal can call
     this without the caller having to branch (see :func:`_force_kill_signal`).
+    ``process_table`` (a callable returning ``(pid, ppid, uid, argv)`` rows), ``uid``
+    and ``pid`` default to the live system; tests inject them.
     """
+    import logging
     import os
-    import subprocess
     import sys
 
     if sys.platform != "linux" or sig is None:
         return 0
-    # Exclude this process AND the shell that launched us, so a command line that
-    # happens to contain the pattern can never get itself killed.
-    safe = {os.getpid(), os.getppid()}
+    own_pid = os.getpid() if pid is None else pid
+    own_uid = os.getuid() if uid is None else uid
+    rows = (_read_proc_table if process_table is None else process_table)()
+    parent_of = {p: pp for p, pp, _u, _a in rows}
+    # This process and its WHOLE ancestor chain (shell, terminal, the tray that ran
+    # `yazses restart` from Settings...), so a command line can never get its own
+    # launcher killed. Seeded with getppid() in case the table missed it.
+    safe = {own_pid}
+    if pid is None:
+        safe.add(os.getppid())
+    cur = own_pid
+    while cur in parent_of and parent_of[cur] > 0 and parent_of[cur] not in safe:
+        cur = parent_of[cur]
+        safe.add(cur)
     killed = 0
-    # Precise patterns ([.] = literal dot) — match only the real daemon invocations
-    # (`…/bin/yazses-daemon` and `python -m yazses.main`), never `yazses restart` etc.
-    for pat in ("bin/yazses-daemon", "yazses[.]main"):
-        try:
-            out = subprocess.run(["pgrep", "-f", pat], capture_output=True, text=True)
-        except Exception:
+    for p, _pp, owner, argv in rows:
+        if p in safe or owner != own_uid or not _is_daemon_argv(argv):
             continue
-        for tok in out.stdout.split():
-            try:
-                pid = int(tok)
-            except ValueError:
-                continue
-            if pid not in safe:
-                try:
-                    os.kill(pid, sig)
-                    killed += 1
-                except ProcessLookupError:
-                    pass
+        try:
+            os.kill(p, sig)
+            killed += 1
+        except ProcessLookupError:
+            pass
+        except OSError as exc:  # PermissionError: not ours after all; skip it
+            logging.getLogger("yazses").debug("restart: cannot signal pid %s: %s", p, exc)
     return killed
 
 
@@ -1480,8 +1561,35 @@ def _restart_daemon(platform) -> None:
         # The old process must be *gone*, not merely asked, before the new one
         # exists. #330: two live daemons on one pipe answered `status` in turn.
         _wait_for_daemon_exit(pid)
+    lock_path = platform.paths.data_dir / "daemon.lock"
+    # Unlinking a lock file a live daemon still holds lets a second instance create a
+    # fresh file and lock *that* -- two daemons, every dictation typed twice. So the
+    # file goes only when nobody holds it; otherwise stop here, spawning nothing.
+    from yazses.system.single_instance import holder_pid
+
     try:
-        (platform.paths.data_dir / "daemon.lock").unlink(missing_ok=True)
+        holder = holder_pid(lock_path)
+        if holder is not None and holder > 0:
+            _wait_for_daemon_exit(holder, grace_s=1.0)  # a SIGKILLed holder is gone in ms
+            holder = holder_pid(lock_path)
+    except Exception:  # noqa: BLE001 — an unanswerable probe must not wedge restart
+        holder = None
+    if holder is not None:
+        who = f"process {holder}" if holder > 0 else "another process"
+        typer.echo(
+            f"YazSes could not restart: a daemon ({who}) is still running and holds "
+            f"the instance lock, and it could not be stopped. Not starting a second "
+            f"one, which would type everything twice.",
+            err=True,
+        )
+        typer.echo(
+            "  Stop it yourself (`yazses stop`, or end that process), then run "
+            "`yazses start`. `yazses doctor` shows what is running.",
+            err=True,
+        )
+        raise typer.Exit(1)
+    try:
+        lock_path.unlink(missing_ok=True)
     except Exception:
         pass
     platform.lifecycle.clear_pid()
