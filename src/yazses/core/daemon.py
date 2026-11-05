@@ -9429,13 +9429,24 @@ class Daemon:
         whether to ask again.
         """
         from yazses.mcp.ask import AskHumanService, Refusal
+        from yazses.mcp.budget import InterruptBudget
 
         params = request.params if isinstance(request.params, dict) else {}
         question = str(params.get("question") or "")
         caller = str(params.get("caller") or "an agent")
         timeout_s = float(params.get("timeout_s") or 30.0)
 
+        # One budget for the daemon's lifetime: the service is rebuilt per request, so
+        # a budget built inside it would start empty every time (audit AGT-01). A
+        # changed `[mcp] ask_human_per_hour` is applied in place, keeping what is spent.
+        limit = self._config.mcp.ask_human_per_hour
+        budget = getattr(self, "_ask_human_budget", None)
+        if budget is None:
+            budget = self._ask_human_budget = InterruptBudget(max_per_hour=limit)
+        budget.max_per_hour = limit
+
         service = AskHumanService(
+            budget=budget,
             speaker=self._ask_human_speaker(),
             listener=self._ask_human_listener,
             max_per_hour=self._config.mcp.ask_human_per_hour,

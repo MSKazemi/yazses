@@ -68,13 +68,17 @@ class AskHumanService:
         enabled: bool,
         is_holding: Callable[[], bool],
         clock: Callable[[], float],
+        budget: InterruptBudget | None = None,
     ) -> None:
         self._speaker = speaker
         self._listener = listener
         self._enabled = enabled
         self._is_holding = is_holding
         self._clock = clock
-        self._budget = InterruptBudget(max_per_hour=max_per_hour)
+        #: A caller that builds a service per request MUST pass one shared budget,
+        #: or every request starts with an empty hour and the limit never bites.
+        #: ``None`` keeps the old behaviour: a private budget owned by this service.
+        self._budget = budget if budget is not None else InterruptBudget(max_per_hour=max_per_hour)
         #: Deliberately never set to anything. Its presence is the assertion: the
         #: answer travels back to the caller and is not typed anywhere. A test
         #: watches it, so a future change that injects here fails loudly.
