@@ -19,37 +19,55 @@ from pathlib import Path
 
 from yazses.system.proc import process_alive
 
+# The fallback layout, used only when a caller does not say where the data directory is.
+# `LinuxLifecycle` always does: the daemon takes its instance lock at
+# ``paths.data_dir / "daemon.lock"`` (``core/daemon.py``), and ``paths.data_dir`` follows
+# ``$XDG_DATA_HOME`` through platformdirs. A hard-coded ``~/.local/share`` therefore looked
+# for the lock in a different place from where it is held whenever ``XDG_DATA_HOME`` is set,
+# so ``is_running()`` said "not running" for a live daemon -- and a sandboxed run wrote and
+# deleted the *real* ``daemon.pid``.
 _DATA_DIR = Path.home() / ".local" / "share" / "yazses"
 _PID_FILE = _DATA_DIR / "daemon.pid"
 _LOCK_FILE = _DATA_DIR / "daemon.lock"
 
 
-def write_pid() -> None:
-    _PID_FILE.parent.mkdir(parents=True, exist_ok=True)
-    _PID_FILE.write_text(str(os.getpid()), encoding="utf-8")
+def _pid_file(data_dir: Path | None) -> Path:
+    return _PID_FILE if data_dir is None else Path(data_dir) / "daemon.pid"
 
 
-def read_pid() -> int | None:
+def _lock_file(data_dir: Path | None) -> Path:
+    return _LOCK_FILE if data_dir is None else Path(data_dir) / "daemon.lock"
+
+
+def write_pid(data_dir: Path | None = None) -> None:
+    pid_file = _pid_file(data_dir)
+    pid_file.parent.mkdir(parents=True, exist_ok=True)
+    pid_file.write_text(str(os.getpid()), encoding="utf-8")
+
+
+def read_pid(data_dir: Path | None = None) -> int | None:
     """The daemon's PID: from the lock if it is held, else the PID file."""
     from yazses.system.single_instance import holder_pid
 
-    held = holder_pid(_LOCK_FILE)
+    lock_file = _lock_file(data_dir)
+    held = holder_pid(lock_file)
     if held is not None and held > 0:
         return held
     if held is not None:  # held, but the PID bytes were unreadable
-        return _read_pid_file()
+        return _read_pid_file(data_dir)
     # Nobody holds the lock. Trust that over a PID file left behind by a crash, but only
     # where locking actually works — otherwise fall back rather than claim "not running".
-    if _LOCK_FILE.exists() and _locking_supported():
+    if lock_file.exists() and _locking_supported():
         return None
-    return _read_pid_file()
+    return _read_pid_file(data_dir)
 
 
-def _read_pid_file() -> int | None:
-    if not _PID_FILE.exists():
+def _read_pid_file(data_dir: Path | None = None) -> int | None:
+    pid_file = _pid_file(data_dir)
+    if not pid_file.exists():
         return None
     try:
-        return int(_PID_FILE.read_text(encoding="utf-8").strip())
+        return int(pid_file.read_text(encoding="utf-8").strip())
     except (ValueError, OSError):
         return None
 
@@ -60,21 +78,22 @@ def _locking_supported() -> bool:
     return single_instance.fcntl is not None or single_instance.msvcrt is not None
 
 
-def clear_pid() -> None:
-    _PID_FILE.unlink(missing_ok=True)
+def clear_pid(data_dir: Path | None = None) -> None:
+    _pid_file(data_dir).unlink(missing_ok=True)
 
 
-def is_running() -> bool:
+def is_running(data_dir: Path | None = None) -> bool:
     """True when a YazSes daemon is alive. Must agree with what starting one will do."""
     from yazses.system.single_instance import holder_pid
 
-    if holder_pid(_LOCK_FILE) is not None:
+    lock_file = _lock_file(data_dir)
+    if holder_pid(lock_file) is not None:
         return True  # the lock is held — a daemon is running, whatever the PID file says
 
-    pid = _read_pid_file()
+    pid = _read_pid_file(data_dir)
     if pid is None:
         return False
-    if _LOCK_FILE.exists() and _locking_supported():
+    if lock_file.exists() and _locking_supported():
         # The lock is free, so no daemon holds it; a leftover PID file is not evidence.
         return False
     # `os.kill(pid, 0)` used to stand here. It is the POSIX idiom and it *terminates*
