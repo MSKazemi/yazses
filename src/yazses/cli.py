@@ -1146,17 +1146,22 @@ def meeting_enroll(
     typer.echo(f"  Voiceprint: {path}  (encrypted, on-device — ADR-011/012)")
 
 
-def _resolved_hotkey(platform) -> str:
+def _resolved_hotkey(platform, cfg=None) -> str:
     """The hotkey the daemon will actually bind: the configured ``[hotkey] key``
     when present, else the platform default. CLI messages should reflect what the
-    user configured, not the bare platform default."""
-    try:
-        from yazses.config import load_config
+    user configured, not the bare platform default.
 
-        # Pass the path directly: load_config returns defaults when it doesn't
-        # exist. (Passing None would fall back to the *default* user config path,
-        # which may differ from this platform's config_file.)
-        cfg = load_config(platform.paths.config_file)
+    ``cfg`` lets a command that has already loaded the config reuse it: ``load_config``
+    logs every config problem on each call, so a command that loads once per helper
+    printed the same "could not be read" warning once per helper."""
+    try:
+        if cfg is None:
+            from yazses.config import load_config
+
+            # Pass the path directly: load_config returns defaults when it doesn't
+            # exist. (Passing None would fall back to the *default* user config path,
+            # which may differ from this platform's config_file.)
+            cfg = load_config(platform.paths.config_file)
         key = cfg.hotkey.key
         # "auto" (and the empty string) mean "use the platform default" — resolve
         # it so messages show the real key (e.g. right_alt), never the sentinel.
@@ -1238,8 +1243,10 @@ def _live_vad_threshold(platform) -> float | None:
         return None
 
 
-def _hotkey_drift_note(platform) -> str:
+def _hotkey_drift_note(platform, cfg=None) -> str:
     """The one-line warning when config and daemon disagree, else ``""``.
+
+    ``cfg`` is an already-loaded config (see ``_resolved_hotkey``); omit it to load one.
 
     The rule lives in `system/doctor.py` and is shared rather than restated: `doctor`,
     `hotkey show` and `quickstart` are three surfaces answering the same question, and
@@ -1248,9 +1255,11 @@ def _hotkey_drift_note(platform) -> str:
     from yazses.system.doctor import hotkey_drift_note
 
     try:
-        from yazses.config import load_config
+        if cfg is None:
+            from yazses.config import load_config
 
-        configured = (load_config(platform.paths.config_file).hotkey.key or "auto").strip()
+            cfg = load_config(platform.paths.config_file)
+        configured = (cfg.hotkey.key or "auto").strip()
     except Exception:
         return ""
     return hotkey_drift_note(
@@ -4448,7 +4457,7 @@ def hotkey_show() -> None:
 
     platform = get_platform()
     cfg = load_config(platform.paths.config_file)
-    typer.echo(f"Hold-to-talk key:  {_resolved_hotkey(platform)}  (dictation)")
+    typer.echo(f"Hold-to-talk key:  {_resolved_hotkey(platform, cfg)}  (dictation)")
     cmd = (cfg.hotkey.command_key or "").strip()
     if cmd:
         typer.echo(f"Command key:       {cmd}  (force command mode)")
@@ -4458,7 +4467,7 @@ def hotkey_show() -> None:
     # answered from the file while the daemon answered from memory. On a machine mid-drift
     # it printed the two keys with their labels swapped -- naming the key that actually
     # dictates as the command key -- which is worse than saying nothing.
-    drift = _hotkey_drift_note(platform)
+    drift = _hotkey_drift_note(platform, cfg)
     if drift:
         typer.secho(f"\n⚠ {drift}", fg=typer.colors.YELLOW)
     typer.echo(f"Choices: {', '.join(SETTABLE_HOTKEYS)}")

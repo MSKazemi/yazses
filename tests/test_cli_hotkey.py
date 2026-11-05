@@ -122,3 +122,18 @@ def test_the_command_key_does_not_accept_auto(monkeypatch, tmp_path):
     result, cfg = _run(monkeypatch, tmp_path, ["hotkey", "command", "auto"])
     assert result.exit_code == 1
     assert "command_key" not in cfg.read_text(encoding="utf-8")
+
+
+def test_hotkey_show_reports_an_unreadable_config_once(monkeypatch, tmp_path, caplog):
+    """`hotkey show` loaded the config three times (the command, `_resolved_hotkey`, and
+    `_hotkey_drift_note`), and `load_config` logs every problem on each call, so a broken
+    config.toml printed the same warning three times. It must be said once."""
+    import logging
+
+    with caplog.at_level(logging.WARNING, logger="yazses.config"):
+        result, _ = _run(
+            monkeypatch, tmp_path, ["hotkey", "show"], config="this is [[ not toml\n"
+        )
+    assert result.exit_code == 0, result.output
+    warned = [r for r in caplog.records if "could not be read" in r.getMessage()]
+    assert len(warned) == 1, [r.getMessage() for r in warned]
