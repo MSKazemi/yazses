@@ -254,20 +254,25 @@ def test_gathering_runs_off_the_ui_thread_and_overlapping_refreshes_collapse(qap
     seen_threads: list[str] = []
     calls = []
 
+    gather_returned = threading.Event()
+
     def gather():
         seen_threads.append(threading.current_thread().name)
         calls.append(1)
-        release.wait(5)
+        release.wait(5)                  # hang guard for the fake; the test sets `release`
+        gather_returned.set()
         return _inputs()
 
     panel = HandsFreePanel(
         gather, lambda spec: ActionResult(True, "ok"), poll_ms=0, threaded=True
     )
-    started = time.monotonic()
+    # Ordering, not a stopwatch: the gather is held open by `release`, so three refresh()
+    # calls returning while it has not returned is true at any machine speed. A refresh()
+    # that ran the gather inline could only come back after it returned.
     panel.refresh()
     panel.refresh()
     panel.refresh()
-    assert time.monotonic() - started < 1.0, "refresh() must not wait for the gather"
+    assert not gather_returned.is_set(), "refresh() must not wait for the gather"
     release.set()
     deadline = time.monotonic() + 5
     while panel._model is None and time.monotonic() < deadline:

@@ -29,14 +29,73 @@ def test_corpus(entry):
     )
 
 
-def test_runtime_under_10ms():
+# ---- cost of a call: ratios, never a wall-clock budget ----------------------
+#
+# This used to assert ``< 10 ms`` per call.  An absolute budget measures the machine
+# as much as the filter: a starved CI runner (CI_POLICY section 13.1, or ``-n auto``
+# contention) slows everything and fails a test that has no bug.  What matters is how
+# the cost compares with a fixed unit of plain-Python work *measured in the same
+# process, interleaved with it*, and how it grows with the input -- both cancel
+# machine speed.  ``min`` over repeats discards the batches a noisy neighbour hit.
+
+_SAMPLES = 200
+
+
+def _machine_unit() -> int:
+    """A fixed amount of pure-Python work: the yardstick for 'this machine, right now'."""
+    total = 0
+    for i in range(1000):
+        total += i * i
+    return total
+
+
+def _best_seconds(fn, calls: int = 1) -> float:
+    """Fastest per-call seconds of *fn*: the minimum over ``_SAMPLES`` batches of *calls*.
+
+    Many short samples, not a few long ones.  Under heavy CPU contention the scheduler
+    preempts a run that outlasts its time slice, so only a sample shorter than the slice
+    can come back clean -- and the minimum needs just one of those.
+    """
+    best = float("inf")
+    for _ in range(_SAMPLES):
+        t0 = time.perf_counter()
+        for _ in range(calls):
+            fn()
+        best = min(best, (time.perf_counter() - t0) / calls)
+    return best
+
+
+# Measured: one call is ~1.2 machine units.  The old 10 ms ceiling was ~230 units on the
+# dev laptop; 100 still leaves nearly two orders of magnitude and fails on a regression
+# about the size the old test caught, without a clock in the assertion.
+_MAX_UNITS_PER_CALL = 100
+
+
+def test_a_call_costs_a_bounded_number_of_machine_units():
     config = DisfluencyConfig()
     text = "um so I uh need to basically uh you know delete last line uh right okay so"
-    t0 = time.perf_counter()
-    for _ in range(100):
-        filter_transcript(text, config)
-    elapsed_ms = (time.perf_counter() - t0) / 100 * 1000
-    assert elapsed_ms < 10, f"filter_transcript took {elapsed_ms:.2f} ms (> 10 ms)"
+    call = _best_seconds(lambda: filter_transcript(text, config))
+    unit = _best_seconds(_machine_unit)
+    assert call < _MAX_UNITS_PER_CALL * unit, (
+        f"filter_transcript took {call / unit:.0f} machine units "
+        f"(limit {_MAX_UNITS_PER_CALL}; 1 unit = {unit * 1e6:.1f} us here)"
+    )
+
+
+def test_cost_grows_linearly_with_the_utterance_not_quadratically():
+    """16x the words must cost nowhere near 16x16x: a hesitation-heavy dictation of a
+    few hundred words (a pasted paragraph) is real input."""
+    config = DisfluencyConfig()
+    base = "um so I uh need to basically uh you know delete last line uh right okay so"
+
+    def cost(copies: int) -> float:
+        text = " ".join([base] * copies)
+        return _best_seconds(lambda: filter_transcript(text, config))
+
+    small, large = cost(2), cost(32)
+    # 16x the input.  Measured over repeated runs: linear is 11-13x (fixed overhead is
+    # amortised), a quadratic pass is 55x or more.
+    assert large < 30 * small, f"16x the input cost {large / small:.0f}x -- not linear"
 
 
 def test_proper_nouns_unchanged():

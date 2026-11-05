@@ -59,23 +59,35 @@ def test_a_broken_audio_device_never_reaches_the_caller(mocker, audio):
 
 def test_playback_does_not_block_the_caller(mocker, audio):
     """`_on_hold_start` is the hot path: the user has pressed the key and is about to
-    speak. A blocking cue would swallow the first word."""
+    speak. A blocking cue would swallow the first word.
+
+    Event-ordered, not timed: playback is held open by an event this test controls, so
+    "play() returned while the cue was still sounding" is a fact about ordering, true at
+    any machine speed. A blocking play() could only return after playback did.
+    ``HANG_GUARD_S`` bounds the fake so a regression is a red test, not a hang; it is
+    never what the assertion measures.
+    """
+    HANG_GUARD_S = 10.0
     started = threading.Event()
+    release = threading.Event()
+    finished = threading.Event()
 
-    def _slow(*_a, **_k):
+    def _held(*_a, **_k):
         started.set()
-        time.sleep(1.0)
+        release.wait(timeout=HANG_GUARD_S)
+        finished.set()
 
-    mocker.patch("sounddevice.play", side_effect=_slow)
+    mocker.patch("sounddevice.play", side_effect=_held)
     player = EarconPlayer(enabled=True)
 
-    began = time.monotonic()
-    player.play("recording_start")
-    elapsed = time.monotonic() - began
-
-    assert elapsed < 0.2, f"play() blocked for {elapsed:.2f}s"
-    assert started.wait(timeout=2.0), "playback never actually started"
-    _settle()   # do not leave a thread to call into the next test's mock
+    try:
+        player.play("recording_start")
+        assert not finished.is_set(), "play() waited for the cue to finish sounding"
+        assert started.wait(timeout=HANG_GUARD_S), "playback never actually started"
+    finally:
+        release.set()
+        _settle()   # do not leave a thread to call into the next test's mock
+    assert finished.is_set()
 
 
 def test_a_second_cue_is_dropped_rather_than_queued(mocker, audio):
