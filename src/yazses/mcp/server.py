@@ -172,9 +172,11 @@ def serve(config, stdin: TextIO | None = None, stdout: TextIO | None = None) -> 
             continue
         try:
             request = json.loads(line)
-        except ValueError:
+        except (ValueError, RecursionError):
             # -32700 per JSON-RPC. Answered with a null id because the id lives
-            # inside the frame we could not parse.
+            # inside the frame we could not parse. A line of tens of thousands of `[`
+            # raises RecursionError, which is not a ValueError; uncaught it ended
+            # this loop and the client cannot restart us mid-session.
             _write(sink, {"jsonrpc": "2.0", "id": None,
                           "error": {"code": -32700, "message": "Invalid JSON."}})
             continue
