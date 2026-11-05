@@ -8308,17 +8308,17 @@ class Daemon:
         try:
             controller.tick()
             if notice.observe(controller.stalled_s()):
-                self._notify_meeting_stall()
+                self._notify_meeting_stall(getattr(controller, "has_time_limit", True))
         except Exception:  # pragma: no cover - a watchdog never costs a running meeting
             log.debug("Meeting watchdog pass failed", exc_info=True)
 
-    def _notify_meeting_stall(self) -> None:
+    def _notify_meeting_stall(self, has_time_limit: bool = True) -> None:
         """Tell the user the running meeting has stopped hearing audio. Never raises."""
         try:
-            from yazses.meeting.stall import STALL_BODY, STALL_TITLE
+            from yazses.meeting.stall import STALL_TITLE, stall_body
             from yazses.system.notify import notify
 
-            notify(STALL_TITLE, STALL_BODY)
+            notify(STALL_TITLE, stall_body(has_time_limit))
         except Exception:  # pragma: no cover - a toast never costs a running meeting
             log.debug("Could not announce the meeting stall", exc_info=True)
 
