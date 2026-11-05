@@ -101,7 +101,10 @@ class AskHumanService:
             raise Refusal("An empty question cannot be asked.")
 
         now = self._clock()
-        verdict = self._budget.allow(caller, now=now, holding=self._is_holding())
+        # Check and hold the slot in one step: the IPC server runs a thread per
+        # connection, and a bare check-then-charge-later lets every concurrent caller
+        # pass the check before the first is charged.
+        verdict = self._budget.reserve(caller, now=now, holding=self._is_holding())
         if not verdict.ok:
             raise Refusal(
                 verdict.reason, retry_after_s=verdict.retry_after_s, deferred=verdict.deferred
@@ -112,22 +115,30 @@ class AskHumanService:
         # Bounded by the caller, capped by us — see MAX_TIMEOUT_S.
         wait = max(1.0, min(float(timeout_s), self.MAX_TIMEOUT_S))
 
+        charged = False
         try:
-            self._speaker.speak(spoken)
-            answer = self._listener(wait)
-        except Exception as exc:  # noqa: BLE001 - reported to the agent, never raised on
-            # The slot is *not* charged: speaking or listening can fail after
-            # permission was granted (no audio device, the user walked away), and
-            # an agent should not lose its hour to a question nobody heard.
-            log.debug("ask_human failed while speaking or listening", exc_info=True)
-            raise Refusal(f"The question could not be asked: {exc}") from exc
+            try:
+                self._speaker.speak(spoken)
+                answer = self._listener(wait)
+            except Exception as exc:  # noqa: BLE001 - reported to the agent, never raised on
+                # The slot is *not* charged: speaking or listening can fail after
+                # permission was granted (no audio device, the user walked away), and
+                # an agent should not lose its hour to a question nobody heard.
+                log.debug("ask_human failed while speaking or listening", exc_info=True)
+                raise Refusal(f"The question could not be asked: {exc}") from exc
 
-        if not (answer or "").strip():
-            # Distinct from an empty answer on purpose. "They said nothing
-            # meaningful" and "they never answered" are different facts, and an
-            # agent will act differently on each.
-            raise Refusal("No answer was heard before the timeout.", retry_after_s=wait)
+            if not (answer or "").strip():
+                # Distinct from an empty answer on purpose. "They said nothing
+                # meaningful" and "they never answered" are different facts, and an
+                # agent will act differently on each.
+                raise Refusal("No answer was heard before the timeout.", retry_after_s=wait)
 
-        # Charged only now — one question asked, one answer heard.
-        self._budget.record(caller, now=now)
-        return answer.strip()
+            # Charged only now — one question asked, one answer heard.
+            self._budget.commit(now=now)
+            charged = True
+            return answer.strip()
+        finally:
+            if not charged:
+                # Unanswered or failed (or an unexpected BaseException): hand the
+                # reserved slot back so it is never leaked.
+                self._budget.release()
