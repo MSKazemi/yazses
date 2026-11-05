@@ -78,6 +78,9 @@ What was checked: six tests with a fake engine loader. What was not checked: a r
 When a non-CPU `[stt] device` failed to load (no usable CUDA or cuDNN, a missing shared library, a driver error), YazSes reported that the model was not on the machine and could not be downloaded, with three download remedies. It now says which device failed, a short cause without file paths, and the supported action: set `[stt] device = "cpu"` in `config.toml` and run `yazses restart`. Only the message changed: same exception, same retries, same device. CPU failures, blocked downloads and compute-type errors keep their wording.
 
 What was not checked: a real GPU. The CUDA error strings the classifier recognises come from library documentation, not from a failing machine.
+### Fixed — an unreadable `config.toml` no longer prints an empty `[]:` section
+
+A config file that could not be read as a whole (bad TOML, a NUL byte, a decode or permission error) produced `config.toml: []: could not be read (...); using defaults throughout`. A problem with the whole file belongs to no section, so the `[]:` prefix is gone. Every other warning format is unchanged.
 
 ### Added — Persian text normalisation has a checkbox in Settings
 

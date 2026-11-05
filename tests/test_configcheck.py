@@ -209,3 +209,54 @@ def test_a_quoted_number_still_repairs(tmp_path):
     result = load_config_checked(cfg_file)
     assert result.config.accessibility.vad_threshold == 0.004
     assert result.problems, "a repaired value should still be reported at the source"
+
+
+# ---- a problem with the whole file belongs to no section -------------------
+#
+# `load_config_checked` reports an unreadable file as `ConfigProblem("", "", ...)`, and
+# `__str__` used to print the empty section as `[]`:
+#     config.toml: []: could not be read (...); using defaults throughout
+# which reads as a section named nothing.
+
+
+def test_a_problem_with_no_section_prints_without_empty_brackets():
+    text = str(ConfigProblem("", "", "could not be read (boom); using defaults throughout", False))
+    assert text == "could not be read (boom); using defaults throughout"
+    assert "[]" not in text
+
+
+def test_a_problem_with_a_key_but_no_section_keeps_the_key():
+    assert str(ConfigProblem("", "model", "is empty", False)) == "model: is empty"
+
+
+@pytest.mark.parametrize(
+    ("problem", "expected"),
+    [
+        # Golden strings recorded from the base commit: every non-empty-section format
+        # must stay byte-identical.
+        (ConfigProblem("stt", "model", "is bad", False), "[stt] model: is bad"),
+        (
+            ConfigProblem("stt", "", "is not a known section; ignored", False),
+            "[stt]: is not a known section; ignored",
+        ),
+        (ConfigProblem("gesture.chords", "", "note", True), "[gesture.chords]: note"),
+    ],
+)
+def test_a_problem_inside_a_section_keeps_its_format(problem, expected):
+    assert str(problem) == expected
+
+
+def test_an_unreadable_config_file_warns_without_empty_brackets(tmp_path, caplog):
+    """Through the real entry point: the text a user actually sees in the log."""
+    cfg_file = tmp_path / "config.toml"
+    cfg_file.write_bytes(b"[stt]\nmodel = 'small.en'\n\x00\n")
+
+    with caplog.at_level("WARNING", logger="yazses.config"):
+        cfg = load_config(cfg_file)
+
+    assert cfg.stt.model != "small.en"  # the file was lost whole, so defaults throughout
+    warnings = [r.getMessage() for r in caplog.records if r.name == "yazses.config"]
+    assert len(warnings) == 1, warnings
+    assert warnings[0].startswith("config.toml: could not be read (")
+    assert warnings[0].endswith("; using defaults throughout")
+    assert "[]" not in warnings[0]

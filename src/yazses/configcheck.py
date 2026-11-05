@@ -48,6 +48,10 @@ class ConfigProblem:
     refused: bool = False
 
     def __str__(self) -> str:
+        if not self.section:
+            # A problem with the file as a whole ("could not be read ...") belongs to no
+            # section; printing the empty `[]` read as a section named nothing.
+            return f"{self.key}: {self.detail}" if self.key else self.detail
         where = f"[{self.section}] {self.key}" if self.key else f"[{self.section}]"
         return f"{where}: {self.detail}"
 
