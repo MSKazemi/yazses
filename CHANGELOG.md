@@ -6,6 +6,12 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — ydotool 1.x injection releases all keys even when typing fails or times out
+
+The release-all that clears any held key was sent only after typing succeeded, so a failed or timed-out `type` skipped it. It now runs in a `finally` for the v1 dialect (v0 sends nothing) and never replaces the original error.
+
+What was checked: nine tests with a fake runner (six fail on the old code). What was not checked: a real Wayland machine or `ydotoold`; a key actually staying stuck after a failed `type` is unconfirmed.
+
 ### Added — Persian text normalisation has a checkbox in Settings
 
 `[stt] persian_normalisation` could only be turned on by editing `config.toml`. It is now a
