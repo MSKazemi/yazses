@@ -11,6 +11,8 @@ from __future__ import annotations
 import io
 import json
 
+import pytest
+
 from yazses.config import Config
 from yazses.mcp.server import build_tools, serve
 
@@ -207,3 +209,55 @@ def test_serve_reads_the_streams_it_is_given() -> None:
 
     assert code == 0
     assert '"jsonrpc"' in stdout.getvalue(), stdout.getvalue()
+
+
+# --- one bad frame never ends the session -------------------------------------
+
+
+@pytest.mark.parametrize("method", ["initialize", "tools/call"])
+@pytest.mark.parametrize("params", ["x", 1, True, [1], []], ids=repr)
+def test_a_non_object_params_is_answered_and_the_loop_continues(method, params, capfd) -> None:
+    """Reproduced against the real loop: `"params": "x"` raised AttributeError out
+    of `serve()`, so the process exited 1 with a traceback and the client lost
+    the server. The next, valid frame must still be answered."""
+    replies = _drive([_req(method, params, rid=1), _req("tools/list", rid=2)])
+
+    assert [r["id"] for r in replies] == [1, 2]
+    assert replies[0]["error"]["code"] == -32602
+    assert [t["name"] for t in replies[1]["result"]["tools"]] == ["transcribe"]
+    assert "Traceback" not in capfd.readouterr().err
+
+
+def test_a_handler_exception_becomes_internal_error_and_the_loop_continues(
+    monkeypatch, capfd
+) -> None:
+    """Whatever `handle()` raises, the client gets -32603 with fixed text and the
+    next frame is served. stdout stays JSON lines; stderr gets one concise line,
+    not a traceback."""
+    from yazses.mcp import server as server_mod
+
+    real = server_mod.handle
+
+    def flaky(request, tools):
+        if request.get("id") == 1:
+            raise RuntimeError("secret-internal-detail")
+        return real(request, tools)
+
+    monkeypatch.setattr(server_mod, "handle", flaky)
+    replies = _drive([_req("tools/list", rid=1), _req("tools/list", rid=2)])
+
+    assert replies[0]["id"] == 1
+    assert replies[0]["error"] == {"code": -32603, "message": "Internal error."}
+    assert replies[1]["id"] == 2 and "result" in replies[1]
+    assert "Traceback" not in capfd.readouterr().err
+
+
+def test_a_handler_exception_on_a_notification_stays_silent_on_stdout(monkeypatch) -> None:
+    from yazses.mcp import server as server_mod
+
+    def boom(request, tools):
+        raise RuntimeError("x")
+
+    monkeypatch.setattr(server_mod, "handle", boom)
+    notification = json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized"})
+    assert _drive([notification]) == []

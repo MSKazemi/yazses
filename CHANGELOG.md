@@ -42,6 +42,11 @@ What was checked: nine tests with a fake runner (six fail on the old code). What
 The daemon built a new budget for every request, so the hourly limit never took effect (audit item AGT-01). One budget now lives for the daemon's lifetime; a limit changed in the config is applied in place, so lowering it does not forgive questions already asked. Questions that are never answered are still not counted (AGT-02): that is a maintainer decision and is unchanged.
 
 What was checked: unit tests and two daemon-level tests with fake speaker and listener (4 of 5 fail on the old code), plus a mutation check. What was not checked: a real speaker, microphone or MCP client.
+### Fixed — `yazses mcp-server` no longer exits when a client sends a non-object `params`
+
+A `params` of `"x"` or `[1]` on `initialize` or `tools/call` raised `AttributeError`, printed a traceback and ended the session with status 1. The server now answers JSON-RPC `-32602` with the request id and keeps serving, and any unexpected handler error is answered with `-32603` instead of ending the loop. Falsy non-objects (`0`, `""`, `[]`, `false`) used to be treated silently as `{}` and now get `-32602`. Notifications still get no reply.
+
+What was checked: pure `handle()` and `serve()` tests and the real `mcp-server` command against a scripted client (stdout stays protocol-only, stderr empty). What was not checked: a real MCP client (Claude Desktop, Claude Code, Codex).
 
 ### Added — Persian text normalisation has a checkbox in Settings
 

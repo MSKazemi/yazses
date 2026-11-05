@@ -12,6 +12,8 @@ every test here is a dict in and a dict out.
 """
 from __future__ import annotations
 
+import pytest
+
 from yazses.mcp.protocol import ToolSpec, handle
 
 
@@ -187,3 +189,59 @@ def test_an_error_inside_the_tool_is_still_reported_as_a_result():
     reply = _call([_Boom()], name="transcribe", arguments={"path": "/tmp/a.wav"})
     assert reply["result"]["isError"] is True
     assert "decode failed" in reply["result"]["content"][0]["text"]
+
+
+# ---- a non-object `params` is answered, not raised ----------------------------
+
+_NOT_AN_OBJECT = ["x", 1, True, [1], [], 0, "", False]
+
+
+@pytest.mark.parametrize("method", ["initialize", "tools/call"])
+@pytest.mark.parametrize("params", _NOT_AN_OBJECT, ids=repr)
+def test_a_non_object_params_is_invalid_params_not_a_crash(method, params):
+    """`"params": "x"` used to raise AttributeError out of `handle()` and end the
+    stdio process. JSON-RPC's answer is -32602 with the request id echoed, and the
+    message is fixed text so a client's input is never reflected back."""
+    reply = handle({"jsonrpc": "2.0", "id": 9, "method": method, "params": params}, TOOLS)
+
+    assert reply["id"] == 9
+    assert reply["error"]["code"] == -32602
+    assert reply["error"]["message"] == "Invalid params: params must be an object."
+    assert "result" not in reply
+
+
+@pytest.mark.parametrize("method", ["initialize", "tools/call"])
+def test_the_invalid_params_message_does_not_echo_the_input(method):
+    reply = handle(
+        {"jsonrpc": "2.0", "id": 1, "method": method, "params": "SECRET-TOKEN-123"}, TOOLS
+    )
+    assert "SECRET-TOKEN-123" not in repr(reply)
+
+
+@pytest.mark.parametrize("method", ["initialize", "tools/call", "tools/list"])
+def test_a_non_object_params_on_a_notification_is_still_unanswered(method):
+    assert handle({"jsonrpc": "2.0", "method": method, "params": "x"}, TOOLS) is None
+
+
+def test_absent_or_null_params_are_still_accepted_for_initialize():
+    """Both are an ordinary way to say "no parameters"; only a present value of the
+    wrong type is an error."""
+    for request in (
+        {"jsonrpc": "2.0", "id": 1, "method": "initialize"},
+        {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": None},
+    ):
+        reply = handle(request, TOOLS)
+        assert reply["result"]["serverInfo"]["name"] == "yazses"
+
+
+def test_tools_call_without_params_still_names_the_missing_field():
+    reply = handle({"jsonrpc": "2.0", "id": 1, "method": "tools/call"}, TOOLS)
+    assert reply["result"]["isError"] is True
+    assert "needs a 'name'" in reply["result"]["content"][0]["text"]
+
+
+def test_a_large_valid_call_is_unchanged():
+    big = "a" * 1_000_000
+    reply = _call([_Tool()], name="transcribe", arguments={"path": big})
+    assert not reply["result"].get("isError")
+    assert big in reply["result"]["content"][0]["text"]
