@@ -412,3 +412,129 @@ def test_a_tool_failure_gets_a_stable_public_message(exc, fragment, capfd, caplo
     # Logged, not printed: the logging system's destination is stderr (see the
     # subprocess test in test_mcp_server.py for the unconfigured, real-process case).
     assert "SENTINEL-TOKEN-7731" in caplog.text, "the full exception is logged"
+
+
+# ---- exceptions written for users keep their cause and fix --------------------
+
+
+def _failure(exc: BaseException) -> str:
+    def _boom(**kwargs):
+        raise exc
+
+    tools = (ToolSpec(name="transcribe", description="", schema={}, run=_boom),)
+    reply = handle(_req("tools/call", {"name": "transcribe", "arguments": {}}), tools)
+    assert reply["result"]["isError"] is True
+    return reply["result"]["content"][0]["text"]
+
+
+def test_a_missing_speech_model_tells_the_agent_what_to_do():
+    """On origin/main the client was told the cause and the fix; the first version of
+    the stable mapper reduced it to "the tool failed unexpectedly", and MCP clients
+    mostly do not show stderr to the model, so nobody could say what to run."""
+    from yazses.stt.errors import ModelUnavailableError
+
+    text = _failure(ModelUnavailableError("base.en", f"offline: {SENTINEL}"))
+
+    assert "model 'base.en' is not on this machine" in text
+    assert "yazses model download base.en" in text and "yazses restart" in text
+
+
+def test_only_the_first_line_of_a_model_error_is_exposed():
+    """The exception's full text holds the underlying cause and the cache directory
+    (`Cause: ...`, `into: <hub cache>`): a path and whatever the library printed."""
+    from yazses.stt.errors import ModelUnavailableError
+
+    text = _failure(ModelUnavailableError("base.en", f"offline: {SENTINEL}"))
+
+    assert "SENTINEL-TOKEN-7731" not in text
+    assert "Cause" not in text and "into:" not in text and "\n" not in text
+
+
+def test_a_model_name_that_is_a_local_path_is_not_repeated():
+    from yazses.stt.errors import ModelUnavailableError
+
+    text = _failure(ModelUnavailableError("/home/someone/SENTINEL-TOKEN-7731/model", "x"))
+
+    assert "SENTINEL-TOKEN-7731" not in text and "/home" not in text
+    assert text.startswith("transcribe failed:") and "yazses doctor" in text
+
+
+@pytest.mark.parametrize(
+    "build, fix",
+    [
+        (lambda: __import__("yazses.stt.errors", fromlist=["x"]).ComputeTypeUnsupportedError(
+            "base.en", "float16", "cpu", SENTINEL), "Remove the compute_type line"),
+        (lambda: __import__("yazses.stt.errors", fromlist=["x"]).DeviceUnavailableError(
+            "base.en", "cuda", SENTINEL), 'device = "cpu"'),
+        (lambda: __import__("yazses.stt.errors", fromlist=["x"]).LanguageUnsupportedError(
+            "faster-whisper", "base.en", "fa", SENTINEL), "yazses language status"),
+        (lambda: __import__("yazses.stt.errors", fromlist=["x"]).LanguageUnsupportedError(
+            "faster-whisper", "base.en", "fa", SENTINEL,
+            requested_engine="parakeet", requested_failure=SENTINEL), "yazses language status"),
+    ],
+    ids=["compute-type", "device", "language", "language-with-fallback"],
+)
+def test_every_speech_model_error_class_gives_a_fix_and_no_sentinel(build, fix):
+    text = _failure(build())
+
+    assert fix in text, text
+    assert "SENTINEL-TOKEN-7731" not in text
+    assert "\n" not in text and "Cause" not in text
+
+
+def test_a_lookalike_exception_does_not_opt_in():
+    """Only the speech-model classes are written to be shown; an ordinary RuntimeError
+    whose text reads like a sentence is not."""
+    text = _failure(RuntimeError(f"The speech-to-text model is not here: {SENTINEL}"))
+
+    assert "SENTINEL-TOKEN-7731" not in text and "unexpectedly" in text
+
+
+# ---- a missing optional component is named, without a path --------------------
+
+
+def test_a_missing_module_is_named():
+    text = _failure(ModuleNotFoundError(f"No module named 'sherpa_onnx' ({SENTINEL})",
+                                        name="sherpa_onnx"))
+
+    assert text == "transcribe failed: a component this tool needs is not installed: sherpa_onnx."
+
+
+def test_only_the_top_level_module_is_named():
+    text = _failure(ModuleNotFoundError("x", name="pyannote.audio.pipelines"))
+    assert text == "transcribe failed: a component this tool needs is not installed: pyannote."
+
+
+@pytest.mark.parametrize(
+    "name", ["/home/someone/SENTINEL-TOKEN-7731/mod", "a b", "x;rm -rf", "C:\\SENTINEL-TOKEN-7731", "", None],
+    ids=repr,
+)
+def test_a_module_name_that_is_not_an_identifier_is_not_repeated(name):
+    text = _failure(ModuleNotFoundError(f"No module named {SENTINEL}", name=name))
+
+    assert "SENTINEL-TOKEN-7731" not in text and "rm -rf" not in text
+    assert "not installed" in text and "installed:" not in text
+
+
+def test_an_import_error_that_is_not_a_missing_module_stays_generic():
+    text = _failure(ImportError(f"cannot import name 'x' from {SENTINEL}", name="/p/SENTINEL"))
+
+    assert "SENTINEL" not in text and "not installed" in text and "installed:" not in text
+
+
+# ---- JSON numbers: 5.0 is an integer ------------------------------------------
+
+
+@pytest.mark.parametrize("value", [5, 5.0, 0.0, -3.0, 1e3])
+def test_an_integral_float_is_a_valid_integer(value):
+    _Flag.seen.clear()
+    reply = _call([_Flag()], name="flag", arguments={"path": "a", "n": value})
+    assert not reply["result"].get("isError"), reply
+    assert _Flag.seen[0][2] == value
+
+
+@pytest.mark.parametrize("value", [5.5, float("inf"), float("nan"), True, False, "5"], ids=repr)
+def test_a_non_integral_value_is_still_not_an_integer(value):
+    _Flag.seen.clear()
+    reply = _call([_Flag()], name="flag", arguments={"path": "a", "n": value})
+    assert reply["result"]["isError"] is True and _Flag.seen == []
