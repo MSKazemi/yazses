@@ -95,7 +95,8 @@ def recover_meeting(
     from yazses.meeting.session import read_wav_mono_f32
 
     d = Path(meeting_dir)
-    meeting_id_early = store.read_meta(d).get("id") or d.name
+    prior_meta = store.read_meta(d)
+    meeting_id_early = prior_meta.get("id") or d.name
     # Two things before any decoding, both cheap and both about not being able to end up
     # worse off than we started. The live transcript is rendered whether or not this run
     # succeeds; the previous attempt's outputs are moved aside, because a retry is run
@@ -140,6 +141,10 @@ def recover_meeting(
         "recovered": True,
         "status": "done",
     }
+    # Carried, not recomputed: the gap is wall-clock minus samples at the moment the live
+    # run finalized, and a recovery has only the WAV -- no clock to recompute it from.
+    if (gap := prior_meta.get("capture_gap_s")) and store.capture_gap_warning(prior_meta):
+        meta["capture_gap_s"] = gap
     store.write_meta(d, meta)
     lines = store.summary_lines(
         {**meta, "dir": str(d)},
