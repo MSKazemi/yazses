@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — research: multilingual, accent and code-switch evaluation design ([#797](https://github.com/MSKazemi/yazses/issues/797))
+
+`design/research/2026-11-05-multilingual-accent-and-code-switch-evaluation-design.md` audits public evaluation sets and their licences, records the training-data leakage risk per engine family, the per-language normalisation traps and the failure accounting for unsupported languages. No results; no public Tamil or Persian-English code-switch set was found.
+
 ### Added — Persian text normalisation has a checkbox in Settings
 
 `[stt] persian_normalisation` could only be turned on by editing `config.toml`. It is now a
