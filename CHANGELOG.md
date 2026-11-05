@@ -6,6 +6,12 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses start`/`restart` stop only your own real YazSes daemons, and never delete a lock a live daemon holds
+
+The restart path found daemons with `pgrep -f` across all users, so an unrelated process with `yazses.main` anywhere in its arguments could be sent SIGTERM, and another user's matching process crashed the restart with `PermissionError`. It also deleted `daemon.lock` even when the old daemon survived, which allowed a second daemon (double typing). It now reads `/proc`, signals only same-uid processes with a real daemon command line that are not the caller or its ancestors, skips what it may not signal, and stops with an error instead of starting a second daemon while the lock is held.
+
+What was checked: 27 tests with a fake process table and a real lock-holding helper process. What was not checked: a multi-user machine, Windows, macOS, Flatpak. Not changed: `system/pid.py` still ignores `XDG_DATA_HOME`.
+
 ### Added — Persian text normalisation has a checkbox in Settings
 
 `[stt] persian_normalisation` could only be turned on by editing `config.toml`. It is now a
