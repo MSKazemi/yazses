@@ -2,10 +2,11 @@
 
 What is pinned, and why each one matters to a user:
 
-* **The bundle runs the installed `yazses`, and ships nothing else.** Two entries,
-  `manifest.json` and `icon.png`. A bundle that carried code or a runtime would be a
-  second YazSes install with no model, no permission and no updater, which ADR-032
-  rejects by name.
+* **The bundle runs the installed `yazses`, and ships nothing else.** Three entries:
+  `manifest.json`, `icon.png` and a short Node launcher that runs `yazses mcp-server`
+  and, when `yazses` is not on PATH, prints the install URL and exits 127 (#638). A
+  bundle that carried YazSes or a runtime would be a second install with no model, no
+  permission and no updater, which ADR-032 rejects by name.
 * **The version comes from `pyproject.toml`**, shown here with a fabricated tree whose
   version no release ever had, so the check cannot pass by coincidence.
 * **The tools the manifest advertises are the tools the server registers**, derived
@@ -25,6 +26,7 @@ import importlib.util
 import json
 import re
 import shutil
+import subprocess
 import sys
 import tomllib
 import zipfile
@@ -84,10 +86,10 @@ def test_the_bundle_is_named_for_the_project_version(built: Path) -> None:
     assert zipfile.is_zipfile(built)
 
 
-def test_the_bundle_holds_a_manifest_and_an_icon_and_nothing_else(built: Path) -> None:
-    """No code, no wheel, no runtime, no model: the bundle contains no YazSes."""
+def test_the_bundle_holds_a_manifest_an_icon_and_the_launcher_and_nothing_else(built: Path) -> None:
+    """No wheel, no runtime, no model: the bundle contains no YazSes, only the launcher."""
     with zipfile.ZipFile(built) as zf:
-        assert sorted(zf.namelist()) == ["icon.png", "manifest.json"]
+        assert sorted(zf.namelist()) == ["icon.png", "manifest.json", "server/launcher.js"]
         assert zf.read("icon.png")[:8] == b"\x89PNG\r\n\x1a\n"
 
 
@@ -96,11 +98,16 @@ def test_the_manifest_version_is_the_project_version(built: Path) -> None:
 
 
 def test_the_manifest_runs_the_installed_mcp_server(built: Path) -> None:
-    """A bare `yazses`, resolved on the user's PATH — never a path into the bundle."""
+    """The manifest runs the bundled launcher, and the launcher runs a bare `yazses`
+    resolved on the user's PATH — never a copy of YazSes inside the bundle."""
     server = _manifest(built)["server"]
-    assert server["mcp_config"]["command"] == "yazses"
-    assert server["mcp_config"]["args"] == ["mcp-server"]
-    assert "${__dirname}" not in json.dumps(server), "the bundle must not run its own copy"
+    assert server["type"] == "node"
+    assert server["entry_point"] == "server/launcher.js"
+    assert server["mcp_config"]["command"] == "node"
+    assert server["mcp_config"]["args"] == ["${__dirname}/server/launcher.js"]
+    with zipfile.ZipFile(built) as zf:
+        launcher = zf.read("server/launcher.js").decode("utf-8")
+    assert 'spawn("yazses", ["mcp-server"' in launcher
 
 
 def test_the_manifest_points_at_the_install_page(built: Path) -> None:
@@ -144,6 +151,77 @@ def test_every_entry_has_the_fixed_timestamp_and_mode(built: Path) -> None:
 
 def test_no_temporary_file_is_left_beside_the_bundle(built: Path) -> None:
     assert sorted(p.name for p in built.parent.iterdir()) == [built.name]
+
+
+# --- the launcher: a missing `yazses` fails with the install URL (#638) ------------
+
+INSTALL_URL = "https://mskazemi.com/yazses/get-started.html"
+LAUNCHER = ROOT / "packaging" / "mcpb" / "launcher.js"
+NODE = shutil.which("node")
+needs_node = pytest.mark.skipif(NODE is None, reason="node is not installed")
+
+
+def _extract_launcher(built: Path, tmp_path: Path) -> Path:
+    out = tmp_path / "bundle"
+    with zipfile.ZipFile(built) as zf:
+        zf.extract("server/launcher.js", out)
+    return out / "server" / "launcher.js"
+
+
+def test_the_launcher_in_the_bundle_is_the_source_file(built: Path) -> None:
+    with zipfile.ZipFile(built) as zf:
+        assert zf.read("server/launcher.js") == LAUNCHER.read_bytes()
+
+
+def test_the_install_url_in_the_launcher_is_the_one_in_the_manifest(built: Path) -> None:
+    assert INSTALL_URL in LAUNCHER.read_text(encoding="utf-8")
+    assert INSTALL_URL in _manifest(built)["description"]
+
+
+@needs_node
+def test_the_launcher_with_yazses_off_path_prints_the_install_url_and_exits_127(
+    built: Path, tmp_path: Path
+) -> None:
+    """The real launcher, run by node with an EMPTY PATH so `yazses` cannot be found."""
+    launcher = _extract_launcher(built, tmp_path)
+    result = subprocess.run(
+        [NODE, str(launcher)],
+        env={"PATH": ""},
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 127
+    assert INSTALL_URL in result.stderr
+    assert "PATH" in result.stderr
+    assert result.stdout == "", "stdout is the MCP channel; the hint must not go there"
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the fake yazses is a POSIX shell script")
+@needs_node
+def test_the_launcher_runs_the_installed_yazses_and_passes_its_status_through(
+    built: Path, tmp_path: Path
+) -> None:
+    """With `yazses` on PATH the launcher is transparent: it runs `yazses mcp-server`,
+    forwards stdout, and returns the command's own exit status."""
+    launcher = _extract_launcher(built, tmp_path)
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    fake = bin_dir / "yazses"
+    fake.write_text('#!/bin/sh\necho "args:$*"\nexit 3\n', encoding="utf-8")
+    fake.chmod(0o755)
+    result = subprocess.run(
+        [NODE, str(launcher)],
+        env={"PATH": f"{bin_dir}:/usr/bin:/bin"},
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.stdout.strip() == "args:mcp-server"
+    assert result.returncode == 3
+    assert INSTALL_URL not in result.stderr
 
 
 # --- the version really comes from pyproject ---------------------------------

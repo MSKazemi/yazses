@@ -85,6 +85,15 @@ corrected. The shapes come from `postprocess/persian_text.py` (`structured_spans
 defined them for the Persian normaliser, rather than a second pattern set. Tests:
 `tests/test_phonetic_skips_identifiers.py`; the strict xfail in
 `tests/test_persian_pipeline_preservation.py` is now an ordinary passing test.
+### Fixed — the `.mcpb` bundle tells you how to install YazSes when `yazses` is not on PATH
+
+Was: the bundle's manifest ran `yazses` directly, so on a machine without it a client showed a bare
+"command not found" and nothing about where to get YazSes (#638, ADR-032 section 1). Now: the manifest
+runs a small bundled Node launcher (`server/launcher.js`, source `packaging/mcpb/launcher.js`) that
+starts the installed `yazses mcp-server` and passes stdio and the exit status straight through. If
+`yazses` cannot be found it prints the install page (https://mskazemi.com/yazses/get-started.html) on
+stderr and exits 127. The bundle still contains no YazSes. Tests: `tests/test_build_mcpb.py` runs the
+launcher with an empty PATH. Not yet tried in a real MCP client.
 
 ### Changed — CI: the macOS 3.11 test leg runs on `main` and manual runs, not on every pull request
 

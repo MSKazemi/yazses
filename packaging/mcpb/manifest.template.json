@@ -18,11 +18,11 @@
   "support": "https://github.com/MSKazemi/yazses/issues",
   "icon": "icon.png",
   "server": {
-    "type": "binary",
-    "entry_point": "yazses",
+    "type": "node",
+    "entry_point": "server/launcher.js",
     "mcp_config": {
-      "command": "yazses",
-      "args": ["mcp-server"],
+      "command": "node",
+      "args": ["${__dirname}/server/launcher.js"],
       "env": {}
     }
   },
