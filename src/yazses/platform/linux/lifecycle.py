@@ -21,17 +21,21 @@ class LinuxLifecycle:
 
     # ---- PID file ----------------------------------------------------------
 
+    # The daemon takes its instance lock under ``paths.data_dir``, so the lock and the PID
+    # file are looked up there too -- not under a hard-coded ``~/.local/share``, which
+    # disagrees with it whenever ``$XDG_DATA_HOME`` is set (system/pid.py).
+
     def write_pid(self) -> None:
-        pid_module.write_pid()
+        pid_module.write_pid(self._paths.data_dir)
 
     def clear_pid(self) -> None:
-        pid_module.clear_pid()
+        pid_module.clear_pid(self._paths.data_dir)
 
     def read_pid(self) -> int | None:
-        return pid_module.read_pid()
+        return pid_module.read_pid(self._paths.data_dir)
 
     def is_running(self) -> bool:
-        return pid_module.is_running()
+        return pid_module.is_running(self._paths.data_dir)
 
     # ---- Process spawn / stop ---------------------------------------------
 
