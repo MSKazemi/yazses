@@ -6,6 +6,12 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `ask_human`: the `[mcp] ask_human_per_hour` limit is now enforced across calls
+
+The daemon built a new budget for every request, so the hourly limit never took effect (audit item AGT-01). One budget now lives for the daemon's lifetime; a limit changed in the config is applied in place, so lowering it does not forgive questions already asked. Questions that are never answered are still not counted (AGT-02): that is a maintainer decision and is unchanged.
+
+What was checked: unit tests and two daemon-level tests with fake speaker and listener (4 of 5 fail on the old code), plus a mutation check. What was not checked: a real speaker, microphone or MCP client.
+
 ### Added — Persian text normalisation has a checkbox in Settings
 
 `[stt] persian_normalisation` could only be turned on by editing `config.toml`. It is now a
