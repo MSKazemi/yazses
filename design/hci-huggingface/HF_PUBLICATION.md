@@ -1,6 +1,7 @@
 # Hugging Face publication playbook (HCI Lab artifacts)
 
 Status: draft playbook dated 2026-10-28; documentation only. Part of epic #692 / issue #698.
+Section 2 was updated on 2026-11-05 to record the ownership decision of 2026-10-29.
 **This is a plan, not permission.** It does not create an account, organization, Space, repository,
 token, collection or paid resource, and nothing in it is an approval to publish. The account owner
 decides each step. The privacy gate that must pass first is in
@@ -38,10 +39,32 @@ The options, and what each costs:
 | B. Project organization | The artifacts live under the project's organization | Fits a shared project; roles and 2FA are managed in one place. Needs members and review rules, and is more visible as "the project's" than the research track warrants today. |
 | C. Personal first, move later | Create under the personal namespace; transfer to the organization only if the research track becomes a project deliverable | A transfer redirects the old URL and preserves download counts and likes. Cheapest to start and reversible in one direction. |
 
-**Recommendation (for the owner to confirm): C, starting personal.** The HCI track is research
-under ADR-030, not a product commitment; a personal namespace avoids presenting it as a supported
-YazSes feature. The organization keeps the YazSes product assets and can link to the HCI Space from
-its collection once the Space is reviewed.
+**Decision (maintainer, 2026-10-29; recorded in the "Personal Hugging Face ownership" sections of #698
+and #721): the personal account `mskazemi` is the default owner of YazSes Hub resources, matching
+GitHub `MSKazemi/yazses`.** No project organization is created and no existing asset is transferred
+by default. A separate organization may be considered later, only through a separate explicit
+owner decision. This is Option A as the default; the transfer path of Option C is not the default.
+For the HCI track this also fits ADR-030: the track is research, not a product commitment, and a
+personal namespace avoids presenting it as a supported YazSes feature. Drafts, licences, the privacy
+preflight and every publication still need the owner's approval.
+
+What `huggingface/manifest.json` records as live (checked against `main` and the Hub's public API on
+2026-11-05):
+
+| Owner | Resource |
+|---|---|
+| `yazses` (organization) | the organization card, Space `yazses/README` |
+| `mskazemi` (personal) | Space `yazses-showcase`, dataset `yazses-benchmark-results`, Space `yazses-offline-transcription-demo` |
+
+**Open: which Collection is canonical.** The manifest's `collection` block has `owner: "yazses"`
+(title "YazSes — Offline Speech Recognition Research"), and
+`docs/hugging-face.md` links that organization-owned Collection. Issue
+#721 instead asks for a personally owned `mskazemi` Collection plan. The Hub's public API listed
+both on 2026-11-05: that titled Collection under `yazses`, and a separate, broader personal one
+under `mskazemi` ("Agentic AI, HPC & Speech"), which is not specific to YazSes. The manifest and
+the decision therefore disagree, and which Collection is canonical is an owner decision that this
+playbook does not make. No HCI Space or dataset appeared in the public listings under
+`mskazemi` on 2026-11-05, and none may be added to either Collection until the owner decides.
 
 Transfer rules, as documented: a repo can move from a user to an organization (the user needs at
 least contributor rights there), from an organization to the user (admin rights), and between
@@ -143,10 +166,11 @@ only what would be acceptable to leave out there.
 
 ## 7. What this playbook does not do
 
-- It does not choose a licence, a name, or an owner; those are the owner's decisions above.
+- It does not choose a licence or a name; those are the owner's decisions above. Ownership is the
+  owner's decision recorded in section 2, and the Collection question there is still open.
 - It does not authorise any upload; the release gate is in #701.
 - It does not describe the existing YazSes product pages on the Hub, which are covered by their own
   review.
 
-Cross-references: epic #692; #693 (draft PR #703); #694 (draft PR #704); #699; #701; #683;
-ADR-019; ADR-030; `AGENTS.md`; the research roadmap (draft PR #697).
+Cross-references: epic #692; #693 (PR #703, merged 2026-10-30); #694 (PR #704, merged 2026-10-30);
+#699; #701; #683; ADR-019; ADR-030; `AGENTS.md`; the research roadmap (PR #697, merged 2026-10-30).

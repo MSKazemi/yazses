@@ -129,5 +129,5 @@ outcomes, not as inferences from the signal.
 4. Which ethics body would review a P2 pilot.
 
 Cross-references: epic #692; #699 (synthetic fixtures); #103 and #137 and #139 (existing activation
-seams); #693 (synthetic resolver demo, draft PR #703); #700 (replay report); #701 and #698
+seams); #693 (synthetic resolver demo, PR #703, merged 2026-10-30); #700 (replay report); #701 and #698
 (publication gate and playbook); `design/eye-control/DATA_SHARING.md`; ADR-030.

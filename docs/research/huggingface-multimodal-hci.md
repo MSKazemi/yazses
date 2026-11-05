@@ -78,6 +78,10 @@ A minimal **research-only** fixture schema is `{schema_version, time_ms, modalit
 
 ## First reproducible prototype: static Hugging Face Space
 
+A first version of this prototype is in the repository as [`examples/hci-hf-lab/`](https://github.com/MSKazemi/yazses/tree/main/examples/hci-hf-lab): a static, synthetic, browser-only simulator with its own tests. It is not published on the Hugging Face Hub; publishing it needs the owner's approval and the [pre-publication checklist](https://github.com/MSKazemi/yazses/blob/main/design/hci-huggingface/HF_PRIVACY_PREPUBLISH.md).
+
+The steps below are the original plan.
+
 1. Use an HF account/organization only if the owner chooses. Create a **Static HTML Space** named, for example, `yazses-multimodal-hci-lab`. Place `index.html`, `style.css`, `app.js` and synthetic `fixtures.json` in its Space repository. No backend, token or secrets are needed for synthetic public display.
 2. Show a fake desktop with three target windows, a simulated gaze point (slider), a voice-intent dropdown, a squeeze/blink toggle, confidence and freshness, and an action-preview pane. All interactions are local Javascript and **never actually inject** an OS event.
 3. Simulate uncertain gaze, mismatched voice command, stale camera frame, and accidental double blink. Require explicit confirmation for risky action; always expose reset/stop.

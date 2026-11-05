@@ -164,5 +164,5 @@ section 3. A report with no limitations section is incomplete.
    (`scripts/hci_gaze_compare.py`), so nothing in the daemon imports it; whether a live harness extends
    `yazses gaze measure` or stays a separate script is still open.
 
-Cross-references: epic #692; #694 (provenance, draft PR #704); #701 and #698 (publication gate and
+Cross-references: epic #692; #694 (provenance, PR #704, merged 2026-10-30); #701 and #698 (publication gate and
 playbook); #104, #414, #418, #419 (eye programme); `design/eye-control/ROADMAP.md`; ADR-030.
