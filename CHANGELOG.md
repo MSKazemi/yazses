@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.49.0] - 2026-11-05
+
 ### Fixed — `ask_human` can no longer exceed its hourly budget when several agents ask at once
 
 The budget was checked before the question was spoken and charged only after the answer, so concurrent callers all passed the check (8 simultaneous asks with a limit of 1 spoke 8 questions). The slot is now reserved atomically and handed back if the question goes unanswered; unanswered questions are still not counted. While one question is in flight, a concurrent caller is told to try again shortly instead of speaking over it. The daemon also builds its budget at start-up rather than on the first request.

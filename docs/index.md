@@ -43,7 +43,7 @@ hide:
         "Dysfluency-friendly mode for stuttered or dysarthric speech",
         "Experimental EMG/USB muscle-sensor trigger (off by default; no real-device evidence yet)"
       ],
-      "softwareVersion": "2.48.1",
+      "softwareVersion": "2.49.0",
       "mainEntityOfPage": { "@id": "https://mskazemi.com/yazses/index.html#webpage" },
       "author": { "@id": "https://orcid.org/0000-0002-1166-6559" },
       "publisher": { "@id": "https://orcid.org/0000-0002-1166-6559" }

@@ -23,9 +23,9 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.48.1](v2.48.1.md)** — a fixes-only release: the tray's Stop daemon stays stopped, Apply no longer
-erases a pinned microphone, Persian dictation loses fewer words, and several commands fail with one clear
-message instead of a traceback.
+**[YazSes 2.49.0](v2.49.0.md)** — the files YazSes keeps private are now owner-only and no longer follow symlinks,
+Settings gets a Hands-free page and a Persian-normalisation checkbox, and a long list of silent failures (a vanished
+microphone, a stalled meeting, a speech device that will not start, an agent overspending its budget) now say so.
 
 Install it with:
 
@@ -36,6 +36,7 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.48.1](v2.48.1.md) — a fixes-only release: the tray's Stop daemon stays stopped, Apply no longer erases a pinned microphone, Persian dictation loses fewer words, and several commands fail with one clear message.
 - [v2.48.0](v2.48.0.md) — biosignal switches (off by default, not yet tried on real hardware), an opt-in idle release of the latency model's memory, and fixes that stop Persian and other non-Latin text from being damaged.
 - [v2.47.0](v2.47.0.md) — updates that actually apply: "Install now" on a pipx install, the Windows installer over a running YazSes, `doctor --mic` on the pinned microphone, and `transcribe` on a fresh pip install
 - [v2.46.0](v2.46.0.md) — a Settings window you can actually see: a sidebar of pages with a full-height Features list and search, a dot on pages with unapplied changes, and a restart from the tray or Settings that no longer leaves the daemon stopped

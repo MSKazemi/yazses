@@ -48,7 +48,7 @@
 
         yazses = python.pkgs.buildPythonApplication rec {
           pname = "yazses";
-          version = "2.48.1";
+          version = "2.49.0";
           pyproject = true;
           src = ./.;
 
