@@ -197,8 +197,12 @@
    *  - the loop runs only while nothing holds it: no hover, no keyboard focus on a
    *    stage, and no explicit Pause (a click on a stage counts as one: it is a choice);
    *  - hover and focus share ONE helper, hold(), so they cannot disagree;
-   *  - the detail text is a polite live region only while the loop is NOT running, so
-   *    the unprompted auto-advance is never announced but a person's own inspection is;
+   *  - the visible detail text is never a live region. A permanent, visually hidden polite
+   *    node ([data-yzl-announce], in the markup from the first paint) is written to only while
+   *    the loop is NOT running, so the unprompted auto-advance is never announced but a
+   *    person's own inspection is. (Not verified with a screen reader.)
+   *  - the Pause button names the action it will take: "Pause" while running, "Resume" once
+   *    paused, with the icon to match; it is hidden when there is no loop to pause;
    *  - under prefers-reduced-motion the loop never starts and the button stays hidden. */
   function pipeline(root) {
     var pipe = root.querySelector("[data-yzl-pipe]");
@@ -206,8 +210,9 @@
     var stages = Array.prototype.slice.call(pipe.querySelectorAll(".yzl-stage"));
     var desc = root.querySelector("[data-yzl-desc]");
     var src = root.querySelector("[data-yzl-src]");
-    var live = root.querySelector("[data-yzl-live]");
+    var announce = root.querySelector("[data-yzl-announce]");
     var toggle = root.querySelector("[data-yzl-toggle]");
+    var toggleLabel = root.querySelector("[data-yzl-toggle-label]");
     var idx = 0, timer;
     var holds = { hover: false, focus: false };
     var userPaused = false;
@@ -216,19 +221,20 @@
       return !reduced && !userPaused && !holds.hover && !holds.focus;
     }
     function sync() {
-      // Auto-run: no live region. Otherwise every update comes from a person: announce it.
-      if (live) {
-        if (running()) live.removeAttribute("aria-live");
-        else live.setAttribute("aria-live", "polite");
-      }
+      // Auto-run: the announce node is emptied and stays silent. Otherwise every update
+      // comes from a person: show() writes it there.
+      if (announce && running()) announce.textContent = "";
       pipe.classList.toggle("is-paused", !running());
-      if (toggle) toggle.setAttribute("aria-pressed", userPaused ? "true" : "false");
+      if (toggle) {
+        toggle.setAttribute("data-state", userPaused ? "paused" : "running");
+        if (toggleLabel) toggleLabel.textContent = userPaused ? "Resume auto-advance" : "Pause auto-advance";
+      }
     }
     function hold(kind, on) {
       holds[kind] = on;
       sync();
     }
-    function show(n) {
+    function show(n, quiet) {
       idx = n;
       stages.forEach(function (s, k) {
         s.classList.toggle("is-active", k === n);
@@ -237,6 +243,10 @@
       });
       desc.textContent = stages[n].getAttribute("data-desc");
       src.textContent = stages[n].getAttribute("data-src");
+      // Only a person's own inspection is announced, never the loop's.
+      if (announce && !quiet && !running()) {
+        announce.textContent = stages[n].getAttribute("data-name") + ". " + stages[n].getAttribute("data-desc");
+      }
     }
     function loop() {
       if (running()) show((idx + 1) % stages.length);
@@ -244,9 +254,10 @@
       timer = later(loop, stages[idx].classList.contains("yzl-stage--hot") ? 3200 : 1600);
     }
     stages.forEach(function (s, k) {
-      // hold() first, so the region is live before its text changes.
+      // hold() first, so the loop is held before show() decides whether to announce.
       s.addEventListener("pointerenter", function () { hold("hover", true); show(k); });
-      s.addEventListener("focus", function () { hold("focus", true); show(k); });
+      // focusin, not focus: the focusable element is the button inside the <li>.
+      s.addEventListener("focusin", function () { hold("focus", true); show(k); });
       s.addEventListener("click", function () {
         userPaused = true; // picking a stage is a choice: keep it until Play
         sync();
@@ -265,7 +276,7 @@
         sync();
       });
     }
-    show(0);
+    show(0, true); // the initial paint is not a person's inspection: say nothing
     sync();
     if (!reduced) timer = later(loop, 1600);
   }

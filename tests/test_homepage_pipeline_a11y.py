@@ -4,8 +4,11 @@
 panel used to carry `aria-live="polite"` from the first byte, so a screen reader announced
 every automatic update; there was no way to stop the loop (WCAG 2.2.2 Pause, Stop, Hide);
 and keyboard focus paused it for good while the mouse resumed on leave. These static tests
-pin the repaired contract: no live region in the markup, a real Pause button, one shared
-hold helper for hover and focus, and the reduced-motion guard.
+pin the repaired contract: the visible text is never live, one permanent empty visually hidden
+polite node is written to only on a person's own inspection, a real Pause button whose name
+follows its state (Pause / Resume), real buttons for the stages, one shared hold helper for
+hover and focus, and the reduced-motion guard. They read the source; the behaviour was probed
+in a browser, and none of this was heard through a screen reader.
 """
 from __future__ import annotations
 
@@ -37,57 +40,66 @@ def _tags(html: str) -> list[str]:
     return re.findall(r"<[a-zA-Z][^>]*>", html)
 
 
-def test_markup_has_no_static_live_region() -> None:
-    # Strip Jinja comments, which legitimately explain the absence.
+def test_the_visible_detail_text_is_never_a_live_region_and_one_hidden_node_is() -> None:
+    # Strip Jinja comments, which legitimately explain the design.
     section = re.sub(r"\{#.*?#\}", "", _arch_section(), flags=re.S)
-    assert "aria-live" not in section
     assert 'role="status"' not in section
-
+    live = [t for t in _tags(section) if "aria-live" in t]
+    # exactly one live node, and it is the permanent hidden announcer, not the visible text
+    assert len(live) == 1 and "data-yzl-announce" in live[0]
+    assert 'aria-live="polite"' in live[0] and "yzl-sr-only" in live[0]
+    node = re.search(r"<div[^>]*data-yzl-announce[^>]*></div>", section)
+    assert node, "the announce node must be empty in the markup (nothing is read unprompted)"
 
 def test_markup_has_a_real_pause_button() -> None:
     button = next(t for t in _tags(_arch_section()) if "data-yzl-toggle" in t)
     assert button.startswith("<button")
     assert 'type="button"' in button
-    assert 'aria-pressed="false"' in button
+    # The name changes with the action (Pause -> Resume), so the button is NOT an aria-pressed
+    # toggle: a pressed state beside a changing name reads as "Resume auto-advance, pressed".
+    assert "aria-pressed" not in button
+    assert 'data-state="running"' in button
     # Hidden until JS knows the loop can run: no dead control without JS or under reduced motion.
     assert " hidden" in button
     section = _arch_section()
-    assert "Pause auto-advance" in section
+    assert re.search(r"<span data-yzl-toggle-label>Pause auto-advance</span>", section)
     # The icon is decorative; the visible text is the accessible name.
     assert 'class="yzl-pipe__toggle-icon" aria-hidden="true"' in section
 
-
-def test_detail_text_is_the_only_live_candidate() -> None:
+def test_announce_node_sits_outside_the_text_and_the_button() -> None:
     section = _arch_section()
-    live = next(t for t in _tags(section) if "data-yzl-live" in t)
-    assert "aria-live" not in live
-    # the button sits outside the region that gets announced
-    assert section.index("data-yzl-live") < section.index("data-yzl-desc") < section.index("data-yzl-toggle")
+    text = next(t for t in _tags(section) if "data-yzl-live" in t)
+    assert "aria-live" not in text
+    assert section.index("data-yzl-live") < section.index("data-yzl-desc") < section.index("data-yzl-announce")
+    assert section.index("data-yzl-announce") < section.index("data-yzl-toggle")
     region = re.search(r'<div class="yzl-pipe__text" data-yzl-live>.*?</div>', section, re.S)
-    assert region and "data-yzl-toggle" not in region.group(0)
+    assert region and "data-yzl-toggle" not in region.group(0) and "data-yzl-announce" not in region.group(0)
 
-
-def test_js_adds_the_live_region_only_when_not_auto_running() -> None:
+def test_js_writes_to_the_announce_node_only_when_not_auto_running() -> None:
     js = _pipeline_js()
-    assert 'removeAttribute("aria-live")' in js
-    assert 'setAttribute("aria-live", "polite")' in js
+    # the live region is permanent: JS never adds or removes the attribute any more
+    assert "aria-live" not in re.sub(r"/\*.*?\*/", "", js, flags=re.S)
+    show = re.search(r"function show\(n, quiet\) \{.*?\n    \}\n", js, re.S)
+    assert show, "pipeline() has no show(n, quiet)"
+    assert "if (announce && !quiet && !running())" in show.group(0)
     sync = re.search(r"function sync\(\) \{.*?\n    \}\n", js, re.S)
-    assert sync, "pipeline() has no sync()"
-    body = sync.group(0)
-    # polite is set on the not-running branch, removed on the running branch
-    assert re.search(r"if \(running\(\)\) live\.removeAttribute\(\"aria-live\"\);\s*else live\.setAttribute\(\"aria-live\", \"polite\"\)", body)
-    # the auto-advance step itself never touches aria-live
+    assert sync and "if (announce && running()) announce.textContent = \"\";" in sync.group(0)
+    # the auto-advance step never touches the announce node, and the first paint is quiet
     loop = re.search(r"function loop\(\) \{.*?\n    \}\n", js, re.S)
-    assert loop and "aria-live" not in loop.group(0)
+    assert loop and "announce" not in loop.group(0)
+    assert "show(0, true);" in js
 
-
-def test_toggle_is_wired_and_reflects_state() -> None:
+def test_toggle_is_wired_and_its_name_follows_the_state() -> None:
     js = _pipeline_js()
     assert '"[data-yzl-toggle]"' in js
-    assert 'setAttribute("aria-pressed"' in js
+    assert "aria-pressed" not in re.sub(r"/\*.*?\*/", "", js, flags=re.S)
+    assert 'toggle.setAttribute("data-state", userPaused ? "paused" : "running")' in js
+    assert '"Resume auto-advance" : "Pause auto-advance"' in js
     assert 'toggle.addEventListener("click"' in js
     assert "userPaused = !userPaused" in js
-
+    css = _read("docs/assets/landing.css")
+    assert 'aria-pressed' not in css
+    assert '.yzl-pipe__toggle[data-state="paused"] .yzl-pipe__toggle-icon' in css
 
 def test_hover_and_focus_share_one_hold_helper() -> None:
     js = _pipeline_js()
@@ -127,10 +139,17 @@ def test_css_pulses_stop_when_paused_and_button_is_a_44px_target() -> None:
     assert "outline: none" not in rule.group(0)
 
 
-def test_stage_items_keep_their_tab_order_and_gain_list_semantics() -> None:
+def test_stages_are_list_items_holding_a_real_button_each() -> None:
     section = _arch_section()
     assert re.search(r'<ol class="yzl-pipe[^"]*" data-yzl-pipe role="list"', section)
     li = next(t for t in _tags(section) if t.startswith('<li class="yzl-stage'))
-    assert 'tabindex="0"' in li  # no roving tabindex, no change to the keyboard model
-    assert "tabindex=\"-1\"" not in section
-    assert 'setAttribute("aria-current", "true")' in _pipeline_js()
+    # The <li> is not focusable (a tabindex with no role is a stop that says nothing): the
+    # focusable, Enter/Space-operable element is the native <button> inside it.
+    assert "tabindex" not in section
+    assert "tabindex" not in li
+    assert re.search(r'<li class="yzl-stage[^>]*>\s*(?:\{#.*?#\}\s*)?<button type="button" class="yzl-stage__btn" aria-label="', section, re.S)
+    js = _pipeline_js()
+    # focus lands on the button, so the handler listens for focusin on the <li>
+    assert 's.addEventListener("focusin"' in js
+    assert 's.addEventListener("focus"' not in js
+    assert 'setAttribute("aria-current", "true")' in js

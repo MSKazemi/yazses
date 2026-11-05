@@ -229,27 +229,35 @@
           ("text-box-check", "Inject", "type · keys", "Dictation is typed into the focused app; a command becomes a key sequence. X11, Wayland, macOS, Windows and SSH panes alike.", "commands/dispatch.py"),
         ] %}
         {% for icon, name, cost, desc, src in stages %}
-        <li class="yzl-stage{% if name == 'STT decode' %} yzl-stage--hot{% endif %}" tabindex="0"
-            data-desc="{{ desc }}" data-src="src/yazses/{{ src }}" style="--n:{{ loop.index0 }}">
-          <span class="yzl-stage__no">{{ "%02d" | format(loop.index) }}</span>
-          <span class="yzl-stage__icon">{{ ic(icon) }}</span>
-          <span class="yzl-stage__name">{{ name }}</span>
-          <span class="yzl-stage__cost">{{ cost }}</span>
+        <li class="yzl-stage{% if name == 'STT decode' %} yzl-stage--hot{% endif %}"
+            data-desc="{{ desc }}" data-src="src/yazses/{{ src }}" data-name="{{ name }}" style="--n:{{ loop.index0 }}">
+          {# A real button: it takes focus, answers Enter and Space, and says what it is to a
+             screen reader. The <li> keeps the list semantics and carries the hover/lift styling. #}
+          <button type="button" class="yzl-stage__btn" aria-label="{{ '%02d' | format(loop.index) }} {{ name }}, {{ cost }}. Show details.">
+            <span class="yzl-stage__no" aria-hidden="true">{{ "%02d" | format(loop.index) }}</span>
+            <span class="yzl-stage__icon" aria-hidden="true">{{ ic(icon) }}</span>
+            <span class="yzl-stage__name" aria-hidden="true">{{ name }}</span>
+            <span class="yzl-stage__cost" aria-hidden="true">{{ cost }}</span>
+          </button>
         </li>
         {% endfor %}
       </ol>
 
-      {# No aria-live here: the loop rewrites this text every 1.6-3.2 s, so landing.js adds a
-         polite live region only while a person is driving (hover, focus, click or Pause). #}
+      {# The visible detail text is NOT a live region: the loop rewrites it every 1.6-3.2 s. The
+         announce node below is permanent and empty in the markup (a region that exists from the
+         first paint is the kind assistive technology reliably announces); landing.js writes to it
+         only while a person is driving (hover, focus, click or Pause), never during auto-advance. #}
       <div class="yzl-pipe__detail yzl-reveal">
         <div class="yzl-pipe__text" data-yzl-live>
           <p data-yzl-desc>Hold-to-talk starts a burst; releasing ends it. The trigger can also be an EMG muscle sensor over USB serial — a hands-free option.</p>
           <code data-yzl-src>src/yazses/platform/emg/</code>
         </div>
-        {# Shown by landing.js only when the loop can run (hidden without JS or under reduced motion). #}
-        <button type="button" class="yzl-pipe__toggle" data-yzl-toggle aria-pressed="false" hidden>
+        <div class="yzl-sr-only" data-yzl-announce aria-live="polite" aria-atomic="true"></div>
+        {# Shown by landing.js only when the loop can run (hidden without JS or under reduced motion).
+           Its text and icon name the action it will take: Pause while running, Resume once paused. #}
+        <button type="button" class="yzl-pipe__toggle" data-yzl-toggle data-state="running" hidden>
           <span class="yzl-pipe__toggle-icon" aria-hidden="true"></span>
-          <span>Pause auto-advance</span>
+          <span data-yzl-toggle-label>Pause auto-advance</span>
         </button>
       </div>
 
