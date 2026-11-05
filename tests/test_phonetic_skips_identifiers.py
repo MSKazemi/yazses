@@ -96,14 +96,29 @@ def _best_seconds(fn, arg: str, samples: int = 5) -> float:
     return best
 
 
+def _best_ratio(fn, small: str, large: str, attempts: int = 3) -> float:
+    """Smallest large/small time ratio over a few attempts.
+
+    A shared CI runner can slow one measurement by a factor that has nothing to do with the
+    code (macOS read 11.2x for a pattern that measures x4.0 at every size from 1 500 to
+    96 000 characters). Quadratic growth is ~16x on *every* attempt, so taking the best of
+    several still catches it, while one noisy attempt no longer fails the build.
+    """
+    best = float("inf")
+    for _ in range(attempts):
+        ratio = _best_seconds(fn, large) / max(_best_seconds(fn, small), 1e-6)
+        best = min(best, ratio)
+        if best < _MAX_RATIO:
+            break
+    return best
+
+
 @pytest.mark.parametrize("name", sorted(_UNITS))
 def test_structured_spans_cost_grows_linearly_with_the_text(name: str) -> None:
     unit = _UNITS[name]
     small = unit * (_BASE_CHARS // len(unit))
     large = unit * (_BASE_CHARS * _SCALE // len(unit))
-    ratio = _best_seconds(structured_spans, large) / max(
-        _best_seconds(structured_spans, small), 1e-6
-    )
+    ratio = _best_ratio(structured_spans, small, large)
     assert ratio < _MAX_RATIO, (
         f"{_SCALE}x the text cost {ratio:.1f}x for {name!r}: not linear "
         f"(linear ~{_SCALE}, quadratic ~{_SCALE**2})"
@@ -114,9 +129,7 @@ def test_a_long_word_does_not_stall_the_phonetic_corrector() -> None:
     def run(text: str) -> None:
         phonetic.correct_text(text, VOCAB)
 
-    ratio = _best_seconds(run, "a" * (_BASE_CHARS * _SCALE)) / max(
-        _best_seconds(run, "a" * _BASE_CHARS), 1e-6
-    )
+    ratio = _best_ratio(run, "a" * _BASE_CHARS, "a" * (_BASE_CHARS * _SCALE))
     assert ratio < _MAX_RATIO, f"{_SCALE}x the text cost {ratio:.1f}x: not linear"
 
 

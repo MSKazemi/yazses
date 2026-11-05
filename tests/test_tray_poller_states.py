@@ -195,6 +195,12 @@ def _drive_script(
     return tray.states[: client.states_seen], waits[: client.waits_seen]
 
 
+# The give-up test is `waited > timeout`. With a timeout of 0.0 that is `0.0 > 0.0` whenever two
+# clock reads return the same tick, which Windows' ~15 ms monotonic clock does constantly. A
+# negative timeout is expired on every platform, whatever the clock resolution.
+_ALREADY_EXPIRED = -1.0
+
+
 _IDLE = {"state": "idle", "hotkey": "f9", "model": "tiny.en", "uptime_s": 3.0}
 
 
@@ -203,7 +209,7 @@ def test_daemon_that_never_boots_ends_on_an_error_icon(
 ) -> None:
     """Give-up used to `return` with no set_state: the icon stayed idle blue."""
     states, _waits = _drive_script(
-        monkeypatch, tmp_path, [IpcUnreachableError("no socket")], boot_timeout=0.0
+        monkeypatch, tmp_path, [IpcUnreachableError("no socket")], boot_timeout=_ALREADY_EXPIRED
     )
 
     assert states, "the poller gave up without telling the tray anything"
@@ -219,7 +225,7 @@ def test_after_giving_up_the_tray_keeps_polling_and_recovers_when_the_daemon_sta
 ) -> None:
     """The tooltip says `yazses start`; once the user has, the icon must follow the daemon."""
     script: list[object] = [IpcUnreachableError("no socket")] * 3 + [_IDLE]
-    states, waits = _drive_script(monkeypatch, tmp_path, script, boot_timeout=0.0)
+    states, waits = _drive_script(monkeypatch, tmp_path, script, boot_timeout=_ALREADY_EXPIRED)
 
     assert [m.state for m in states] == [TrayState.ERROR] * 3 + [TrayState.IDLE]
     assert states[0].last_error == app._GIVE_UP_REASON

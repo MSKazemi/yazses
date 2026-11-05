@@ -7,7 +7,7 @@ change is now made with ``fchmod`` on the descriptor that was opened with ``O_NO
 
 Policy, as documented in the module:
 
-* a symlinked *file*: the write functions raise ``OSError`` (``ELOOP``) and touch nothing;
+* a symlinked *file*: the write functions raise ``OSError`` (``ELOOP``, ``EMLINK`` on FreeBSD) and touch nothing;
   ``ensure_private_file`` (best effort) leaves it alone;
 * a symlinked *directory*: used as it is, target mode untouched;
 * Windows: unchanged, no-op / plain ``Path`` calls.
@@ -66,7 +66,8 @@ def test_a_symlinked_file_is_not_written_through_or_chmodded(tmp_path, umask, wr
             pf.write_private_text(link, "attacker-chosen\n", append=True)
         else:
             pf.write_private_bytes(link, b"attacker-chosen\n")
-    assert info.value.errno == errno.ELOOP
+    # POSIX allows either: Linux and macOS say ELOOP, FreeBSD says EMLINK.
+    assert info.value.errno in (errno.ELOOP, errno.EMLINK)
 
     assert target.read_text(encoding="utf-8") == "original"
     assert _mode(target) == 0o644, "the link's target must keep its mode"

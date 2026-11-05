@@ -22,7 +22,7 @@ Symbolic links are never followed to change a mode:
 * a *file* is opened with ``O_NOFOLLOW`` and its mode is changed with ``fchmod`` on the
   descriptor that was opened, so a symlink planted at ``d/live.jsonl`` pointing at a
   ``0644`` file elsewhere is neither written through nor chmod-ed. The write functions
-  raise ``OSError`` (``ELOOP``) for a symlinked file, because an owner-only store that
+  raise ``OSError`` (``ELOOP``; ``EMLINK`` on FreeBSD) for a symlinked file, because an owner-only store that
   quietly writes somewhere else is not owner-only; :func:`ensure_private_file`, being
   best effort, logs and leaves it alone;
 * a *directory* that is a symlink is left exactly as it is: it is used (users do point a
