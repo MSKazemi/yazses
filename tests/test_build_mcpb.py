@@ -24,6 +24,7 @@ import ast
 import dataclasses
 import importlib.util
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -184,9 +185,17 @@ def test_the_launcher_with_yazses_off_path_prints_the_install_url_and_exits_127(
 ) -> None:
     """The real launcher, run by node with an EMPTY PATH so `yazses` cannot be found."""
     launcher = _extract_launcher(built, tmp_path)
+    # An empty PATH, but not an empty environment: on Windows a process started without
+    # SystemRoot cannot initialise (node aborted with status 134 on the hosted runner before
+    # it ever ran the launcher), so those variables are carried over. `yazses` is still not
+    # findable because PATH is empty.
+    env = {"PATH": ""}
+    for name in ("SYSTEMROOT", "SystemRoot", "WINDIR", "TEMP", "TMP"):
+        if name in os.environ:
+            env[name] = os.environ[name]
     result = subprocess.run(
         [NODE, str(launcher)],
-        env={"PATH": ""},
+        env=env,
         stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
