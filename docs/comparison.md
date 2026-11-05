@@ -163,7 +163,8 @@ transcription is.
 YazSes treats the activation channel as a **replaceable part**. A hotkey is one
 implementation of a protocol, not a built-in assumption, and other implementations
 already exist in the tree: an experimental USB-serial EMG muscle sensor (not yet
-verified on hardware), a BLE variant, and gaze-based window targeting on X11.
+verified on hardware), a BLE variant, and experimental gaze-based window targeting
+(off by default, not hardware-validated).
 
 What that buys is a straight answer to a question the other tools cannot answer at
 all — *"I can't press a key. Can I still use this?"*
@@ -185,7 +186,8 @@ tool can add later without becoming a different program.
     it: the **EMG serial and BLE backends exist** as an experimental
     hold-to-talk trigger (off by default; they have synthetic and replay tests but
     no real-device evidence, see the [known limits](roadmap.md#known-limits)),
-    **gaze window-targeting works on X11**, and the **modality role
+    **gaze window-targeting (Glance-Type) is experimental, off by default and not
+    hardware-validated**, and the **modality role
     router is wired** — with `[modality]` enabled the daemon resolves a role map
     at start-up, `yazses doctor` prints it, and the *command* role is what then
     decides whether an EMG squeeze speaks a command or dictates prose, overriding

@@ -4,37 +4,44 @@ Per-channel packaging artefacts. **Read this when you want to publish to a
 new distribution channel** — the build scripts in `../scripts/` use the
 files here as inputs.
 
-## ⚠ Channel status — read this first (audited 2026-08-11; live re-check of every channel 2026-09-25)
+## ⚠ Channel status — read this first (live re-check of every channel 2026-11-05, v2.48.1)
 
 **A manifest living in this directory installs nobody.** It has to be published to the
 registry.
 
-Every channel below was re-checked against its own API on **2026-09-25, after v2.40.0**,
-with `scripts/check-release-channels.py --version 2.40.0`. Do not trust a row without doing
-that — this pass found the **Chocolatey row claiming the package had never published while
-two versions were already approved and serving**, the Docker row denying a `latest` tag that
-exists, and four rows quoting versions several releases old. What held up: PyPI, the APT repo,
-Snap, the Homebrew tap, the Scoop bucket and GHCR all serve **2.40.0**.
+This table was re-checked against each channel's own API on **2026-11-05, after v2.48.1**,
+with `scripts/check-release-channels.py --version 2.48.1` plus a direct query of the snap,
+winget-pkgs, Chocolatey, COPR, AUR, Flathub, Homebrew, Scoop and GHCR endpoints. Do not trust
+a row without doing that — earlier passes of this table found the **Chocolatey row claiming
+the package had never published while two versions were already approved and serving**, the
+Docker row denying a `latest` tag that exists, and rows quoting versions several releases
+old; the 2026-11-05 pass found the **winget row claiming only 2.35/2.36 were upstream**
+when 2.35.0 through 2.48.1 are. The file is hand-written (no generator writes it), so every
+row below carries the date it was checked.
+What held up on 2026-11-05: PyPI, the APT repo, Snap, the Homebrew tap, the Scoop bucket,
+winget, Chocolatey and GHCR all serve **2.48.1**. COPR still serves 2.36.0, and AUR,
+Flathub and nixpkgs are still unpublished.
 
 ⚠ **A version in this directory is not a version in the registry.** Six channels publish on
-their own clock, and three of them (winget, Chocolatey, AUR) are gated on a human — so the
-in-repo manifests being at 2.40.0 says nothing about what a user gets today.
+their own clock, and several of them (winget, Chocolatey, AUR) are gated on a human or a
+moderator — so the in-repo manifests being at 2.48.1 says nothing about what a user gets
+today. Re-run the checker rather than reading this table.
 
 | Channel | Published? | In-repo artefact | State |
 |---|---|---|---|
 | PyPI | ✅ live | — | `pipx install yazses` |
-| Snap Store | ✅ live on amd64 + arm64 | `../snap/` | stable **2.40.0** on both architectures (rev 431 amd64 / 430 arm64, checked 2026-09-25); dictation works on X11 **and on GNOME/KDE Wayland** via the RemoteDesktop portal since v2.37.0 — see below |
+| Snap Store | ✅ live on amd64 + arm64 | `../snap/` | `latest/stable` and `latest/edge` both **2.48.1** (rev 455 amd64 / 454 arm64, checked 2026-11-05 against `api.snapcraft.io`); dictation works on X11 **and on GNOME/KDE Wayland** via the RemoteDesktop portal since v2.37.0 — see below |
 | APT repo | ✅ live | `../scripts/update-apt-repo.sh` | signed |
 | GitHub Releases | ✅ live | — | `.dmg`, `.exe`, `.deb` |
-| **Homebrew** | ✅ live | `homebrew/yazses.rb` | tap at [MSKazemi/homebrew-yazses](https://github.com/MSKazemi/homebrew-yazses), cask serves **2.40.0** (checked 2026-09-25), still **arm64 only** (`depends_on arch: :arm64`; Intel Macs take the `.dmg` or PyPI) — see the macOS section ([#6](https://github.com/MSKazemi/yazses/issues/6)) |
-| **winget** | ✅ live, but **serving 2.36.0 — 7 releases behind** | `winget/…/2.40.0/` | `winget install MSKazemi.YazSes` resolves — [#416963](https://github.com/microsoft/winget-pkgs/pull/416963) was merged 2026-09-10. ⚠ upstream `manifests/m/MSKazemi/YazSes` holds **only 2.35.0 and 2.36.0** (GitHub contents API, 2026-09-25), so a user installing today gets **2.36.0** (tagged 2026-08-30) while the current release is 2.40.0. `WINGET_TOKEN` is **not set**, so `publish-channels.yml` skips winget on every tag and each bump needs a hand-opened PR. Set the secret and this stops needing a human ([#78](https://github.com/MSKazemi/yazses/issues/78)) |
-| **AUR** | ❌ **not published — blocked upstream, not on the recipe** | `arch/PKGBUILD` | `aur.archlinux.org/rpc/v5/info?arg[]=yazses` returns `resultcount: 0` (checked 2026-09-25). The recipe is ready and current (`pkgver=2.40.0`, real `sha256sums` matching `.SRCINFO`; `arch/README.md` records a clean-container verification — `namcap` clean, full `makepkg --nodeps` build, checksum match). ⛔ The old **"nothing remains but `git push`"** framing is misleading and cost time twice: per the maintainer's notes, **AUR account registration itself was paused upstream on 2026-09-19** (anti-automation measures, no ETA) and no account exists yet. This is not a five-minute task — check `aur-general` before retrying ([#67](https://github.com/MSKazemi/yazses/issues/67)) |
-| **Fedora / COPR** | ✅ live, but **hand-rebuilt** | `fedora/yazses.spec` | [copr.fedorainfracloud.org/coprs/mskazemi/yazses](https://copr.fedorainfracloud.org/coprs/mskazemi/yazses) serves **2.36.0** (recorded in `../docs/install-linux.md` when the repo was created, 2026-09-13). ⚠ **No workflow touches this channel** — `grep -i copr .github/workflows/` finds nothing — so a tag does not rebuild it and the spec being current does not move what `dnf` installs; that needs `copr-cli build yazses <srpm>` by hand. The spec's `Version:` is no longer the thing that lags: `../scripts/refresh-package-manifests.py` rewrites it at release time and `tests/test_packaging_manifest_versions.py` compares it with every other manifest. It had been pinned at 2.18.2 for seventeen releases, was fixed by hand at 2.36.0 ([#370](https://github.com/MSKazemi/yazses/pull/370)), and had drifted four releases again before either of those existed. ⚠ COPR needs `--enable-net on` for this package |
-| **Flathub** | ❌ not published | `../packaging/flatpak/` | manifest **builds green**; the submission ([flathub#9765](https://github.com/flathub/flathub/pull/9765)) was auto-closed for an incomplete checklist and a maintainer declined to reopen. The one unchecked item is **a video of the app running from the Flatpak** — that is the whole remaining blocker ([#45](https://github.com/MSKazemi/yazses/issues/45)) |
-| **Nix** | ❌ 0 hits | `../flake.nix` | authored; **every nixpkgs attribute verified to exist**, but ⚠ **never evaluated** (no Nix here) ([#68](https://github.com/MSKazemi/yazses/issues/68)) |
-| **Docker/GHCR** | ✅ **live, `latest` included** | `docker/Dockerfile` | `ghcr.io/mskazemi/yazses` serves **2.40.0**, `2.40` and **`latest`** among 73 tags (verified 2026-09-25 with an anonymous pull token), so a bare `docker pull ghcr.io/mskazemi/yazses` now works. ⛔ This row read **"one tag only, no `latest`"** until 2026-09-25 — that was true when `docker.yml` carried a `paths:` filter alongside `tags: ["v*"]` (a push filter set applies to tag pushes too, and a tag push changes no files, so every tag build was silently suppressed). The trigger was fixed and `latest` has published since. ⚠ GHCR rejects unauthenticated reads, so a bare `curl` returning 401/404 is **not** evidence of absence — get a pull token first, see below ([#76](https://github.com/MSKazemi/yazses/issues/76)) |
-| **Scoop** | ✅ live **and current** | `../bucket/yazses.json` | bucket served from this repo — `scoop bucket add yazses https://github.com/MSKazemi/yazses`; manifest at **2.40.0**, verified 2026-09-25, raw URL 200. Because the bucket *is* this repo, Scoop is the one Windows channel with no third-party gate — it is current the moment a release lands ([#79](https://github.com/MSKazemi/yazses/issues/79)) |
-| **Chocolatey** | ✅ **live, serving 2.39.0** | `chocolatey/` | ⛔ This row read **"never published, 19 releases running, `CHOCO_API_KEY` never set"** until 2026-09-25 — **false**. The community feed lists **2.37.1** (approved 2026-09-21) and **2.39.0** (approved 2026-09-24), so `choco install yazses` works. ⚠ **2.39.1 and 2.40.0 sit at `PackageStatus: Submitted`, not approved** — Chocolatey moderates every version, so the feed trails the newest tag by however long review takes. Query it with `Packages()?$filter=Id eq 'yazses'`, which returns **only approved** versions; the per-version endpoint answers 200 for a submitted one, so a bare status code reads as published when it is not. `.ps1` scripts **parse cleanly** (checked in `mcr.microsoft.com/powershell`), and the publish job re-parses them on a Windows runner before every push |
+| **Homebrew** | ✅ live | `homebrew/yazses.rb` | tap at [MSKazemi/homebrew-yazses](https://github.com/MSKazemi/homebrew-yazses), cask serves **2.48.1** (checked 2026-11-05), still **arm64 only** (`depends_on arch: :arm64`; Intel Macs take the `.dmg` or PyPI) — see the macOS section. The publish issue ([#6](https://github.com/MSKazemi/yazses/issues/6)) is closed; the open Intel question is [#264](https://github.com/MSKazemi/yazses/issues/264) |
+| **winget** | ✅ live and **current** | `winget/…/2.48.1/` | `winget install MSKazemi.YazSes` resolves — [#416963](https://github.com/microsoft/winget-pkgs/pull/416963) was merged 2026-09-10. Upstream `manifests/m/MSKazemi/YazSes` lists 2.35.0, 2.36.0, 2.38.0, 2.39.0, 2.39.1, 2.40.0, 2.40.1, 2.41.0, 2.42.0, 2.43.2, 2.44.0, 2.45.0, 2.46.0, 2.47.0, 2.48.0 and **2.48.1** (GitHub contents API, 2026-11-05). ⛔ This row read **"serving 2.36.0 — 7 releases behind; only 2.35.0 and 2.36.0 upstream"** and **"`WINGET_TOKEN` is not set"** until 2026-11-05 — both **false** today: `gh secret list` shows `WINGET_TOKEN` present (created 2026-10-22). Not re-verified on 2026-11-05: whether each upstream version was opened by `publish-channels.yml` or by hand (the last three runs of that workflow concluded `failure`). The tracking issue ([#78](https://github.com/MSKazemi/yazses/issues/78)) is closed |
+| **AUR** | ❌ **not published — blocked upstream, not on the recipe** | `arch/PKGBUILD` | `aur.archlinux.org/rpc/v5/info?arg[]=yazses` returns `resultcount: 0` (checked 2026-11-05). The recipe is current (`pkgver=2.48.1` in `arch/PKGBUILD`; `arch/README.md` records a clean-container verification — `namcap` clean, full `makepkg --nodeps` build, checksum match). Per the maintainer's notes, **AUR account registration itself was paused upstream on 2026-09-19** (anti-automation measures, no ETA) and no account existed then — **not re-verified on 2026-11-05** (the registration state is not visible from here). This is not a five-minute task — check `aur-general` before retrying. Tracking issue [#67](https://github.com/MSKazemi/yazses/issues/67): **closed; channel still unpublished** (no open issue tracks it) |
+| **Fedora / COPR** | ✅ live, but **hand-rebuilt and behind** | `fedora/yazses.spec` | [copr.fedorainfracloud.org/coprs/mskazemi/yazses](https://copr.fedorainfracloud.org/coprs/mskazemi/yazses) — the COPR API's `latest_succeeded` build is **yazses-2.36.0-1** on `fedora-43-x86_64` (checked 2026-11-05), i.e. **behind the current 2.48.1**. ⚠ **No workflow touches this channel** — `grep -i copr .github/workflows/` finds nothing — so a tag does not rebuild it and the spec being current does not move what `dnf` installs; that needs `copr-cli build yazses <srpm>` by hand. The spec's `Version:` is no longer the thing that lags: `../scripts/refresh-package-manifests.py` rewrites it at release time (it reads 2.48.1) and `tests/test_packaging_manifest_versions.py` compares it with every other manifest. It had been pinned at 2.18.2 for seventeen releases, was fixed by hand at 2.36.0 ([#370](https://github.com/MSKazemi/yazses/pull/370)), and had drifted four releases again before either of those existed. ⚠ COPR needs `--enable-net on` for this package. The tracking issue ([#77](https://github.com/MSKazemi/yazses/issues/77)) is closed |
+| **Flathub** | ❌ not published | `../packaging/flatpak/` | `https://flathub.org/api/v2/appstream/<app-id>` answers `App not found` and the release checker reports `appstream HTTP 404` (2026-11-05). The submission ([flathub#9765](https://github.com/flathub/flathub/pull/9765)) was auto-closed for an incomplete checklist (2026-08-13) and a maintainer declined to reopen. Not re-verified on 2026-11-05: whether the manifest still builds green, and that the one unchecked item is still **a video of the app running from the Flatpak**. Tracking issue [#45](https://github.com/MSKazemi/yazses/issues/45): **closed; channel still unpublished** (no open issue tracks it) |
+| **Nix** | ❌ not in nixpkgs | `../flake.nix` | the release checker reports `nixpkgs HTTP 404` (2026-11-05). The flake is authored; **not re-verified on 2026-11-05**: that every nixpkgs attribute exists, and it was ⚠ **never evaluated** (no Nix here) when last audited. Tracking issue [#68](https://github.com/MSKazemi/yazses/issues/68): **closed; channel still unpublished** (no open issue tracks it) |
+| **Docker/GHCR** | ✅ **live, `latest` included** | `docker/Dockerfile` | `ghcr.io/mskazemi/yazses` serves **2.48.1**, `2.48` and **`latest`** — each answered HTTP 200 on its manifest with an anonymous pull token (2026-11-05), so a bare `docker pull ghcr.io/mskazemi/yazses` works. ⛔ This row read **"one tag only, no `latest`"** until 2026-09-25 — that was true when `docker.yml` carried a `paths:` filter alongside `tags: ["v*"]` (a push filter set applies to tag pushes too, and a tag push changes no files, so every tag build was silently suppressed). The trigger was fixed and `latest` has published since. ⚠ GHCR rejects unauthenticated reads, so a bare `curl` returning 401/404 is **not** evidence of absence — get a pull token first, see below. Tracking issue [#76](https://github.com/MSKazemi/yazses/issues/76) is closed |
+| **Scoop** | ✅ live **and current** | `../bucket/yazses.json` | bucket served from this repo — `scoop bucket add yazses https://github.com/MSKazemi/yazses`; manifest at **2.48.1** on `main`, verified 2026-11-05 (raw URL). Because the bucket *is* this repo, Scoop is the one Windows channel with no third-party gate — it is current the moment a release lands. Tracking issue [#79](https://github.com/MSKazemi/yazses/issues/79) is closed |
+| **Chocolatey** | ✅ **live, serving 2.48.1** | `chocolatey/` | ⛔ This row read **"never published, 19 releases running, `CHOCO_API_KEY` never set"** until 2026-09-25 — **false**. On 2026-11-05 the `Packages()?$filter=Id eq 'yazses'` feed lists 2.37.1, 2.39.0, 2.39.1, 2.40.0, 2.40.1, 2.41.0, 2.42.0, 2.43.1, 2.43.2, 2.44.0, 2.45.0, 2.46.0, 2.47.0, 2.48.0 and **2.48.1**, so `choco install yazses` works. ⚠ Chocolatey moderates every version, so the feed can trail the newest tag by however long review takes: query it with `Packages()?$filter=Id eq 'yazses'`, which returns **only approved** versions; the per-version endpoint answers 200 for a submitted one, so a bare status code reads as published when it is not. `.ps1` scripts parsed cleanly when last checked (in `mcr.microsoft.com/powershell`; **not re-verified on 2026-11-05**), and the publish job re-parses them on a Windows runner before every push |
 
 > **Verification gotcha:** `curl -o /dev/null -w '%{http_code}'` **lies** about Flathub,
 > `search.nixos.org` and AlternativeTo — they are single-page apps that return **HTTP 200
@@ -71,14 +78,14 @@ canonical cask is `homebrew/yazses.rb`.**
 
 ### Snap: both architectures are live, and dictation is no longer X11-only
 
-Measured 2026-09-25 from `api.snapcraft.io`:
+Measured 2026-11-05 from `api.snapcraft.io`:
 
 | Track/risk | Arch | Revision | Version |
 |---|---|---|---|
-| `latest/stable` | amd64 | 431 | 2.40.0 |
-| `latest/stable` | arm64 | 430 | 2.40.0 |
-| `latest/edge` | amd64 | 431 | 2.40.0 |
-| `latest/edge` | arm64 | 430 | 2.40.0 |
+| `latest/stable` | amd64 | 455 | 2.48.1 |
+| `latest/stable` | arm64 | 454 | 2.48.1 |
+| `latest/edge` | amd64 | 455 | 2.48.1 |
+| `latest/edge` | arm64 | 454 | 2.48.1 |
 
 Architecture availability does not mean full desktop compatibility. The package uses
 strict confinement: with `audio-record` and `raw-input` connected manually, hold-to-talk
