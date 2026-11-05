@@ -351,8 +351,37 @@ def _remove_fillers(text: str, filler_words: list[str]) -> str:
     return out
 
 
+_ENGLISH_DIGIT_WORDS = frozenset(
+    "zero one two three four five six seven eight nine ten".split()
+)
+
+
+def _is_spoken_digit(token: str) -> bool:
+    """True when ``token`` is a digit or an English digit word.
+
+    A repeated digit pair is data, not a stutter: "4 7 4 7" is a PIN, "9 9 9 9" is a
+    run of nines. Any Unicode decimal digit (``str.isdecimal``, category Nd: Latin,
+    Arabic-Indic, Persian, Devanagari, fullwidth, ...) anywhere in the token counts,
+    so "7," and "\u0664\u0667" are covered. The English words zero..ten count after
+    trailing sentence punctuation is trimmed. "oh" (spoken zero) needs no entry of its
+    own: it is only digit-like beside another digit, and a 2-gram holding that digit is
+    already held by this test.
+
+    Digit words in any other language are NOT recognised (only their numerals are).
+    """
+    return any(c.isdecimal() for c in token) or (
+        token.strip(_TRAILING_PUNCTUATION).lower() in _ENGLISH_DIGIT_WORDS
+    )
+
+
 def _dedup_2grams(text: str) -> str:
-    """Remove second occurrence of consecutive identical 2-grams."""
+    """Remove second occurrence of consecutive identical 2-grams.
+
+    A 2-gram in which either token is a spoken digit (see ``_is_spoken_digit``) is never
+    removed, so dictated PINs, phone numbers, codes and amounts keep every digit. Digit
+    words in languages other than English are NOT covered. Every other repeat, including
+    emphatic or legitimate ones such as "New York New York", is treated as before.
+    """
     while True:
         tokens = text.split()
         changed = False
@@ -363,6 +392,8 @@ def _dedup_2grams(text: str) -> str:
                 i + 3 < len(tokens)
                 and tokens[i] == tokens[i + 2]
                 and tokens[i + 1] == tokens[i + 3]
+                and not _is_spoken_digit(tokens[i])
+                and not _is_spoken_digit(tokens[i + 1])
             ):
                 result.append(tokens[i])
                 result.append(tokens[i + 1])
