@@ -349,3 +349,81 @@ def test_the_settings_shape_the_listening(monkeypatch) -> None:
 def test_the_overlay_level_is_cleared_when_listening_ends(monkeypatch) -> None:
     d, _answer, _elapsed, _decoded = _listen(monkeypatch, lambda t: 0.4 <= t < 1.2)
     assert d._state.audio_level == 0.0
+
+
+# --- the budget survives across requests (audit AGT-01) ----------------------------
+#
+# The daemon builds a new AskHumanService for every IPC request. A budget created
+# inside the service therefore started empty each time, and `ask_human_per_hour`
+# was never enforced across calls.
+
+
+def test_a_shared_budget_is_enforced_across_separate_services() -> None:
+    from yazses.mcp.budget import InterruptBudget
+
+    budget = InterruptBudget(max_per_hour=1)
+    first_speaker, second_speaker = _Speaker(), _Speaker()
+    _service(speaker=first_speaker, max_per_hour=1, budget=budget).ask(
+        "one?", caller="a", timeout_s=5
+    )
+    with pytest.raises(Refusal) as refusal:
+        _service(speaker=second_speaker, max_per_hour=1, budget=budget).ask(
+            "two?", caller="a", timeout_s=5
+        )
+    assert first_speaker.said and not second_speaker.said
+    assert refusal.value.retry_after_s is not None and refusal.value.retry_after_s > 0
+    assert refusal.value.deferred is False
+
+
+def test_without_a_shared_budget_each_service_has_its_own() -> None:
+    """The default is unchanged for any caller that does not pass one."""
+    for _ in range(2):
+        speaker = _Speaker()
+        _service(speaker=speaker, max_per_hour=1).ask("q?", caller="a", timeout_s=5)
+        assert speaker.said
+
+
+def test_a_shared_budget_follows_a_changed_limit() -> None:
+    from yazses.mcp.budget import InterruptBudget
+
+    budget = InterruptBudget(max_per_hour=1)
+    _service(budget=budget).ask("one?", caller="a", timeout_s=5)
+    with pytest.raises(Refusal):
+        _service(budget=budget).ask("two?", caller="a", timeout_s=5)
+    budget.max_per_hour = 2
+    assert _service(budget=budget).ask("two?", caller="a", timeout_s=5)
+
+
+def _enabled_daemon(monkeypatch, limit: int):
+    d = _daemon()
+    object.__setattr__(d._config.mcp, "ask_human", True)
+    object.__setattr__(d._config.mcp, "ask_human_per_hour", limit)
+    speaker, listener = _Speaker(), _Listener("ok")
+    monkeypatch.setattr(d, "_ask_human_speaker", lambda: speaker)
+    monkeypatch.setattr(d, "_ask_human_listener", listener)
+    return d, speaker, listener
+
+
+def test_the_daemon_enforces_the_hourly_limit_across_requests(monkeypatch) -> None:
+    d, speaker, listener = _enabled_daemon(monkeypatch, limit=1)
+    first = d._handle_ask_human(_request(question="one?", caller="a", timeout_s=1))
+    second = d._handle_ask_human(_request(question="two?", caller="a", timeout_s=1))
+    assert first == {"ok": True, "answer": "ok"}
+    assert second["ok"] is False
+    assert second["deferred"] is False
+    assert second["retry_after_s"] and second["retry_after_s"] > 0
+    assert len(speaker.said) == 1 and listener.calls == 1
+
+
+def test_the_daemon_applies_a_changed_limit_and_keeps_what_is_spent(monkeypatch) -> None:
+    d, speaker, _listener = _enabled_daemon(monkeypatch, limit=1)
+    assert d._handle_ask_human(_request(question="one?", caller="a", timeout_s=1))["ok"]
+    assert not d._handle_ask_human(_request(question="two?", caller="a", timeout_s=1))["ok"]
+    object.__setattr__(d._config.mcp, "ask_human_per_hour", 2)
+    assert d._handle_ask_human(_request(question="two?", caller="a", timeout_s=1))["ok"]
+    assert not d._handle_ask_human(_request(question="three?", caller="a", timeout_s=1))["ok"]
+    assert len(speaker.said) == 2
+    # Lowering it again does not forgive what was already asked.
+    object.__setattr__(d._config.mcp, "ask_human_per_hour", 1)
+    assert not d._handle_ask_human(_request(question="four?", caller="a", timeout_s=1))["ok"]
+    assert len(speaker.said) == 2
