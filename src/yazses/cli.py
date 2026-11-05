@@ -1182,6 +1182,24 @@ def _configured_model(platform) -> str:
         return ""
 
 
+def _daemon_needs_restart_for_model(model_id: str) -> bool:
+    """Whether a running daemon is waiting on *model_id* and must be restarted.
+
+    True only when a daemon is running AND *model_id* is the configured ``[stt]
+    model``. A daemon that failed to load its model sits in an error state and
+    never retries, so the fresh download is invisible to it until a restart.
+    Never raises: a hint must not turn a successful download into a failure.
+    """
+    try:
+        platform = get_platform()
+        return bool(
+            platform.lifecycle.is_running()
+            and _configured_model(platform) == model_id
+        )
+    except Exception:
+        return False
+
+
 def _model_is_downloaded(model: str) -> bool:
     """Whether *model* needs the network before the first dictation.
 
@@ -7482,6 +7500,11 @@ def model_download(
         typer.echo("  [stt]")
         typer.echo(f'  model = "{model_id}"')
         typer.echo(f"\nStored in {path}")
+        if _daemon_needs_restart_for_model(model_id):
+            typer.echo(
+                "\nYazSes is running and does not pick up a new model by itself. "
+                "Apply it with: yazses restart"
+            )
         return
 
     from yazses.commands.model_manager import download_model

@@ -235,6 +235,11 @@ def model_unavailable_message(model: str, cause: BaseException | str) -> str:
     """The full, actionable text for a model that is absent and unfetchable."""
     url = whisper_model_url(model)
     lines = [
+        # The tray tooltip shows only the opening characters of this text, so the
+        # first line is the whole answer: what is wrong, and the two commands.
+        f"Speech model {model!r} missing - run: yazses model download {model}, "
+        "then: yazses restart",
+        "",
         f"The speech-to-text model {model!r} is not on this machine, and it "
         "could not be downloaded.",
         "",
@@ -250,7 +255,8 @@ def model_unavailable_message(model: str, cause: BaseException | str) -> str:
         "YazSes transcribes entirely offline, but the model itself has to arrive "
         "here once. Any one of these fixes it:",
         "",
-        f"  1. Download it deliberately:   yazses model download {model}",
+        f"  1. Download it deliberately:   yazses model download {model}, "
+        "then: yazses restart",
         "  2. Allow YazSes (or huggingface.co) through your firewall, then: "
         "yazses restart",
     ]
@@ -260,11 +266,14 @@ def model_unavailable_message(model: str, cause: BaseException | str) -> str:
             "it into the cache:",
             f"       from: {url}",
             f"       into: {hub_cache_dir()}",
+            "     then: yazses restart",
         ]
     lines += [
         "",
-        "Dictation stays unavailable until the model is present. Everything that "
-        "does not transcribe — doctor, config, the tray — keeps working.",
+        "Dictation stays unavailable until the model is present and the daemon "
+        "has been restarted (a running daemon does not retry on its own). "
+        "Everything that does not transcribe — doctor, config, the tray — keeps "
+        "working.",
     ]
     return "\n".join(lines)
 
@@ -292,7 +301,8 @@ class ModelUnavailableError(RuntimeError):
         return (
             "YazSes cannot start dictation",
             f"The speech model {self.model!r} is missing and could not be "
-            f"downloaded. Run: yazses model download {self.model}",
+            f"downloaded. Run: yazses model download {self.model}, then: "
+            "yazses restart",
         )
 
 
