@@ -397,7 +397,7 @@ freeze.
 | **Personal speech adapters (LoRA)** | **Deferred** | On-device fine-tuning for your own voice, including atypical speech, waits for a measured accuracy win on held-out data. Prompt-level personalisation from your own corpus already ships. |
 | **Per-language model switching and code-switch dictation** | **Deferred** | The routing logic exists but nothing calls it yet: no decode path produces the per-span language IDs it needs, and no code-switch-adapted model ships. |
 | **Silent-speech input (sEMG)** | **Experimental / hardware-unverified** | The activation seam ships; real-device evidence is not established. |
-| **Vision-based screen commanding** | **Conditional** | Gaze targeting ships on X11; deeper pure-vision commanding depends on platform support that is not universal. |
+| **Vision-based screen commanding** | **Conditional** | Gaze targeting exists as an experimental, off-by-default capability (not hardware-validated); deeper pure-vision commanding depends on platform support that is not universal. |
 | **Spoken recall with cited retrieval** | **Research** | `yazses recall` already searches your past dictation by keyword (opt-in). Semantic, cited, fully offline retrieval is not a committed release. |
 | **Multi-step task chaining over long sessions** | **Research** | No design is accepted. |
 

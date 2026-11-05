@@ -98,6 +98,9 @@ The models, benchmarks and low-RAM pages gave same-laptop latency figures that d
 ### Fixed — docs: the speech model downloads the first time the daemon starts, not on first dictation
 
 `yazses doctor` and the get-started guide said the model is fetched on first dictation. In the code it is downloaded when the daemon starts, and the hotkey is not created until that finishes, so a key held during the first start does nothing. Both now say so. `docs/models.md`, `docs/windows-install.md` and `docs/cli-reference.md` still say "first use" and are listed for a follow-up. What was not checked: a fresh install on any OS.
+### Fixed — docs: the packaging channel table is re-verified against v2.48.1, and gaze is no longer described as shipped
+
+`packaging/README.md` was audited against 2.40.0. Its Snap, winget, Homebrew, Scoop, Chocolatey and GHCR rows now match the live registries as read on 2026-11-05, and the closed issues it cited are annotated. Cells that were not re-checked say so. `docs/comparison.md` and `docs/roadmap.md` said gaze targeting "works on" or "ships on" X11; it is experimental, off by default and not hardware-validated, as the rest of the roadmap already said.
 
 ### Added — Persian text normalisation has a checkbox in Settings
 
