@@ -405,6 +405,9 @@ class SettingsWindow:
         self._language_thread: Any = None
         self._language_worker: Any = None
         self._install_after_language: dict[str, tuple[str, ...]] | None = None
+        # Capabilities this Apply turned on, whose "reads ON yet changes nothing" advice
+        # waits for the language-profile write, because the advice depends on that language.
+        self._pending_caveat_slugs: list[str] = []
         self._restart_base_needed = False
         self._profile_syncing = False
         apply_btn.clicked.connect(self._on_apply)
@@ -1616,10 +1619,14 @@ class SettingsWindow:
 
         # Advice for capabilities that read ON yet change nothing in this configuration
         # (the CLI prints the same after `features enable`). Read after every write above
-        # so a language chosen in this same Apply counts; skipped while a language profile
-        # is still being prepared, because that write has not landed and the advice could
-        # be wrong.
-        if not language_started:
+        # so a language chosen in this same Apply counts. While a language profile is still
+        # being prepared that write has not landed and the advice could be wrong, so the
+        # slugs are kept and `_on_language_finished` reads the advice once the language is
+        # settled.
+        if language_started:
+            self._pending_caveat_slugs = list(report.enabled)
+        else:
+            self._pending_caveat_slugs = []
             report.caveats.update(self._controller.caveats_for(report.enabled))
 
         summary = self._summarise(report)
@@ -1707,6 +1714,16 @@ class SettingsWindow:
                 # The pending restart existed only because the language worker had
                 # started. Its config did not land, so there is nothing to restart.
                 self._restart_when_installed = None
+
+        # The advice for capabilities ticked in the same Apply, now that the language is the
+        # one actually configured (a failed write leaves the old language, which is what the
+        # advice must then be judged against).
+        advice_slugs, self._pending_caveat_slugs = self._pending_caveat_slugs, []
+        advice = "  ".join(self._controller.caveats_for(advice_slugs).values())
+        if advice:
+            language_summary = f"{language_summary}  {advice}".strip()
+            if self._restart_when_installed is not None:
+                self._restart_when_installed = f"{self._restart_when_installed}  {advice}"
 
         deferred = self._install_after_language
         self._install_after_language = None
