@@ -6,6 +6,12 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a failed Parakeet load now names its real cause when the fallback cannot take over
+
+With `engine = "parakeet"`, a language Parakeet supports (for example `de`) and the `stt-parakeet` extra missing, the fallback model `base.en` is English-only, so the error told the user to change a model they never chose and never said the extra was missing. The error (same type, so the daemon's error hold is unchanged) now opens with the requested engine's failure and its fix (`yazses features enable stt-parakeet`). English and auto-detect configs still fall back to `base.en` as before.
+
+What was checked: six tests with a fake engine loader. What was not checked: a real model load.
+
 ### Added — Persian text normalisation has a checkbox in Settings
 
 `[stt] persian_normalisation` could only be turned on by editing `config.toml`. It is now a
