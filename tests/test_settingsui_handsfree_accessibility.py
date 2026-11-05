@@ -49,7 +49,11 @@ from tests.test_settingsui_handsfree_panel import _hp, _inputs, _Rig  # noqa: E4
 from yazses.handsfree.panel import PanelInputs, build_panel, stop_without_state  # noqa: E402
 from yazses.handsfree.safety import SafetyState  # noqa: E402
 from yazses.settingsui import handsfree_panel as panel_module  # noqa: E402
-from yazses.settingsui.handsfree_panel import HandsFreePanel, enlarged  # noqa: E402
+from yazses.settingsui.handsfree_panel import (  # noqa: E402
+    TWO_COLUMN_MIN_PX,
+    HandsFreePanel,
+    enlarged,
+)
 
 SRC = Path(panel_module.__file__).resolve().parent
 
@@ -226,7 +230,32 @@ def test_the_real_chain_follows_the_order_the_shell_declared(qapp):
 # ---------------------------------------------------------------- the keyboard alone
 
 
+def _stock_enter_presses_a_button(qapp) -> bool:
+    """Whether the platform theme lets Enter press a plain focused ``QPushButton``.
+
+    Qt decides this per platform theme (``QPlatformTheme::ButtonPressKeys``) and for a button
+    outside a ``QDialog``: GNOME's theme includes Return, the generic Linux theme and the Windows
+    one do not. So it is MEASURED on a stock button in a stock window rather than assumed -- the
+    first version of this test assumed it from the author's GTK3 session and failed on every CI
+    runner (Linux with no theme, Windows). A measurement, not a skip: both outcomes assert.
+    """
+    host = QWidget()
+    stock = QPushButton("stock", host)
+    host.show()
+    qapp.processEvents()
+    clicked: list[int] = []
+    stock.clicked.connect(lambda _=False: clicked.append(1))
+    stock.setFocus()
+    QTest.keyClick(stock, Qt.Key.Key_Return)
+    host.close()
+    return bool(clicked)
+
+
 def test_every_enabled_button_can_be_pressed_with_space_and_with_enter(qapp):
+    """Space presses every enabled button, everywhere. Enter presses each one exactly when it
+    presses a stock button on this platform -- never more (a button must not be an auto-default,
+    or Enter aimed at the health text would press Pause: see the next test), never less."""
+    enter_presses = _stock_enter_presses_a_button(qapp)
     rig = _Rig(qapp, _faulted_with_everything_on())
     _shown(rig, qapp)
     pressed: list[str] = []
@@ -236,12 +265,14 @@ def test_every_enabled_button_can_be_pressed_with_space_and_with_enter(qapp):
     assert len(buttons) >= 10
     for button in buttons:
         button.clicked.connect(lambda _=False, n=button.objectName(): pressed.append(n))
-    for key in (Qt.Key.Key_Space, Qt.Key.Key_Return):
+    everyone = sorted(b.objectName() for b in buttons)
+    for key, expected in ((Qt.Key.Key_Space, everyone),
+                          (Qt.Key.Key_Return, everyone if enter_presses else [])):
         pressed.clear()
         for button in buttons:
             button.setFocus()
             QTest.keyClick(button, key)
-        assert sorted(pressed) == sorted(b.objectName() for b in buttons), key
+        assert sorted(pressed) == expected, (key, f"stock Enter presses buttons: {enter_presses}")
 
 
 def test_a_combo_box_is_changed_with_the_arrow_keys_and_saved_with_its_set_button(qapp):
@@ -458,6 +489,51 @@ def _set_point_size(qapp, points: int) -> None:
     qapp.setFont(font)
 
 
+# ---------------------------------------------------------------- the column count, any font
+#
+# These tests state INVARIANTS of the layout, not pixel counts. How wide a column has to be depends
+# on the installed fonts (a Linux CI runner, a Windows runner with almost no fonts and a developer's
+# desktop all measure differently -- the first version asserted "one column needs about 622 px" and
+# "a 1400 px window is two columns at 11 pt", true on one machine and false on both CI runners).
+# So every width below is MEASURED on the window under test, and nothing here names a font.
+
+
+def _settle(qapp) -> None:
+    for _ in range(8):
+        qapp.processEvents()
+
+
+def _column_geometry(area, panel) -> dict[str, int]:
+    """What the page was given and what its columns need, all measured on this window."""
+    cols = panel._columns
+    margins = cols.contentsMargins()
+    pad = max(cols.spacing(), 0) + margins.left() + margins.right()
+    now, setup = (panel._now_column.minimumSizeHint().width(),
+                  panel._setup_column.minimumSizeHint().width())
+    one = max(now, setup) + margins.left() + margins.right()
+    return {"viewport": area.viewport().width(), "one_column": one,
+            "two_columns": max(TWO_COLUMN_MIN_PX, now + setup + pad),
+            "sideways": area.horizontalScrollBar().maximum()}
+
+
+def _assert_layout_invariants(area, panel, where: str) -> bool:
+    """The things that must hold in ANY font; returns whether the page is two columns."""
+    g = _column_geometry(area, panel)
+    two = panel._columns.direction() == QBoxLayout.Direction.LeftToRight
+    note = f"{where}: {g}"
+    if two:
+        assert g["viewport"] >= g["two_columns"], f"two columns chosen without room for them, {note}"
+        assert g["sideways"] == 0, f"two columns scroll sideways, {note}"
+    else:
+        # One column scrolls only by what ONE column truly needs -- never by the (larger) width
+        # of a two-column layout that was not wanted, which is the bug this guards.
+        assert g["sideways"] <= max(0, g["one_column"] - g["viewport"]) + 2, (
+            f"one column scrolls more than it needs, {note}")
+        if g["one_column"] <= g["viewport"]:
+            assert g["sideways"] == 0, f"one column fits yet the page scrolls sideways, {note}"
+    return two
+
+
 @pytest.mark.parametrize("points", [pytest.param(11, id="11pt"), pytest.param(18, id="18pt"),
                                     pytest.param(24, id="24pt")])
 def test_the_hands_free_page_does_not_scroll_sideways_in_the_default_settings_window(
@@ -465,34 +541,50 @@ def test_the_hands_free_page_does_not_scroll_sideways_in_the_default_settings_wi
 ):
     """At 24 pt the page used to open in two columns here and scroll sideways by 448 px: the
     column count was read from the panel's own width, which two columns inflate to their own
-    minimum. One column needs about 622 of the ~685 px there are."""
+    minimum. The default window's viewport is below the two-column floor in every font, so it is
+    ONE column in every font, and it scrolls only if one column cannot fit."""
     _set_point_size(qapp, points)
     area, panel = _handsfree_page(qapp, 900)
-    assert area.horizontalScrollBar().maximum() == 0, (
-        f"{area.horizontalScrollBar().maximum()}px of sideways scroll at {points}pt, 900 px window"
-    )
+    assert area.viewport().width() < TWO_COLUMN_MIN_PX, "the default window is meant to be narrow"
     assert panel._columns.direction() == QBoxLayout.Direction.TopToBottom
+    assert not _assert_layout_invariants(area, panel, f"{points}pt, 900 px window")
+
+
+def _window_width_for_two_columns(qapp, slack: int = 120) -> int:
+    """A window width whose viewport is ``slack`` px wider than two columns need, in this font."""
+    area, panel = _handsfree_page(qapp, 900)
+    g = _column_geometry(area, panel)
+    chrome = 900 - g["viewport"]
+    _OPEN_WINDOWS.pop()._win.close()
+    return chrome + g["two_columns"] + slack
 
 
 def test_the_hands_free_page_goes_back_to_one_column_when_the_window_gets_narrower(
     qapp, font_restored
 ):
     _set_point_size(qapp, 24)
-    area, panel = _handsfree_page(qapp, 2400)
+    wide = _window_width_for_two_columns(qapp)
+    area, panel = _handsfree_page(qapp, wide)
     assert panel._columns.direction() == QBoxLayout.Direction.LeftToRight
-    assert area.horizontalScrollBar().maximum() == 0
-    area.window().resize(900, 640)
-    for _ in range(8):
-        qapp.processEvents()
+    assert _assert_layout_invariants(area, panel, f"24pt, {wide} px window")
+    # Narrower than two columns need, but still wider than the default window.
+    narrower = wide - 120 - 60
+    area.window().resize(narrower, 640)
+    _settle(qapp)
+    assert area.viewport().width() < _column_geometry(area, panel)["two_columns"]
     assert panel._columns.direction() == QBoxLayout.Direction.TopToBottom
-    assert area.horizontalScrollBar().maximum() == 0
+    assert not _assert_layout_invariants(area, panel, f"24pt, narrowed to {narrower} px")
 
 
-def test_a_wide_window_at_a_small_font_is_still_two_columns(qapp, font_restored):
-    _set_point_size(qapp, 11)
-    area, panel = _handsfree_page(qapp, 1400)
-    assert panel._columns.direction() == QBoxLayout.Direction.LeftToRight
-    assert area.horizontalScrollBar().maximum() == 0
+@pytest.mark.parametrize("points", [pytest.param(9, id="9pt"), pytest.param(11, id="11pt")])
+def test_a_window_wide_enough_for_two_columns_is_two_columns(qapp, font_restored, points):
+    """Not "1400 px at 11 pt": whatever the font, a window whose viewport holds both columns
+    (measured) opens in two, so the narrowing path above is not the only way into one."""
+    _set_point_size(qapp, points)
+    wide = _window_width_for_two_columns(qapp)
+    area, panel = _handsfree_page(qapp, wide)
+    assert panel._columns.direction() == QBoxLayout.Direction.LeftToRight, f"{wide} px window"
+    assert _assert_layout_invariants(area, panel, f"{points}pt, {wide} px window")
 
 
 def _narrowest_and_widest_families(qapp) -> list[str]:
@@ -530,17 +622,13 @@ def test_no_sideways_scrolling_in_the_narrowest_and_the_widest_installed_font(
     font.setPointSize(points)
     qapp.setFont(font)
     area, panel = _handsfree_page(qapp, 900)
-    over = area.horizontalScrollBar().maximum()
-    where = f"{points}pt in {families[which]!r}"
-    if points <= 14:
-        assert over == 0, f"sideways scrolling by {over}px at {where}"
-    # At 24 pt a font as extreme as the narrowest/widest installed family (a dingbat face, an
-    # emoji face) can need more than the window offers even in ONE column. The page then
-    # scrolls -- the documented bound -- but only by what the single column really needs,
-    # never by the inflated width of a two-column layout that was not wanted.
+    where = f"{points}pt in {families[which]!r}, 900 px window"
+    # A face as extreme as the narrowest/widest installed family (a dingbat face, an emoji face,
+    # a runner whose only face is a wide fallback) can need more than the window offers even in
+    # ONE column. The page then scrolls -- the documented bound -- but only by what the single
+    # column really needs, and not at all when it fits.
     assert panel._columns.direction() == QBoxLayout.Direction.TopToBottom, where
-    need = max(0, panel.widget.minimumSizeHint().width() - area.viewport().width())
-    assert over <= need + 2, f"scrolls {over}px but one column needs only {need}px, at {where}"
+    assert not _assert_layout_invariants(area, panel, where)
 
 
 @pytest.mark.parametrize("points", [pytest.param(9, id="9pt"), pytest.param(14, id="14pt"),
