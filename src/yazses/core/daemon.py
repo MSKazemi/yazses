@@ -886,6 +886,13 @@ class Daemon:
                 # daemon vanishing and leaving "not running" as the only clue.
                 self._await_shutdown_in_error(exc)
                 return
+            # A stop that arrived while the model was loading (SIGTERM, IPC `shutdown`,
+            # `yazses stop`) found no hotkey to stop -- `shutdown()` only sets the event.
+            # Without this check the daemon finished loading and then blocked in
+            # `hotkey.run()` for good, after `yazses stop` had already said "stopped".
+            if self._stop_event.is_set():
+                log.info("Shutdown was requested during start-up; not starting the listener.")
+                return
             with self._lock:
                 self._state.ready = True
                 self._state.state = TrayState.IDLE
@@ -925,6 +932,13 @@ class Daemon:
             self._start_headpointer()
             self._start_gesture()
             self._start_morsevox()
+            # The start-up above is not instant (overlay, tray, every optional feature),
+            # so a stop can land in it as well. `shutdown()` has stopped the hotkey by
+            # now, and a hotkey that has been told to stop before it runs may not
+            # remember it. The finally below tears everything down.
+            if self._stop_event.is_set():
+                log.info("Shutdown was requested during start-up; not starting the listener.")
+                return
             self._hotkey.run()
         finally:
             self._shutdown()
@@ -3991,7 +4005,7 @@ class Daemon:
                     self._poll_stop.set()
                 with self._lock:
                     self._state.last_error = f"Microphone unavailable: {exc}"
-                    self._state.state = TrayState.IDLE
+                    self._state.state = self._resting_state()
                 # The user is holding the key right now and nothing is happening.
                 # Before this, that produced a log line and a blue idle badge.
                 from yazses.system.diagnosis import CAPTURE
@@ -5316,15 +5330,25 @@ class Daemon:
                         return
                     text, proof_typed = proofed
 
-                if proof_typed:
-                    pass  # typed by `_proofback_apply`, right after its erase
-                elif use_streaming:
-                    assert stream_injector is not None
-                    stream_injector.commit(text)
-                elif self._config.srpace.enabled:
-                    self._inject_paced(text, injector, event)
-                else:
-                    injector.inject(text)
+                try:
+                    if proof_typed:
+                        pass  # typed by `_proofback_apply`, right after its erase
+                    elif use_streaming:
+                        assert stream_injector is not None
+                        stream_injector.commit(text)
+                    elif self._config.srpace.enabled:
+                        self._inject_paced(text, injector, event)
+                    else:
+                        injector.inject(text)
+                except Exception:
+                    # `event["injected"]` was set to True before dispatch, as the intent
+                    # to type. The call just failed, so the words did NOT reach the
+                    # window: say so on the record the corpus and the outcome gauge read,
+                    # and keep the edit watcher from reading back text that was never
+                    # typed (it would "learn" the user's untouched field as a correction).
+                    event["injected"] = False
+                    event.setdefault("discard_reason", "inject_failed")
+                    raise
                 self._last_dictation_monotonic = time.monotonic()
                 self._last_dictation_tail = text[-1:]
                 if self._config.revise.enabled:
@@ -5356,7 +5380,14 @@ class Daemon:
             # recognisable at all is recognised by its own markers regardless.
             from yazses.system.diagnosis import INJECT
 
-            self._report_failure(exc, INJECT)
+            # A failure that lost the user's words is told every time. The 300 s
+            # per-fault silence exists for faults that repeat *without* costing
+            # anything; here the second and third lost sentence are exactly what the
+            # user must not miss.
+            if event.get("discard_reason") == "inject_failed":
+                self._report_failure(exc, INJECT, lost_text=True)
+            else:
+                self._report_failure(exc, INJECT)
             if stream_injector is not None:
                 try:
                     stream_injector.cancel()
@@ -5430,7 +5461,23 @@ class Daemon:
                     # has `ready` False and is never touched here.
                     self._state.state == TrayState.LOADING and self._state.ready
                 ):
-                    self._state.state = TrayState.IDLE
+                    # IDLE, or MEETING when a meeting is recording: `_on_hold_start`
+                    # overwrote MEETING with RECORDING, and going back to IDLE here told
+                    # the tray (and the device monitor) the meeting had ended.
+                    self._state.state = self._resting_state()
+
+    def _resting_state(self) -> TrayState:
+        """The state the daemon returns to when a burst or a read-back ends.
+
+        ``MEETING`` while a meeting is being captured, otherwise ``IDLE``. A dictation
+        burst during a meeting passes through RECORDING / TRANSCRIBING / INJECTING and
+        must come back to MEETING, or every surface that reads the state (the tray, the
+        device monitor's "is it safe to re-initialise PortAudio") believes the meeting
+        stream is gone. Caller holds ``self._lock``.
+        """
+        if self._meeting_controller is not None:
+            return TrayState.MEETING
+        return TrayState.IDLE
 
     def _on_audio_chunk(self, chunk: np.ndarray) -> None:
         """Called from the sounddevice audio thread for each recorded chunk."""
@@ -5451,7 +5498,12 @@ class Daemon:
     def _recording_in_flight(self) -> bool:
         """True while the daemon is anything but IDLE: the device monitor touches nothing."""
         with self._lock:
-            return self._state.state != TrayState.IDLE
+            # A meeting owns a live input stream even in a moment when the state shows
+            # something else (a dictation burst passes through RECORDING and back).
+            return (
+                self._state.state != TrayState.IDLE
+                or self._meeting_controller is not None
+            )
 
     def _level_stream_owners(self) -> list:
         """The hands-free features that may hold a level stream while the daemon is IDLE.
@@ -5475,7 +5527,12 @@ class Daemon:
         (`_level_stream_owners`), asks this again, re-inits, and lets them reopen.
         """
         with self._lock:
-            idle = self._state.state == TrayState.IDLE
+            # A running meeting holds an input stream that a PortAudio re-init would
+            # kill, whatever the state reads at this instant.
+            idle = (
+                self._state.state == TrayState.IDLE
+                and self._meeting_controller is None
+            )
         # The Vocal Joystick keeps the daemon IDLE while its own stream is open; a PortAudio
         # reinit under that stream would close it, so this is False while it is open.
         joystick = self._vocaljoystick
@@ -8434,7 +8491,7 @@ class Daemon:
                     proofback.playback_finished(proofback_session)
                 with self._lock:
                     if self._state.state == TrayState.READBACK:
-                        self._state.state = TrayState.IDLE
+                        self._state.state = self._resting_state()
 
         threading.Thread(target=_run, daemon=True, name="readback").start()
 
@@ -8697,7 +8754,9 @@ class Daemon:
             return None
         return describe_injector(self._injector)
 
-    def _report_failure(self, error: BaseException | str, where: str) -> object | None:
+    def _report_failure(
+        self, error: BaseException | str, where: str, *, lost_text: bool = False
+    ) -> object | None:
         """Tell the user what broke and what to do about it. Never raises.
 
         Every caller of this already logged the failure and set ``last_error``. Both
@@ -8712,20 +8771,33 @@ class Daemon:
         shown and None when it was suppressed, so callers (and tests) can tell the two
         apart.
 
+        ``lost_text`` marks a failure that cost the user dictated words (the injector
+        raised after the transcript existed). Such a failure is reported every time and
+        says plainly that the text was not typed: the 300 s silence would otherwise leave
+        the second lost sentence unannounced. The words are *not* copied to the
+        clipboard here -- that overwrites whatever the user had copied, and is an
+        owner decision.
+
         Wrapped whole, because it runs from the audio and hotkey threads on paths that
         are *already* handling a failure — an exception here would replace a fixable
         problem with an unfixable one.
         """
         try:
             from yazses.system import notify as notify_mod
-            from yazses.system.diagnosis import diagnose, should_notify
+            from yazses.system.diagnosis import REPEAT_SILENCE_S, diagnose, should_notify
 
             found = diagnose(error, where=where)
             with self._lock:
                 # Wall clock, not monotonic: this record is persisted so a crash
                 # loop cannot re-toast one fault five times, and a monotonic
                 # reading from a dead process means nothing in a live one.
-                fresh = should_notify(found.slug, time.time(), self._diagnosed_at)
+                fresh = should_notify(
+                    found.slug,
+                    time.time(),
+                    self._diagnosed_at,
+                    # Negative: "never silenced", whatever the clock's resolution.
+                    silence_s=-1.0 if lost_text else REPEAT_SILENCE_S,
+                )
             if not fresh:
                 return None
             self._persist_shown_notices()
@@ -8754,9 +8826,12 @@ class Daemon:
             # reason for it to outlive its own relevance -- it clears itself. Only the
             # unrecognised one, which offers to prepare a report, stays until you decide.
             urgency, expire_ms = notify_mod.toast_policy(bool(actions))
+            body = found.body
+            if lost_text:
+                body = f"What you just said was not typed. {body}"
             notify_mod.notify(
                 found.title,
-                found.body,
+                body,
                 urgency=urgency,
                 expire_ms=expire_ms,
                 actions=actions,
@@ -9380,7 +9455,11 @@ class Daemon:
             except Exception as exc:
                 log.error("Remote connect failed: %s", exc)
                 with self._lock:
-                    self._state.state = TrayState.IDLE
+                    # Compare-and-set: this runs on its own thread, long after the
+                    # request. If the user has since started dictating or a meeting,
+                    # that state is the truth and this failure does not own it.
+                    if self._state.state == TrayState.REMOTE_SETUP:
+                        self._state.state = self._resting_state()
                     self._state.last_error = str(exc)
 
         threading.Thread(target=_connect, name="remote-connect", daemon=True).start()
@@ -9403,7 +9482,11 @@ class Daemon:
             injector = self._remote_injector
             self._remote_forwarder = None
             self._remote_injector = None
-            self._state.state = TrayState.IDLE
+            # Compare-and-set: only a remote session's own states go back to rest. An
+            # unconditional IDLE here cancelled a dictation in progress and hid a
+            # running meeting.
+            if self._state.state in (TrayState.REMOTE_SETUP, TrayState.REMOTE_ACTIVE):
+                self._state.state = self._resting_state()
         if fwd is not None:
             try:
                 fwd.disconnect()
@@ -9727,11 +9810,6 @@ class Daemon:
                     tracker.stop()
                 except Exception:
                     log.exception("AT-SPI tracker stop raised")
-        if self._instance_lock is not None:
-            try:
-                self._instance_lock.release()
-            except Exception:
-                log.exception("Instance lock release raised")
         if self._overlay_proc is not None:
             try:
                 self._overlay_proc.terminate()
@@ -9825,10 +9903,48 @@ class Daemon:
                 self._ipc_server.shutdown()
             except Exception:
                 log.exception("IPC server shutdown raised")
+        if self._pid_file_is_ours():
+            try:
+                self._platform.lifecycle.clear_pid()
+            except Exception:
+                log.exception("Lifecycle clear_pid raised")
+        # LAST, and on purpose. The lock is what a successor waits on before it binds its
+        # own IPC socket and writes its own pid file (`_replace_older_daemon` polls it
+        # every 0.25 s). Released any earlier, a successor could take over while this
+        # process was still tearing down -- and the unlink and `clear_pid()` above would
+        # then delete the *successor's* socket and pid file, leaving a healthy daemon
+        # that no client can reach and `yazses status` cannot find (measured: a ~0.37 s
+        # window on every takeover).
+        if self._instance_lock is not None:
+            try:
+                self._instance_lock.release()
+            except Exception:
+                log.exception("Instance lock release raised")
+
+    def _pid_file_is_ours(self) -> bool:
+        """False only when a pid file names a *different* process than this one.
+
+        A belt to the lock-last ordering in `_shutdown`: where that ordering does not
+        hold (a crash path, a platform without a lock primitive), a pid file that
+        already carries another process's id belongs to its successor and is not ours
+        to delete. Anything unreadable, empty or absent counts as ours, so a stale file
+        is still cleared. Both places a lifecycle backend may keep it are read: Linux
+        writes it under ``data_dir``, the others at ``paths.pid_file``.
+        """
         try:
-            self._platform.lifecycle.clear_pid()
-        except Exception:
-            log.exception("Lifecycle clear_pid raised")
+            paths = self._platform.paths
+            candidates = (paths.data_dir / "daemon.pid", paths.pid_file)
+        except Exception:  # noqa: BLE001 - a stand-in platform: nothing to compare
+            return True
+        for candidate in candidates:
+            try:
+                other = int(candidate.read_text(encoding="utf-8").strip())
+            except (ValueError, OSError):
+                continue
+            if other != os.getpid():
+                log.info("Leaving %s alone: it names pid %d, not this process.", candidate, other)
+                return False
+        return True
 
 
 def run() -> None:

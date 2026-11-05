@@ -51,6 +51,9 @@ class JsonRpcServer:
         self._handlers: dict[str, Handler] = {}
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
+        # Identity of the socket file this server bound, so `shutdown` unlinks only that
+        # file -- never a successor's, bound at the same path after takeover.
+        self._bound_id: tuple[int, int] | None = None
 
     @classmethod
     def unix(cls, socket_path: Path) -> JsonRpcServer:
@@ -73,6 +76,11 @@ class JsonRpcServer:
             os.chmod(self._socket_path, 0o600)
         except OSError:
             pass
+        try:
+            st = os.stat(self._socket_path)
+            self._bound_id = (st.st_dev, st.st_ino)
+        except OSError:
+            self._bound_id = None
         sock.listen(self._BACKLOG)
         sock.settimeout(self._ACCEPT_TIMEOUT_S)
         self._sock = sock
@@ -90,12 +98,29 @@ class JsonRpcServer:
             except OSError:
                 pass
             self._sock = None
+        if not self._socket_is_ours():
+            log.info("Leaving %s alone: another process has bound it since.", self._socket_path)
+            return
         try:
             self._socket_path.unlink()
         except FileNotFoundError:
             pass
         except OSError as exc:
             log.warning("Could not remove socket %s: %s", self._socket_path, exc)
+
+    def _socket_is_ours(self) -> bool:
+        """False only when the path now holds a *different* file than the one we bound.
+
+        If the identity could not be taken (no ``os.stat`` result at bind time, or the
+        file is gone or unreadable now) the old behaviour stands: try to unlink.
+        """
+        if self._bound_id is None:
+            return True
+        try:
+            st = os.stat(self._socket_path)
+        except OSError:
+            return True
+        return (st.st_dev, st.st_ino) == self._bound_id
 
     # ------------------------------------------------------------------
 
