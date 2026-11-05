@@ -110,20 +110,37 @@ def supported_compute_types(device: str) -> list[str]:
         return []
 
 
-# Words that name the accelerator rather than the model file. Matched
-# case-insensitively against the cause of a failed load on a non-CPU device.
+# Positive evidence that the accelerator, not the model file, is what failed. Matched
+# case-insensitively against the cause of a failed load on a non-CPU device. Every entry
+# is a string a CUDA stack really prints; "device" and "driver" alone are NOT here, because
+# a disk-full or an unrelated library error also contains them.
+#
+# Sources (read, not guessed):
+# - CTranslate2 4.8.1 binary, `strings libctranslate2-*.so`: "CUDA failed with error ",
+#   "cuBLAS failed with status ", "no CUDA-capable device is detected", "No GPU is
+#   available", "CUDA driver version is insufficient for CUDA runtime version",
+#   "CUDA driver is a stub library", "system has unsupported display driver / cuda driver
+#   combination", "unsupported device ".
+# - faster-whisper 1.2.1 README (package METADATA): needs cuBLAS 12 and cuDNN 9, loaded as
+#   libcublas*.so / libcudnn*.so (cublas64_*.dll / cudnn64_*.dll on Windows), so a missing
+#   library names itself and is caught by "cublas" / "cudnn".
+# NOT sourced: the exact text of a cuDNN load failure ("Could not load library
+# libcudnn_ops...") is quoted from memory of user reports, so only the library name is relied
+# on, not the sentence.
 _DEVICE_MARKERS = (
     "cuda",
     "cudnn",
     "cublas",
+    "cufft",
+    "curand",
+    "nvrtc",
     "nvidia",
-    "gpu",
-    "driver",
-    "device",
+    "display driver",
+    "unsupported device",
 )
 
-# A phrase that contains "device" but is a disk problem, not an accelerator one.
-_NOT_A_DEVICE_PHRASES = ("no space left on device",)
+# "gpu" as a word: "No GPU is available", not a substring of some other token.
+_GPU_WORD_RE = re.compile(r"\bgpus?\b")
 
 _REASON_LIMIT = 120
 
@@ -158,22 +175,21 @@ def short_reason(cause: BaseException | str) -> str:
 
 
 def looks_like_a_device_failure(cause: BaseException | str, device: str) -> bool:
-    """True when a failed load on *device* is the accelerator's fault, not the model's.
+    """True when a failed load on *device* shows positive evidence of an accelerator fault.
 
     Never true for ``cpu``: a CPU failure keeps the wording it always had. For any
-    other device a failure is the device's unless it reads purely as a blocked
-    network (a download problem that happens to run on a GPU box). Used only to pick
-    the explanation, never whether to fail or retry.
+    other device (``cuda``, ``auto``) the failure is the device's only if its text names
+    the accelerator (CUDA, cuDNN, cuBLAS, NVIDIA, a GPU, an unsupported device). Anything
+    else - a wrong model name, a 404, a timeout, a 429/5xx, a TLS error, a full disk, a
+    corrupt file - is the model's availability, so it keeps the model guidance. Used only
+    to pick the explanation, never whether to fail or retry.
     """
     if (device or "cpu").strip().lower() == "cpu":
         return False
     text = str(cause).lower()
-    disk = any(phrase in text for phrase in _NOT_A_DEVICE_PHRASES)
-    for phrase in _NOT_A_DEVICE_PHRASES:
-        text = text.replace(phrase, "")
-    if any(marker in text for marker in _DEVICE_MARKERS):
-        return True
-    return not (disk or looks_like_a_blocked_network(cause))
+    return any(marker in text for marker in _DEVICE_MARKERS) or bool(
+        _GPU_WORD_RE.search(text)
+    )
 
 
 def device_unavailable_message(
