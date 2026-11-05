@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — research: hands-free task inventory and evidence gaps ([#813](https://github.com/MSKazemi/yazses/issues/813))
+
+`design/research/2026-11-05-handsfree-task-inventory-and-evidence-gaps.md` lists 15 complete hands-free tasks against the capability that implements each and the evidence that exists (none has hardware or user evidence), and ranks the points where a user could be stranded. Research note, not a decision; ADR-030 unchanged.
+
 ### Added — Persian text normalisation has a checkbox in Settings
 
 `[stt] persian_normalisation` could only be turned on by editing `config.toml`. It is now a
