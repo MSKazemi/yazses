@@ -15,6 +15,7 @@ import json
 import math
 import random
 from collections import Counter
+from collections.abc import Sequence
 from typing import Any
 
 FS = 100
@@ -49,13 +50,19 @@ BLOCKS: tuple[tuple[str, int, float], ...] = (
 CONTROL_LABELS = frozenset(n for n, _, _ in BLOCKS if n != "calibration_rest" and not n.startswith("imagery"))
 
 
-def generate(seed: int = 0) -> dict[str, Any]:
-    """Make time-ordered, synthetic C3/C4-like, eye and muscle channels."""
+def generate(seed: int = 0, drift_amplitude: float | None = None) -> dict[str, Any]:
+    """Make time-ordered, synthetic C3/C4-like, eye and muscle channels.
+
+    ``drift_amplitude`` overrides the authored mu-amplitude of the ``drift_rest``
+    block only; ``None`` keeps the original authored value (byte-identical output).
+    """
     rng = random.Random(seed)
     channels: dict[str, list[float | None]] = {name: [] for name in ("c3", "c4", "eog", "emg")}
     spans: list[dict[str, Any]] = []
     cursor = 0
     for label, duration, mu_amp in BLOCKS:
+        if label == "drift_rest" and drift_amplitude is not None:
+            mu_amp = drift_amplitude
         first = cursor
         for j in range(duration * FS):
             t = (cursor + j) / FS
@@ -79,6 +86,23 @@ def generate(seed: int = 0) -> dict[str, Any]:
         cursor += duration * FS
         spans.append({"label": label, "start_s": first / FS, "end_s": cursor / FS})
     return {"synthetic": True, "seed": seed, "channels": channels, "blocks": spans}
+
+
+def drift_sweep(amplitudes: Sequence[float], seeds: Sequence[int]) -> list[dict[str, Any]]:
+    """Pure sweep: per drift amplitude, how many seeds give a false candidate in drift_rest.
+
+    Seeds change only the noise, so the counts describe the authored thresholds
+    against one authored waveform, not physiology or between-subject variation.
+    """
+    rows: list[dict[str, Any]] = []
+    for amp in amplitudes:
+        firing = 0
+        for seed in seeds:
+            out = run(seed, drift_amplitude=amp)
+            if out["scores"]["false_candidates_by_control"]["drift_rest"] >= 1:
+                firing += 1
+        rows.append({"drift_amplitude": amp, "seeds_firing": firing, "seeds": len(seeds)})
+    return rows
 
 
 def _std(values: list[float]) -> float:
@@ -199,8 +223,9 @@ def score(data: dict[str, Any], replay_out: dict[str, Any]) -> dict[str, Any]:
             "false_rate_note": "Not estimated: short, scripted synthetic blocks are not real idle exposure or device behavior."}
 
 
-def run(seed: int = 0, stop_at_s: float | None = None) -> dict[str, Any]:
-    data = generate(seed)
+def run(seed: int = 0, stop_at_s: float | None = None,
+        drift_amplitude: float | None = None) -> dict[str, Any]:
+    data = generate(seed, drift_amplitude)
     evaluated = replay(data, stop_at_s)
     return {"research_only": True, "synthetic": True, "provenance": "hand-authored waveforms, Python stdlib, seed fixed",
             "notice": "This is a synthetic software stress-test, NOT proof of brain decoding, intent recognition, device performance, or clinical efficacy.",
@@ -220,8 +245,19 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Synthetic motor-imagery EEG replay. Never drives an action.")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--stop-at-s", type=float, default=None, help="simulated independent stop time")
+    parser.add_argument("--drift-amplitude", type=float, default=None,
+                        help="override the authored drift_rest mu-amplitude (default: authored value)")
+    parser.add_argument("--sweep-drift", default=None, metavar="A,B,...",
+                        help="comma-separated drift amplitudes; print the seed-count sweep instead of one run")
+    parser.add_argument("--sweep-seeds", type=int, default=20, help="seeds 0..N-1 for --sweep-drift")
     args = parser.parse_args()
-    print(json.dumps(run(args.seed, args.stop_at_s), indent=2, sort_keys=True))
+    if args.sweep_drift is not None:
+        amps = [float(a) for a in args.sweep_drift.split(",")]
+        print(json.dumps({"research_only": True, "synthetic": True,
+                          "note": "Follows from the authored thresholds, not physiology.",
+                          "sweep": drift_sweep(amps, range(args.sweep_seeds))}, indent=2, sort_keys=True))
+        return 0
+    print(json.dumps(run(args.seed, args.stop_at_s, args.drift_amplitude), indent=2, sort_keys=True))
     return 0
 
 

@@ -5,6 +5,7 @@ These tests verify code invariants, not motor-imagery classification accuracy.
 from __future__ import annotations
 
 import copy
+import hashlib
 import importlib.util
 import json
 import math
@@ -125,3 +126,59 @@ def test_all_candidate_timestamps_are_sorted_and_bounded(seed: int) -> None:
     assert times == sorted(times)
     assert all(0 <= t <= sum(duration for _, duration, _ in M.BLOCKS) for t in times)
     assert report["scores"]["false_candidates_total"] >= 0
+
+
+# --- Drift-amplitude sweep (research-only, synthetic; follows from authored thresholds) ---
+
+# sha256 of `python scripts/hci_eeg_mi_synthetic.py --seed 0` stdout (indent=2, sorted keys).
+# Seen identical on CPython 3.12.3, 3.13.15 and 3.14.7. A change here means the default
+# synthetic output changed; update the doc table and this hash deliberately, never silently.
+SEED0_DEFAULT_SHA256 = "64ad91e04d8c732a6c4661470a37134c69b11d3d94793e9a762ff7edb556d9b6"
+
+
+def test_default_output_is_byte_identical_golden_hash() -> None:
+    text = json.dumps(M.run(0), indent=2, sort_keys=True) + "\n"
+    assert hashlib.sha256(text.encode("utf-8")).hexdigest() == SEED0_DEFAULT_SHA256
+
+
+def test_cli_default_stdout_matches_golden_hash() -> None:
+    p = subprocess.run([sys.executable, str(SCRIPT), "--seed", "0"],
+                       capture_output=True, text=True, check=True, timeout=30)
+    assert hashlib.sha256(p.stdout.encode("utf-8")).hexdigest() == SEED0_DEFAULT_SHA256
+
+
+def test_drift_amplitude_none_equals_authored_value() -> None:
+    authored = next(amp for label, _, amp in M.BLOCKS if label == "drift_rest")
+    assert M.run(3) == M.run(3, drift_amplitude=None)
+    assert M.generate(3) == M.generate(3, drift_amplitude=authored)
+
+
+def test_drift_sweep_is_monotone_fires_at_050_not_at_085() -> None:
+    seeds = range(5)
+    low = M.drift_sweep([0.50], seeds)[0]
+    high = M.drift_sweep([0.85], seeds)[0]
+    assert low == {"drift_amplitude": 0.50, "seeds_firing": 5, "seeds": 5}
+    assert high == {"drift_amplitude": 0.85, "seeds_firing": 0, "seeds": 5}
+    rows = M.drift_sweep([0.30, 0.50, 0.70, 0.75, 0.80, 0.90, 1.00], seeds)
+    firing = [r["seeds_firing"] for r in rows]
+    assert firing == sorted(firing, reverse=True), firing
+
+
+def test_drift_sweep_is_deterministic_and_leaves_other_controls_clean() -> None:
+    assert M.drift_sweep([0.5, 0.8], range(3)) == M.drift_sweep([0.5, 0.8], range(3))
+    for amp in (0.5, 0.85):
+        scores = M.run(0, drift_amplitude=amp)["scores"]
+        assert scores["imagery_hits"] == {"numerator": 2, "denominator": 2}
+        others = {k: v for k, v in scores["false_candidates_by_control"].items() if k != "drift_rest"}
+        assert not any(others.values()), others
+
+
+def test_cli_drift_amplitude_and_sweep_flags() -> None:
+    one = subprocess.run([sys.executable, str(SCRIPT), "--seed", "1", "--drift-amplitude", "0.85"],
+                         capture_output=True, text=True, check=True, timeout=30)
+    assert json.loads(one.stdout) == M.run(1, drift_amplitude=0.85)
+    sweep = subprocess.run([sys.executable, str(SCRIPT), "--sweep-drift", "0.5,0.85", "--sweep-seeds", "2"],
+                           capture_output=True, text=True, check=True, timeout=60)
+    body = json.loads(sweep.stdout)
+    assert body["synthetic"] and "not physiology" in body["note"]
+    assert body["sweep"] == M.drift_sweep([0.5, 0.85], range(2))
