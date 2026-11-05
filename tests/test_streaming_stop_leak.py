@@ -55,11 +55,21 @@ def test_request_stop_does_not_block_on_an_in_flight_decode():
 
     Event-ordered, not timed: the decode is held open by an event this test controls, so
     "request_stop() returned while the decode was still in flight" is a fact about
-    ordering, true at any machine speed.  A blocking request_stop() could only return
-    after the decode did.  ``HANG_GUARD_S`` bounds the fake decode so a regression is a
-    red test, not a hang; it is never what the assertion measures.
+    ordering, true at any machine speed.  ``HANG_GUARD_S`` bounds the fake decode so a
+    regression is a red test, not a hang; it is never what the assertion measures.
+
+    The ordering alone is not enough, and a mutant proved it: ``request_stop`` changed
+    to ``self._thread.join(timeout=2.0)`` waits 2 s, gives up with the decode *still*
+    held (``HANG_GUARD_S`` is 10 s), and so passes an "is the decode still in flight"
+    check.  Two more checks close that, neither tied to the decode's duration:
+
+    * ``Thread.join`` is spied and must not be called at all -- the join is how any
+      waiting variant would wait, and ``stop()`` (which does join) is not called yet;
+    * the call runs on a helper thread and must be *done* inside ``PROMPT_S``, which is
+      below the engine's own 2 s join timeout and ~1000x the cost of clearing a flag.
     """
     HANG_GUARD_S = 10.0
+    PROMPT_S = 1.0  # < StreamingEngine.stop()'s 2.0 s join timeout; see docstring
     in_decode = threading.Event()
     release = threading.Event()
     decode_returned = threading.Event()
@@ -73,14 +83,32 @@ def test_request_stop_does_not_block_on_an_in_flight_decode():
 
     engine = StreamingEngine(_HeldEngine(), partial_interval_ms=10)
     engine.start()
+    joins: list[float | None] = []
+    real_join = engine._thread.join
+
+    def _spy_join(timeout: float | None = None) -> None:
+        joins.append(timeout)
+        real_join(timeout)
+
+    engine._thread.join = _spy_join  # type: ignore[method-assign]
     try:
         engine.push(np.zeros(16000, dtype=np.float32))
         assert in_decode.wait(timeout=HANG_GUARD_S), "the decode never started"
 
-        engine.request_stop()
-        assert not decode_returned.is_set(), (
+        stopped = threading.Event()
+
+        def _stop() -> None:
+            engine.request_stop()
+            stopped.set()
+
+        threading.Thread(target=_stop, daemon=True).start()
+        assert stopped.wait(timeout=PROMPT_S), (
+            f"request_stop() had not returned after {PROMPT_S}s with the decode in flight"
+        )
+        assert not release.is_set() and not decode_returned.is_set(), (
             "request_stop() waited for the in-flight decode instead of returning at once"
         )
+        assert joins == [], f"request_stop() joined the decode thread (timeout={joins})"
     finally:
         release.set()
         engine.stop()                               # blocking variant cleans up

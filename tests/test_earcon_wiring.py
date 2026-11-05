@@ -66,8 +66,15 @@ def test_playback_does_not_block_the_caller(mocker, audio):
     any machine speed. A blocking play() could only return after playback did.
     ``HANG_GUARD_S`` bounds the fake so a regression is a red test, not a hang; it is
     never what the assertion measures.
+
+    Ordering alone misses a *bounded* wait: a mutant that did ``thread.join(timeout=1.0)``
+    after starting the cue returned with playback still held (the guard is 10 s) and
+    passed. So two more checks, neither tied to how long the cue lasts: no thread named
+    ``earcon`` may be joined by ``play()``, and ``play()`` must be done inside
+    ``PROMPT_S`` -- below that mutant's 1 s wait, ~1000x the cost of starting a thread.
     """
     HANG_GUARD_S = 10.0
+    PROMPT_S = 0.5
     started = threading.Event()
     release = threading.Event()
     finished = threading.Event()
@@ -80,12 +87,30 @@ def test_playback_does_not_block_the_caller(mocker, audio):
     mocker.patch("sounddevice.play", side_effect=_held)
     player = EarconPlayer(enabled=True)
 
-    try:
+    joined: list[str] = []
+    real_join = threading.Thread.join
+
+    def _spy_join(self, timeout=None):
+        if self.name == "earcon":
+            joined.append(self.name)
+        return real_join(self, timeout)
+
+    join_patch = mocker.patch.object(threading.Thread, "join", _spy_join)
+    returned = threading.Event()
+
+    def _call() -> None:
         player.play("recording_start")
+        returned.set()
+
+    try:
+        threading.Thread(target=_call, daemon=True).start()
+        assert returned.wait(timeout=PROMPT_S), f"play() had not returned after {PROMPT_S}s"
         assert not finished.is_set(), "play() waited for the cue to finish sounding"
+        assert joined == [], "play() joined the playback thread"
         assert started.wait(timeout=HANG_GUARD_S), "playback never actually started"
     finally:
         release.set()
+        mocker.stop(join_patch)
         _settle()   # do not leave a thread to call into the next test's mock
     assert finished.is_set()
 

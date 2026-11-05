@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import ast
 import dataclasses
+import select
 import socket
 import sys
 import threading
@@ -431,9 +432,21 @@ def test_a_raw_press_comes_back_as_its_button_number() -> None:
     assert connection.next_button(timeout_s=1.0) == 2
 
 
-def test_an_idle_display_returns_none_within_the_timeout_not_never() -> None:
+def test_an_idle_display_returns_none_within_the_timeout_not_never(monkeypatch) -> None:
     display = _FakeDisplay()
     connection = _connection(display)
+    # The wait is a `select` on the display socket, so the timeout the call hands it is
+    # observed directly.  A join against a hang guard alone cannot see a call that waited
+    # longer than asked (a mutant that scaled the timeout by 40 returned after 2 s, well
+    # inside the 10 s guard, and passed); the select's own timeout argument can.
+    selects: list[float] = []
+    real_select = select.select
+
+    def _spy_select(r, w, x, timeout=None):
+        selects.append(timeout)
+        return real_select(r, w, x, timeout)
+
+    monkeypatch.setattr(select, "select", _spy_select)
     # A call that ignored its timeout would never return, and a clock read *after* the
     # call cannot see that.  So the call runs on a thread and the join is the hang guard
     # (200x the 0.05 s timeout); it is a bound on "returns at all", not a speed claim.
@@ -446,6 +459,7 @@ def test_an_idle_display_returns_none_within_the_timeout_not_never() -> None:
     caller.join(hang_guard_s)
     assert not caller.is_alive(), "next_button ignored its timeout and blocked"
     assert outcome == [None]
+    assert selects == [0.05], f"next_button waited {selects}, not the 0.05 s it was given"
 
 
 def test_events_that_are_not_raw_xi2_button_presses_are_skipped() -> None:

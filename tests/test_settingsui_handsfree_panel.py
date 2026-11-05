@@ -249,7 +249,7 @@ def test_a_gather_that_fails_is_reported_and_changes_nothing(qapp):
     assert rig.button("pause").isEnabled()  # the last good model's controls are not torn down
 
 
-def test_gathering_runs_off_the_ui_thread_and_overlapping_refreshes_collapse(qapp):
+def test_gathering_runs_off_the_ui_thread_and_overlapping_refreshes_collapse(qapp, monkeypatch):
     release = threading.Event()
     seen_threads: list[str] = []
     calls = []
@@ -269,10 +269,35 @@ def test_gathering_runs_off_the_ui_thread_and_overlapping_refreshes_collapse(qap
     # Ordering, not a stopwatch: the gather is held open by `release`, so three refresh()
     # calls returning while it has not returned is true at any machine speed. A refresh()
     # that ran the gather inline could only come back after it returned.
-    panel.refresh()
-    panel.refresh()
-    panel.refresh()
+    #
+    # Ordering alone misses a *bounded* wait: a refresh() that did `worker.join(timeout=1.0)`
+    # came back with the gather still held (the guard is 5 s) and passed. So the thread
+    # named "handsfree-panel" must never be joined, and the three calls must be *done*
+    # inside PROMPT_S -- below that mutant's 1 s wait, ~500x the cost of starting a thread.
+    # (refresh() only starts a thread and flips a flag; no widget is touched here.)
+    PROMPT_S = 0.5
+    joined: list[str] = []
+    real_join = threading.Thread.join
+
+    def _spy_join(self, timeout=None):
+        if self.name == "handsfree-panel":
+            joined.append(self.name)
+        return real_join(self, timeout)
+
+    monkeypatch.setattr(threading.Thread, "join", _spy_join)
+    refreshed = threading.Event()
+
+    def _three_refreshes() -> None:
+        panel.refresh()
+        panel.refresh()
+        panel.refresh()
+        refreshed.set()
+
+    threading.Thread(target=_three_refreshes, daemon=True).start()
+    assert refreshed.wait(PROMPT_S), f"refresh() had not returned after {PROMPT_S}s"
     assert not gather_returned.is_set(), "refresh() must not wait for the gather"
+    assert joined == [], "refresh() joined the gather thread"
+    monkeypatch.setattr(threading.Thread, "join", real_join)
     release.set()
     deadline = time.monotonic() + 5
     while panel._model is None and time.monotonic() < deadline:

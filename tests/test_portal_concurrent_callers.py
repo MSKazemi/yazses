@@ -49,6 +49,34 @@ class _DialogOpenSession(_FakePortalSession):
         return super()._call_with_response(member, signature, body, timeout)
 
 
+class _SpyLock:
+    """Wraps the session lock and records every ``acquire`` budget the product asks for.
+
+    The budget is what "fails fast" means: the call waits on this lock for exactly the
+    time it was given and no longer.  A join against ``JOIN_S`` cannot see a call that
+    waited *longer* than its budget but less than the hang guard (a mutant that waited
+    ``max(budget, 3 s)`` passed both tests below), so the wait itself is observed.
+    """
+
+    def __init__(self, inner) -> None:
+        self._inner = inner
+        self.acquires: list[tuple[bool, float]] = []
+
+    def acquire(self, blocking: bool = True, timeout: float = -1) -> bool:
+        self.acquires.append((blocking, timeout))
+        return self._inner.acquire(blocking, timeout)
+
+    def release(self) -> None:
+        self._inner.release()
+
+    def __enter__(self):
+        self._inner.acquire()
+        return self
+
+    def __exit__(self, *exc) -> None:
+        self._inner.release()
+
+
 def _in_background(fn) -> tuple[threading.Thread, list]:
     """Run *fn* on a thread; collect its exception (or None) so the test can read it."""
     outcome: list = []
@@ -112,8 +140,11 @@ def test_dictation_during_an_open_dialog_fails_fast_and_sends_no_key(
     short_hot_path, act
 ) -> None:
     session = _DialogOpenSession()
+    spy = _SpyLock(session._lock)
+    session._lock = spy
     injector = portal.PortalInjector(session=session)
     thread = _open_dialog(session)
+    spy.acquires.clear()  # the warm-up's own (long) wait is not the call under test
     try:
         assert session._session_handle, "CreateSession has answered, as on the real portal"
         assert session.started is False
@@ -127,6 +158,9 @@ def test_dictation_during_an_open_dialog_fails_fast_and_sends_no_key(
         assert not session.answer.is_set()
         assert isinstance(outcome[0], portal.PortalUnavailable), outcome
         assert "still waiting" in str(outcome[0])
+        # The wait itself: only ever the shortened dictation budget, never a longer one.
+        assert portal.HOT_PATH_TIMEOUT_S == 0.2
+        assert spy.acquires and {t for _, t in spy.acquires} == {0.2}, spy.acquires
         assert session.notified == [], "no input may reach a session nobody authorised"
         assert session._last_used is None, "a refused burst is not 'use' for the reaper"
     finally:
@@ -196,8 +230,11 @@ def test_a_deferred_pointer_sends_nothing_while_the_dialog_is_open() -> None:
 def test_a_blocking_pointer_open_during_an_open_dialog_times_out_and_sends_nothing() -> None:
     """`open_pointer_sink` may wait for a human, but only within its own budget."""
     session = _DialogOpenSession()
+    spy = _SpyLock(session._lock)
+    session._lock = spy
     portal.DeferredPortalPointerSink(session)  # the consumer that put POINTER in the mask
     thread = _open_dialog(session)
+    spy.acquires.clear()  # the warm-up's own (long) wait is not the call under test
     try:
         # Ordering, not a stopwatch: the dialog is never answered during the call, so a
         # call that returns at all gave up on its own budget.  The join is a hang guard
@@ -209,6 +246,8 @@ def test_a_blocking_pointer_open_during_an_open_dialog_times_out_and_sends_nothi
         assert not call.is_alive(), "open_pointer_sink waited for the human, not its budget"
         assert not session.answer.is_set()
         assert isinstance(outcome[0], PointerBackendError), outcome
+        # The wait itself: exactly the 0.2 s it was given, not a longer one.
+        assert spy.acquires == [(True, 0.2)], spy.acquires
         assert session.notified == []
         assert session._pointer_consumers == 1, "the failed open must hand its count back"
     finally:
