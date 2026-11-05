@@ -6,6 +6,12 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the tray no longer shows "idle" when the daemon never started or its poller died
+
+When the daemon never booted, or the status poller crashed, the tray returned without changing its icon, so it stayed idle blue. It now turns red with a fixed reason. A starting, restarting or stopping daemon is reported as "loading" (the tooltip says so; the colour is unchanged), and an error tooltip shows the daemon's own error text on one line, at most 60 characters.
+
+What was checked: 19 tests with a fake platform, no Qt (eight fail on the old code). What was not checked: a real tray or desktop, or a real daemon crash.
+
 ### Added — Persian text normalisation has a checkbox in Settings
 
 `[stt] persian_normalisation` could only be turned on by editing `config.toml`. It is now a
