@@ -326,14 +326,34 @@ def test_invalid_utf8_on_real_stdin_does_not_end_the_process(tmp_path) -> None:
 
 
 @pytest.mark.parametrize(
-    "asked, expected",
-    [(30, 40.0), (5, 15.0), (120, 130.0), (9999, 130.0), (None, 40.0), ("x", 40.0),
-     (-3, 40.0), (float("nan"), 40.0)],
+    "asked, listen",
+    [(30, 30.0), (5, 5.0), (120, 120.0), (9999, 120.0), (None, 30.0), ("x", 30.0),
+     (-3, 30.0), (float("nan"), 30.0)],
 )
-def test_the_ask_human_wait_is_the_listen_time_plus_ten_seconds(asked, expected) -> None:
+def test_the_ask_human_wait_covers_the_listen_time_and_a_margin(asked, listen) -> None:
     from yazses.mcp.server import ask_human_wait_s
 
-    assert ask_human_wait_s(asked) == expected
+    # No question text: the "<caller> asks: " prefix is still spoken (about a second).
+    wait = ask_human_wait_s(asked)
+    assert listen + 20.0 <= wait <= listen + 22.0
+
+
+def test_the_ask_human_wait_includes_the_time_to_speak_the_question() -> None:
+    """The daemon speaks the question, THEN listens (`mcp/ask.py`), so a long question
+    used up the old 10 s margin before the listening even began: a 12 s spoken
+    question + a 25 s answer + transcription outlasted a 40 s wait."""
+    from yazses.mcp.server import ask_human_wait_s
+
+    short = ask_human_wait_s(30, "go?")
+    long_question = ask_human_wait_s(30, "x" * 180)  # 180 characters = 12 s at 15 chars/s
+    assert long_question - short >= 11.0
+    assert long_question >= 12.0 + 25.0 + 20.0, "spoken + answer + transcription margin"
+    assert ask_human_wait_s(30, "x" * 10_000_000) < 30 + 300 + 21, "the estimate is capped"
+
+
+def test_the_ask_human_timeout_description_warns_about_client_timeouts() -> None:
+    props = _ask_tool().schema["properties"]
+    assert "request timeout" in props["timeout_s"]["description"]
 
 
 def _ask_tool():
@@ -359,7 +379,10 @@ def test_ask_human_gives_the_ipc_call_a_wait_that_covers_the_answer(monkeypatch)
     _patch_platform(monkeypatch, _Client())
     assert _ask_tool().run(question="go?", timeout_s=45) == "yes"
     assert seen["method"] == "ask_human"
-    assert seen["params"]["wait_s"] == 55.0
+    from yazses.mcp.server import ask_human_wait_s
+
+    assert seen["params"]["wait_s"] == ask_human_wait_s(45, "go?")
+    assert seen["params"]["wait_s"] >= 45 + 20
     assert seen["params"]["timeout_s"] == 45, "the daemon still gets the listen time"
 
 

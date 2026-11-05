@@ -82,18 +82,28 @@ def transcribe_tool(config) -> ToolSpec:
 
 
 #: The daemon caps the listening time itself (see ``[mcp] ask_human_*``); this
-#: bounds how long the *client* waits for that answer to come back over IPC.
+#: bounds how long the *client* waits for the whole exchange to come back over IPC.
 _ASK_HUMAN_LISTEN_CAP_S = 120.0
-_ASK_HUMAN_MARGIN_S = 10.0
+#: The daemon SPEAKS the question first and only then listens (``mcp/ask.py``), and
+#: transcribes afterwards. Speech runs at roughly 15 characters a second; a
+#: generous estimate is better than a wait that ends mid-sentence.
+_ASK_HUMAN_SPOKEN_CHARS_PER_S = 15.0
+_ASK_HUMAN_SPEAK_CAP_S = 300.0
+#: Transcription, the hand-back and scheduling slack.
+_ASK_HUMAN_MARGIN_S = 20.0
+#: ``mcp/ask.py`` prefixes the question with "<caller> asks: ".
+_ASK_HUMAN_PREFIX_CHARS = 16
 
 
-def ask_human_wait_s(timeout_s: object) -> float:
+def ask_human_wait_s(timeout_s: object, question: str = "") -> float:
     """How long to wait on the daemon for an ``ask_human`` reply.
 
-    The requested listening time (capped at 120 s) plus 10 s for speaking the
-    question and finishing the transcription. The IPC client's default 2 s is
-    shorter than a spoken answer, so the old call gave up while the user was
-    still talking and reported a running daemon as not running.
+    The estimated time to speak the question, plus the requested listening time
+    (capped at 120 s), plus a 20 s margin for transcription. The IPC client's
+    default 2 s is shorter than a spoken answer, so the old call gave up while the
+    user was still talking and reported a running daemon as not running; and a
+    fixed small margin ended before a long question had even finished being read
+    out.
     """
     try:
         listen = float(timeout_s)  # type: ignore[arg-type]
@@ -101,7 +111,9 @@ def ask_human_wait_s(timeout_s: object) -> float:
         listen = 30.0
     if listen != listen or listen < 0:  # NaN or negative
         listen = 30.0
-    return min(listen, _ASK_HUMAN_LISTEN_CAP_S) + _ASK_HUMAN_MARGIN_S
+    chars = (len(question) if isinstance(question, str) else 0) + _ASK_HUMAN_PREFIX_CHARS
+    speaking = min(chars / _ASK_HUMAN_SPOKEN_CHARS_PER_S, _ASK_HUMAN_SPEAK_CAP_S)
+    return min(listen, _ASK_HUMAN_LISTEN_CAP_S) + speaking + _ASK_HUMAN_MARGIN_S
 
 
 def _seconds(value: float | None) -> str:
@@ -132,7 +144,7 @@ def ask_human_tool(config) -> ToolSpec:
             # tests used a fake client that accepted anything.
             reply = client.call(
                 "ask_human",
-                wait_s=ask_human_wait_s(timeout_s),
+                wait_s=ask_human_wait_s(timeout_s, question),
                 question=question,
                 timeout_s=timeout_s,
                 caller="mcp",
@@ -172,8 +184,11 @@ def ask_human_tool(config) -> ToolSpec:
                 "timeout_s": {
                     "type": "number",
                     "description": (
-                        "The longest to wait for an answer. Listening ends earlier when "
-                        "the user stops speaking. Capped by the daemon."
+                        "The longest to wait for an answer, in seconds. Listening ends "
+                        "earlier when the user stops speaking. Capped at 120 by the "
+                        "daemon. The call lasts this long plus the time to speak the "
+                        "question, so a large value can exceed your own client's request "
+                        "timeout: keep it below that."
                     ),
                 },
             },

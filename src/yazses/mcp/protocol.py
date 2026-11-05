@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import inspect
 import logging
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -85,12 +86,91 @@ _GENERIC_FAILURE = "the tool failed unexpectedly. Details are in the server's lo
 _SCHEMA_TYPES: dict[str, Callable[[Any], bool]] = {
     "string": lambda v: isinstance(v, str),
     "boolean": lambda v: isinstance(v, bool),
-    "integer": lambda v: isinstance(v, int) and not isinstance(v, bool),
+    # JSON has one number type: `5.0` is an integer to JSON Schema, and json.loads
+    # hands it over as a float.
+    "integer": lambda v: (isinstance(v, int) and not isinstance(v, bool))
+    or (isinstance(v, float) and v.is_integer()),
     "number": lambda v: isinstance(v, (int, float)) and not isinstance(v, bool),
 }
 
 
+#: A Python identifier, which is all of a module's name this server will repeat.
+_PLAIN_IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]{0,63}")
+
+#: Text that looks like it holds a filesystem path. A line that matches is never
+#: repeated, whatever class raised it: an absolute path, a drive, a UNC share, a
+#: home reference, or two path separators in one line.
+_PATHISH = re.compile(r"""(^|[\s'"(=])/|[A-Za-z]:[\\/]|\\|~[\\/]""")
+_MAX_PUBLIC_LINE = 240
+
+
+def _pathish(line: str) -> bool:
+    return bool(_PATHISH.search(line)) or line.count("/") >= 2
+
+
+def _first_line_if_safe(exc: BaseException) -> str | None:
+    """The first line of ``str(exc)`` -- only when it is short and path-free."""
+    first = next((ln.strip() for ln in str(exc).splitlines() if ln.strip()), "")
+    if not first or len(first) > _MAX_PUBLIC_LINE or _pathish(first):
+        return None
+    return first
+
+
+def _speech_model_message(exc: BaseException) -> str | None:
+    """The cause and the fix for the speech-model errors, which are written for users.
+
+    ``stt/errors.py`` builds these as a cause on the first line, the long
+    explanation below it (including the cache directory and the underlying
+    exception), and the fix near the end. Only the first line is repeated here,
+    and only when it holds no path; the fix is a fixed sentence per class, because
+    on the wire the first line alone says what is wrong and not what to do -- and
+    a client that cannot show stderr to the model leaves the user with a
+    meaningless "the tool failed". The ``model`` attribute is repeated only when it
+    is a plain model name and not a local path.
+    """
+    try:
+        from yazses.stt import errors as stt_errors
+    except Exception:  # noqa: BLE001 - an optional nicety must never become a failure
+        return None
+
+    # The most specific class first: every one below is a ModelUnavailableError.
+    if isinstance(exc, stt_errors.LanguageUnsupportedError):
+        if getattr(exc, "requested_engine", ""):
+            return (
+                "the configured speech engine is not running and the selected language "
+                "needs it. Run: yazses language status, then: yazses restart."
+            )
+        fallback = "the language, engine and model in [stt] do not agree."
+        fix = "Run: yazses language status, then: yazses restart."
+    elif isinstance(exc, stt_errors.DeviceUnavailableError):
+        fallback = "the speech model could not start on the configured device."
+        fix = 'Set device = "cpu" under [stt] in config.toml, then: yazses restart.'
+    elif isinstance(exc, stt_errors.ComputeTypeUnsupportedError):
+        fallback = "the configured compute type is not supported on this machine."
+        fix = "Remove the compute_type line from [stt] in config.toml, then: yazses restart."
+    elif isinstance(exc, stt_errors.ModelUnavailableError):
+        fallback = "the speech-to-text model is not on this machine."
+        model = getattr(exc, "model", "")
+        if isinstance(model, str) and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9._-]+)?", model):
+            fix = f"Run: yazses model download {model}, then: yazses restart."
+        else:
+            fix = "Run: yazses doctor."
+    else:
+        return None
+    return f"{_first_line_if_safe(exc) or fallback} {fix}"
+
+
 def _failure_text(name: str, exc: BaseException) -> str:
+    # Opt-in public messages: exceptions whose text is a cause and a fix by design.
+    public = _speech_model_message(exc)
+    if public is not None:
+        return f"{name} failed: {public}"
+    if isinstance(exc, ModuleNotFoundError):
+        # Name the missing optional component, and only a plain module name: the
+        # exception's text can carry a path, its `name` attribute is the module.
+        top = (exc.name or "").split(".")[0]
+        if _PLAIN_IDENTIFIER.fullmatch(top):
+            return f"{name} failed: a component this tool needs is not installed: {top}."
     for kind, message in _FAILURE_MESSAGES:
         if isinstance(exc, kind):
             return f"{name} failed: {message}"
