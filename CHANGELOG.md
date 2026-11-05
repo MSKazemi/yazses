@@ -128,6 +128,9 @@ The models, benchmarks and low-RAM pages gave same-laptop latency figures that d
 ### Added — research: hands-free task inventory and evidence gaps ([#813](https://github.com/MSKazemi/yazses/issues/813))
 
 `design/research/2026-11-05-handsfree-task-inventory-and-evidence-gaps.md` lists 15 complete hands-free tasks against the capability that implements each and the evidence that exists (none has hardware or user evidence), and ranks the points where a user could be stranded. Research note, not a decision; ADR-030 unchanged.
+### Added — research: emergency stop and unintended activation threat model for hands-free input ([#816](https://github.com/MSKazemi/yazses/issues/816))
+
+`design/research/2026-11-05-emergency-stop-and-unintended-activation-threat-model.md` ranks the gaps in the stop and recovery paths (an untimed voice stop, no spoken resume, a hold that can outlive its cause, placeholder thresholds) against the code and tests that exist, and proposes synthetic tests. Research only: no hardware or user evidence, and the named tests were not re-run for the note.
 
 ### Added — Persian text normalisation has a checkbox in Settings
 
