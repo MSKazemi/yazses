@@ -156,3 +156,65 @@ def test_the_advice_is_read_after_the_writes_so_a_language_chosen_in_the_same_ap
     win._checkboxes[SLUG].setChecked(True)
     win._on_apply()
     assert "changes nothing" not in win._hint.text()
+
+
+# --- a language profile written by a worker: the advice must wait for the write ---------------
+
+
+def _profile_result(language: str):
+    from types import SimpleNamespace
+
+    return SimpleNamespace(
+        ok=True,
+        error="",
+        restart_required=True,
+        prepared=SimpleNamespace(
+            candidate_stt=SimpleNamespace(model="base.en", language=language),
+            plan=SimpleNamespace(canonical_profile=""),
+        ),
+    )
+
+
+def _apply_with_profile_in_flight(win: SettingsWindow) -> None:
+    """Apply while the language-profile write is still running on its worker thread."""
+    win._start_language_profile_apply = lambda: (True, None)  # type: ignore[method-assign]
+    win._language_thread = object()  # a worker is running, as it is in the real window
+    win._checkboxes[SLUG].setChecked(True)
+    win._on_apply()
+
+
+def test_a_profile_that_lands_on_english_still_gets_the_changes_nothing_advice(qapp):
+    """Tick the box and move the profile to a non-Persian language in ONE Apply."""
+    rec = _Rec("fa")
+    win = _window(qapp, rec)
+    _apply_with_profile_in_flight(win)
+    assert "changes nothing" not in win._hint.text()  # nothing has landed yet, so no verdict yet
+
+    rec.language = "en"  # the worker's write landed
+    win._on_language_finished(_profile_result("en"))
+    assert "changes nothing you dictate" in win._hint.text()
+
+
+def test_a_profile_that_lands_on_persian_adds_no_warning(qapp):
+    rec = _Rec("en")
+    win = _window(qapp, rec)
+    _apply_with_profile_in_flight(win)
+
+    rec.language = "fa"
+    win._on_language_finished(_profile_result("fa"))
+    assert "changes nothing" not in win._hint.text()
+    assert "Heads up" not in win._hint.text()
+
+
+def test_the_advice_is_part_of_the_restart_offer_when_the_profile_lands(qapp):
+    rec = _Rec("fa")
+    win = _window(qapp, rec)
+    offered: list[str] = []
+    win._offer_restart = lambda summary="": offered.append(summary)  # type: ignore[method-assign]
+    _apply_with_profile_in_flight(win)
+
+    rec.language = "en"
+    win._on_language_finished(_profile_result("en"))
+    assert len(offered) == 1
+    assert "changes nothing you dictate" in offered[0]
+    assert win._pending_caveat_slugs == []  # consumed: a later profile change must not repeat it
