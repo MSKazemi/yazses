@@ -122,6 +122,9 @@ The models, benchmarks and low-RAM pages gave same-laptop latency figures that d
 ### Added — research: code-aware correction and spoken technical vocabulary ([#804](https://github.com/MSKazemi/yazses/issues/804))
 
 `design/research/2026-11-05-code-aware-correction-and-spoken-technical-vocabulary.md` compares prompt biasing, post-recognition correction, spoken-symbol grammars, editor context and local rewriting against what the code does today, with a synthetic evaluation plan. No behaviour change and nothing was measured.
+### Added — research: Android API levels and OEM input-method and microphone restrictions ([#807](https://github.com/MSKazemi/yazses/issues/807))
+
+`design/research/2026-11-05-android-api-levels-and-oem-ime-microphone-restrictions.md` records the platform rules for an offline dictation input method (Android 8–16) with 26 cited sources and a device-test checklist. One premise of the existing plan, that an input method may record while its window is shown, is not stated by any source read. No code or ADR changed; nothing was run on a device.
 
 ### Added — Persian text normalisation has a checkbox in Settings
 
