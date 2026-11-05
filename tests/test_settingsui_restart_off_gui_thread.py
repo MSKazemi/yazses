@@ -130,6 +130,48 @@ def test_the_window_is_usable_and_says_so_while_the_restart_is_in_flight(qapp):
     assert "Restarting" not in win._hint.text()
 
 
+def test_closing_the_window_mid_restart_is_refused_and_quitting_waits_for_the_thread(qapp):
+    """A QThread destroyed while running aborts the process (SIGABRT, exit 134).
+
+    The restart runner is held on an Event, so the thread is provably running when the
+    window is closed and when the application is asked to quit; nothing here depends on
+    how long anything takes.
+    """
+    release = threading.Event()
+    started = threading.Event()
+
+    def run_restart():
+        started.set()
+        release.wait(30)
+        return True, ""
+
+    win = _window(qapp, run_restart=run_restart)
+    win._win.show()
+    try:
+        win._offer_restart("Saved.")
+        assert _pump_until(qapp, started.is_set)
+        thread = win._restart_thread
+        assert thread is not None and thread.isRunning()
+
+        # Closing is refused, says why, and leaves the thread alone.
+        assert win._win.close() is False
+        assert win._win.isVisible()
+        assert "Restarting" in win._hint.text()
+        assert thread.isRunning()
+
+        # The quit path blocks on the thread, so something must release it meanwhile.
+        releaser = threading.Thread(target=release.set)
+        releaser.start()
+        qapp.aboutToQuit.emit()
+        releaser.join()
+        assert not thread.isRunning(), "quit must wait for the worker, not destroy it"
+    finally:
+        release.set()
+    assert _pump_until(qapp, lambda: win._restart_thread is None)
+    # Once the restart is over the window closes as usual.
+    assert win._win.close() is True
+
+
 def test_a_failed_restart_is_reported_and_apply_comes_back(qapp):
     win = _window(qapp, run_restart=lambda: (False, "boom"))
     win._offer_restart("Saved.")
