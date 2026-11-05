@@ -10,6 +10,7 @@ from pathlib import Path
 
 import numpy as np
 
+from yazses.system.private_files import private_dir, write_private_bytes
 from yazses.voiceprint.embedding import Embedding
 
 
@@ -17,8 +18,10 @@ def save_voiceprint(embedding: Embedding, path: Path, cipher) -> None:
     """Encrypt and write the embedding vector to *path*."""
     buf = io.BytesIO()
     np.save(buf, np.asarray(embedding.vector, dtype="float32"))
-    Path(path).parent.mkdir(parents=True, exist_ok=True)
-    Path(path).write_bytes(cipher.encrypt(buf.getvalue()))
+    # Owner-only: the file is ciphertext, but the key sits beside it and the voiceprint
+    # is biometric data, so it is not left to the umask (see system/private_files.py).
+    private_dir(Path(path).parent)
+    write_private_bytes(path, cipher.encrypt(buf.getvalue()))
 
 
 def load_voiceprint(path: Path, cipher) -> Embedding | None:

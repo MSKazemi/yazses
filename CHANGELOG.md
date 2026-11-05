@@ -11,6 +11,12 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 The default-on 2-gram de-duplication collapsed repeated pairs, so `my pin is 4 7 4 7` became `my pin is 4 7` and `9 9 9 9 9 9 9 9` became `9 9`, silently, for any script. A pair containing a decimal digit (any script) or an English digit word (zero to ten) is now left alone. Other repeated phrases behave as before, including "New York New York", and the Persian emphatic-repeat case is still an expected failure (a maintainer decision). Digit words in other languages are not protected.
 
 What was checked: 38 tests including a seeded property loop that the digit tokens survive (14 fail on the old code) and a golden table of 22 non-digit repeats. What was not checked: real speech.
+### Fixed — the learning corpus, voiceprints and few-shot examples are created owner-only
+
+The corpus database and its clips, the voiceprint and the participant voiceprints, and `few_shots.toml` were created with the process umask, which is `0644` in `0755` folders under the usual umask 022. On Linux and macOS they are now created `0600` in `0700` folders with no readable window, and an existing looser file or folder is tightened on its next write; a stricter mode is never widened. The bytes written are unchanged, and Windows behaviour is unchanged (no ACLs are applied). The file-permission sentence in the docs now covers these files.
+
+What was not checked: Windows ACLs, network or FAT/NTFS mounts, and the daemon's own log file, which is still created with the default mode.
+
 ### Fixed — meeting transcripts, clipboard history and scratch notes are created owner-only
 
 Under the usual umask 022 these stores were world-readable (files `0644` in `0755` folders). On Linux and macOS they are now created `0600` in `0700` folders with no readable window, and an existing looser file or folder is tightened on its next write. The clipboard history lives in the config folder, which therefore also becomes `0700`. Windows behaviour is unchanged (no ACLs are applied).

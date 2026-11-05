@@ -163,7 +163,7 @@ not one. The other three are listed [below](#the-other-directories); the
 |---|---|---|
 | `corpus.db` | the learning corpus: metadata in the clear, every transcript column encrypted | transcripts yes |
 | `clips/` | source audio for corpus events, when `capture_audio` is on | yes |
-| `corpus.key` | the machine-bound key for both of the above, mode `0600` | n/a — it *is* the key |
+| `corpus.key` | the machine-bound key for all four of the encrypted rows (the corpus, its clips, `voiceprint.enc` and `participants/`), mode `0600` | n/a — it *is* the key |
 | `scratch.jsonl` | spoken notes-to-self (Ambient Scratch, off by default) | **no — plain JSON** |
 | `few_shots.toml` | utterances you approved in `yazses tune` as command-router examples | **no — plain text** |
 | `meetings/` | meeting transcripts, live transcripts, minutes, and retained recordings | **no — plain text** |
@@ -176,10 +176,12 @@ not one. The other three are listed [below](#the-other-directories); the
 The three marked **no** are the ones worth knowing about, and each is deliberate: a note you
 dictated in order to read it back, examples you explicitly approved, and a meeting
 transcript whose whole purpose is to be opened and edited. They are ordinary files with
-your user's permissions. On Linux and macOS YazSes creates `scratch.jsonl` and each
-`meetings/<id>/` folder readable by your account only (mode `0600` for the files, `0700` for
-the folder), and tightens an older, looser one the next time it writes to it; on Windows
-access follows the permissions the folder inherits. If you want them at rest under a key,
+your user's permissions. On Linux and macOS YazSes creates every file in the table above
+that holds something of yours (`corpus.db`, the files in `clips/`, `scratch.jsonl`,
+`few_shots.toml`, the files in `meetings/<id>/`, `participants/` and `voiceprint.enc`)
+readable by your account only (mode `0600` for the files, `0700` for the folders, the data
+directory included), and tightens an older, looser one the next time it writes to it; on
+Windows access follows the permissions the folder inherits. If you want them at rest under a key,
 that is what full-disk encryption is for.
 
 ## The other directories
