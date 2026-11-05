@@ -6,6 +6,12 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses mcp-server` no longer exits when a client sends a non-object `params`
+
+A `params` of `"x"` or `[1]` on `initialize` or `tools/call` raised `AttributeError`, printed a traceback and ended the session with status 1. The server now answers JSON-RPC `-32602` with the request id and keeps serving, and any unexpected handler error is answered with `-32603` instead of ending the loop. Falsy non-objects (`0`, `""`, `[]`, `false`) used to be treated silently as `{}` and now get `-32602`. Notifications still get no reply.
+
+What was checked: pure `handle()` and `serve()` tests and the real `mcp-server` command against a scripted client (stdout stays protocol-only, stderr empty). What was not checked: a real MCP client (Claude Desktop, Claude Code, Codex).
+
 ### Added — Persian text normalisation has a checkbox in Settings
 
 `[stt] persian_normalisation` could only be turned on by editing `config.toml`. It is now a
