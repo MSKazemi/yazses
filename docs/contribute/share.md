@@ -37,6 +37,12 @@ Two short vertical reels, ready to upload from your phone or computer (right-cli
 They live on a [separate pre-release](https://github.com/MSKazemi/yazses/releases/tag/media-kit),
 not on the software releases, so they never get in the way of an installer download.
 
+## More media, and a place for yours
+
+The [media library](https://github.com/MSKazemi/yazses/tree/main/assets/media) is the one place for finished YazSes
+images, carousels and videos that anyone may repost. New packs are free to reuse with a one-line credit
+([CC BY 4.0](https://github.com/MSKazemi/yazses/blob/main/assets/media/LICENSE.md)), and you can add your own.
+
 ## A caption you can adapt
 
 > I contribute to YazSes, a free, fully offline, open-source voice-dictation tool for Windows,

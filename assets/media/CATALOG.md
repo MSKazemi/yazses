@@ -2,14 +2,18 @@
 
 This catalog distinguishes **approved-to-share** social assets from **candidates needing review**.
 
+Status values: `proposed` (submitted, not reviewed), `approved` (reviewed, licensed, free to reuse), `outdated` (kept for
+history; do not promote), `candidate` (exists in the repository, not yet a pack). Only `approved` rows may be reused, under
+the licence in their **License** column; new packs are [CC BY 4.0](LICENSE.md).
+
 ## Approved media packs
 
-The project already publishes two packs as **free to use** on [Share your contribution](../../docs/contribute/share.md); they are listed here so this catalog and that page agree. Neither has a media-specific license identifier (SPDX or Creative Commons) recorded yet; when a maintainer chooses one, record it here and on that page. Any further item is approved only after its rights, media-specific license, and content have been reviewed.
+The project already publishes two packs as **free to use** on [Share your contribution](../../docs/contribute/share.md); they are listed here so this catalog and that page agree. They were published before the media licence and stay free to use with no credit needed. Any further item is approved only after its rights, licence and content have been reviewed, and carries its licence in the **License** column.
 
-| Pack | Files | Notes | Status |
-|---|---|---|---|
-| Contributor share images | [`docs/assets/share/`](../../docs/assets/share/): poster, two reel covers, a contact and download card, two QR codes | 9:16 portrait; the QR codes open the latest release | approved: published as free to use |
-| Contributor reels | [Reel 1](https://github.com/MSKazemi/yazses/releases/download/media-kit/yazses-reel-1.mp4) and [Reel 2](https://github.com/MSKazemi/yazses/releases/download/media-kit/yazses-reel-2.mp4) on the [`media-kit` pre-release](https://github.com/MSKazemi/yazses/releases/tag/media-kit) | Release assets, not committed to Git | approved: published as free to use |
+| Pack | Files | Notes | Status | License |
+|---|---|---|---|---|
+| Contributor share images | [`docs/assets/share/`](../../docs/assets/share/): poster, two reel covers, a contact and download card, two QR codes | 9:16 portrait; the QR codes open the latest release | approved: published as free to use | Free to use, no credit needed (published before the media licence) |
+| Contributor reels | [Reel 1](https://github.com/MSKazemi/yazses/releases/download/media-kit/yazses-reel-1.mp4) and [Reel 2](https://github.com/MSKazemi/yazses/releases/download/media-kit/yazses-reel-2.mp4) on the [`media-kit` pre-release](https://github.com/MSKazemi/yazses/releases/tag/media-kit) | Release assets, not committed to Git | approved: published as free to use | Free to use, no credit needed (published before the media licence) |
 
 ## Candidate materials already in this repository
 

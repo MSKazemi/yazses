@@ -6,6 +6,15 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Documentation — the public media library says who it is for and how it is licensed
+
+`assets/media/` is the one place for finished YazSes images, carousels and videos that anyone may repost to help the project
+grow. It now opens with a start-here table for people who post, people who make media, writers and maintainers, says how a
+video is published (a `media-kit` release asset with its size and `sha256` in the catalog, never a heavy file in Git), and
+licenses new project-made media under CC BY 4.0: reuse and adapt freely, credit with a link, do not imply endorsement. The
+two packs already published as free to use keep that promise with no credit needed. A test refuses an approved row without a
+licence and any editable source file, PDF or large binary in the folder.
+
 ## [2.49.0] - 2026-11-05
 
 ### Fixed — `ask_human` can no longer exceed its hourly budget when several agents ask at once

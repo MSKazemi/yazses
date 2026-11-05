@@ -4,7 +4,18 @@
 
 This is the proposed home for **ready-to-post YazSes media**: finished images, social carousels, short videos, demo clips, thumbnails, subtitles, and accompanying captions. The goal is to let community members promote YazSes without design software, editing projects, or original production files.
 
-**Current status:** library structure and publishing guidance, plus the two packs the project already publishes as free to use on [Share your contribution](../../docs/contribute/share.md) (the `docs/assets/share/` images and the `media-kit` release reels, listed in [CATALOG.md](CATALOG.md)). Before any other item is advertised as freely reusable, its rights and approved license must be recorded in the catalog. Other existing material elsewhere in this repository is not automatically an approved social-media pack.
+**Status: open.** Finished media listed as **approved** in [CATALOG.md](CATALOG.md) is free to reuse under
+[CC BY 4.0](LICENSE.md): post it, embed it, subtitle it, translate it, with a one-line credit. Growth by other
+people sharing YazSes is the point. Nothing else in this repository is an approved pack until it is listed.
+
+## Start here
+
+| You are... | Do this |
+|---|---|
+| **Posting about YazSes** (social media, a blog, a talk) | Open [CATALOG.md](CATALOG.md), pick an **approved** row, download the files, credit with `YazSes — https://github.com/MSKazemi/yazses (CC BY 4.0)`. |
+| **Making a video, carousel or image** | Export the **final** files only, add a catalog row ([template](CATALOG.md#media-pack-entry-template)), open a pull request. Never upload editable sources. |
+| **Writing or reporting** about YazSes | Use the screenshots and cards in the catalog, link to the [release notes](../../docs/releases/index.md) for what a version actually does, and do not describe a feature as verified on hardware unless those notes say so. |
+| **A maintainer** | Review against the checklist below, set the row to `approved`, and for a video follow [Videos](#videos). |
 
 ## What to publish
 
@@ -38,6 +49,21 @@ assets/media/
 
 The directory names are flexible; keep related assets together and use descriptive lowercase filenames. Do not create empty placeholder directories.
 
+## Videos
+
+Final videos are **not committed to Git**. Upload the export to the
+[`media-kit` release](https://github.com/MSKazemi/yazses/releases/tag/media-kit) (a pre-release, so it never
+becomes "latest" and never sits beside an installer), then add a catalog row with:
+
+- the download URL, the size and the `sha256` of the file, so a reader can check what they got;
+- the format and length, for example `1080x1920 MP4, 38 s`;
+- a thumbnail and the captions (`.srt` or `.vtt`) committed beside the catalog as small files;
+- the language, the licence, and any third-party material.
+
+Name files `<campaign>-<platform>-<language>-<width>x<height>.<ext>`, lowercase, for example
+`offline-dictation-reel-en-1080x1920.mp4`. Keep a video that has become out of date, marked `outdated` in the
+catalog, instead of replacing it with one that says something else.
+
 ## For people who want to share a post
 
 1. Open [CATALOG.md](CATALOG.md), choose an item marked **approved**, and read its usage/credit requirements.
@@ -63,9 +89,14 @@ Review for factual accuracy, current installation instructions, spelling, legibi
 
 ## Licensing and reuse policy
 
-The main repository currently has an [Apache-2.0 license](../../LICENSE). **No dedicated license identifier for public promotional media has been chosen yet;** the two packs on [Share your contribution](../../docs/contribute/share.md) are offered there as free to use without one. A practical option for media the project owns is [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/), which permits sharing and adaptations, including commercial use, with proper credit and a license link. A project maintainer should choose and document the actual license for each media item before approving it; do not assume the project can license third-party audio, photos, artwork, font software, people’s likenesses, or trademarks it does not own.
+Finished media made by the project is licensed **[CC BY 4.0](LICENSE.md)**: reuse and adapt it freely, credit with
+a link, do not imply endorsement. The software stays under [Apache-2.0](../../LICENSE). Two earlier packs, the
+share images and the two reels on [Share your contribution](../../docs/contribute/share.md), were published as
+free to use with no credit needed, and stay that way.
 
-The default requirement for a catalog entry is to identify the license **explicitly**, not simply label the file "free." A license on artwork does not imply permission to falsely claim endorsement by YazSes.
+A contributor who adds media keeps their authorship and agrees to the licence in the catalog row. Do not submit
+audio, photos, artwork, fonts or likenesses the project cannot license: name them in the row with their rights,
+or leave them out. A licence on artwork never lets anyone claim to speak for the maintainers.
 
 ## Filesize and repository health
 
@@ -79,4 +110,4 @@ Existing product screenshots and a short demo can be found under [docs/screensho
 
 ## Maintenance
 
-Anyone may suggest or contribute a pack through the normal GitHub contribution workflow. A maintainer verifies rights and factual accuracy, marks the catalog entry `approved`, and keeps links from this page current. Keep versions when an old campaign's claims or UI screenshots become outdated; avoid silently replacing a published image with a contradictory claim.
+Anyone may suggest or contribute a pack through the normal GitHub contribution workflow. A maintainer verifies rights and factual accuracy, marks the catalog entry `approved` (a row needs a licence to be approved), and keeps links from this page current. Keep versions when an old campaign's claims or UI screenshots become outdated; avoid silently replacing a published image with a contradictory claim.
