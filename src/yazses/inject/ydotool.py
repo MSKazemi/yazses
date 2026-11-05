@@ -1,9 +1,13 @@
 import itertools
+import logging
 import subprocess
+import sys
 from collections.abc import Iterable, Sequence
 
 from yazses.inject.keycodes import KEYCODES
 from yazses.inject.payload import describe_argv, hide_payload
+
+log = logging.getLogger(__name__)
 
 
 def _keycode_from_evdev(name: str) -> int | None:
@@ -411,17 +415,42 @@ class YdotoolInjector:
     def inject(self, text: str) -> None:
         if not text:
             return
-        if text.isascii():
-            # The overwhelmingly common case (and everything this backend could
-            # handle before #329): one `ydotool type` call, exactly as before.
-            self._type_ascii_run(text)
-        else:
-            self._inject_mixed(text)
-        # Flood guard — release any key the compositor failed to release. Read the
-        # dialect AFTER typing: a run may have downgraded it. 0.1.x cannot express a
-        # bare key-up at all, so there the guard is a no-op by construction.
-        if ydotool_dialect() == DIALECT_V1:
-            run_ydotool(["ydotool", "key", *_RELEASE_ALL_TYPED_KEYS], timeout=5, check=False)
+        try:
+            if text.isascii():
+                # The overwhelmingly common case (and everything this backend could
+                # handle before #329): one `ydotool type` call, exactly as before.
+                self._type_ascii_run(text)
+            else:
+                self._inject_mixed(text)
+        finally:
+            # Flood guard -- release any key the compositor failed to release. It
+            # runs on failure too: a `type` that timed out or died mid-string may
+            # have left a key down, and nothing else clears it (suspected from the
+            # command sequence; not observed on hardware). Read the dialect AFTER
+            # typing: a run may have downgraded it. 0.1.x cannot express a bare
+            # key-up at all, so there the guard is a no-op by construction.
+            self._release_all_typed_keys(typing_failed=sys.exc_info()[0] is not None)
+
+    @staticmethod
+    def _release_all_typed_keys(*, typing_failed: bool) -> None:
+        """Send the v1 release-all.
+
+        On the success path this is the original call, so a failing release
+        surfaces exactly as it always did. While a typing error is already
+        propagating the release is best-effort and its own failure is swallowed:
+        the typing error is the one the caller (and ``LinuxInjector``'s clipboard
+        fallback) must see.
+        """
+        if ydotool_dialect() != DIALECT_V1:
+            return
+        argv = ["ydotool", "key", *_RELEASE_ALL_TYPED_KEYS]
+        if not typing_failed:
+            run_ydotool(argv, timeout=5, check=False)
+            return
+        try:
+            run_ydotool(argv, timeout=5, check=False)
+        except Exception:  # noqa: BLE001 - must never replace the original error
+            log.debug("ydotool release-all after a failed type did not run", exc_info=True)
 
     def _inject_mixed(self, text: str) -> None:
         """Type ASCII runs via ``ydotool type``; route non-ASCII runs around it.

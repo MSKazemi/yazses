@@ -32,6 +32,11 @@ What was checked: 27 tests with a fake process table and a real lock-holding hel
 With `[streaming]` on, live partials are typed at hold start. A command-safety or check-digit hold, a re-ask, a spoken microphone answer, or a staged stage/undo/discard/empty-commit/full-buffer action then returned without cancelling them, so the partials stayed in the editor and a later commit typed the staged buffer on top, duplicating text. All five paths now cancel the partials first. Streaming and staged mode are not made mutually exclusive: that is still a maintainer decision on #796.
 
 What was checked: 12 tests with injected fakes (8 fail on the old code), a mutation check on one path, and a real `StreamingInjector` on the `device_lost` path. What was not checked: any real editor, X11, Wayland or Windows.
+### Fixed — ydotool 1.x injection releases all keys even when typing fails or times out
+
+The release-all that clears any held key was sent only after typing succeeded, so a failed or timed-out `type` skipped it. It now runs in a `finally` for the v1 dialect (v0 sends nothing) and never replaces the original error.
+
+What was checked: nine tests with a fake runner (six fail on the old code). What was not checked: a real Wayland machine or `ydotoold`; a key actually staying stuck after a failed `type` is unconfirmed.
 
 ### Added — Persian text normalisation has a checkbox in Settings
 
