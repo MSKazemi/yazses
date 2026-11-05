@@ -5187,6 +5187,7 @@ class Daemon:
                 if self._config.cmdsafety.enabled:
                     gated = self._cmdsafety_gate(text, event)
                     if gated is None:
+                        self._cancel_stream_partials(use_streaming, stream_injector)
                         return
                     text = gated
                     event["final_text"] = text
@@ -5199,6 +5200,7 @@ class Daemon:
                 if self._config.checkdigit.enabled:
                     checked = self._checkdigit_gate(text, event)
                     if checked is None:
+                        self._cancel_stream_partials(use_streaming, stream_injector)
                         return
                     text = checked
                     event["final_text"] = text
@@ -5208,6 +5210,7 @@ class Daemon:
                 if self._config.reask.enabled:
                     asked = self._reask_gate(text, prosody_words, event)
                     if asked is None:
+                        self._cancel_stream_partials(use_streaming, stream_injector)
                         return
                     text = asked
                     event["final_text"] = text
@@ -5219,6 +5222,7 @@ class Daemon:
                 if self._config.audio.voice_answer:
                     answered = self._mic_answer_gate(text, event)
                     if answered is None:
+                        self._cancel_stream_partials(use_streaming, stream_injector)
                         return
                     text = answered
                     event["final_text"] = text
@@ -5231,6 +5235,7 @@ class Daemon:
                 if self._config.staged.enabled:
                     staged_text = self._stage_or_commit(text, event)
                     if staged_text is None:
+                        self._cancel_stream_partials(use_streaming, stream_injector)
                         return
                     text = staged_text
                     event["final_text"] = text
@@ -6398,6 +6403,19 @@ class Daemon:
             notify("YazSes — command safety", message)
         except Exception:  # pragma: no cover - notification is never load-bearing
             log.debug("Command-safety notification failed", exc_info=True)
+
+    @staticmethod
+    def _cancel_stream_partials(use_streaming: bool, stream_injector) -> None:
+        """Take back live partials a held/staged/consumed burst already typed (#796).
+
+        Streaming types partial text at hold start, before any gate has seen the
+        utterance. A gate that then consumes the burst (command-safety hold, check
+        digit hold, re-ask, mic answer, staged stage/undo/discard/empty commit)
+        returns without typing, so the partials would stay in the editor and a later
+        commit would type on top of them. Same call the other early returns make.
+        """
+        if use_streaming and stream_injector is not None:
+            stream_injector.cancel()
 
     def _stage_or_commit(self, text: str, event: dict) -> str | None:
         """Staged dictation (#294). The text to type, or None when nothing types.

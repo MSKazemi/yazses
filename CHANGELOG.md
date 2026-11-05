@@ -27,6 +27,11 @@ What was checked: 19 tests under umask 022 and 000 (17 fail on the old code), co
 The restart path found daemons with `pgrep -f` across all users, so an unrelated process with `yazses.main` anywhere in its arguments could be sent SIGTERM, and another user's matching process crashed the restart with `PermissionError`. It also deleted `daemon.lock` even when the old daemon survived, which allowed a second daemon (double typing). It now reads `/proc`, signals only same-uid processes with a real daemon command line that are not the caller or its ancestors, skips what it may not signal, and stops with an error instead of starting a second daemon while the lock is held.
 
 What was checked: 27 tests with a fake process table and a real lock-holding helper process. What was not checked: a multi-user machine, Windows, macOS, Flatpak. Not changed: `system/pid.py` still ignores `XDG_DATA_HOME`.
+### Fixed — streaming partials are taken back when a held or staged burst is consumed without typing ([#796](https://github.com/MSKazemi/yazses/issues/796))
+
+With `[streaming]` on, live partials are typed at hold start. A command-safety or check-digit hold, a re-ask, a spoken microphone answer, or a staged stage/undo/discard/empty-commit/full-buffer action then returned without cancelling them, so the partials stayed in the editor and a later commit typed the staged buffer on top, duplicating text. All five paths now cancel the partials first. Streaming and staged mode are not made mutually exclusive: that is still a maintainer decision on #796.
+
+What was checked: 12 tests with injected fakes (8 fail on the old code), a mutation check on one path, and a real `StreamingInjector` on the `device_lost` path. What was not checked: any real editor, X11, Wayland or Windows.
 
 ### Added — Persian text normalisation has a checkbox in Settings
 
