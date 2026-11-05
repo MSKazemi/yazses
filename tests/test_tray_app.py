@@ -14,7 +14,8 @@ def test_waiting_for_first_boot_keeps_polling() -> None:
     decision = unreachable_decision(ever_connected=False, waiting_s=1.0)
 
     assert decision.give_up is False
-    assert decision.state is TrayState.IDLE
+    # LOADING, not IDLE: a booting daemon must not look like a ready one.
+    assert decision.state is TrayState.LOADING
     assert decision.last_error == "daemon starting"
 
 
@@ -48,7 +49,7 @@ def test_brief_outage_after_connecting_stays_calm() -> None:
     decision = unreachable_decision(ever_connected=True, waiting_s=1.0)
 
     assert decision.give_up is False
-    assert decision.state is TrayState.IDLE
+    assert decision.state is TrayState.LOADING
     assert decision.last_error == "daemon restarting"
 
 

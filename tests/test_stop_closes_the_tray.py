@@ -76,7 +76,7 @@ class TestTrayDecision:
     def test_a_daemon_still_shutting_down_is_waited_for(self) -> None:
         d = unreachable_decision(True, _PAST_GRACE, daemon_running=True, stop_requested=True)
         assert not d.close_tray and not d.relaunch and not d.give_up
-        assert d.state is TrayState.IDLE  # stopping on request is not an error
+        assert d.state is TrayState.LOADING  # transitional, and not an error
 
     def test_a_crash_still_restarts_the_daemon(self) -> None:
         """The reason the tray restarts daemons at all must survive this change."""
