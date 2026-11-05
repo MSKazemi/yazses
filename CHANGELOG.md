@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — docs: latency figures are marked as single-run, decode-only, ranking-only
+
+The models, benchmarks and low-RAM pages gave same-laptop latency figures that disagree by 4–7× without saying so, and one sentence ("most people… go back to base.en") had no data behind it. The sentence is removed, the tables now say they are decode-only and good for ranking, and the pages note that the model revision and the machine load were not recorded. No number changed. Re-measuring needs the hardware and the private harness.
+
 ### Added — Persian text normalisation has a checkbox in Settings
 
 `[stt] persian_normalisation` could only be turned on by editing `config.toml`. It is now a
