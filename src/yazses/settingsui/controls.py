@@ -279,6 +279,19 @@ def supported_hotkeys(key_map: dict[str, int] | Sequence[str]) -> list[str]:
     return sorted(names)
 
 
+def hotkey_note(selected: str, platform_default: str) -> str:
+    """What the key box means in words, or ``""`` when the key is named already.
+
+    ``auto`` is a promise, not a key: the user cannot tell from the word which key to
+    hold. Say which one, from the same ``platform.default_hotkey`` the daemon resolves
+    ``auto`` with. Nothing to add for an explicit key, and nothing to claim when the
+    platform default is unknown.
+    """
+    if selected.strip() != "auto" or not platform_default:
+        return ""
+    return f"auto ({platform_default} on this system)"
+
+
 def validate_hotkey(name: str, key_map) -> str | None:
     """None when *name* is bindable here, otherwise why not.
 

@@ -195,6 +195,28 @@ def _rich_text():
     return Qt.TextFormat.RichText
 
 
+#: How many characters a drop-down is wide enough for, whatever it holds.
+_COMBO_MIN_CHARS = 18
+
+
+def _compact_combo():
+    """A QComboBox whose width does not follow its longest item.
+
+    By default a combo asks for the width of its widest entry, and the microphone box
+    holds "Follow the system default (currently <the device's full ALSA name>)": about
+    800 px at 16 pt, which pushed the Audio and Speech pages into a sideways scrollbar.
+    The policy must be set at construction; Qt caches the size hint, so setting it
+    after the box is laid out changes nothing. A long item is elided in the box and
+    shown in full in the list.
+    """
+    from PySide6.QtWidgets import QComboBox
+
+    box = QComboBox()
+    box.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+    box.setMinimumContentsLength(_COMBO_MIN_CHARS)
+    return box
+
+
 def _top_aligned(*items):
     """A widget holding *items* at the top, so a short page does not stretch its controls."""
     from PySide6.QtWidgets import QVBoxLayout, QWidget
@@ -385,6 +407,7 @@ class SettingsWindow:
         # Ctrl+Return applies (see _install_shortcuts). Not a default button: a QMainWindow
         # has none, and a plain Enter in a text field must never write changes.
         apply_btn.setToolTip("Apply the staged changes (Ctrl+Return).")
+        apply_btn.setAccessibleDescription("Apply the staged changes. Shortcut: Ctrl+Return.")
         self._apply_button = apply_btn
         # Dependency-install state (#135). `_auto_install` mirrors the CLI's
         # --no-install; the thread/worker refs keep Qt from collecting a
@@ -400,6 +423,11 @@ class SettingsWindow:
         #: packages it is meant to activate exist.
         self._restart_when_installed: str | None = None
         self._install_worker: Any = None
+        # The restart after Apply runs on its own worker (it blocks for up to two minutes).
+        self._restart_thread: Any = None
+        self._restart_worker: Any = None
+        self._restart_summary = ""
+        self._restart_relay: Any = None
         # High-level language application has its own worker because it may install
         # OpenCC and download a Whisper model before the atomic config commit.
         self._language_thread: Any = None
@@ -538,7 +566,7 @@ class SettingsWindow:
         the user unable to dictate. `SUPPORTED_HOTKEYS` is the same list
         `yazses hotkey set` offers, so the two surfaces cannot disagree.
         """
-        from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLabel
+        from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLabel, QVBoxLayout
 
         from yazses.hotkeys.names import SETTABLE_HOTKEYS
 
@@ -565,7 +593,35 @@ class SettingsWindow:
         self._hotkey_box = box
         self._hotkey_baseline = current
         line.addWidget(box, 1)
-        return line
+
+        # "auto" does not say which key to hold; the answer used to live in the tooltip
+        # only. Say it beside the box, and keep it right as the choice changes.
+        from yazses.settingsui.controls import hotkey_note
+
+        try:
+            from yazses.platform import get_platform
+
+            platform_default = str(getattr(get_platform(), "default_hotkey", "") or "")
+        except Exception:  # noqa: BLE001 - a note is never worth failing the page for
+            platform_default = ""
+        note = QLabel()
+        note.setWordWrap(True)
+        note.setAccessibleName("Hold-to-talk key in effect")
+
+        def _refresh_note(text: str = "") -> None:
+            words = hotkey_note(box.currentText(), platform_default)
+            note.setText(words)
+            note.setVisible(bool(words))
+
+        box.currentTextChanged.connect(_refresh_note)
+        _refresh_note()
+        self._hotkey_note = note
+        # Under the row, not beside it: a note in the row adds its width to the row's
+        # minimum and gave the General page a sideways scrollbar at a large font.
+        column = QVBoxLayout()
+        column.addLayout(line)
+        column.addWidget(note)
+        return column
 
     def _build_speech_rows(self, model: SettingsModel):
         """What YazSes hears, how it decodes, and how the text gets out.
@@ -589,7 +645,6 @@ class SettingsWindow:
           setting** — the first word of each burst going missing.
         """
         from PySide6.QtWidgets import (
-            QComboBox,
             QFormLayout,
             QGroupBox,
             QLabel,
@@ -616,7 +671,7 @@ class SettingsWindow:
 
         from yazses.settingsui.language_view import profile_choices
 
-        profile_box = QComboBox()
+        profile_box = _compact_combo()
         for label, value in profile_choices():
             profile_box.addItem(label, value)
         profile_index = profile_box.findData(model.language_profile)
@@ -641,7 +696,7 @@ class SettingsWindow:
         form.addRow(QLabel("Language profile:"), profile_box)
 
         models = model_choices(WHISPER_MODELS, current=model.stt_model)
-        model_box = QComboBox()
+        model_box = _compact_combo()
         model_box.addItems(models)
         if model.stt_model in models:
             model_box.setCurrentIndex(models.index(model.stt_model))
@@ -658,7 +713,7 @@ class SettingsWindow:
         form.addRow(QLabel("Model:"), model_box)
 
         languages = language_choices(current=model.language)
-        language_box = QComboBox()
+        language_box = _compact_combo()
         for label, value in languages:
             language_box.addItem(label, value)
         for index, (_label, value) in enumerate(languages):
@@ -692,7 +747,7 @@ class SettingsWindow:
         self._set_language_field_enabled(not bool(model.language_profile))
 
         computes = compute_type_choices(model.stt_device, current=model.compute_type)
-        compute_box = QComboBox()
+        compute_box = _compact_combo()
         compute_box.addItems(computes)
         if model.compute_type in computes:
             compute_box.setCurrentIndex(computes.index(model.compute_type))
@@ -724,7 +779,7 @@ class SettingsWindow:
         self._prompt_baseline = model.initial_prompt
         form.addRow(QLabel("Vocabulary:"), prompt_edit)
 
-        backend_box = QComboBox()
+        backend_box = _compact_combo()
         # Only what this OS acts on (Windows honours `auto` and `clipboard`; the
         # Linux tools are logged and ignored there), plus the configured value.
         offered = _offered_injection_backends()
@@ -743,7 +798,7 @@ class SettingsWindow:
         self._backend_baseline = model.injection_backend
         form.addRow(QLabel("Text injection:"), backend_box)
 
-        consent_box = QComboBox()
+        consent_box = _compact_combo()
         for label, value in portal_consent_choices(model.portal_consent):
             consent_box.addItem(label, value)
             if value == model.portal_consent:
@@ -765,7 +820,7 @@ class SettingsWindow:
             form.setRowVisible(consent_box, False)
 
         guards = target_guard_choices(current=model.target_guard)
-        guard_box = QComboBox()
+        guard_box = _compact_combo()
         for label, value in guards:
             guard_box.addItem(label, value)
         for index, (_label, value) in enumerate(guards):
@@ -813,7 +868,6 @@ class SettingsWindow:
         """
         from PySide6.QtCore import Qt
         from PySide6.QtWidgets import (
-            QComboBox,
             QFormLayout,
             QGroupBox,
             QLabel,
@@ -836,7 +890,7 @@ class SettingsWindow:
 
         devices, default_name = self._probe_devices()
         choices = mic_choices(devices, default_name=default_name, pinned=model.microphone)
-        mic = QComboBox()
+        mic = _compact_combo()
         for choice in choices:
             mic.addItem(choice.label, choice.value)
         # Select by *value*, not by label: the label carries ● and ★ markers that
@@ -1952,16 +2006,55 @@ class SettingsWindow:
         window says some rows are still staged, and overwriting it left a
         half-applied change looking like a clean save.
         """
-        from yazses.settingsui.restart import apply_and_restart
+        from yazses.settingsui.restart import decide_restart
 
-        outcome = apply_and_restart(
-            is_running=self._daemon_running,
-            confirm=self._confirm_restart,
-            restart=self._run_restart,
-            status=self._daemon_status,
+        # The quick half stays here: it asks the lifecycle and shows the dialog. The slow
+        # half (the restart subprocess, up to 90 s, then a poll for up to 30 s more) runs
+        # on a worker thread so the window keeps painting and answering.
+        decided = decide_restart(
+            is_running=self._daemon_running, confirm=self._confirm_restart
         )
+        if decided is not None:
+            self._show_restart_outcome(summary, decided)
+            return
+        self._start_restart_worker(summary)
+
+    def _show_restart_outcome(self, summary: str, outcome) -> None:
         self._hint.setText("  ".join(part for part in (summary, outcome.message) if part))
         self._restart_pending = outcome.needs_restart_hint
+
+    def _start_restart_worker(self, summary: str) -> None:
+        from PySide6.QtCore import QThread
+
+        from yazses.settingsui.worker import GuiRelay, RestartWorker
+
+        if self._restart_thread is not None:
+            return  # one restart at a time; Apply is disabled, but a queued call could land
+        self._apply_button.setEnabled(False)
+        self._hint.setText(
+            "  ".join(part for part in (summary, "Restarting YazSes…") if part)
+        )
+        thread = QThread(self._win)
+        # Resolved now, not in the worker, so a stub on the window is the one that runs.
+        worker = RestartWorker(self._run_restart, self._daemon_status)
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        self._restart_summary = summary
+        # Not connected to the bound method directly: that would run it on the worker
+        # thread. The relay is a QObject living here, so the result is queued to this thread.
+        relay = GuiRelay(self._on_restart_finished)
+        worker.finished.connect(relay.deliver)
+        self._restart_relay = relay
+        worker.finished.connect(thread.quit)
+        thread.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        self._restart_thread, self._restart_worker = thread, worker
+        thread.start()
+
+    def _on_restart_finished(self, outcome) -> None:
+        self._restart_thread = self._restart_worker = None
+        self._apply_button.setEnabled(True)
+        self._show_restart_outcome(self._restart_summary, outcome)
 
     def _confirm_restart(self) -> bool:
         from PySide6.QtWidgets import QMessageBox

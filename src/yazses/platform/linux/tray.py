@@ -331,9 +331,14 @@ class LinuxTray:
         # is what covers the desktops that render the menu themselves.
         menu.setToolTipsVisible(True)
         ctrl = self._controller
-        status = ctrl.status() if ctrl is not None else {}
+        fresh = ctrl.status() if ctrl is not None else {}
+        # `ctrl.status()` is `{}` when the daemon does not answer. Read as-is that is a
+        # menu headed "idle" with Start meeting enabled, for a daemon that is not there.
+        # The poller has the last thing it learned (and, once the daemon is gone, the
+        # `error` state with its reason), so overlay the fresh reading onto that.
         with self._lock:
-            self._latest.update(status)
+            self._latest.update(fresh)
+            status = dict(self._latest)
         devices = ctrl.list_devices() if ctrl is not None else []
         pinned = str(status.get("input_device") or "") if status.get("input_device") else ""
         # Prefer the configured pin over the live device name for the checkmark.
@@ -357,6 +362,9 @@ class LinuxTray:
         if model.warning:
             warn = menu.addAction(model.warning)
             warn.setEnabled(False)
+        if model.target_warning:
+            no_target = menu.addAction(model.target_warning)
+            no_target.setEnabled(False)
         menu.addSeparator()
 
         # Microphone submenu: an exclusive radio group of devices + actions.

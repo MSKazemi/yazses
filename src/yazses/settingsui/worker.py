@@ -134,6 +134,66 @@ class LanguageWorker(_QObject):  # type: ignore[misc,valid-type]
         if signal is not None and hasattr(signal, "emit"):
             signal.emit(result)
 
+class RestartWorker(_QObject):  # type: ignore[misc,valid-type]
+    """Restart the daemon and wait for it to answer, off the UI thread.
+
+    ``restart`` is a subprocess with a 90 s timeout and the wait for readiness polls
+    for up to 30 s more; on the GUI thread that is a window that does not repaint or
+    take a click for as long as the model takes to load. ``finished`` carries the
+    :class:`~yazses.settingsui.restart.RestartOutcome`.
+    """
+
+    if _Signal is not None:  # pragma: no branch - class body runs once
+        finished = _Signal(object)
+
+    def __init__(
+        self,
+        restart: Callable[[], tuple[bool, str]],
+        status: Callable[[], dict | None],
+    ) -> None:
+        super().__init__()
+        self._restart = restart
+        self._status = status
+
+    def run(self) -> None:
+        """Run the restart. Always reports an outcome, never raises into the loop."""
+        from yazses.settingsui.restart import (
+            RestartOutcome,
+            RestartState,
+            perform_restart,
+        )
+
+        try:
+            outcome = perform_restart(restart=self._restart, status=self._status)
+        except Exception as exc:  # noqa: BLE001 - never raise into QThread
+            outcome = RestartOutcome(RestartState.FAILED, str(exc))
+        signal = getattr(self, "finished", None)
+        if signal is not None and hasattr(signal, "emit"):
+            signal.emit(outcome)
+
+
+class GuiRelay(_QObject):  # type: ignore[misc,valid-type]
+    """Delivers a worker's result on the thread this object was created on.
+
+    A signal connected to a plain Python callable (a method of a window that is not a
+    QObject) runs that callable on the *emitting* thread, which for a worker is the
+    worker thread, and a widget touched from there is undefined behaviour. A QObject
+    receiver that lives on the GUI thread gets a queued delivery instead. Create it
+    on the GUI thread and connect the worker's signal to :meth:`deliver`.
+    """
+
+    if _Signal is not None:  # pragma: no branch - class body runs once
+        from PySide6.QtCore import Slot as _Slot
+
+        @_Slot(object)
+        def deliver(self, value) -> None:
+            self._callback(value)
+
+    def __init__(self, callback: Callable[[object], None]) -> None:
+        super().__init__()
+        self._callback = callback
+
+
 def _make_installer(echo):
     """An installer that streams the real pip output back through *echo*."""
 
