@@ -32,6 +32,28 @@ completed on 2026-10-25, through PR #684); this document does not duplicate it.
   for commit `4fda3403` on `main`; every repository file cited here is identical there to
   `0e0dcfd1`, the commit the inventory was written against.
 
+## Machine-readable manifest
+
+The tables below are also kept as data in [`model-manifest.json`](model-manifest.json),
+shaped by [`model-manifest.schema.json`](model-manifest.schema.json) (one entry per table
+row). Both are a read-only catalogue: the daemon never reads them, nothing downloads from
+them, and they do not replace the application's download flow or Android's own checksums
+(#683). Check them offline, with no network and no model load:
+
+```sh
+uv run python scripts/check_model_manifest.py
+uv run python scripts/check_model_manifest.py --artifact-root <dir>   # also recompute sha256 of files already there
+```
+
+The check validates the schema, resolves `upstream_id` and every `code_refs` path and line in
+this repository, and requires every Hub id, commit sha and hash in the manifest to be quoted in
+this document, so a value cannot be added to the manifest without being added here first. A
+value this document does not state is `unknown` in the manifest (licence `status`, revision
+`kind`, artifact `sha256_status`, or the literal text `unknown`), never a guess. The manifest
+states no fact that is not in this document; only the one recorded sha256 (the bundled Silero file)
+can be re-verified against a file on disk, and only if that file is present. `code_refs` line
+numbers are checked for existence only, not for meaning.
+
 ## Table A: models YazSes uses or lists
 
 ### A1. Whisper family, faster-whisper / CTranslate2 conversions (downloaded by YazSes)
