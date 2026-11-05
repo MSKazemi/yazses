@@ -121,8 +121,24 @@ class X11GrabHotkey:
 
     # ── internal ──────────────────────────────────────────────────────────────
 
+    def _acquire(self) -> bool:
+        """Take ``_lock``, but give up once ``stop()`` has been called.
+
+        The lock is held across the user callbacks, so while ``on_hold_start`` is
+        opening the microphone a plain ``with self._lock`` would park the listener
+        thread in ``_handle_release`` with no way out: ``run()`` would never see
+        ``_stop_event`` and the daemon could not be stopped. Waiting in short slices
+        and re-checking the event keeps shutdown reachable.
+        """
+        while not self._lock.acquire(timeout=0.05):
+            if self._stop_event.is_set():
+                return False
+        return True
+
     def _handle_press(self) -> None:
-        with self._lock:
+        if not self._acquire():
+            return
+        try:
             if self._press_time is not None:
                 return  # already tracking a press
             self._press_time = time.monotonic()
@@ -132,9 +148,13 @@ class X11GrabHotkey:
             delay = self._threshold_ms / 1000.0
             self._timer = threading.Timer(delay, self._fire_hold_start, args=(self._press_gen,))
             self._timer.start()
+        finally:
+            self._lock.release()
 
     def _handle_release(self) -> None:
-        with self._lock:
+        if not self._acquire():
+            return
+        try:
             self._cancel_timer()
             was = self._recording
             self._recording = False
@@ -142,14 +162,20 @@ class X11GrabHotkey:
             self._leaked_count = 0
             if was:
                 self._on_hold_end()
+        finally:
+            self._lock.release()
 
     def _fire_hold_start(self, press_gen: int | None = None) -> None:
-        with self._lock:
+        if not self._acquire():
+            return
+        try:
             if press_gen is not None and press_gen != self._press_gen:
                 return  # a stale Timer: its press was already released
             if self._press_time is not None and not self._recording:
                 self._recording = True
                 self._on_hold_start(self._leaked_count if self._produces_char else 0)
+        finally:
+            self._lock.release()
 
     def _cancel_timer(self) -> None:
         if self._timer is not None:
