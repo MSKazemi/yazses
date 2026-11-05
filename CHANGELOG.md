@@ -131,6 +131,9 @@ The models, benchmarks and low-RAM pages gave same-laptop latency figures that d
 ### Added — research: emergency stop and unintended activation threat model for hands-free input ([#816](https://github.com/MSKazemi/yazses/issues/816))
 
 `design/research/2026-11-05-emergency-stop-and-unintended-activation-threat-model.md` ranks the gaps in the stop and recovery paths (an untimed voice stop, no spoken resume, a hold that can outlive its cause, placeholder thresholds) against the code and tests that exist, and proposes synthetic tests. Research only: no hardware or user evidence, and the named tests were not re-run for the note.
+### Added — research: GNOME and KDE Wayland assistive-technology limits ([#818](https://github.com/MSKazemi/yazses/issues/818))
+
+`design/research/2026-11-05-gnome-kde-wayland-assistive-tech-limits.md` maps what injection, focus read-back and semantic targeting can and cannot do on each compositor to the existing backends and validation records, with a hardware checklist. Nothing was tested on any compositor; some sources were not readable.
 
 ### Added — Persian text normalisation has a checkbox in Settings
 
