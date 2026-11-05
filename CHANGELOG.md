@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — research: the synthetic motor-imagery EEG replay reports its drift tolerance, and says what it does not test
+
+`scripts/hci_eeg_mi_synthetic.py` gains `--drift-amplitude` and `--sweep-drift` (the default output is unchanged and pinned by a hash). Across seeds 0–19 the false candidate on a drifting rest block fires 20/20 up to amplitude 0.72 and 0/20 from 0.78, which follows from the authored thresholds, not from physiology. The results page now also states the dependence on a clean EOG/EMG reference channel, the abstention fraction, and that head motion and quiet reading are not tested. Synthetic data only; nothing about real EEG.
+
 ### Added — Persian text normalisation has a checkbox in Settings
 
 `[stt] persian_normalisation` could only be turned on by editing `config.toml`. It is now a
