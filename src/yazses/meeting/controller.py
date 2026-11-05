@@ -27,6 +27,11 @@ from yazses.meeting.session import MeetingSession
 
 log = logging.getLogger(__name__)
 
+# Seconds without a chunk before ``status()`` reports a stall. Capture callbacks arrive
+# every fraction of a second, so anything past a few seconds is not jitter; the number is
+# deliberately well under ``store.capture_gap_threshold``'s 10 s floor.
+_STALL_REPORT_S = 5.0
+
 
 class MeetingController:
     def __init__(
@@ -65,6 +70,11 @@ class MeetingController:
         self._max_seconds = float(max_seconds or 0.0)
         self._on_auto_stop = on_auto_stop
         self._auto_stop_fired = False
+        # The same injected clock the session uses, kept so ``feed`` can note when audio
+        # last arrived. ``None`` (the session's own "clock-less" mode) disables stall
+        # measurement, matching ``elapsed_s() == duration_s()`` there.
+        self._clock = clock
+        self._last_chunk_at: float | None = None
         self._auto_lock = threading.Lock()
         self._session = session or MeetingSession(
             meeting_id, meeting_dir, sample_rate=sample_rate,
@@ -96,6 +106,8 @@ class MeetingController:
         if not self._running:
             return
         self._session.append_chunk(chunk)
+        if self._clock is not None:
+            self._last_chunk_at = self._clock()
         if self._seg is not None:
             utt = self._seg.push(chunk)
             if utt is not None:
@@ -130,6 +142,18 @@ class MeetingController:
             except Exception as exc:  # pragma: no cover - engine-dependent
                 log.warning("Live transcription failed (%s).", exc)
 
+    def stalled_s(self) -> float:
+        """Seconds since the last chunk arrived while capturing; ``0.0`` otherwise.
+
+        Zero when healthy (under ``_STALL_REPORT_S``), before the first chunk, after stop,
+        or without a clock. Nothing acts on it here: the cap in :meth:`_check_auto_stop`
+        runs only inside :meth:`feed`, so a dead input device is reported, not stopped.
+        """
+        if not self._running or self._clock is None or self._last_chunk_at is None:
+            return 0.0
+        silent_for = self._clock() - self._last_chunk_at
+        return round(silent_for, 1) if silent_for >= _STALL_REPORT_S else 0.0
+
     def status(self) -> dict:
         # The readable live transcript is reported only once it exists. Naming a path
         # that has not been created yet reads as "your meeting is being written there"
@@ -140,6 +164,7 @@ class MeetingController:
             "id": self.meeting_id,
             "elapsed_s": round(self._session.elapsed_s(), 1),
             "duration_s": round(self._session.duration_s(), 1),
+            "stalled_s": self.stalled_s(),
             "live_lines": list(self._session.live_lines[-8:]),
             "line_count": len(self._session.live_lines),
             "live_transcript_path": str(live_md) if live_md.exists() else "",
@@ -207,7 +232,12 @@ class MeetingController:
         # vouch for keeps it whatever the config says -- and `describe_files` can then
         # name it, which it could not when the caller deleted it afterwards.
         quality = result.quality
-        audio_kept = bool(getattr(self._config, "retain_audio", False)) or quality.suspect
+        # The wall clock kept running while no audio arrived (input device lost). The
+        # recording is the only evidence of what was heard, so it is kept for inspection.
+        gap = store.capture_gap(self._session.elapsed_s(), self._session.duration_s())
+        audio_kept = (
+            bool(getattr(self._config, "retain_audio", False)) or quality.suspect or gap > 0
+        )
         meta = {
             "id": self.meeting_id,
             "duration_s": round(self._session.duration_s(), 1),
@@ -220,6 +250,7 @@ class MeetingController:
             "quality": quality.verdict,
             "quality_suspect": quality.suspect,
             "audio_kept": audio_kept,
+            **({"capture_gap_s": gap} if gap > 0 else {}),
             "status": "done",
         }
         store.write_meta(self._session.dir, meta)

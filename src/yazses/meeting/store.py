@@ -125,6 +125,56 @@ def capture_warning(meta: dict) -> str | None:
     return None
 
 
+def capture_gap_threshold(elapsed_s: float) -> float:
+    """Shortest wall-clock/audio disagreement worth recording, in seconds. Pure.
+
+    ``max(10 s, 2 % of the meeting)``: chunk buffering and the first-callback delay put a
+    few seconds between the clock and the sample count in every healthy meeting, and a
+    flat number would either fire on a long healthy meeting or miss a short dead one.
+    """
+    return max(10.0, 0.02 * max(0.0, float(elapsed_s)))
+
+
+def capture_gap(elapsed_s: float, duration_s: float) -> float:
+    """Seconds of the meeting for which no audio arrived, or ``0.0`` when it is noise.
+
+    ``elapsed_s - duration_s``: the wall clock keeps running when the input device
+    vanishes, the sample count does not. Zero (not a small positive number) under the
+    threshold so a healthy meeting's metadata and summary are unchanged. Pure.
+    """
+    gap = float(elapsed_s) - float(duration_s)
+    return round(gap, 1) if gap > capture_gap_threshold(elapsed_s) else 0.0
+
+
+def capture_gap_warning(meta: dict) -> str | None:
+    """One line saying audio stopped arriving mid-meeting, else None. Never raises.
+
+    Written for the meeting whose input device was unplugged or taken over: the
+    recording simply ends early, the transcript looks complete as far as it goes, and
+    nothing else says the rest of the meeting was never heard.
+    """
+    raw = meta.get("capture_gap_s")
+    try:
+        gap = float(raw)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+    if not gap > 0:
+        return None
+    try:
+        captured = float(meta.get("duration_s") or 0.0)
+    except (TypeError, ValueError):
+        captured = 0.0
+    total = max(0.0, captured) + gap
+    return (
+        f"⚠ Audio stopped arriving for {_span(gap)} of this {_span(total)} meeting; "
+        "the transcript covers only what was captured."
+    )
+
+
+def _span(seconds: float) -> str:
+    return duration_summary({"duration_s": seconds}) or f"{seconds:.0f}s"
+
+
 def has_recording(wav: Path | str) -> bool:
     """True when the file holds recorded frames, not just a header. Never raises.
 
@@ -650,6 +700,8 @@ def summary_lines(meta: dict, *, live_lines: int = 0, quality: dict | None = Non
     # read after the reader has already decided the meeting went fine.
     if warn := capture_warning(meta):
         out.append(f"  {warn}")
+    if gap_warn := capture_gap_warning(meta):
+        out.append(f"  {gap_warn}")
     if quality.get("suspect"):
         from yazses.meeting.quality import QUALITY_DEGENERATE, QUALITY_THIN
 
