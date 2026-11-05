@@ -29,6 +29,13 @@ everything else". If you dictate in bursts with long gaps between them, you can 
 [benchmarks page](../benchmarks.md). Real dictation is harder than that benchmark;
 treat WER as a comparison *between* models, not a promise.
 
+The decode column is a single-run historical figure, good for ranking the three models,
+not for predicting your machine. It does not agree with the latency figures on the
+[models page](../models.md) and the [benchmarks](../benchmarks.md) Speed table, which
+give a much longer decode for the same default model on the same laptop CPU model; the
+run behind those recorded no load average or thread count, and neither set records the
+model revision. The memory columns are the point of this page.
+
 The peak figures above and the 2026-10-21 re-measurement on the
 [models page](../models.md) (peak 272 / 344 / 618 MB on an AMD Ryzen 5 PRO 4650U) were
 taken on different machines, and agree within about 20 %. An older ~874 MB figure for

@@ -535,14 +535,25 @@ not left to a future tidy-up.
 
 ## Speed — how long until the text appears
 
-Decode time for a single utterance, measured end-to-end on 30 utterances (median
-duration 7.3 s):
+Decode time for a single utterance, **decode-only** (the time inside the speech model,
+not the whole path from key press to typed text), measured on 30 utterances (median
+duration 7.3 s). Non-decode pipeline overhead is recorded separately in the benchmark
+data, not in this table.
 
 | Model | Cold-start load | Decode, median | Decode, p95 | Real-time factor (median) |
 |---|---|---|---|---|
 | `tiny.en` | 0.60 s | **0.89 s** | 1.61 s | 0.154 (6.5× faster than real time) |
 | `base.en` **(default)** | 0.85 s | **1.56 s** | 3.53 s | 0.283 (3.5× faster than real time) |
 | `small.en` | 1.63 s | **5.05 s** | 8.97 s | 0.520 (1.9× faster than real time) |
+
+These are **single-run historical numbers on one laptop**, good for ranking the models
+against each other, not for predicting your machine. The run recorded no load average,
+no thread count and no inference-library version, and the model revision was not recorded
+(`latency_decode.csv` leaves those fields blank). The same default model's decode on
+that laptop CPU model is stated differently on the
+[low-RAM guide](how-to/low-ram-models.md), and the Xeon matrix near the top of this page
+reports much lower real-time factors on a different machine; the three were never
+reconciled. Do not mix figures from them in one comparison.
 
 Read this table before choosing a model. The honest summary:
 

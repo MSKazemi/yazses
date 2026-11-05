@@ -34,8 +34,24 @@ switched-on features load at start.
 Read the two ends of that table together: `small.en` cuts errors by roughly a
 third, and costs **more than three times the wait** on the same machine. For a
 sentence of dictation that is the difference between 1.5 s and 5 s, every time.
-Most people who try `small.en` for accuracy go back to `base.en` for the latency,
-which is why the default is where it is.
+The default sits at `base.en` because of that trade. This repository holds no usage
+data on how often people switch models, so treat the choice as a measured trade-off,
+not as observed behaviour.
+
+!!! note "How far to trust the latency column"
+
+    The latency figures are **single-run historical numbers from one laptop**. They are
+    good for ranking the three models against each other, not for predicting what your
+    machine will do. The run recorded no load average and no thread count, so it cannot
+    be shown to have been on an idle machine, and its model revisions and weight digests
+    were not recorded.
+
+    The same documentation carries other latency figures for the same laptop CPU that
+    disagree with this column: the [low-RAM guide](how-to/low-ram-models.md) gives a
+    much shorter decode for one clip, and the [benchmarks](benchmarks.md) Xeon matrix
+    reports far lower real-time factors on a different machine. The three sets were
+    never reconciled. The word-error-rate column is different: its rows trace to the
+    committed benchmark data.
 
 !!! tip "Fix the words it gets wrong, rather than buying a bigger model"
 
@@ -125,6 +141,11 @@ Whisper is not the only option; `[stt] engine` selects among three.
 | `faster-whisper` **(default)** | works everywhere, multilingual, word timings | — |
 | `parakeet` | best English accuracy per unit of CPU | ~600 MB model, English only, no `initial_prompt` |
 | `moonshine` | short bursts on a small machine; installs without torch | English only, no word timings |
+
+This page does not record the model revision, weight digest or licence of the Parakeet,
+Moonshine or Systran faster-whisper checkpoints behind these rows (model revision not
+recorded). Check the checkpoint's own model card for its licence before you redistribute
+or build on it.
 
 Both alternatives ignore `initial_prompt`, which is a Whisper concept. Your
 personal dictionary still reaches them — `[stt] vocab_correction` repairs
