@@ -222,7 +222,7 @@ YazSes ships **152 capabilities**. The core and the capabilities marked `recomme
 ### Dysfluency-Friendly
 
 - **Toggle:** `dysfluency`  ·  **Tier:** recommended  ·  **Config:** `[accessibility]`
-- **What it does:** Collapses stutters/repeats (b-b-because→because). Try it if you stutter or have dysarthria.
+- **What it does:** Collapses stutters/repeats (b-b-because→because). Try it if you stutter or have dysarthria. On after first-run setup (the config key itself defaults to off).
 - **Use when:** When you stutter, have dysarthria, or repeat words and want them cleaned to fluent text.
 - **Example:** Say 'b-b-because' → 'because' (stutters collapsed).
 - **Activate:** `yazses features enable dysfluency` then `yazses restart`

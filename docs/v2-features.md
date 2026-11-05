@@ -14,8 +14,9 @@ in [Designed, not built](#designed-not-built).
 **Every v2 feature is off in YazSes's built-in defaults.** The config a fresh install
 writes on its first start switches on the *recommended* tier, and eight features on this
 page are in it: `cmdsafety`, `spelling`, `verbatim`, `corrdict`, `compute`, `timeline`,
-`focusprofile` and `checkdigit`. Everything else stays off until you turn it on, and
-`yazses features disable <name>` turns any of those eight off.
+`focusprofile` and `checkdigit`. (A ninth, `dysfluency`, is in the same set but predates
+v2, so it is not on this page; nine in all.) Everything else stays off until you turn it on,
+and `yazses features disable <name>` turns any of those off.
 
 This page covers the v2 waves A–N only. It does not list later work such as Meeting Mode,
 the Parakeet and Moonshine engines or the hands-free stack; [Features](features.md) lists

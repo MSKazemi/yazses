@@ -387,8 +387,8 @@ field measurement exists; an item here can be present in code and still be unmea
 
 ## Related work in the repository
 
-The HCI × Hugging Face research track (epic #692, draft PR #711, `design/hci-huggingface/EEG_EOG_FEASIBILITY_PROTOCOL.md`
-on branch `feat/hci-research-metrics`, not yet on `main`) specifies a staged feasibility study of the same
+The HCI × Hugging Face research track (epic #692; PR #711, merged 2026-10-30, [`design/hci-huggingface/EEG_EOG_FEASIBILITY_PROTOCOL.md`](../hci-huggingface/EEG_EOG_FEASIBILITY_PROTOCOL.md))
+specifies a staged feasibility study of the same
 kind of switch: synthetic baseline, injected artifacts, then a gated human pilot. This ADR and that
 protocol agree on the measure that matters (false activations per hour over scored exposure) and on the
 limits (artifact-grade activation only; no thought, emotion or attention inference; no flicker stimuli).

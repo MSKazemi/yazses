@@ -418,7 +418,8 @@ def _registry() -> list[_Def]:
              lambda c: bool(getattr(c.general, "update_check", False)), uc_on, uc_off),
         _Def("dysfluency", "Dysfluency-Friendly", "[accessibility]", RECOMMENDED,
              "Collapses stutters/repeats (b-b-because→because). Try it if you "
-             "stutter or have dysarthria.",
+             "stutter or have dysarthria. On after first-run setup (the config key "
+             "itself defaults to off).",
              lambda c: c.accessibility.dysfluency_friendly, dys_on, dys_off),
         _Def("punch-in", "Punch-In", "[punch_in] — re-speak to fix", OPTIONAL,
              "Re-speak a phrase to correct the last one. Handy, safe.",

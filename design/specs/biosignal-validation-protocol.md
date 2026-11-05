@@ -243,8 +243,8 @@ exception that reaches the daemon. A fix restarts the whole list on the new code
 
 ## Relationship to the HCI × Hugging Face EEG/EOG feasibility protocol
 
-A separate research track (epic #692, draft PR #711, `design/hci-huggingface/EEG_EOG_FEASIBILITY_PROTOCOL.md`
-on branch `feat/hci-research-metrics`; **not yet on `main`**, so it is cited by name and not linked) asks
+A separate research track (epic #692; PR #711, merged 2026-10-30, [`design/hci-huggingface/EEG_EOG_FEASIBILITY_PROTOCOL.md`](../hci-huggingface/EEG_EOG_FEASIBILITY_PROTOCOL.md))
+asks
 the same question from the research side: can EEG or EOG give a coarse, deliberate activation whose
 false-activation behaviour is comparable to the switches YazSes already studies? The two documents are
 meant to be read together. Nothing was merged between the branches; this section is the agreed mapping,
