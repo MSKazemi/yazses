@@ -87,6 +87,7 @@ __all__ = [
     "plan_mapping",
     "render_text",
     "stop_routes",
+    "window_shortcuts_sentence",
     "stop_without_state",
     "wired_switch_actions",
 ]
@@ -230,6 +231,9 @@ class PanelInputs:
     #: hold longer than a blink (:data:`EYES_CLOSED_MIN_HOLD_S`).
     min_hold_frames: int = 3
     fps: int = 15
+    #: The OS's ``sys.platform`` string as ``Platform.name`` reports it ("linux", "darwin",
+    #: "win32", ...), or ``""`` when not known. Only :func:`window_shortcuts_sentence` reads it.
+    platform_name: str = ""
     #: ``"stored"`` / ``"missing"`` / ``""`` (not asked) for the primary gesture's baseline.
     baseline: str = ""
     #: ``(message, remedy)`` pairs for a face switch that could not let go (a stuck-open
@@ -596,6 +600,30 @@ def stop_without_state() -> ActionSpec:
     )
 
 
+#: ``Platform.name`` values on which Qt does not turn ``&P`` in a label into an Alt shortcut.
+#: Qt documents mnemonics as off by default on macOS (``qt_set_sequence_auto_mnemonic``), and
+#: nothing here switches them on, so no Alt shortcut is promised there. This cannot be checked
+#: on a real Mac from this repository, which is why the macOS sentence claims only what is true
+#: by construction: the buttons exist and Tab reaches them.
+_NO_ALT_MNEMONICS = frozenset({"darwin"})
+
+
+def window_shortcuts_sentence(platform_name: str) -> str:
+    """The "this page" line of the stop routes, true for the named OS. Pure.
+
+    ``Alt+P`` / ``Alt+R`` are Qt label mnemonics, so the sentence names them everywhere
+    except where Qt does not provide them (macOS). An unknown platform gets the Windows and
+    Linux wording, the toolkit's default.
+    """
+    head = "This page (Settings → Hands-free): "
+    if platform_name in _NO_ALT_MNEMONICS:
+        return head + "Tab reaches Pause, Resume or Recover, and every other control."
+    return (
+        head + "Alt+P presses Pause and Alt+R presses Resume or Recover while it is open; "
+        "Tab reaches every control."
+    )
+
+
 def stop_routes(inputs: PanelInputs) -> tuple[str, ...]:
     """Every way to pause that needs no pointer and is set up here, one sentence each. Pure.
 
@@ -611,8 +639,7 @@ def stop_routes(inputs: PanelInputs) -> tuple[str, ...]:
     if not _requested(inputs):
         return ()
     routes = [
-        "This window (Settings → Hands-free controls): Alt+P presses Pause and Alt+R presses "
-        "Resume or Recover; Tab reaches every control.",
+        window_shortcuts_sentence(inputs.platform_name),
         "Terminal, script, or anything that can run a command: `yazses handsfree pause` "
         "(and `yazses handsfree resume`).",
     ]

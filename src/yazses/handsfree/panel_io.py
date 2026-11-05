@@ -206,6 +206,7 @@ def gather_panel_inputs(
             getattr(getattr(cfg, "handsfree_safety", None), "stop_phrase", "") or ""
         ),
         stop_chords=_stop_chords(cfg),
+        platform_name=str(getattr(platform, "name", "") or ""),
     )
 
 

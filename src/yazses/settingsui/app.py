@@ -461,65 +461,20 @@ class SettingsWindow:
         return page
 
     def _build_handsfree_page(self):
-        """The hands-free entry: what the controls window is for, then the button that opens it.
+        """The hands-free controls, on the page itself.
 
-        The button keeps its 48 px target and its accessible description, and it is the
-        first thing a keyboard user reaches by Ctrl+5 — the person who needs it most is the
-        one who cannot hunt for it.
+        The page heading already says what they are for; the controls sit straight under it,
+        the same as every other page. The panel reads the daemon only while this page is on
+        screen (it polls on show and stops on hide) and never opens the camera. Pause, Resume
+        and Recenter are its first three Tab stops, so they are the first controls a keyboard
+        user reaches after the sidebar (#420).
         """
-        from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
-
-        page = QWidget()
-        layout = QVBoxLayout(page)
-        layout.setContentsMargins(0, 0, 0, 0)
-        # The page heading already says "Pause, resume and recover the camera-driven
-        # hands-free inputs", so this adds only what it does not: recentring, the health
-        # view, and the reassurance that matters before a click.
-        about = QLabel(
-            "Recenter them and see whether they are healthy. Opening the controls does "
-            "not open the camera."
-        )
-        about.setWordWrap(True)
-        mute_label(about, "margin-bottom: 6px;")
-        layout.addWidget(about)
-        # Left-aligned at its own size hint: stretched to the page, it was narrower than its
-        # text on Windows fonts at 2x ("&Open hands-free controls…" needed 624 px, had 614).
-        from PySide6.QtCore import Qt
-
-        layout.addWidget(self._build_handsfree_button(), 0, Qt.AlignmentFlag.AlignLeft)
-        return page
-
-    def _build_handsfree_button(self):
-        """The entry to the hands-free controls window (#420). First thing after the intro,
-        because the person who needs it most is the one who cannot scroll to find it."""
-        from PySide6.QtWidgets import QPushButton
-
-        btn = QPushButton("&Open hands-free controls…")
-        btn.setMinimumHeight(48)
-        btn.setAccessibleDescription(
-            "Pause, resume and recover the camera-driven hands-free inputs, and see whether "
-            "they are healthy. Opening it does not open the camera."
-        )
-        btn.setToolTip(
-            "Pause, resume, recenter and recover the camera-driven hands-free inputs, and "
-            "check their health. Opening it does not open the camera."
-        )
-        btn.clicked.connect(self._open_handsfree_panel)
-        self._handsfree_button = btn
-        self._handsfree_panel: Any = None
-        #: ``{slug: desired}`` for what is staged, replaced (never mutated) so the panel's
-        #: worker thread can read it without a lock.
-        self._staged_snapshot: dict[str, bool] = {}
-        return btn
-
-    def _open_handsfree_panel(self) -> None:
-        """Open (or re-show) the hands-free window. It reads, it never opens the camera."""
         from yazses.handsfree.panel_io import gather_panel_inputs, perform_action
         from yazses.settingsui.handsfree_panel import HandsFreePanel
 
-        if self._handsfree_panel is not None:
-            self._handsfree_panel.show()
-            return
+        #: ``{slug: desired}`` for what is staged, replaced (never mutated) so the panel's
+        #: worker thread can read it without a lock.
+        self._staged_snapshot: dict[str, bool] = {}
 
         def _ipc(method: str, params: dict) -> Any:
             from yazses.platform import get_platform
@@ -564,9 +519,9 @@ class SettingsWindow:
 
         self._handsfree_panel = HandsFreePanel(
             _gather, _perform, toggle_feature=_toggle, apply_staged=_apply,
-            apply_busy=_busy, parent=self._win,
+            apply_busy=_busy, embedded=True,
         )
-        self._handsfree_panel.show()
+        return self._handsfree_panel.widget
 
     def _build_hotkey_row(self, current: str):
         """The hold-to-talk key picker — the one setting everybody changes.

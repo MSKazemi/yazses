@@ -23,7 +23,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 pytest.importorskip("PySide6")
 
-from PySide6.QtWidgets import QApplication, QComboBox, QPushButton  # noqa: E402
+from PySide6.QtWidgets import QApplication, QComboBox, QPushButton, QWidget  # noqa: E402
 
 from yazses.handsfree.observability import HandsFreeFacts  # noqa: E402
 from yazses.handsfree.panel import (  # noqa: E402
@@ -113,7 +113,7 @@ class _Rig:
 
 def test_every_button_and_combo_is_a_large_target(qapp):
     rig = _Rig(qapp)
-    widgets = rig.panel.dialog.findChildren(QPushButton) + rig.panel.dialog.findChildren(QComboBox)
+    widgets = rig.panel.widget.findChildren(QPushButton) + rig.panel.widget.findChildren(QComboBox)
     assert len(widgets) >= 15
     for w in widgets:
         assert w.minimumHeight() >= MIN_TARGET_PX, w.objectName() or w.text()
@@ -123,8 +123,8 @@ def test_pause_resume_recenter_are_first_in_the_tab_order_and_nothing_is_left_ou
     rig = _Rig(qapp)
     order = rig.panel.tab_order
     assert order[:3] == [rig.button("pause"), rig.button("resume"), rig.button("recenter")]
-    interactive = set(rig.panel.dialog.findChildren(QPushButton)) | set(
-        rig.panel.dialog.findChildren(QComboBox)
+    interactive = set(rig.panel.widget.findChildren(QPushButton)) | set(
+        rig.panel.widget.findChildren(QComboBox)
     )
     missing = [w.objectName() or w.text() for w in interactive if w not in order]
     assert missing == [], f"reachable by pointer but not by Tab: {missing}"
@@ -146,9 +146,8 @@ def test_state_is_a_word_and_no_colour_is_used_anywhere(qapp):
     assert panel._headline.text().startswith("Faulted")
     health = panel._health.text()
     assert any(f"[{word}]" in health for word in ("OK", "PROBLEM", "NEEDS ATTENTION")), health
-    from PySide6.QtWidgets import QWidget
 
-    for w in panel.dialog.findChildren(QWidget):
+    for w in panel.widget.findChildren(QWidget):
         assert "color" not in w.styleSheet(), w.objectName()
 
 
@@ -206,7 +205,7 @@ def test_stopping_stays_available_while_controls_are_active(qapp):
 
 def test_refreshing_never_recreates_a_widget_or_rewrites_unchanged_text(qapp, monkeypatch):
     rig = _Rig(qapp)
-    before = {id(w) for w in rig.panel.dialog.findChildren(QPushButton)}
+    before = {id(w) for w in rig.panel.widget.findChildren(QPushButton)}
     sets: list[str] = []
     original = type(rig.panel._headline).setText
 
@@ -220,13 +219,13 @@ def test_refreshing_never_recreates_a_widget_or_rewrites_unchanged_text(qapp, mo
     assert sets == [], "an unchanged sentence must not be set again (a screen reader re-reads it)"
     rig.inputs = _inputs(SafetyState.PAUSED, reason="paused by the user")
     rig.panel.refresh()
-    assert {id(w) for w in rig.panel.dialog.findChildren(QPushButton)} == before
+    assert {id(w) for w in rig.panel.widget.findChildren(QPushButton)} == before
     assert rig.panel._headline.text().startswith("Paused")
 
 
 def test_when_the_focused_button_becomes_unavailable_focus_moves_to_the_one_the_state_wants(qapp):
     rig = _Rig(qapp)
-    dialog = rig.panel.dialog
+    dialog = rig.panel.widget
     dialog.show()
     dialog.activateWindow()
     qapp.processEvents()
@@ -283,7 +282,7 @@ def test_displaying_the_panel_gathers_and_performs_nothing(qapp):
     rig = _Rig(qapp)
     rig.panel.show()
     assert rig.gathers >= 1 and rig.performed == []
-    rig.panel.dialog.close()
+    rig.panel.widget.close()
 
 
 # ---------------------------------------------------------------------- camera controls
@@ -372,7 +371,7 @@ def test_the_panel_modules_import_no_camera_stack_and_open_no_capture(module):
     assert "VideoCapture" not in path.read_text(encoding="utf-8")
 
 
-def test_the_settings_window_has_a_large_labelled_entry_point_and_stages_through_it(qapp, monkeypatch):
+def test_the_settings_window_hosts_the_controls_on_its_own_page_and_stages_through_it(qapp, monkeypatch):
     from yazses.config import Config
     from yazses.settingsui import handsfree_panel as hp_module
     from yazses.settingsui.app import SettingsWindow
@@ -384,9 +383,7 @@ def test_the_settings_window_has_a_large_labelled_entry_point_and_stages_through
     class _Stub:
         def __init__(self, gather, perform, **kw):
             captured.update(kw, gather=gather, perform=perform)
-
-        def show(self):
-            captured["shown"] = True
+            self.widget = QWidget()
 
     monkeypatch.setattr(hp_module, "HandsFreePanel", _Stub)
     writes = []
@@ -394,11 +391,10 @@ def test_the_settings_window_has_a_large_labelled_entry_point_and_stages_through
         Config, lambda s, k, v, q: writes.append((s, k, v)), lambda modules: []
     )
     win = SettingsWindow(build_settings_model(Config()), controller)
-    button = win._handsfree_button
-    assert button.minimumHeight() >= MIN_TARGET_PX
-    assert "camera" in button.accessibleDescription()
-    button.click()
-    assert captured.get("shown") is True
+    # built into the page itself, embedded: no second window, no button to open one
+    assert captured.get("embedded") is True
+    assert win._handsfree_panel.widget.window() is win._win
+    assert not hasattr(win, "_handsfree_button")
     # the panel's feature button goes through the window's own staged-toggle path
     captured["toggle_feature"]("gaze", False)  # unchanged -> stages nothing
     assert win._staged_snapshot == {}
@@ -435,3 +431,44 @@ def test_a_saved_mapping_says_saved_once(qapp):
     combo.setCurrentIndex(combo.findData("hold_to_command"))
     rig.button("map_smile").click()
     assert rig.panel._result.text() == "Saved. It applies after `yazses restart`."
+
+
+# ---------------------------------------------------- embedded=True, the way the settings page builds it
+
+
+def test_an_embedded_panel_is_a_plain_widget_not_a_window_of_its_own(qapp):
+    """The page supplies the heading and the size; the panel must add neither a window title nor a
+    size of its own (a top-level panel does both)."""
+    embedded = _Rig(qapp, embedded=True)
+    standalone = _Rig(qapp)
+    assert embedded.panel.widget.windowTitle() == ""
+    assert "Hands-free" in standalone.panel.widget.windowTitle()
+    assert embedded.panel.widget.size() != standalone.panel.widget.size()
+    for rig in (embedded, standalone):
+        rig.panel.widget.close()
+
+
+@pytest.mark.parametrize(("embedded", "focuses"), [(True, False), (False, True)])
+def test_showing_an_embedded_panel_does_not_put_focus_on_pause(qapp, embedded, focuses):
+    """A page that is merely arrowed onto must not take keyboard focus from the sidebar; a window
+    of its own focuses Pause, the one stop that works before the first read."""
+    calls: list = []
+    panel = HandsFreePanel(
+        lambda: _inputs(), lambda spec: None, poll_ms=0, threaded=False, embedded=embedded
+    )
+    panel._buttons["pause"].setFocus = lambda *a, **k: calls.append(1)  # type: ignore[method-assign]
+    panel._buttons["pause"].setEnabled(True)
+    panel._on_shown()
+    assert bool(calls) is focuses
+    panel.widget.close()
+
+
+def test_the_page_says_that_displaying_it_does_not_open_the_camera(qapp):
+    """The reassurance sits at the bottom of the Set up column since the redesign; it must stay
+    visible on the embedded page, not only be present in the view-model."""
+    rig = _Rig(qapp, embedded=True)
+    rig.panel.widget.show()
+    qapp.processEvents()
+    assert "does not open the camera" in rig.panel._notes.text()
+    assert not rig.panel._notes.isHidden()
+    rig.panel.widget.close()

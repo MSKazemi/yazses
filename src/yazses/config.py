@@ -1559,7 +1559,7 @@ class HandsfreeSafetyConfig:
     stale_after_ms: int = field(default=500, metadata={"min_exclusive": 0, "max": 60_000})  # a signal older than this cannot act; unmeasured placeholder
     # Voice stop word: saying exactly this phrase (the WHOLE utterance, never a substring of
     # dictation) pauses every hands-free input, like `yazses handsfree pause`. "" = off. It can
-    # only pause; there is no resume phrase (`yazses handsfree resume`, or Settings → Hands-free controls).
+    # only pause; there is no resume phrase (`yazses handsfree resume`, or Settings → Hands-free).
     # 2-6 words, validated at load (handsfree/stopword.py). `[handsfree] enabled` supplies
     # "pause hands free" -- a PROVISIONAL, unmeasured default -- unless you set this yourself.
     stop_phrase: str = ""

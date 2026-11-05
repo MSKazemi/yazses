@@ -27,6 +27,39 @@ What was checked: unit tests for the control's group, help text, key, default an
 advice (controller and the real window's Apply, offscreen) and for the language-chosen-in-the-same-Apply
 case. What was not checked: the checkbox was not seen in a real Settings window, so its placement and
 wording have not been seen on screen, and no Persian speaker has read the label.
+### Changed — the hands-free controls are the Hands-free page of the settings window, in two columns when there is room
+
+They used to open in a second window from a button on a nearly empty page. They are now the page
+itself, under the same heading and grey description as General, Speech and the others, so the sidebar
+stays on screen and there is nothing to open or close. The page reads the daemon only while it is shown
+and stops when you leave it. It never takes keyboard focus when it appears, so arrowing down the sidebar
+can carry on past it; Pause, Resume and Recenter are still the first three Tab stops inside the page.
+The Close button went with the window, and nothing is the default button any more, so Enter on text still
+does nothing.
+
+At the settings window's default size the page is one column; when the window is wide enough (about
+980 px of page) it is two: **Right now** (the state, Pause / Resume / Recenter, the ways to stop without
+pointing, and the health report) on the left, and **Set up** (camera switches, dwell-click, global stop,
+face-switch mapping) on the right. The state sits in a heavier frame, the other sections are framed cards
+with a visible heading, the action the state calls for is set in bold, and an empty explanation line (a
+disabled button's reason, the result of the last press) no longer leaves a blank band.
+
+Nothing about what a control does changed, and the accessibility rules stand and are still tested: no
+colour or stylesheet in the panel, every button and combo box at least 48 px high, Pause, Resume and
+Recenter first in the Tab order, and the Tab order independent of the width. The health report now comes
+straight after the ways to stop, where it sits on screen, instead of after the camera switches. The
+how-to pages name the page, not a button.
+
+The column count is decided from the room the page is given (the scroll area's viewport, and the room
+both columns need at the current font), not from the panel's own width: at a 24 pt system font in the
+default 900 px window the page is one column and does not scroll sideways (an offscreen measurement; an
+earlier draft of this change stayed in two columns and scrolled 448 px). The sentence about keyboard
+shortcuts no longer promises Alt+P and Alt+R on macOS, where Qt provides no Alt mnemonics; there it says
+only that Tab reaches the buttons. That wording is true by construction and has not been tried on a Mac.
+The pointers to "Settings → Hands-free controls" now say "Settings → Hands-free".
+
+Not measured: a real screen, and fonts wider than the installed ones the tests use; when even one column
+is wider than the window (an extreme font) the page scrolls sideways by only what one column needs.
 
 ### Changed — CI: the macOS 3.11 test leg runs on `main` and manual runs, not on every pull request
 

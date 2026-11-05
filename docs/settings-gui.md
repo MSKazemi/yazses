@@ -43,7 +43,7 @@ A sidebar on the left holds six pages, and one shows at a time:
 | **Speech** | model, language, vocabulary, text injection and the rest of [Speech and text output](#speech-and-text-output) | `Ctrl+2` |
 | **Audio** | microphone, silence threshold and the live level meter | `Ctrl+3` |
 | **Features** | every capability as a checkbox, with search and a category list | `Ctrl+4` |
-| **Hands-free** | the entry to the camera-driven hands-free controls | `Ctrl+5` |
+| **Hands-free** | the camera-driven hands-free controls themselves: state, Pause / Resume / Recenter, ways to stop, and setup | `Ctrl+5` |
 | **Updates** | the version you run, **Check for updates**, and **Install now** for dormant features | `Ctrl+6` |
 
 `Ctrl+F` goes straight to the capability search from any page.
