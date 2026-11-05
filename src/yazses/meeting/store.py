@@ -19,6 +19,7 @@ from yazses.recimport.align import Utterance, merge_utterances
 from yazses.recimport.naming import resolve_names
 from yazses.recimport.pipeline import cleaned_utterance
 from yazses.recimport.render import render_transcript
+from yazses.system.private_files import private_dir, write_private_text
 
 log = logging.getLogger(__name__)
 
@@ -193,13 +194,13 @@ def meetings_dir(config) -> Path:
 def new_meeting(config, meeting_id: str) -> Path:
     """Create and return the folder for a new meeting id."""
     d = meetings_dir(config) / meeting_id
-    d.mkdir(parents=True, exist_ok=True)
+    private_dir(d)
     return d
 
 
 def write_meta(meeting_dir: str | Path, meta: dict) -> Path:
     p = Path(meeting_dir) / _META
-    p.write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    write_private_text(p, json.dumps(meta, ensure_ascii=False, indent=2) + "\n")
     return p
 
 
@@ -269,8 +270,7 @@ def append_live_line(meeting_dir: str | Path, text: str, t: float | None = None)
         rec["t"] = round(float(t), 2)
     try:
         line = json.dumps(rec, ensure_ascii=False)
-        with (Path(meeting_dir) / _LIVE).open("a", encoding="utf-8") as fh:
-            fh.write(line + "\n")
+        write_private_text(Path(meeting_dir) / _LIVE, line + "\n", append=True)
     except OSError:  # pragma: no cover - disk-full/permission; capture must not crash
         pass
 
@@ -306,18 +306,18 @@ def write_outputs(meeting_dir: str | Path, result, *, fmt: str = "md", notes_md=
     written: dict[str, Path] = {}
 
     canon = d / _CANONICAL
-    canon.write_text(render_transcript(result, "json"), encoding="utf-8")
+    write_private_text(canon, render_transcript(result, "json"))
     written["json"] = canon
 
     fmt = (fmt or "md").lower()
     if fmt != "json":
         human = d / _EXT.get(fmt, "transcript.md")
-        human.write_text(render_transcript(result, fmt), encoding="utf-8")
+        write_private_text(human, render_transcript(result, fmt))
         written[fmt] = human
 
     if notes_md:
         notes = d / "notes.md"
-        notes.write_text(notes_md if notes_md.endswith("\n") else notes_md + "\n", encoding="utf-8")
+        write_private_text(notes, notes_md if notes_md.endswith("\n") else notes_md + "\n")
         written["notes"] = notes
     return written
 
@@ -536,10 +536,11 @@ def append_live_markdown(
         # Size, not existence: a zero-byte file left by a crash between `open` and the
         # first write would otherwise be appended to and never get its header.
         started = p.exists() and p.stat().st_size > 0
-        with p.open("a", encoding="utf-8") as fh:
-            if not started:
-                fh.write(live_markdown_header(meeting_id))
-            fh.write(_live_markdown_block(line))
+        write_private_text(
+            p,
+            (live_markdown_header(meeting_id) if not started else "") + _live_markdown_block(line),
+            append=True,
+        )
     except OSError:  # pragma: no cover - disk-full/permission; capture must not crash
         pass
 
@@ -555,7 +556,7 @@ def write_live_transcript(meeting_dir: str | Path, meeting_id: str = "") -> Path
         return None
     p = live_markdown_path(meeting_dir)
     try:
-        p.write_text(render_live_transcript(records, meeting_id), encoding="utf-8")
+        write_private_text(p, render_live_transcript(records, meeting_id))
     except OSError:  # pragma: no cover - disk-full / read-only mount
         log.warning("Could not write %s", p)
         return None
@@ -572,7 +573,7 @@ def write_quality(meeting_dir: str | Path, quality) -> Path | None:
     p = Path(meeting_dir) / _QUALITY
     try:
         payload = quality.as_dict() if hasattr(quality, "as_dict") else dict(quality)
-        p.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        write_private_text(p, json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
     except (OSError, TypeError, ValueError):  # pragma: no cover - defensive
         log.warning("Could not write %s", p)
         return None
@@ -617,7 +618,8 @@ def archive_outputs(meeting_dir: str | Path) -> Path | None:
         n += 1
     dest = root / str(n)
     try:
-        dest.mkdir(parents=True, exist_ok=True)
+        private_dir(root)
+        private_dir(dest)
         for src in movable:
             src.replace(dest / src.name)
     except OSError:  # pragma: no cover - read-only mount
@@ -723,7 +725,7 @@ def write_summary(meeting_dir: str | Path, lines: list[str]) -> Path | None:
     # readable — which is the only reason this file is written at all.
     body = "\n".join(["```text", *lines, "```", ""])
     try:
-        p.write_text(body, encoding="utf-8")
+        write_private_text(p, body)
     except OSError:  # pragma: no cover - disk-full / read-only mount
         log.warning("Could not write %s", p)
         return None

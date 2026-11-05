@@ -11,6 +11,8 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from yazses.system.private_files import private_dir, write_private_text
+
 # Leading trigger phrases that mark an utterance as a note-to-self rather than
 # text to type.
 _SCRATCH_TRIGGERS = (
@@ -53,9 +55,11 @@ class ScratchPad:
         text = (text or "").strip()
         if not text:
             return False
-        self._path.parent.mkdir(parents=True, exist_ok=True)
-        with self._path.open("a", encoding="utf-8") as f:
-            f.write(json.dumps({"ts": float(ts), "text": text}) + "\n")
+        # Spoken notes-to-self: owner-only (0700 dir / 0600 file) on POSIX.
+        private_dir(self._path.parent)
+        write_private_text(
+            self._path, json.dumps({"ts": float(ts), "text": text}) + "\n", append=True,
+        )
         return True
 
     def list(self) -> list[ScratchNote]:
