@@ -417,6 +417,30 @@ def glyph_for(badge_hex: str) -> str:
     return "#ffffff" if white >= black else "#000000"
 
 
+#: Longest reason the tooltip carries. The Windows shell cuts a whole tooltip at 127
+#: characters, and the three fixed lines already take about 50 of them.
+_ERROR_REASON_MAX = 60
+
+
+def _error_reason(status: dict) -> str | None:
+    """The daemon's ``last_error`` as one short, safe tooltip line, or ``None``.
+
+    The text is the daemon's own user-facing string, but it can carry a device name or
+    a path, so it is flattened to a single line, stripped of control characters, and cut
+    to ``_ERROR_REASON_MAX`` characters (ending in an ellipsis when cut).
+    """
+    raw = status.get("last_error")
+    if not raw:
+        return None
+    text = "".join(" " if ch.isspace() else ch for ch in str(raw))
+    text = " ".join("".join(ch for ch in text if ch.isprintable()).split())
+    if not text:
+        return None
+    if len(text) > _ERROR_REASON_MAX:
+        text = text[: _ERROR_REASON_MAX - 1].rstrip() + "…"
+    return wrap_user_text(text)
+
+
 def icon_spec(status: dict) -> tuple[str, str]:
     """Return ``(hex_color, tooltip)`` for the tray icon given a status dict.
 
@@ -451,6 +475,9 @@ def icon_spec(status: dict) -> tuple[str, str]:
         tooltip += f"\n⚠ {streak} silent clip(s) in a row"
     if state in _RECORDING_STATES and not command_mode and target_ok is False:
         tooltip += "\n⚠ no text field focused — will save to clipboard"
+    reason = _error_reason(status) if state == "error" else None
+    if reason is not None:
+        tooltip += f"\n⚠ {reason}"
     # Last, after the warnings: the Windows shell cuts a tooltip at 127 characters, and a
     # warning matters more than how long the model has been idle.
     residency = residency_line(status)

@@ -48,7 +48,7 @@ class TestCrashRecovery:
         """`yazses restart` drops the socket for a second; that must not respawn."""
         d = unreachable_decision(True, _RECONNECT_GRACE_S - 0.1, daemon_running=False)
         assert d.relaunch is False
-        assert d.state is TrayState.IDLE
+        assert d.state is TrayState.LOADING
 
     def test_relaunches_are_spaced_by_a_cooldown(self) -> None:
         """The loop ticks every second; a booting daemon needs longer than that."""

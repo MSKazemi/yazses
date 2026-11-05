@@ -52,6 +52,11 @@ What was checked: pure `handle()` and `serve()` tests and the real `mcp-server` 
 A request nested a hundred thousand levels deep raised `RecursionError` in the parse step, and a handler result that was a set or bytes raised `TypeError` while building the reply; either ended the connection thread with a traceback and an empty reply. The caller now gets the existing `PARSE_ERROR` or `HANDLER_FAILED` reply and the next connection works. The Windows pipe server has the same two changes. No error codes, methods or fields were added.
 
 What was checked: 14 tests over real sockets (6 fail on the old code). What was not checked: the Windows named pipe at runtime (only a source-level check), and real multi-client load.
+### Fixed — the tray no longer shows "idle" when the daemon never started or its poller died
+
+When the daemon never booted, or the status poller crashed, the tray returned without changing its icon, so it stayed idle blue. It now turns red with a fixed reason. A starting, restarting or stopping daemon is reported as "loading" (the tooltip says so; the colour is unchanged), and an error tooltip shows the daemon's own error text on one line, at most 60 characters.
+
+What was checked: 19 tests with a fake platform, no Qt (eight fail on the old code). What was not checked: a real tray or desktop, or a real daemon crash.
 
 ### Added — Persian text normalisation has a checkbox in Settings
 

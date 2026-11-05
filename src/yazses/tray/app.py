@@ -59,6 +59,10 @@ MAX_DAEMON_RELAUNCHES = 5
 # Give a relaunched daemon time to boot and answer before trying again — model
 # loading takes seconds, and the poll loop ticks every second.
 RELAUNCH_COOLDOWN_S = 15.0
+# Shown in the tooltip when the poll thread ends, so the icon says so rather than
+# freezing on whatever it last drew. Fixed strings: nothing from the exception goes in.
+_GIVE_UP_REASON = "daemon did not start — run `yazses start`"
+_POLLER_CRASH_REASON = "tray status updates stopped — restart the tray"
 
 
 @dataclass(frozen=True)
@@ -66,7 +70,10 @@ class PollDecision:
     """What the poll loop should do about an unreachable daemon."""
 
     give_up: bool
-    state: TrayState = TrayState.IDLE
+    # Never IDLE by default: this decision is only made when no daemon answered, and an
+    # idle (ready, blue) icon is the one thing the tray must not claim then. Every
+    # transitional decision below says LOADING, every fault says ERROR.
+    state: TrayState = TrayState.LOADING
     last_error: str | None = None
     # Spawn a replacement daemon. Only ever true when the daemon is genuinely
     # gone — a wedged one still holds its single-instance lock, so a replacement
@@ -115,15 +122,21 @@ def unreachable_decision(
     """
     if stop_requested:
         if daemon_running:
-            return PollDecision(give_up=False, last_error="daemon stopping")
+            return PollDecision(
+                give_up=False, state=TrayState.LOADING, last_error="daemon stopping"
+            )
         return PollDecision(give_up=True, close_tray=True)
     if not ever_connected:
         if waiting_s > _DAEMON_BOOT_TIMEOUT_S:
             return PollDecision(give_up=True)
         # The tray already spawned one at startup; let it finish booting.
-        return PollDecision(give_up=False, last_error="daemon starting")
+        return PollDecision(
+            give_up=False, state=TrayState.LOADING, last_error="daemon starting"
+        )
     if waiting_s <= _RECONNECT_GRACE_S:
-        return PollDecision(give_up=False, last_error="daemon restarting")
+        return PollDecision(
+            give_up=False, state=TrayState.LOADING, last_error="daemon restarting"
+        )
 
     if daemon_running:
         # Alive but not answering: replacing it is impossible (it holds the lock)
@@ -341,6 +354,13 @@ def run() -> None:
                     return
                 if decision.give_up:
                     log.warning("Daemon never became reachable; stopping poll.")
+                    # The icon would otherwise stay on its last (idle) state for as long
+                    # as this process lives -- and it keeps the single-instance lock.
+                    tray.set_state(
+                        TrayModel(
+                            state=TrayState.ERROR, last_error=_GIVE_UP_REASON, model=""
+                        )
+                    )
                     return
                 tray.set_state(
                     # `model=""`: no daemon answered, so no model is known. The
@@ -370,6 +390,15 @@ def run() -> None:
                 )
             except Exception:
                 log.exception("Tray poller crashed")
+                # A fixed reason, never the exception text: that can hold paths.
+                try:
+                    tray.set_state(
+                        TrayModel(
+                            state=TrayState.ERROR, last_error=_POLLER_CRASH_REASON, model=""
+                        )
+                    )
+                except Exception:
+                    log.exception("Could not show the poller crash on the tray")
                 return
             stop_event.wait(interval)
 
