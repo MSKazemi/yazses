@@ -105,3 +105,48 @@ def write_private_text(
         raise
     with fh:
         fh.write(text)
+
+
+def write_private_bytes(path: str | Path, data: bytes) -> None:
+    """``Path.write_bytes`` that creates the file ``0600`` and tightens a looser one.
+
+    Same contract as :func:`write_private_text`, for binary content (ciphertext, SQLite
+    side files). The bytes written are exactly ``data``; only the mode differs.
+    """
+    p = Path(path)
+    if not _posix():
+        p.write_bytes(data)
+        return
+    _tighten(p.parent)
+    fd = os.open(p, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, PRIVATE_FILE_MODE)
+    try:
+        try:
+            mode = os.fstat(fd).st_mode
+            if mode & _GROUP_OTHER:
+                os.chmod(p, mode & ~_GROUP_OTHER & 0o7777)
+        except OSError:
+            log.debug("could not tighten permissions on %s", p, exc_info=True)
+        fh = os.fdopen(fd, "wb")
+    except BaseException:
+        os.close(fd)
+        raise
+    with fh:
+        fh.write(data)
+
+
+def ensure_private_file(path: str | Path) -> None:
+    """Make sure ``path`` exists and is owner-only, without changing its content.
+
+    A missing file is created empty with mode ``0600`` (an empty file is a valid new
+    SQLite database, so ``sqlite3.connect`` can then open it with no world-readable
+    moment); an existing looser file is tightened. Best effort on the tightening.
+    """
+    p = Path(path)
+    if not _posix():
+        return
+    try:
+        os.close(os.open(p, os.O_WRONLY | os.O_CREAT, PRIVATE_FILE_MODE))
+    except OSError:
+        log.debug("could not pre-create %s", p, exc_info=True)
+        return
+    _tighten(p)

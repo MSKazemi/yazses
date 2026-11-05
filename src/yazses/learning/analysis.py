@@ -16,6 +16,7 @@ from typing import Callable
 
 from yazses.config import Config
 from yazses.learning.store import CorpusStore, EventRecord
+from yazses.system.private_files import private_dir, write_private_text
 
 log = logging.getLogger(__name__)
 
@@ -673,13 +674,13 @@ def set_toml_key(path: Path, section: str, key: str, value: object) -> str:
 def apply_proposal(proposal: Proposal, config_path: Path, few_shots_path: Path) -> str:
     """Apply an approved proposal to disk and return a description."""
     if proposal.target == "few_shots":
-        few_shots_path.parent.mkdir(parents=True, exist_ok=True)
+        private_dir(few_shots_path.parent)
         existing = few_shots_path.read_text(encoding="utf-8") if few_shots_path.exists() else (
             "# YazSes SLM few-shot examples (auto-proposed by `yazses tune`).\n"
             "# One example per line, in the SLM router's classification format.\n"
         )
         block = "\n".join(proposal.examples)
-        few_shots_path.write_text(existing.rstrip("\n") + "\n" + block + "\n", encoding="utf-8")
+        write_private_text(few_shots_path, existing.rstrip("\n") + "\n" + block + "\n")
         return f"appended {len(proposal.examples)} few-shot example(s) to {few_shots_path}"
     assert proposal.section and proposal.key is not None
     return set_toml_key(config_path, proposal.section, proposal.key, proposal.value)

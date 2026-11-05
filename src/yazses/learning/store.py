@@ -19,6 +19,7 @@ from pathlib import Path
 import numpy as np
 
 from yazses.learning.crypto import Cipher
+from yazses.system.private_files import ensure_private_file, private_dir, write_private_bytes
 
 log = logging.getLogger(__name__)
 
@@ -236,9 +237,13 @@ class CorpusStore:
         self._redactors = [re.compile(pat) for pat in redact_patterns]
         self._dir = data_dir
         self._clips = data_dir / "clips"
-        self._clips.mkdir(parents=True, exist_ok=True)
+        # Owner-only (0700) data dir and clips dir, 0600 clips and database, so the corpus
+        # does not rely on `learning/crypto.py` having run first (system/private_files.py).
+        private_dir(data_dir)
+        private_dir(self._clips)
         self._cipher = cipher
         self._db_path = data_dir / "corpus.db"
+        ensure_private_file(self._db_path)  # 0600 before SQLite ever writes to it
         # check_same_thread=False: the daemon's background writer thread and the
         # IPC thread both touch the store; CorpusWriter serializes them with a
         # lock (see learning/capture.py).
@@ -297,7 +302,7 @@ class CorpusStore:
 
         if audio is not None and audio.size:
             clip_path = self._clips / f"{event_id}.wav.enc"
-            clip_path.write_bytes(self._cipher.encrypt(_encode_wav(audio, sample_rate)))
+            write_private_bytes(clip_path, self._cipher.encrypt(_encode_wav(audio, sample_rate)))
             cur.execute(
                 "UPDATE events SET audio_path = ? WHERE id = ?",
                 (str(clip_path), event_id),
