@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `flake.nix` matches the project again (version and dependencies)
+
+The Nix flake was pinned at 2.18.2 and listed the optional `onnx-asr` while omitting `av` and `jeepney`. It now matches `pyproject.toml`, and `tests/test_flake_matches_project.py` keeps the version and the Linux base dependencies from drifting. The flake builds from the local tree, so no source hash changes. Not checked: Nix is not installed here, so the flake was not evaluated or built, and the nixpkgs attribute names for `av` and `jeepney` are unconfirmed.
+
 ### Added — Persian text normalisation has a checkbox in Settings
 
 `[stt] persian_normalisation` could only be turned on by editing `config.toml`. It is now a
