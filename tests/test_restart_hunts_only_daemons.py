@@ -196,18 +196,37 @@ _HOLDER = (
     "import sys, time\n"
     "from yazses.system.single_instance import SingleInstanceLock\n"
     "lock = SingleInstanceLock(sys.argv[1])\n"
-    "print(lock.acquire(), flush=True)\n"
+    "import os\n"
+    "print(lock.acquire(), os.getpid(), flush=True)\n"
     "time.sleep(60)\n"
 )
 
 
-def _spawn_holder(lock: Path) -> subprocess.Popen:
+def _spawn_holder(lock: Path) -> tuple[subprocess.Popen, int]:
+    """Start a process that holds ``lock``; return it with the pid that holds it.
+
+    The pid that holds the lock is the one the helper reports from inside, not
+    ``Popen.pid``: inside a Windows venv ``sys.executable`` is a launcher stub
+    that starts the real interpreter as a child, so the two differ there.
+    """
     proc = subprocess.Popen(
         [sys.executable, "-c", _HOLDER, str(lock)], stdout=subprocess.PIPE, text=True
     )
     assert proc.stdout is not None
-    assert proc.stdout.readline().strip() == "True", "helper must take the lock"
-    return proc
+    acquired, _, pid = proc.stdout.readline().strip().partition(" ")
+    assert acquired == "True", "helper must take the lock"
+    return proc, int(pid)
+
+
+def _stop_holder(proc: subprocess.Popen, holder_pid: int) -> None:
+    """Kill exactly the processes this test spawned (the stub and the holder)."""
+    import contextlib
+
+    proc.kill()
+    if holder_pid != proc.pid:
+        with contextlib.suppress(OSError):
+            os.kill(holder_pid, signal.SIGTERM)
+    proc.wait(timeout=10)
 
 
 def test_restart_aborts_and_leaves_the_lock_when_a_live_holder_survives(
@@ -216,7 +235,7 @@ def test_restart_aborts_and_leaves_the_lock_when_a_live_holder_survives(
     import typer
 
     lock = tmp_path / "daemon.lock"
-    holder = _spawn_holder(lock)
+    holder, holder_real_pid = _spawn_holder(lock)
     try:
         plat = _Platform(tmp_path)
         with pytest.raises(typer.Exit) as exc:
@@ -228,11 +247,10 @@ def test_restart_aborts_and_leaves_the_lock_when_a_live_holder_survives(
         # and the holder really does still own it
         from yazses.system.single_instance import SingleInstanceLock, holder_pid
 
-        assert holder_pid(lock) == holder.pid
+        assert holder_pid(lock) == holder_real_pid
         assert SingleInstanceLock(lock).acquire() is False
     finally:
-        holder.kill()  # exact pid of the helper this test spawned
-        holder.wait(timeout=10)
+        _stop_holder(holder, holder_real_pid)
 
 
 def test_restart_unlinks_an_unheld_lock_and_spawns_one_daemon(tmp_path, quiet_restart):
