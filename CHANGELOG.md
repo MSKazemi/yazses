@@ -6,6 +6,12 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the disfluency filter no longer deletes repeated spoken digits
+
+The default-on 2-gram de-duplication collapsed repeated pairs, so `my pin is 4 7 4 7` became `my pin is 4 7` and `9 9 9 9 9 9 9 9` became `9 9`, silently, for any script. A pair containing a decimal digit (any script) or an English digit word (zero to ten) is now left alone. Other repeated phrases behave as before, including "New York New York", and the Persian emphatic-repeat case is still an expected failure (a maintainer decision). Digit words in other languages are not protected.
+
+What was checked: 38 tests including a seeded property loop that the digit tokens survive (14 fail on the old code) and a golden table of 22 non-digit repeats. What was not checked: real speech.
+
 ### Added — Persian text normalisation has a checkbox in Settings
 
 `[stt] persian_normalisation` could only be turned on by editing `config.toml`. It is now a
