@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — research: how the proposed interaction kernel (ADR-025) fits the grounding code that already exists
+
+`design/research/kernel-contract-fit.md` compares ADR-025's six types with `grounding/`, `activation/` and `cmdsafety/`, lists the gaps (action proposal, authority, undo, outcome verification), and notes two naming clashes. It recommends nothing and accepts nothing: ADR-025 stays Proposed. No hardware or user testing.
+
 ### Added — Persian text normalisation has a checkbox in Settings
 
 `[stt] persian_normalisation` could only be turned on by editing `config.toml`. It is now a
