@@ -7589,7 +7589,7 @@ def coach(
     if s.wpm:
         typer.echo(f"  speaking pace:      {s.wpm:.0f} words/min")
     typer.echo(f"  vocabulary variety: {s.type_token_ratio * 100:.0f}% unique words")
-    typer.echo("\n  Private + on-device. `yazses corpus destroy` forgets everything.")
+    typer.echo("\n  Private + on-device. `yazses corpus destroy` deletes the corpus.")
 
 
 @app.command(
@@ -9020,12 +9020,18 @@ def corpus_forget(
 
 @corpus_app.command(
     "destroy",
-    epilog=_examples("yazses corpus destroy --i-mean-it    irreversibly wipe the whole corpus (DB + clips)"),
+    epilog=_examples("yazses corpus destroy --i-mean-it    delete corpus.db and the audio clips"),
 )
 def corpus_destroy(
-    confirm: bool = typer.Option(False, "--i-mean-it", help="Required: confirm irreversible wipe."),
+    confirm: bool = typer.Option(False, "--i-mean-it", help="Required: confirm the irreversible delete."),
 ) -> None:
-    """Irreversibly delete the entire learning corpus (database + audio clips)."""
+    """Irreversibly delete the corpus database (corpus.db) and its audio clips (clips/).
+
+    Files are unlinked, not overwritten. Nothing else is touched: the key (corpus.key,
+    which also protects your voiceprints), meeting transcripts, scratch notes, approved
+    few-shots and the other files in the data directory all stay. Does nothing when
+    corpus.db does not exist.
+    """
     from yazses.learning.capture import open_store
 
     platform = get_platform()

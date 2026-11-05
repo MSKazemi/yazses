@@ -2145,12 +2145,12 @@ Inspect or clear the local learning corpus.
 |---|---|
 | `yazses corpus status` | Show corpus location, event/discard/flag counts, size, and date range. |
 | `yazses corpus forget --minutes N` / `-m N` | Delete events captured in the last `N` minutes (e.g. after dictating something private). |
-| `yazses corpus destroy --i-mean-it` | Irreversibly wipe the corpus (database + audio clips). `--i-mean-it` is required. |
+| `yazses corpus destroy --i-mean-it` | Irreversibly delete the corpus database (`corpus.db`) and its audio clips (`clips/`). Leaves `corpus.key` and the rest of the data directory. `--i-mean-it` is required. |
 
 ```bash
 yazses corpus status                 # location, counts, size, date range
 yazses corpus forget -m 10           # delete the last 10 minutes of events
-yazses corpus destroy --i-mean-it    # irreversibly wipe the whole corpus
+yazses corpus destroy --i-mean-it    # irreversibly delete corpus.db and the audio clips
 ```
 
 `status` reports the size against `[learning] max_corpus_mb`. Eviction runs in sweeps —

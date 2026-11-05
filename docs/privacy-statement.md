@@ -80,7 +80,7 @@ You stay in control of the corpus:
 | Auto-expire old events | `retention_days` / `max_corpus_mb` under `[learning]` |
 | Scrub patterns from stored text | `redact_patterns` under `[learning]` |
 | Inspect what is stored | `yazses corpus status` |
-| Erase everything | `yazses corpus destroy --i-mean-it` (or delete `corpus.db`, `clips/` and `corpus.key`) |
+| Erase the corpus | `yazses corpus destroy --i-mean-it` deletes `corpus.db` and `clips/` and leaves `corpus.key`; to remove the key as well, delete `corpus.key` yourself (it also protects `voiceprint.enc` and `participants/`, so those become unreadable) |
 
 `redact_patterns` are regular expressions removed from every transcript column before it is
 encrypted — but a redaction cannot reach into a waveform. With `capture_audio` on (the
@@ -480,7 +480,7 @@ it drifts out of step with the lock file. Regenerate it yourself with
 | Action | How |
 |---|---|
 | Disable the learning corpus | Leave `[learning]` off (default), or `yazses features disable learning` |
-| Erase the learning corpus | `yazses corpus destroy --i-mean-it` (everything else YazSes stores is listed under [What is written to your data directory](#what-is-written-to-your-data-directory)) |
+| Erase the learning corpus | `yazses corpus destroy --i-mean-it` (deletes `corpus.db` and `clips/` only; everything else YazSes stores is listed under [What is written to your data directory](#what-is-written-to-your-data-directory)) |
 | Disable editor context | Nothing to disable — the daemon never reads your editor; only `yazses jump` contacts it, when you run it |
 | Disable the offline cleanup LLM | Set `llm_enabled = false` under `[filters.disfluency]` (the default) |
 | Inspect stored data | `yazses corpus status` |

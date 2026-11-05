@@ -243,9 +243,9 @@ Inspect or clear the local learning corpus.
 
 ### `yazses corpus destroy`
 
-Irreversibly delete the entire learning corpus (database + audio clips).
+Irreversibly delete the corpus database (corpus.db) and its audio clips (clips/).
 
-- `--i-mean-it` — Required: confirm irreversible wipe.
+- `--i-mean-it` — Required: confirm the irreversible delete.
 
 ### `yazses corpus forget`
 
