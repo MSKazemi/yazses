@@ -6,6 +6,12 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — streaming partials are taken back when a held or staged burst is consumed without typing ([#796](https://github.com/MSKazemi/yazses/issues/796))
+
+With `[streaming]` on, live partials are typed at hold start. A command-safety or check-digit hold, a re-ask, a spoken microphone answer, or a staged stage/undo/discard/empty-commit/full-buffer action then returned without cancelling them, so the partials stayed in the editor and a later commit typed the staged buffer on top, duplicating text. All five paths now cancel the partials first. Streaming and staged mode are not made mutually exclusive: that is still a maintainer decision on #796.
+
+What was checked: 12 tests with injected fakes (8 fail on the old code), a mutation check on one path, and a real `StreamingInjector` on the `device_lost` path. What was not checked: any real editor, X11, Wayland or Windows.
+
 ### Added — Persian text normalisation has a checkbox in Settings
 
 `[stt] persian_normalisation` could only be turned on by editing `config.toml`. It is now a
