@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — docs: the speech model downloads the first time the daemon starts, not on first dictation
+
+`yazses doctor` and the get-started guide said the model is fetched on first dictation. In the code it is downloaded when the daemon starts, and the hotkey is not created until that finishes, so a key held during the first start does nothing. Both now say so. `docs/models.md`, `docs/windows-install.md` and `docs/cli-reference.md` still say "first use" and are listed for a follow-up. What was not checked: a fresh install on any OS.
+
 ### Added — Persian text normalisation has a checkbox in Settings
 
 `[stt] persian_normalisation` could only be turned on by editing `config.toml`. It is now a
