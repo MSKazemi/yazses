@@ -64,10 +64,19 @@ _BIDI_CONTROLS_RE = re.compile("[\u202A-\u202E\u2066-\u2069]")
 # before a later alternative can match inside it; email before bare identifier
 # so `[\w.+-]+@` wins at the local-part's first character (`\w` is Unicode, so
 # an Arabic-script local part is protected too — §9 keeps addresses intact).
-_STRUCTURED_SPAN_PATTERN = r"""
+#
+# Linear time: a pattern that starts with an open-ended run (`[\w.+-]+@...`) is retried at
+# every character of a long run and rescans the run each time, which is quadratic (a
+# 20 000-character word cost seconds). Every component here is therefore bounded by
+# `_NAME_MAX` and possessive, so one attempt costs O(_NAME_MAX) and the whole scan is linear.
+# 254 is the longest e-mail address SMTP allows; 255 is the file-name limit of every common
+# file system. No real name is cut short.
+_NAME_MAX = 255
+_EMAIL_MAX = 254
+_STRUCTURED_SPAN_PATTERN = rf"""
         https?://\S+                       # URL
       | www\.\S+                           # bare www host
-      | [\w.+-]+@[\w-]+\.[\w.-]+           # email address
+      | [\w.+-]{{1,{_EMAIL_MAX}}}+@[\w-]+\.[\w.-]+  # email address
       | (?<!\w)(?:/[\w.\-]+)+              # absolute POSIX path, not the slash in "و/یا"
       | [A-Za-z]:[\\/](?:[\w.\-]+[\\/]?)*  # Windows drive path
       | \b\d+(?:\.\d+)+\b                  # dotted version: 3.13, 1.2.3
@@ -86,11 +95,14 @@ _PROTECTED_SPAN_RE = re.compile(
 # those alone while still treating an ordinary Latin word as a word (the phonetic
 # corrector): the identifier-run alternative of `_PROTECTED_SPAN_RE` matches every Latin
 # word, so it cannot be reused for that. One module owns the shapes; this only adds to them.
+#
+# Commit 69d9b771 left the next two components unbounded, which was quadratic
+# (`correct_text(s, ["Sara"])` took 6-8 s on a 20 000-character word); see `_NAME_MAX`.
 _STRUCTURED_TOKEN_RE = re.compile(
     _STRUCTURED_SPAN_PATTERN
-    + r"""
-      | [\w.\-]+(?:/[\w.\-]+)+             # relative path: src/app/main.py
-      | \b[\w\-]+\.[A-Za-z][A-Za-z0-9]{0,7}\b  # file name: notes.txt
+    + rf"""
+      | [\w.\-]{{1,{_NAME_MAX}}}+(?:/[\w.\-]{{1,{_NAME_MAX}}}+)+  # relative path: src/app/main.py
+      | \b[\w\-]{{1,{_NAME_MAX}}}+\.[A-Za-z][A-Za-z0-9]{{0,7}}\b  # file name: notes.txt
       | \bv\d+(?:\.\d+)*\b                  # version tag: v2, v1.2.3
     """,
     re.VERBOSE,
