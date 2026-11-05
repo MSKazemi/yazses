@@ -69,7 +69,7 @@ The design is split into small decisions so future maintainers can supersede one
 - [ADR-v2-143 — Separate spoken language, Han script, and locale](../adr/adr-v2-143-chinese-script-and-locale-semantics.md)
 - [ADR-v2-144 — Chinese support is gated by measured validation](../adr/adr-v2-144-chinese-support-validation-gate.md)
 
-All five ADRs are **Proposed**. They are documentation for review, not a claim that the implementation already exists.
+All five ADRs are **Proposed**. They are documentation for review. Their Proposed status is unchanged and accepting them is the maintainer's decision; the profile resolver, CLI, command grammar and CJK text code they describe is already on `main` (see the 2026-10-29 update above), but the validation gate in ADR-v2-144 has not been passed.
 
 ## P1 user experience
 
