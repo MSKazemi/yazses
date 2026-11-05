@@ -165,9 +165,13 @@ def test_oversize_frame_still_invalid_request(server, thread_errors):
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
         s.settimeout(5.0)
         s.connect(str(path))
+        # The server answers and hangs up once it has read its cap, so the tail
+        # of this write races the close. Linux reports that as EPIPE/ECONNRESET,
+        # macOS can report ENOTCONN (errno 57); all of them mean "the server
+        # already closed", which is the behaviour under test, not a failure.
         try:
             s.sendall(b"x" * 1_100_000)
-        except (BrokenPipeError, ConnectionResetError):
+        except OSError:
             pass
         out = bytearray()
         try:
@@ -176,7 +180,7 @@ def test_oversize_frame_still_invalid_request(server, thread_errors):
                 if not chunk:
                     break
                 out.extend(chunk)
-        except ConnectionResetError:
+        except OSError:
             pass
     _settle()
     if out:  # the reply may be lost to a reset once the server closes
