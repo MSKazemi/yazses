@@ -503,11 +503,13 @@ git grep -hE '^\s*(- )?(run: )?uv sync' -- .github/workflows | wc -l   # command
 | Setup step | Before (4fda3403) | After | Status |
 |---|---:|---:|---|
 | `uses: ./.github/actions/setup-uv-python` | 3 lines, 2 files | 9 lines, 3 files | `test-linux`, `test`, the `docs` build, and now `repo-hygiene`, `gui`, `extras`, `windows-update-handoff` and `heavy-extras`. |
-| `uses: astral-sh/setup-uv@` | 16 lines, 9 files | 10 lines, 7 files | `test.yml` has none left. Each remaining job is listed with its reason in `DIRECT_SETUP_UV` in `tests/test_ci_composite_actions.py`: release and build lanes, `macos-smoke.yml` (no sync step of its own), and `eye-eval-ci.yml` (its own test pins the setup step's shape; next to migrate). |
-| `uv sync` as a command | 12 lines, 6 files | 6 lines, 4 files | The rest are in `eye-eval-ci.yml`, `packs-spike.yml` and `release.yml`. |
+| `uses: astral-sh/setup-uv@` | 16 lines, 9 files | 10 lines, 7 files | `test.yml` has none left. Each remaining job is listed with its reason in `DIRECT_SETUP_UV` in `tests/test_ci_composite_actions.py`: release and build lanes, `macos-smoke.yml` (no sync step of its own), and `eye-eval-ci.yml` (its own test pins the setup step's shape; next to migrate; migrated 2026-11-05, see the note under this table). |
+| `uv sync` as a command | 12 lines, 6 files | 6 lines, 4 files | The rest are in `eye-eval-ci.yml`, `packs-spike.yml` and `release.yml` (before the 2026-11-05 note). |
 | `uses: actions/checkout@` | 49 lines, 33 files | unchanged | Not extracted. `fetch-depth` and `filter` differ per job, and the comments beside them explain why. |
 | `sudo apt-get update` | 8 lines, 5 files | unchanged | Not extracted. Each job's package list differs. |
 | `sudo apt-get install` | 10 lines, 6 files | unchanged | Not extracted, for the same reason. |
+
+**Update, 2026-11-05 (branch `ci/eye-eval-shared-setup-uv`, base `origin/main` c9921314).** Both `eye-eval-ci.yml` jobs (`evaluate`, `matrix`) now use the composite, with job names, permissions and `timeout-minutes` unchanged. Re-measured with the commands above on that tree: `uses: ./.github/actions/setup-uv-python` 12 lines in 5 files, `uses: astral-sh/setup-uv@` 7 lines in 5 files, `uv sync` as a command 3 lines in 2 files (`packs-spike.yml`, `release.yml`). The change is checked by the static tests only; no workflow run has exercised it. One side effect: the composite pins setup-uv v10.2.0 while the two migrated jobs had called v10.3.3, so those two jobs now run the older action release, the same one the other composite callers run.
 | `uses: actions/setup-python@` | 4 lines, 4 files | unchanged | Not extracted. These jobs (`fuzz`, `link-check`, `traceability`, `dependabot-sbom`) use pip or only the standard library, not uv. Moving them to uv would change behaviour, so it is not a setup extraction. |
 | `uses: actions/cache@` | 3 lines, 2 files | unchanged | Not extracted. Keys are job-specific and stay beside the job that uses them ("Caches" above). |
 

@@ -152,8 +152,6 @@ DIRECT_SETUP_UV: dict[str, str] = {
     "release.yml:test": "release lane: release steps stay explicit (§8 Reuse, §11)",
     "release.yml:publish-pypi": "release lane: publishes to PyPI",
     "release.yml:build-deb": "release lane: builds the released .deb",
-    "eye-eval-ci.yml:evaluate": "not migrated yet: tests/test_eye_ci_entry_point.py pins this setup step's shape",
-    "eye-eval-ci.yml:matrix": "not migrated yet: tests/test_eye_ci_entry_point.py pins this setup step's shape",
 }
 
 

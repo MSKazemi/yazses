@@ -37,6 +37,7 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / "scripts" / "eye_eval_ci.py"
 WORKFLOW = ROOT / ".github" / "workflows" / "eye-eval-ci.yml"
+COMPOSITE = "./.github/actions/setup-uv-python"
 STAMP = "2026-10-15T00:00:00+00:00"
 
 
@@ -406,8 +407,14 @@ def test_the_workflow_uploads_even_when_a_leg_fails_and_judges_the_legs(workflow
 
 def test_the_workflow_installs_the_base_install_only(workflow: dict[str, Any]) -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
-    assert "uv sync\n" in text
     assert "--extra" not in text and "--all-extras" not in text
+    # The sync is the composite's (`uv sync` with no arguments). A `sync-args` here would
+    # be the only way to add an extra, so the evaluation's "needs no extras" claim is the
+    # absence of that key.
+    for name in ("evaluate", "matrix"):
+        installs = [s for s in workflow["jobs"][name]["steps"] if s.get("uses") == COMPOSITE]
+        assert len(installs) == 1, name
+        assert "sync-args" not in (installs[0].get("with") or {}), name
 
 
 def test_every_leg_installs_with_an_interpreter_test_yml_runs_on_macos(workflow: dict[str, Any]) -> None:
@@ -417,7 +424,7 @@ def test_every_leg_installs_with_an_interpreter_test_yml_runs_on_macos(workflow:
     # tests/test_macos_uv_jobs_pin_the_interpreter.py; this ties the eye-eval pin to a
     # version the main suite proves on macOS, not merely to some version.
     steps = workflow["jobs"]["evaluate"]["steps"]
-    setup = next(s for s in steps if "setup-uv" in s.get("uses", ""))
+    setup = next(s for s in steps if s.get("uses") == COMPOSITE)
     pinned = str((setup.get("with") or {}).get("python-version", ""))
     test_yml = yaml.safe_load((WORKFLOW.parent / "test.yml").read_text(encoding="utf-8"))
     macos_versions = {str(v) for v in test_yml["jobs"]["test"]["strategy"]["matrix"]["python-version"]}
@@ -427,15 +434,19 @@ def test_every_leg_installs_with_an_interpreter_test_yml_runs_on_macos(workflow:
 def test_every_job_pins_the_interpreter_it_installs_with(workflow: dict[str, Any]) -> None:
     # Unpinned, `uv sync` takes the newest Python on the runner: macos-latest moved to
     # Homebrew 3.15, onnxruntime had no wheel for it, and the leg died at install.
+    # Both jobs go through the repository composite (#537), which forwards `python-version`
+    # to setup-uv (tests/test_ci_composite_actions.py holds that). No job may call
+    # setup-uv itself, or this count would not see it.
     setups = [
         step
         for job in workflow["jobs"].values()
         for step in job["steps"]
-        if "astral-sh/setup-uv" in step.get("uses", "")
+        if step.get("uses") == COMPOSITE
     ]
     assert len(setups) == len(workflow["jobs"])
     for step in setups:
         assert step.get("with", {}).get("python-version") == "3.12", step
+    assert "astral-sh/setup-uv" not in WORKFLOW.read_text(encoding="utf-8")
 
 
 def test_the_workflow_triggers_cover_the_files_it_runs(workflow: dict[str, Any]) -> None:
