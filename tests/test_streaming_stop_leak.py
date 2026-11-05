@@ -8,6 +8,7 @@ decode per second per discarded burst, until the process exited.
 """
 from __future__ import annotations
 
+import threading
 import time
 from dataclasses import replace
 
@@ -50,22 +51,40 @@ def test_request_stop_ends_the_decode_loop():
 
 
 def test_request_stop_does_not_block_on_an_in_flight_decode():
-    """Hold-release must stay on the hot path even mid-decode."""
+    """Hold-release must stay on the hot path even mid-decode.
 
-    class _SlowEngine:
+    Event-ordered, not timed: the decode is held open by an event this test controls, so
+    "request_stop() returned while the decode was still in flight" is a fact about
+    ordering, true at any machine speed.  A blocking request_stop() could only return
+    after the decode did.  ``HANG_GUARD_S`` bounds the fake decode so a regression is a
+    red test, not a hang; it is never what the assertion measures.
+    """
+    HANG_GUARD_S = 10.0
+    in_decode = threading.Event()
+    release = threading.Event()
+    decode_returned = threading.Event()
+
+    class _HeldEngine:
         def decode_window(self, audio) -> str:
-            time.sleep(0.5)
+            in_decode.set()
+            release.wait(timeout=HANG_GUARD_S)
+            decode_returned.set()
             return ""
 
-    engine = StreamingEngine(_SlowEngine(), partial_interval_ms=10)
+    engine = StreamingEngine(_HeldEngine(), partial_interval_ms=10)
     engine.start()
-    engine.push(np.zeros(16000, dtype=np.float32))
-    time.sleep(0.05)                                # let a slow decode start
+    try:
+        engine.push(np.zeros(16000, dtype=np.float32))
+        assert in_decode.wait(timeout=HANG_GUARD_S), "the decode never started"
 
-    t0 = time.monotonic()
-    engine.request_stop()
-    assert time.monotonic() - t0 < 0.1              # returns immediately
-    engine.stop()                                   # blocking variant cleans up
+        engine.request_stop()
+        assert not decode_returned.is_set(), (
+            "request_stop() waited for the in-flight decode instead of returning at once"
+        )
+    finally:
+        release.set()
+        engine.stop()                               # blocking variant cleans up
+    assert decode_returned.wait(timeout=HANG_GUARD_S)
 
 
 def test_stop_is_safe_before_start():

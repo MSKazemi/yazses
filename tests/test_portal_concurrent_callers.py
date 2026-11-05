@@ -118,11 +118,15 @@ def test_dictation_during_an_open_dialog_fails_fast_and_sends_no_key(
         assert session._session_handle, "CreateSession has answered, as on the real portal"
         assert session.started is False
 
-        began = time.monotonic()
-        with pytest.raises(portal.PortalUnavailable, match="still waiting"):
-            act(injector)
-
-        assert time.monotonic() - began < 2.0, "it must not queue behind the dialog"
+        # Ordering, not a stopwatch: the dialog stays open (nobody has answered) for the
+        # whole call, so a call that returns at all returned *without* the human.  The
+        # join is a hang guard (JOIN_S against a 0.2 s budget), never the measurement.
+        call, outcome = _in_background(lambda: act(injector))
+        call.join(JOIN_S)
+        assert not call.is_alive(), "it must not queue behind the dialog"
+        assert not session.answer.is_set()
+        assert isinstance(outcome[0], portal.PortalUnavailable), outcome
+        assert "still waiting" in str(outcome[0])
         assert session.notified == [], "no input may reach a session nobody authorised"
         assert session._last_used is None, "a refused burst is not 'use' for the reaper"
     finally:
@@ -195,10 +199,16 @@ def test_a_blocking_pointer_open_during_an_open_dialog_times_out_and_sends_nothi
     portal.DeferredPortalPointerSink(session)  # the consumer that put POINTER in the mask
     thread = _open_dialog(session)
     try:
-        began = time.monotonic()
-        with pytest.raises(PointerBackendError):
-            portal.open_pointer_sink(session, start_timeout=0.2)
-        assert time.monotonic() - began < 2.0
+        # Ordering, not a stopwatch: the dialog is never answered during the call, so a
+        # call that returns at all gave up on its own budget.  The join is a hang guard
+        # (JOIN_S against a 0.2 s budget), never the measurement.
+        call, outcome = _in_background(
+            lambda: portal.open_pointer_sink(session, start_timeout=0.2)
+        )
+        call.join(JOIN_S)
+        assert not call.is_alive(), "open_pointer_sink waited for the human, not its budget"
+        assert not session.answer.is_set()
+        assert isinstance(outcome[0], PointerBackendError), outcome
         assert session.notified == []
         assert session._pointer_consumers == 1, "the failed open must hand its count back"
     finally:

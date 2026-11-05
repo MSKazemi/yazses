@@ -434,9 +434,18 @@ def test_a_raw_press_comes_back_as_its_button_number() -> None:
 def test_an_idle_display_returns_none_within_the_timeout_not_never() -> None:
     display = _FakeDisplay()
     connection = _connection(display)
-    started = time.monotonic()
-    assert connection.next_button(timeout_s=0.05) is None
-    assert time.monotonic() - started < 1.0
+    # A call that ignored its timeout would never return, and a clock read *after* the
+    # call cannot see that.  So the call runs on a thread and the join is the hang guard
+    # (200x the 0.05 s timeout); it is a bound on "returns at all", not a speed claim.
+    hang_guard_s = 10.0
+    outcome: list[object] = []
+    caller = threading.Thread(
+        target=lambda: outcome.append(connection.next_button(timeout_s=0.05)), daemon=True
+    )
+    caller.start()
+    caller.join(hang_guard_s)
+    assert not caller.is_alive(), "next_button ignored its timeout and blocked"
+    assert outcome == [None]
 
 
 def test_events_that_are_not_raw_xi2_button_presses_are_skipped() -> None:

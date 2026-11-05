@@ -65,12 +65,67 @@ def test_zero_false_positives_on_dictation():
     )
 
 
-def test_runtime_under_5ms():
-    t0 = time.perf_counter()
-    for _ in range(200):
-        classify("delete last three words")
-    elapsed_ms = (time.perf_counter() - t0) / 200 * 1000
-    assert elapsed_ms < 5, f"classify() took {elapsed_ms:.2f} ms (> 5 ms)"
+# ---- cost of a call: ratios, never a wall-clock budget ----------------------
+#
+# This used to assert ``< 5 ms`` per call.  An absolute budget measures the machine as
+# much as the classifier: a starved CI runner (CI_POLICY section 13.1, or ``-n auto``
+# contention) slows everything and fails a test that has no bug.  Compare with a fixed
+# unit of plain-Python work measured in the same process, interleaved with it, and
+# check how the cost grows with the input -- both cancel machine speed.  ``min`` over
+# repeats discards the batches a noisy neighbour hit.
+
+_SAMPLES = 200
+
+
+def _machine_unit() -> int:
+    """A fixed amount of pure-Python work: the yardstick for 'this machine, right now'."""
+    total = 0
+    for i in range(1000):
+        total += i * i
+    return total
+
+
+def _best_seconds(fn, calls: int = 1) -> float:
+    """Fastest per-call seconds of *fn*: the minimum over ``_SAMPLES`` batches of *calls*.
+
+    Many short samples, not a few long ones.  Under heavy CPU contention the scheduler
+    preempts a run that outlasts its time slice, so only a sample shorter than the slice
+    can come back clean -- and the minimum needs just one of those.
+    """
+    best = float("inf")
+    for _ in range(_SAMPLES):
+        t0 = time.perf_counter()
+        for _ in range(calls):
+            fn()
+        best = min(best, (time.perf_counter() - t0) / calls)
+    return best
+
+
+# Measured: one call is ~0.15 machine units.  The old 5 ms ceiling was ~100 units on the
+# dev laptop; 50 still leaves two orders of magnitude and fails on a regression about the
+# size the old test caught, without a clock in the assertion.
+_MAX_UNITS_PER_CALL = 50
+
+
+def test_a_call_costs_a_bounded_number_of_machine_units():
+    call = _best_seconds(lambda: classify("delete last three words"), 20)
+    unit = _best_seconds(_machine_unit)
+    assert call < _MAX_UNITS_PER_CALL * unit, (
+        f"classify() took {call / unit:.1f} machine units "
+        f"(limit {_MAX_UNITS_PER_CALL}; 1 unit = {unit * 1e6:.1f} us here)"
+    )
+
+
+def test_cost_grows_linearly_with_the_utterance_not_quadratically():
+    sentence = "the quick brown fox jumps over the lazy dog"
+
+    def cost(copies: int) -> float:
+        text = " ".join([sentence] * copies)
+        return _best_seconds(lambda: classify(text))
+
+    small, large = cost(1), cost(16)
+    # Measured ~4.5x for 16x the words (fixed overhead dominates); quadratic is >100x.
+    assert large < 40 * small, f"16x input cost {large / small:.0f}x -- not linear"
 
 
 def test_number_word_normalisation():
