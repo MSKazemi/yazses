@@ -60,6 +60,19 @@ The pointers to "Settings → Hands-free controls" now say "Settings → Hands-f
 
 Not measured: a real screen, and fonts wider than the installed ones the tests use; when even one column
 is wider than the window (an extreme font) the page scrolls sideways by only what one column needs.
+### Fixed — a microphone that disappears mid-hold is no longer filed as a silent room
+
+Was: when the input device was unplugged or switched while the dictation key was held, the
+recorder set `stream_interrupted`, but nothing in the daemon read it. The truncated take was
+discarded as `silent`, fed to the adaptive VAD (teaching it the room is quiet, which can lower
+and persist `vad_threshold`) and counted in the silent streak, whose advice is to retune a
+healthy microphone.
+
+Now: such a take is discarded as `device_lost`. It skips the adaptive VAD, the auto-retune and
+the silent streak, is listed in `CAPTURE_DOUBTING_DISCARDS`, and shows a toast naming the device
+that stopped delivering audio (it does not say silence). Real unplug behaviour depends on the
+PortAudio host API and is tested here only with injected fakes. Tests:
+`tests/test_recorder_device_change_mid_recording.py` (the former strict xfail now passes).
 
 ### Changed — CI: the macOS 3.11 test leg runs on `main` and manual runs, not on every pull request
 

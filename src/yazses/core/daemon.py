@@ -4163,6 +4163,33 @@ class Daemon:
             event["audio_secs"] = padded.size / sample_rate
             event["level"] = float(np.abs(padded).mean()) if padded.size else 0.0
 
+            # The input device vanished while the key was held (unplugged, or the OS
+            # reassigned it). What is left is a truncated or empty buffer whose low level
+            # says nothing about the room, so it is neither a "silent" take nor a lesson
+            # for the adaptive VAD and the auto-retune: both would be taught that the
+            # room is quiet and lower a threshold the user set on purpose. A recorder that
+            # cannot say (older doubles, other backends) is treated as before.
+            if getattr(self._recorder, "stream_interrupted", False) is True:
+                event["discard_reason"] = "device_lost"
+                device = getattr(self._recorder, "current_device_name", None)
+                log.warning(
+                    "Input device lost while recording (%s) -- discarding this take; it "
+                    "says nothing about the room's noise level.",
+                    device or "unknown device",
+                )
+                self._notify_mic(
+                    "🎤 Microphone disconnected",
+                    (f"'{device}'" if device else "The input device")
+                    + " stopped delivering audio while you were speaking, so that "
+                    "dictation was discarded. Check that it is connected, or choose "
+                    "another with: yazses audio use <name>",
+                    actions=False,
+                )
+                self._earcon.play("error")
+                if stream_injector is not None:
+                    stream_injector.cancel()
+                return
+
             # VAD. Accessibility Continuum — Whisper/Low-Effort Mode lowers the VAD
             # threshold so quiet speech isn't gated as silence (ADR-v2-012). Guarded
             # so it can never break the gate; off by default → base threshold.

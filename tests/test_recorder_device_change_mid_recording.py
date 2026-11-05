@@ -12,9 +12,10 @@ every one of those shapes is the same two things:
   the user to retune ``vad_threshold``, and feeds the 0.0 level into the adaptive gate
   that lowers and *persists* the threshold.
 
-The recorder half is fixed here (``stream_interrupted``; ``close()`` survives a raising
-``stop()``). The daemon half lives in ``core/daemon.py``, which this sprint does not
-own, so it is pinned as a strict xfail naming the fix.
+The recorder half sets ``stream_interrupted`` and ``close()`` survives a raising
+``stop()``. The daemon half reads the flag in ``_on_hold_end`` and files the take as
+``device_lost`` (a capture-doubting discard that never reaches the adaptive VAD, the
+auto-retune or the silent streak).
 
 Every test patches ``recorder._sd`` (see ``tests/test_recorder.py``), so no audio stack,
 microphone or `sounddevice` import is needed.
@@ -172,7 +173,7 @@ def test_a_mock_stream_is_never_read_as_a_lost_device(mocker, sd):
     assert rec.stream_interrupted is False
 
 
-# ---- daemon half (core/daemon.py is held by another session) -------------------------
+# ---- daemon half ---------------------------------------------------------------------
 
 class _CutShortRecorder:
     """A recorder whose stream died before any audio arrived."""
@@ -214,22 +215,60 @@ def test_daemon_survives_a_cut_short_clip_and_types_nothing(mocker):
     d._injector.inject.assert_not_called()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "QA-005 daemon half, held file: in core/daemon.py `_on_hold_end`, right after "
-        "`audio = self._recorder.stop()`, when `getattr(self._recorder, "
-        "'stream_interrupted', False)` is True set event['discard_reason'] = "
-        "'device_lost', log/notify that the input device changed mid-recording, and "
-        "return before `is_silent_calibrated` -- so the burst is not filed as 'silent' "
-        "and its 0.0 level is not fed to `_adaptive_vad.observe_discard` / "
-        "`_maybe_retune_threshold`. Add 'device_lost' to CAPTURE_DOUBTING_DISCARDS in "
-        "audio/device_monitor.py in the same change."
-    ),
-)
 def test_daemon_names_a_lost_device_instead_of_a_silent_mic(mocker):
     d = _daemon(mocker)
     d._on_hold_end()
     event = d._corpus.write.call_args[0][0]
     assert event["discard_reason"] == "device_lost"
     d._adaptive_vad.observe_discard.assert_not_called()
+    d._maybe_retune_threshold.assert_not_called()
+
+
+def test_a_lost_device_is_not_a_silent_discard_and_does_not_grow_the_streak(mocker):
+    d = _daemon(mocker)
+    for _ in range(5):
+        d._on_hold_end()
+    assert d._silent_streak.streak == 0
+    assert d._state.silent_streak == 0
+    assert d._outcomes.as_dict()["counts"] == {"device_lost": 5}
+
+
+def test_a_truncated_take_with_audio_is_still_a_lost_device_not_silence(mocker):
+    """Some samples arrived before the stream died; their low level is not the room."""
+    d = _daemon(mocker)
+    d._recorder.stop = lambda: np.full(1600, 0.00001, dtype="float32")
+    d._on_hold_end()
+    event = d._corpus.write.call_args[0][0]
+    assert event["discard_reason"] == "device_lost"
+    d._adaptive_vad.observe_discard.assert_not_called()
+    d._engine.transcribe.assert_not_called()
+    d._injector.inject.assert_not_called()
+
+
+def test_the_lost_device_message_names_the_device_and_never_says_silence(mocker):
+    d = _daemon(mocker)
+    d._on_hold_end()
+    d._notify_mic.assert_called_once()
+    title, body = d._notify_mic.call_args[0]
+    text = f"{title} {body}".lower()
+    assert "USB PnP Audio Device" in body
+    assert "silen" not in text
+    assert "no speech" not in text
+    assert d._notify_mic.call_args.kwargs.get("actions") is False
+
+
+def test_a_lost_device_does_not_count_as_proof_the_microphone_works():
+    from yazses.audio.device_monitor import capture_proved
+
+    assert capture_proved("device_lost") is False
+
+
+def test_a_healthy_recorder_with_a_quiet_take_is_still_filed_as_silent(mocker):
+    """The new branch fires on stream_interrupted only, not on every quiet take."""
+    d = _daemon(mocker)
+    d._recorder.stream_interrupted = False
+    d._on_hold_end()
+    event = d._corpus.write.call_args[0][0]
+    assert event["discard_reason"] == "silent"
+    d._adaptive_vad.observe_discard.assert_called_once()
+    d._notify_mic.assert_not_called()
