@@ -12,8 +12,11 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 grow. It now opens with a start-here table for people who post, people who make media, writers and maintainers, says how a
 video is published (a `media-kit` release asset with its size and `sha256` in the catalog, never a heavy file in Git), and
 licenses new project-made media under CC BY 4.0: reuse and adapt freely, credit with a link, do not imply endorsement. The
-two packs already published as free to use keep that promise with no credit needed. A test refuses an approved row without a
-licence and any editable source file, PDF or large binary in the folder.
+two packs already published as free to use keep that promise with no credit needed. It now holds the first finished packs: nine Instagram carousels (7 slides each, with alt text and a caption) and a 26-second animation of a
+dictation moving through the nine pipeline stages, in two synthetic voices, with the videos on the `media-kit` release. Their numbers and
+defaults were re-checked against v2.49.0; a tenth carousel is held back because it says ten features switch on at first start, where the
+CLI lists nine. A test refuses an approved row without a licence, an incomplete or out-of-order carousel, and any editable source file, PDF,
+video or large binary in the folder.
 
 ## [2.49.0] - 2026-11-05
 

@@ -83,3 +83,23 @@ def test_catalog_links_to_files_that_exist() -> None:
         if not (CATALOG.parent / target).resolve().exists():
             missing.append(target)
     assert not missing, f"CATALOG.md links to missing paths: {missing}"
+
+
+def test_every_carousel_is_complete_and_in_order() -> None:
+    """A carousel is posted in order: contiguous slide-NN.png, one alt-text line per slide, and a caption."""
+    carousels = sorted((MEDIA / "carousels").glob("*/"))
+    assert carousels, "no carousels in the library"
+    for directory in carousels:
+        slides = sorted(p.name for p in directory.glob("slide-*.png"))
+        expected = [f"slide-{n:02d}.png" for n in range(1, len(slides) + 1)]
+        assert slides == expected and len(slides) >= 3, f"{directory.name}: slides are not contiguous from 01: {slides}"
+        alt = (directory / "alt-text-en.md").read_text(encoding="utf-8")
+        described = re.findall(r"(?m)^(\d\d)\. ", alt)
+        assert described == [f"{n:02d}" for n in range(1, len(slides) + 1)], (
+            f"{directory.name}: alt text covers {described}, slides are {len(slides)}"
+        )
+        assert (directory / "caption-en.md").read_text(encoding="utf-8").strip(), f"{directory.name}: empty caption"
+        listed = f"{directory.relative_to(MEDIA).as_posix()}/"
+        assert listed in CATALOG.read_text(encoding="utf-8"), (
+            f"{directory.name} is in the library but not in the catalog"
+        )
