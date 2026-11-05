@@ -6,6 +6,12 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — IPC: a very deeply nested request, or a handler result JSON cannot carry, no longer kills the connection thread
+
+A request nested a hundred thousand levels deep raised `RecursionError` in the parse step, and a handler result that was a set or bytes raised `TypeError` while building the reply; either ended the connection thread with a traceback and an empty reply. The caller now gets the existing `PARSE_ERROR` or `HANDLER_FAILED` reply and the next connection works. The Windows pipe server has the same two changes. No error codes, methods or fields were added.
+
+What was checked: 14 tests over real sockets (6 fail on the old code). What was not checked: the Windows named pipe at runtime (only a source-level check), and real multi-client load.
+
 ### Added — Persian text normalisation has a checkbox in Settings
 
 `[stt] persian_normalisation` could only be turned on by editing `config.toml`. It is now a
