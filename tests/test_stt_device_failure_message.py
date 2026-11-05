@@ -117,6 +117,47 @@ def test_a_windows_path_is_stripped_too():
     assert "bob" not in short_reason(OSError(r"C:\Users\bob\AppData\cudnn64_9.dll missing"))
 
 
+@pytest.mark.parametrize(
+    "text, kept",
+    [
+        ("see https://docs.nvidia.com/cuda/x", "https://docs.nvidia.com/cuda/x"),
+        ("CUDA failed (cuda/cuda_utils.h:61)", "(cuda/cuda_utils.h:61)"),
+        ("retry at http://localhost:8080/v1/models later", "http://localhost:8080/v1/models"),
+        ("libcublas.so.12 missing", "libcublas.so.12"),
+    ],
+)
+def test_urls_and_relative_locations_are_not_mistaken_for_paths(text, kept):
+    reason = short_reason(RuntimeError(text))
+    assert kept in reason
+    assert "<path>" not in reason
+
+
+@pytest.mark.parametrize(
+    "text, secret",
+    [
+        ("open /home/bob/.cache/libcudnn.so.9 failed", "bob"),
+        ("open (/home/bob/.cache/libcudnn.so.9) failed", "bob"),
+        ("path=/home/bob/models/x", "bob"),
+        ("see /home/bob/x and https://docs.nvidia.com/cuda/x", "bob"),
+        (r"open C:\Users\bob\AppData\cudnn64_9.dll", "bob"),
+        ("open C:/Users/bob/AppData/cudnn64_9.dll", "bob"),
+        ("open ~/bob-private/x", "bob"),
+        (r"open ~\bob-private\x", "bob"),
+        ("open file:///home/bob/model.bin", "bob"),
+        (r"open \\fileserver\bob\model.bin", "bob"),
+        ("failed:/home/bob/x", "bob"),
+    ],
+)
+def test_real_paths_never_survive_the_scrub(text, secret):
+    assert secret not in short_reason(RuntimeError(text))
+    assert "<path>" in short_reason(RuntimeError(text))
+
+
+def test_a_url_and_a_path_in_one_message_keep_the_url_and_lose_the_path():
+    reason = short_reason(RuntimeError("see https://a.example/c and /home/bob/x"))
+    assert "https://a.example/c" in reason and "bob" not in reason
+
+
 def test_the_reason_is_one_line_and_at_most_120_characters():
     reason = short_reason(RuntimeError("CUDA failed " + "x" * 400 + "\nsecond line"))
     assert len(reason) <= 120

@@ -127,9 +127,25 @@ _NOT_A_DEVICE_PHRASES = ("no space left on device",)
 
 _REASON_LIMIT = 120
 
-# An absolute path (POSIX, Windows drive or ``~/``) inside an error text. Matches up to
-# the next whitespace or quote, so "libcublas.so.12" (no leading slash) is untouched.
-_PATH_RE = re.compile(r"""(?:[A-Za-z]:[\\/]|~[\\/]|/)[^\s'"]*""")
+# A real filesystem path inside an error text, matched up to the next whitespace or quote:
+#   - a ``file://`` URL (it carries a local path),
+#   - a UNC path ``\\host\share``,
+#   - a Windows drive path ``C:\`` / ``C:/``,
+#   - a home path ``~/`` / ``~\``,
+#   - an absolute POSIX path ``/usr/lib/...``.
+# A path only starts where a token starts: not inside a word (``cuda/cuda_utils.h:61`` is a
+# relative C++ location) and not as the ``//`` of a URL (``https://docs.nvidia.com/cuda/x``),
+# so URLs and relative locations survive and "libcublas.so.12" is untouched.
+_PATH_RE = re.compile(
+    r"""
+    file://[^\s'"]*
+    | (?<![\w\\])\\\\[^\s'"]*
+    | (?<!\w)[A-Za-z]:[\\/][^\s'"]*
+    | (?<![\w/])~[\\/][^\s'"]*
+    | (?<![\w/])(?!//)/[^\s'"]*
+    """,
+    re.VERBOSE,
+)
 
 
 def _scrub_paths(text: str) -> str:
