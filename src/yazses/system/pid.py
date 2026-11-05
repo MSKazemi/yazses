@@ -72,6 +72,16 @@ def _read_pid_file(data_dir: Path | None = None) -> int | None:
         return None
 
 
+def read_pid_file(data_dir: Path | None = None) -> int | None:
+    """The pid written in the pid *file* itself, ignoring the lock. None if absent or unreadable.
+
+    `read_pid` prefers the lock holder, which is the right answer to "who is the daemon"
+    and the wrong one to "whose pid file is this": a daemon tearing down still holds the
+    lock, so asking `read_pid` would always name itself.
+    """
+    return _read_pid_file(data_dir)
+
+
 def _locking_supported() -> bool:
     from yazses.system import single_instance
 

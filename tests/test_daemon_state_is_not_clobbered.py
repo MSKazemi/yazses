@@ -1,15 +1,25 @@
 """Writers of the tray state must not forget a running meeting or an in-flight burst.
 
-Several places set `TrayState.IDLE` / `RECORDING` unconditionally:
+Several places set `TrayState.IDLE` / `RECORDING` unconditionally. This file pins the ones
+that were fixed:
 
 * a dictation burst during a meeting overwrote MEETING with RECORDING and ended in IDLE,
   so the tray believed the meeting was over and the device monitor was told it was safe
-  to re-initialise PortAudio under the meeting's live input stream;
+  to re-initialise PortAudio under the meeting's live input stream. The burst now returns
+  to MEETING, and the device monitor's idle checks count a running meeting;
 * `remote_stop` (and a failed `remote_start`, on its own thread) set IDLE whatever the
-  daemon was doing, cancelling a recording in progress.
+  daemon was doing, cancelling a recording in progress. Both now reset only the remote
+  session's own states.
+
+What it does NOT pin, because the code still does it: `_on_hold_start` sets RECORDING
+unconditionally (a burst during a meeting is restored afterwards, not prevented), and
+`_handle_remote_start` still sets REMOTE_SETUP -- and its success path REMOTE_ACTIVE --
+without comparing the current state first.
 """
 
 from __future__ import annotations
+
+import types
 
 import numpy as np
 import pytest
@@ -171,7 +181,10 @@ def test_a_failed_remote_connect_does_not_cancel_a_recording(mocker, sandbox_pat
         def start(self):
             pass
 
-    mocker.patch("yazses.core.daemon.threading.Thread", _Inline)
+    # A stub namespace for the daemon module's own `threading` name, not a patch of
+    # `threading.Thread` itself: that is the interpreter-wide class, and any other thread
+    # created while it is replaced would silently never start.
+    mocker.patch("yazses.core.daemon.threading", types.SimpleNamespace(Thread=_Inline))
     d._handle_remote_start(
         Request(method="remote_start", params={"host": "example.invalid"}, id=1)
     )

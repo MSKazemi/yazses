@@ -127,15 +127,24 @@ def test_the_daemon_still_publishes_the_field() -> None:
 def test_the_state_field_is_not_a_substitute() -> None:
     """Pinned so nobody 'simplifies' this away by pointing at `state`.
 
-    `_on_hold_end` returns the state to IDLE after a burst, so REMOTE_ACTIVE does not
-    survive the first thing you say.
+    `_on_hold_end` returns the state to rest after a burst, so REMOTE_ACTIVE does not
+    survive the first thing you say. "Rest" is `_resting_state()`: MEETING while a meeting
+    is being captured, IDLE otherwise -- never the remote state. Both halves are pinned,
+    because the first alone would pass if `_resting_state` quietly started returning the
+    remote state.
     """
     import inspect
 
     from yazses.core.daemon import Daemon
 
-    source = inspect.getsource(Daemon._on_hold_end)
-    assert "self._state.state = TrayState.IDLE" in source, (
-        "the burst no longer ends at IDLE — re-check whether `state` now survives a "
-        "remote session, in which case this line could be derived from it"
+    burst = inspect.getsource(Daemon._on_hold_end)
+    assert "self._state.state = self._resting_state()" in burst, (
+        "the burst no longer ends at the resting state — re-check whether `state` now "
+        "survives a remote session, in which case this line could be derived from it"
+    )
+    resting = inspect.getsource(Daemon._resting_state)
+    assert "return TrayState.IDLE" in resting
+    assert "REMOTE_ACTIVE" not in resting, (
+        "the resting state now depends on the remote session — `remote_connected` can "
+        "then be derived from `state`, and this test should say so"
     )

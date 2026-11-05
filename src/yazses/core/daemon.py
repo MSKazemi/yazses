@@ -368,8 +368,15 @@ _RECAL_SPEECH_S = 4.0
 _RECAL_LEAD_S = 1.5
 
 # How long a newly started daemon waits for an older one it asked to stop to give up the
-# lock. Its shutdown joins the audio and STT threads, so a few seconds is normal.
-_TAKEOVER_WAIT_S = 10.0
+# lock. An idle daemon tears down in ~0.5 s (measured: the IPC accept loop's 0.5 s poll
+# dominates). But `_shutdown` now releases the lock LAST, so the wait covers every step's
+# bounded join: voice-health 2 s, streaming decoder up to 4 s, device monitor 1 s,
+# perception 2 s (+2 s lease), each hands-free mic stream 2 s, remote tunnel 5 s, IPC 2 s,
+# and -- if a meeting is being recorded -- the live-transcript drain, up to 30 s. A wait
+# shorter than that sum makes the successor give up and exit while the old daemon also
+# exits, leaving no daemon at all, so this errs long: it costs nothing when the old
+# daemon is quick, because the loop returns the moment the lock is free.
+_TAKEOVER_WAIT_S = 45.0
 
 _TONE_INSTRUCTIONS: dict[str, str] = {
     "casual": "Use a casual, conversational tone.",
@@ -4169,6 +4176,10 @@ class Daemon:
         # Set by the pipeline's `except` handler. Declared here because the `finally`
         # reads it on every burst, including the ones that never raise.
         pipeline_failed = False
+        # Set when an injection failed at a point where some of the text may already be
+        # on screen (a paced burst that typed its first clauses, or a streaming commit).
+        # Only the wording of the "not typed" notice depends on it.
+        inject_maybe_partial = False
 
         try:
             audio = self._recorder.stop()
@@ -5341,6 +5352,9 @@ class Daemon:
                     else:
                         injector.inject(text)
                 except Exception:
+                    inject_maybe_partial = (
+                        use_streaming or int(event.get("srpace_chunks_typed", 0)) > 0
+                    )
                     # `event["injected"]` was set to True before dispatch, as the intent
                     # to type. The call just failed, so the words did NOT reach the
                     # window: say so on the record the corpus and the outcome gauge read,
@@ -5385,7 +5399,9 @@ class Daemon:
             # anything; here the second and third lost sentence are exactly what the
             # user must not miss.
             if event.get("discard_reason") == "inject_failed":
-                self._report_failure(exc, INJECT, lost_text=True)
+                self._report_failure(
+                    exc, INJECT, lost_text=True, text_maybe_partial=inject_maybe_partial
+                )
             else:
                 self._report_failure(exc, INJECT)
             if stream_injector is not None:
@@ -7343,6 +7359,9 @@ class Daemon:
                 time.sleep(wait)
                 elapsed += wait
             injector.inject(chunk.text if chunk.delay_ms == 0 else " " + chunk.text)
+            # Counted after the call returns, so a failure on a later chunk can tell the
+            # notice that earlier clauses are already on screen.
+            event["srpace_chunks_typed"] = int(event.get("srpace_chunks_typed", 0)) + 1
 
     def _fieldaware_shape(self, text: str, event: dict) -> str | None:
         """Shape dictation for the focused field, or ``None`` to refuse it entirely.
@@ -8755,7 +8774,12 @@ class Daemon:
         return describe_injector(self._injector)
 
     def _report_failure(
-        self, error: BaseException | str, where: str, *, lost_text: bool = False
+        self,
+        error: BaseException | str,
+        where: str,
+        *,
+        lost_text: bool = False,
+        text_maybe_partial: bool = False,
     ) -> object | None:
         """Tell the user what broke and what to do about it. Never raises.
 
@@ -8774,7 +8798,10 @@ class Daemon:
         ``lost_text`` marks a failure that cost the user dictated words (the injector
         raised after the transcript existed). Such a failure is reported every time and
         says plainly that the text was not typed: the 300 s silence would otherwise leave
-        the second lost sentence unannounced. The words are *not* copied to the
+        the second lost sentence unannounced. ``text_maybe_partial`` softens that to "may
+        not have been fully typed" when part of the text could already be on screen (a
+        paced burst that landed its first clauses, a streaming commit); the absolute
+        wording is used only when nothing was typed. The words are *not* copied to the
         clipboard here -- that overwrites whatever the user had copied, and is an
         owner decision.
 
@@ -8828,7 +8855,12 @@ class Daemon:
             urgency, expire_ms = notify_mod.toast_policy(bool(actions))
             body = found.body
             if lost_text:
-                body = f"What you just said was not typed. {body}"
+                lead = (
+                    "What you just said may not have been fully typed."
+                    if text_maybe_partial
+                    else "What you just said was not typed."
+                )
+                body = f"{lead} {body}"
             notify_mod.notify(
                 found.title,
                 body,
@@ -9435,6 +9467,8 @@ class Daemon:
         key_file = str(request.params.get("key_file", self._config.remote.key_file))
 
         with self._lock:
+            # Not compare-and-set (unlike `_handle_remote_stop` and the failure path
+            # below): this still overwrites whatever state the daemon is in.
             self._state.state = TrayState.REMOTE_SETUP
 
         def _connect() -> None:
@@ -9928,21 +9962,23 @@ class Daemon:
         hold (a crash path, a platform without a lock primitive), a pid file that
         already carries another process's id belongs to its successor and is not ours
         to delete. Anything unreadable, empty or absent counts as ours, so a stale file
-        is still cleared. Both places a lifecycle backend may keep it are read: Linux
-        writes it under ``data_dir``, the others at ``paths.pid_file``.
+        is still cleared. Both places a lifecycle backend may keep it are read: the
+        pid module's own location (Linux) and ``paths.pid_file`` (the others).
         """
+        from yazses.system.pid import read_pid_file
+
         try:
             paths = self._platform.paths
-            candidates = (paths.data_dir / "daemon.pid", paths.pid_file)
+            recorded = [read_pid_file(paths.data_dir)]
+            try:
+                recorded.append(int(paths.pid_file.read_text(encoding="utf-8").strip()))
+            except (ValueError, OSError):
+                recorded.append(None)
         except Exception:  # noqa: BLE001 - a stand-in platform: nothing to compare
             return True
-        for candidate in candidates:
-            try:
-                other = int(candidate.read_text(encoding="utf-8").strip())
-            except (ValueError, OSError):
-                continue
-            if other != os.getpid():
-                log.info("Leaving %s alone: it names pid %d, not this process.", candidate, other)
+        for other in recorded:
+            if other is not None and other != os.getpid():
+                log.info("Leaving the pid file alone: it names pid %d, not this process.", other)
                 return False
         return True
 
