@@ -110,6 +110,9 @@ The models, benchmarks and low-RAM pages gave same-laptop latency figures that d
 ### Changed — research: the synthetic motor-imagery EEG replay reports its drift tolerance, and says what it does not test
 
 `scripts/hci_eeg_mi_synthetic.py` gains `--drift-amplitude` and `--sweep-drift` (the default output is unchanged and pinned by a hash). Across seeds 0–19 the false candidate on a drifting rest block fires 20/20 up to amplitude 0.72 and 0/20 from 0.78, which follows from the authored thresholds, not from physiology. The results page now also states the dependence on a clean EOG/EMG reference channel, the abstention fraction, and that head motion and quiet reading are not tested. Synthetic data only; nothing about real EEG.
+### Added — research: small and quantized speech models and runtimes ([#794](https://github.com/MSKazemi/yazses/issues/794))
+
+`design/research/2026-11-05-small-quantized-asr-models-and-gguf-runtimes.md` lists candidates not already in the runtime-provenance note, the gaps that stop a fair comparison under the proposed ADR-033, and options for the owner. No measurements and no default changes. Every upstream page was read as a text summary; some were not read at all.
 
 ### Added — Persian text normalisation has a checkbox in Settings
 
