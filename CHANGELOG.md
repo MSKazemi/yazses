@@ -6,6 +6,12 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the homepage architecture pipeline can be paused, and no longer announces itself to screen readers
+
+The "Architecture at a glance" pipeline rewrote an `aria-live` panel every 1.6–3.2 s and had no way to stop (WCAG 2.2.2), and keyboard focus paused it for good while the mouse resumed it. It now has a Pause/Play button, announces only after you interact with it, and uses one pause rule for hover and focus. Reduced-motion behaviour is unchanged: the loop does not start.
+
+What was checked: nine static tests, and a local render in a browser (0 text changes inside a live region over 9 s; keyboard pause and resume). What was not checked: a screen reader, a touch device, the deployed site.
+
 ### Added — Persian text normalisation has a checkbox in Settings
 
 `[stt] persian_normalisation` could only be turned on by editing `config.toml`. It is now a
