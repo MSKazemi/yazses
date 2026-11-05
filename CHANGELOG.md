@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — docs: architecture pages match the code for `yazses stop`, MCP and the speech-engine modules
+
+`docs/architecture.md` said `yazses stop` goes over IPC; it sends SIGTERM on Linux and macOS, and only Windows tries the IPC `shutdown` first. `design/architecture.md` gains the missing `mcp/` section and the `parakeet`, `moonshine`, `latency` and `errors` rows of the `stt/` table. Each statement was checked against the code; no guard test covers these two additions.
+
 ### Added — Persian text normalisation has a checkbox in Settings
 
 `[stt] persian_normalisation` could only be turned on by editing `config.toml`. It is now a
