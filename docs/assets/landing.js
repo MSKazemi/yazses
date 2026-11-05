@@ -193,33 +193,80 @@
   }
 
   /* ---- Pipeline: auto-advance, hover/tap to inspect -------------------- */
+  /* Accessibility contract (WCAG 2.2.2 Pause, Stop, Hide; 4.1.3 Status Messages):
+   *  - the loop runs only while nothing holds it: no hover, no keyboard focus on a
+   *    stage, and no explicit Pause (a click on a stage counts as one: it is a choice);
+   *  - hover and focus share ONE helper, hold(), so they cannot disagree;
+   *  - the detail text is a polite live region only while the loop is NOT running, so
+   *    the unprompted auto-advance is never announced but a person's own inspection is;
+   *  - under prefers-reduced-motion the loop never starts and the button stays hidden. */
   function pipeline(root) {
     var pipe = root.querySelector("[data-yzl-pipe]");
     if (!pipe) return;
     var stages = Array.prototype.slice.call(pipe.querySelectorAll(".yzl-stage"));
     var desc = root.querySelector("[data-yzl-desc]");
     var src = root.querySelector("[data-yzl-src]");
-    var idx = 0, paused = false, timer;
+    var live = root.querySelector("[data-yzl-live]");
+    var toggle = root.querySelector("[data-yzl-toggle]");
+    var idx = 0, timer;
+    var holds = { hover: false, focus: false };
+    var userPaused = false;
 
+    function running() {
+      return !reduced && !userPaused && !holds.hover && !holds.focus;
+    }
+    function sync() {
+      // Auto-run: no live region. Otherwise every update comes from a person: announce it.
+      if (live) {
+        if (running()) live.removeAttribute("aria-live");
+        else live.setAttribute("aria-live", "polite");
+      }
+      pipe.classList.toggle("is-paused", !running());
+      if (toggle) toggle.setAttribute("aria-pressed", userPaused ? "true" : "false");
+    }
+    function hold(kind, on) {
+      holds[kind] = on;
+      sync();
+    }
     function show(n) {
       idx = n;
-      stages.forEach(function (s, k) { s.classList.toggle("is-active", k === n); });
+      stages.forEach(function (s, k) {
+        s.classList.toggle("is-active", k === n);
+        if (k === n) s.setAttribute("aria-current", "true");
+        else s.removeAttribute("aria-current");
+      });
       desc.textContent = stages[n].getAttribute("data-desc");
       src.textContent = stages[n].getAttribute("data-src");
     }
     function loop() {
-      if (!paused) show((idx + 1) % stages.length);
+      if (running()) show((idx + 1) % stages.length);
       // the decode stage holds longest, as it does in a real burst
       timer = later(loop, stages[idx].classList.contains("yzl-stage--hot") ? 3200 : 1600);
     }
     stages.forEach(function (s, k) {
-      function pick() { paused = true; show(k); }
-      s.addEventListener("mouseenter", pick);
-      s.addEventListener("focus", pick);
-      s.addEventListener("click", pick);
+      // hold() first, so the region is live before its text changes.
+      s.addEventListener("pointerenter", function () { hold("hover", true); show(k); });
+      s.addEventListener("focus", function () { hold("focus", true); show(k); });
+      s.addEventListener("click", function () {
+        userPaused = true; // picking a stage is a choice: keep it until Play
+        sync();
+        show(k);
+      });
     });
-    pipe.addEventListener("mouseleave", function () { paused = false; });
+    pipe.addEventListener("pointerleave", function () { hold("hover", false); });
+    pipe.addEventListener("focusout", function (e) {
+      if (!e.relatedTarget || !pipe.contains(e.relatedTarget)) hold("focus", false);
+    });
+    if (toggle) {
+      if (!reduced) toggle.hidden = false;
+      toggle.addEventListener("click", function () {
+        userPaused = !userPaused;
+        if (!userPaused) { holds.hover = false; holds.focus = false; } // Play means play
+        sync();
+      });
+    }
     show(0);
+    sync();
     if (!reduced) timer = later(loop, 1600);
   }
 

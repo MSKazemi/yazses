@@ -542,8 +542,44 @@ body:has(.yz-landing) .md-grid { max-width: 76rem; }
   background: rgba(255, 255, 255, 0.035);
   border: 1px solid var(--yzl-line-dark);
 }
+.yzl-pipe__text {
+  flex: 1 1 26rem;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem 1.4rem;
+}
 .yzl-pipe__detail p { margin: 0; flex: 1 1 26rem; font-size: 0.82rem; line-height: 1.6; color: var(--yzl-on-dark); }
 .yzl-pipe__detail code { font-size: 0.68rem; }
+
+/* Pause / Play for the auto-advance (WCAG 2.2.2). The section is dark in both colour
+   schemes, so these tokens hold in light and dark alike. */
+.yzl-pipe__toggle {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  min-height: 44px; min-width: 44px;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  border: 1px solid var(--yzl-lilac);
+  background: transparent;
+  color: var(--yzl-on-dark);
+  font: inherit; font-size: 0.78rem; font-weight: 600;
+  cursor: pointer;
+  transition: background 200ms, border-color 200ms;
+}
+.yzl-pipe__toggle[hidden] { display: none; }
+.yzl-pipe__toggle:hover { background: rgba(124, 77, 255, 0.22); }
+.yzl-pipe__toggle:focus-visible { outline: 2px solid var(--yzl-cyan); outline-offset: 3px; }
+.yzl-pipe__toggle[aria-pressed="true"] { background: rgba(34, 211, 238, 0.14); border-color: var(--yzl-cyan); }
+/* pause bars when running, play triangle once paused */
+.yzl-pipe__toggle-icon {
+  width: 0.7rem; height: 0.8rem;
+  border-left: 3px solid currentColor; border-right: 3px solid currentColor;
+  box-sizing: border-box;
+}
+.yzl-pipe__toggle[aria-pressed="true"] .yzl-pipe__toggle-icon {
+  width: 0; height: 0;
+  border: 0.4rem solid transparent; border-left: 0.7rem solid currentColor; border-right: 0;
+}
+/* the CSS pulses are motion too: they stop whenever the loop is held or paused */
+.yzl-pipe.is-paused::after,
+.yzl-pipe.is-paused .yzl-stage--hot .yzl-stage__icon { animation-play-state: paused; }
 
 .yzl-arch__split {
   display: grid;
@@ -1000,4 +1036,5 @@ body:has(.yz-landing) .md-grid { max-width: 76rem; }
   .yzl-marquee { flex-wrap: wrap; width: auto; justify-content: center; }
   .yzl-marquee li[aria-hidden="true"] { display: none; }
   .yzl-pipe::after { display: none; }
+  .yzl-pipe__toggle { display: none; }
 }

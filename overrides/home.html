@@ -216,7 +216,7 @@
           the network. Hover or tap a stage — the pulse shows a burst moving through it.</p>
       </header>
 
-      <ol class="yzl-pipe yzl-reveal" data-yzl-pipe aria-label="The dictation pipeline">
+      <ol class="yzl-pipe yzl-reveal" data-yzl-pipe role="list" aria-label="The dictation pipeline">
         {% set stages = [
           ("keyboard", "Hotkey", "trigger", "Hold-to-talk starts a burst; releasing ends it. The trigger can also be an EMG muscle sensor over USB serial — a hands-free option.", "platform/emg/"),
           ("microphone", "Capture", "audio", "The microphone is recorded into an in-memory buffer for exactly as long as you hold. Nothing is written to disk.", "audio/recorder.py"),
@@ -239,9 +239,18 @@
         {% endfor %}
       </ol>
 
-      <div class="yzl-pipe__detail yzl-reveal" aria-live="polite">
-        <p data-yzl-desc>Hold-to-talk starts a burst; releasing ends it. The trigger can also be an EMG muscle sensor over USB serial — a hands-free option.</p>
-        <code data-yzl-src>src/yazses/platform/emg/</code>
+      {# No aria-live here: the loop rewrites this text every 1.6-3.2 s, so landing.js adds a
+         polite live region only while a person is driving (hover, focus, click or Pause). #}
+      <div class="yzl-pipe__detail yzl-reveal">
+        <div class="yzl-pipe__text" data-yzl-live>
+          <p data-yzl-desc>Hold-to-talk starts a burst; releasing ends it. The trigger can also be an EMG muscle sensor over USB serial — a hands-free option.</p>
+          <code data-yzl-src>src/yazses/platform/emg/</code>
+        </div>
+        {# Shown by landing.js only when the loop can run (hidden without JS or under reduced motion). #}
+        <button type="button" class="yzl-pipe__toggle" data-yzl-toggle aria-pressed="false" hidden>
+          <span class="yzl-pipe__toggle-icon" aria-hidden="true"></span>
+          <span>Pause auto-advance</span>
+        </button>
       </div>
 
       <div class="yzl-arch__split">
