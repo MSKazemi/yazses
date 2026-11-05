@@ -214,3 +214,61 @@ def test_windows_client_a_reply_comes_back_and_wait_s_is_not_forwarded(monkeypat
     assert _windows_client(timeout_s=0.1).call("slow", wait_s=2.0, timeout_s=30.0) == {"ok": True}
     sent = json.loads(fake.sent[0])
     assert sent["params"] == {"timeout_s": 30.0}, "wait_s is the client's, never the daemon's"
+
+
+# --- malformed replies surface as one typed error (Unix sockets only; the Windows
+# named-pipe client is not exercised here) ------------------------------------------
+
+
+def _raw_server(path: Path, reply: bytes) -> threading.Thread:
+    """One-shot AF_UNIX server that reads the request line, writes ``reply``, closes."""
+    import socket
+
+    srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    srv.bind(str(path))
+    srv.listen(1)
+
+    def _run() -> None:
+        conn, _ = srv.accept()
+        with conn:
+            buf = b""
+            while b"\n" not in buf:
+                chunk = conn.recv(4096)
+                if not chunk:
+                    break
+                buf += chunk
+            if reply:
+                conn.sendall(reply)
+        srv.close()
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    return t
+
+
+@_POSIX
+@pytest.mark.parametrize(
+    "reply",
+    [
+        b"",  # daemon closed without answering
+        b"\n",
+        b"\xff\xfe\n",  # not UTF-8
+        b"not json\n",
+        b"[1]\n",
+        b'{"jsonrpc":"2.0","id":1,"error":"boom"}\n',
+        b'{"jsonrpc":"2.0","id":1,"error":[1]}\n',
+        b'{"jsonrpc":"2.0","id":1,"error":{"code":"x"}}\n',
+    ],
+)
+def test_a_malformed_reply_is_one_typed_ipc_error(reply):
+    from yazses.ipc.client import IpcCallError
+    from yazses.ipc.protocol import INTERNAL_ERROR
+
+    with tempfile.TemporaryDirectory(prefix="nv-", dir="/tmp") as d:
+        path = Path(d) / "m.sock"
+        t = _raw_server(path, reply)
+        with pytest.raises(IpcCallError) as info:
+            JsonRpcClient.unix(path, timeout_s=2.0).call("status")
+        t.join(2)
+    assert not isinstance(info.value, IpcUnreachableError)
+    assert info.value.error.code == INTERNAL_ERROR
