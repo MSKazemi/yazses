@@ -198,7 +198,8 @@ def test_a_non_option_failure_is_not_retyped(monkeypatch):
 
     with pytest.raises(yd.YdotoolCliError):
         yd.YdotoolInjector().inject("hi")
-    assert len(run.calls) == 1
+    # one `type` (never retyped); the only other call is the release-all
+    assert [c[1] for c in run.calls] == ["type", "key"]
 
 
 def test_v0_does_not_send_the_numeric_flood_guard(monkeypatch):
@@ -384,3 +385,171 @@ def test_mixed_text_on_an_0_1_x_machine_uses_both_paths(monkeypatch):
     assert _RecordingUnicodeInjector.closed
     # 0.1.x cannot express a bare key-up, so no flood guard was attempted
     assert not any(c[1] == "key" for c in run.calls)
+
+
+# --- release-all on a failed type (v1 flood guard) ----------------------------
+
+_RELEASE_ALL = ["ydotool", "key", *yd._RELEASE_ALL_TYPED_KEYS]
+
+
+class _FailingType:
+    """subprocess.run stand-in: `type` raises *type_exc*, `key` raises *key_exc* or succeeds."""
+
+    def __init__(self, type_exc=None, key_exc=None):
+        self.type_exc = type_exc
+        self.key_exc = key_exc
+        self.calls: list[tuple[list[str], dict]] = []
+
+    def __call__(self, argv, **kwargs):
+        self.calls.append((list(argv), kwargs))
+        exc = self.type_exc if argv[1] == "type" else self.key_exc
+        if exc is not None:
+            raise exc
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    @property
+    def argvs(self):
+        return [c[0] for c in self.calls]
+
+
+def test_a_failed_type_still_releases_all_keys_on_v1(monkeypatch):
+    yd.set_ydotool_dialect(yd.DIALECT_V1)
+    boom = subprocess.CalledProcessError(1, ["ydotool", "type"], stderr="boom")
+    run = _FailingType(type_exc=boom)
+    monkeypatch.setattr(subprocess, "run", run)
+
+    with pytest.raises(subprocess.CalledProcessError) as caught:
+        yd.YdotoolInjector().inject("hello")
+
+    assert caught.value is boom  # same object: neither replaced nor wrapped
+    assert [a[1] for a in run.argvs] == ["type", "key"]
+    assert run.argvs.count(_RELEASE_ALL) == 1
+
+
+def test_a_cli_failure_from_type_releases_and_propagates_unchanged(monkeypatch):
+    yd.set_ydotool_dialect(yd.DIALECT_V1)
+    run = _Recorder([(1, "ydotool: type: something else went wrong\n"), (0, "")])
+    monkeypatch.setattr(subprocess, "run", run)
+
+    with pytest.raises(yd.YdotoolCliError) as caught:
+        yd.YdotoolInjector().inject("hello")
+
+    assert type(caught.value) is yd.YdotoolCliError
+    assert "exit 1" in str(caught.value)
+    assert [c[1] for c in run.calls] == ["type", "key"]
+    assert run.calls[1] == _RELEASE_ALL
+
+
+def test_a_timed_out_type_releases_with_its_own_short_timeout(monkeypatch):
+    yd.set_ydotool_dialect(yd.DIALECT_V1)
+    timeout = subprocess.TimeoutExpired(["ydotool", "type"], 10.0)
+    run = _FailingType(type_exc=timeout)
+    monkeypatch.setattr(subprocess, "run", run)
+
+    with pytest.raises(subprocess.TimeoutExpired) as caught:
+        yd.YdotoolInjector().inject("hello")
+
+    assert caught.value is timeout
+    (type_argv, type_kw), (key_argv, key_kw) = run.calls
+    assert type_argv[1] == "type" and key_argv == _RELEASE_ALL
+    assert key_kw["timeout"] == 5  # its own short budget, not the (already spent) type one
+    assert key_kw["timeout"] < type_kw["timeout"]
+
+
+def test_a_failing_release_does_not_replace_the_typing_error(monkeypatch):
+    yd.set_ydotool_dialect(yd.DIALECT_V1)
+    original = subprocess.TimeoutExpired(["ydotool", "type"], 10.0)
+    run = _FailingType(
+        type_exc=original,
+        key_exc=subprocess.TimeoutExpired(["ydotool", "key"], 5),
+    )
+    monkeypatch.setattr(subprocess, "run", run)
+
+    with pytest.raises(subprocess.TimeoutExpired) as caught:
+        yd.YdotoolInjector().inject("hello")
+
+    assert caught.value is original
+    assert run.argvs.count(_RELEASE_ALL) == 1  # attempted exactly once, no retry
+
+
+def test_a_release_that_cannot_even_start_does_not_replace_the_typing_error(monkeypatch):
+    yd.set_ydotool_dialect(yd.DIALECT_V1)
+    original = yd.YdotoolCliError("type failed")
+
+    def run(argv, **kwargs):
+        if argv[1] == "type":
+            raise original
+        raise OSError("ydotoold is gone")
+
+    monkeypatch.setattr(subprocess, "run", run)
+
+    with pytest.raises(yd.YdotoolCliError) as caught:
+        yd.YdotoolInjector().inject("hello")
+    assert caught.value is original
+
+
+def test_a_failed_mixed_inject_releases_too(monkeypatch):
+    """The non-ASCII path goes through the same guard."""
+    yd.set_ydotool_dialect(yd.DIALECT_V1)
+    from yazses.inject import unicode as unicode_mod
+
+    class _Uni:
+        def __init__(self, *a, **k):
+            pass
+
+        def ensure_producible(self, text):
+            pass
+
+        def inject(self, text):
+            pass
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(unicode_mod, "UnicodeInjector", _Uni)
+    timeout = subprocess.TimeoutExpired(["ydotool", "type"], 10.0)
+    run = _FailingType(type_exc=timeout)
+    monkeypatch.setattr(subprocess, "run", run)
+
+    with pytest.raises(subprocess.TimeoutExpired):
+        yd.YdotoolInjector().inject("hej å då")
+
+    assert run.argvs.count(_RELEASE_ALL) == 1
+
+
+def test_v0_sends_nothing_after_a_failed_type(monkeypatch):
+    yd.set_ydotool_dialect(yd.DIALECT_V0)
+    boom = subprocess.TimeoutExpired(["ydotool", "type"], 10.0)
+    run = _FailingType(type_exc=boom)
+    monkeypatch.setattr(subprocess, "run", run)
+
+    with pytest.raises(subprocess.TimeoutExpired) as caught:
+        yd.YdotoolInjector().inject("hello")
+
+    assert caught.value is boom
+    assert [a[1] for a in run.argvs] == ["type"]
+
+
+def test_the_v1_success_sequence_is_exactly_type_then_one_release(monkeypatch):
+    """Golden: the call sequence the base produced, byte for byte."""
+    yd.set_ydotool_dialect(yd.DIALECT_V1)
+    run = _FailingType()
+    monkeypatch.setattr(subprocess, "run", run)
+
+    yd.YdotoolInjector().inject("hello")
+
+    assert run.argvs == [
+        ["ydotool", "type", "-d", "6", "-H", "6", "--", "hello"],
+        _RELEASE_ALL,
+    ]
+    assert run.calls[1][1]["timeout"] == 5
+
+
+def test_a_failing_release_after_a_successful_type_still_surfaces(monkeypatch):
+    """Success path is unchanged: only an already-propagating error is protected."""
+    yd.set_ydotool_dialect(yd.DIALECT_V1)
+    run = _FailingType(key_exc=subprocess.TimeoutExpired(["ydotool", "key"], 5))
+    monkeypatch.setattr(subprocess, "run", run)
+
+    with pytest.raises(subprocess.TimeoutExpired):
+        yd.YdotoolInjector().inject("hello")
