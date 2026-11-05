@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — docs: the packaging channel table is re-verified against v2.48.1, and gaze is no longer described as shipped
+
+`packaging/README.md` was audited against 2.40.0. Its Snap, winget, Homebrew, Scoop, Chocolatey and GHCR rows now match the live registries as read on 2026-11-05, and the closed issues it cited are annotated. Cells that were not re-checked say so. `docs/comparison.md` and `docs/roadmap.md` said gaze targeting "works on" or "ships on" X11; it is experimental, off by default and not hardware-validated, as the rest of the roadmap already said.
+
 ### Added — Persian text normalisation has a checkbox in Settings
 
 `[stt] persian_normalisation` could only be turned on by editing `config.toml`. It is now a
