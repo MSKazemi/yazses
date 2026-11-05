@@ -12,6 +12,7 @@ import json
 from pathlib import Path
 
 from yazses.cliphistory.history import ClipboardRing
+from yazses.system.private_files import private_dir, write_private_text
 
 DEFAULT_CAPACITY = 20
 
@@ -34,8 +35,9 @@ def load_items(path) -> list[str]:
 
 def _save(path, items: list[str]) -> None:
     p = Path(path)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(items, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    # What the user copied, in plain text: owner-only (0700 dir / 0600 file) on POSIX.
+    private_dir(p.parent)
+    write_private_text(p, json.dumps(items, ensure_ascii=False, indent=2) + "\n")
 
 
 def add_item(path, text: str, capacity: int = DEFAULT_CAPACITY) -> list[str]:

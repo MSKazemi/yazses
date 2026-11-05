@@ -11,6 +11,11 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 The default-on 2-gram de-duplication collapsed repeated pairs, so `my pin is 4 7 4 7` became `my pin is 4 7` and `9 9 9 9 9 9 9 9` became `9 9`, silently, for any script. A pair containing a decimal digit (any script) or an English digit word (zero to ten) is now left alone. Other repeated phrases behave as before, including "New York New York", and the Persian emphatic-repeat case is still an expected failure (a maintainer decision). Digit words in other languages are not protected.
 
 What was checked: 38 tests including a seeded property loop that the digit tokens survive (14 fail on the old code) and a golden table of 22 non-digit repeats. What was not checked: real speech.
+### Fixed — meeting transcripts, clipboard history and scratch notes are created owner-only
+
+Under the usual umask 022 these stores were world-readable (files `0644` in `0755` folders). On Linux and macOS they are now created `0600` in `0700` folders with no readable window, and an existing looser file or folder is tightened on its next write. The clipboard history lives in the config folder, which therefore also becomes `0700`. Windows behaviour is unchanged (no ACLs are applied).
+
+What was checked: 19 tests under umask 022 and 000 (17 fail on the old code), content bytes unchanged. What was not checked: Windows ACLs, network or FAT/NTFS mounts (only a mocked `chmod` failure).
 
 ### Added — Persian text normalisation has a checkbox in Settings
 

@@ -176,8 +176,11 @@ not one. The other three are listed [below](#the-other-directories); the
 The three marked **no** are the ones worth knowing about, and each is deliberate: a note you
 dictated in order to read it back, examples you explicitly approved, and a meeting
 transcript whose whole purpose is to be opened and edited. They are ordinary files with
-your user's permissions. If you want them at rest under a key, that is what full-disk
-encryption is for.
+your user's permissions. On Linux and macOS YazSes creates `scratch.jsonl` and each
+`meetings/<id>/` folder readable by your account only (mode `0600` for the files, `0700` for
+the folder), and tightens an older, looser one the next time it writes to it; on Windows
+access follows the permissions the folder inherits. If you want them at rest under a key,
+that is what full-disk encryption is for.
 
 ## The other directories
 
