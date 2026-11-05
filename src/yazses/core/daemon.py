@@ -9922,6 +9922,15 @@ class Daemon:
                     self._meeting_controller.stop_capture()
             except Exception:
                 log.exception("Meeting recorder stop raised")
+        # The push-to-talk recorder: a hold still in progress left its input stream open
+        # until process exit. Stop it (idempotent, closes the stream even if stop() raises)
+        # and drop the audio -- a take cut off by shutdown is never typed. Before the IPC
+        # server, pid file and lock steps so the lock stays released last.
+        if self._recorder is not None:
+            try:
+                self._recorder.stop()
+            except Exception:
+                log.exception("Recorder stop raised")
         if self._corpus is not None:
             try:
                 self._corpus.stop()
