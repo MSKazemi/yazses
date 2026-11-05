@@ -506,8 +506,21 @@ body:has(.yz-landing) .md-grid { max-width: 76rem; }
   outline: none;
   transition: background 200ms, transform 200ms var(--yzl-ease);
 }
-.yzl-stage:hover, .yzl-stage:focus-visible, .yzl-stage.is-active { background: rgba(124, 77, 255, 0.12); transform: translateY(-3px); }
-.yzl-stage:focus-visible { box-shadow: 0 0 0 2px var(--yzl-cyan); }
+.yzl-stage:hover, .yzl-stage:has(:focus-visible), .yzl-stage.is-active { background: rgba(124, 77, 255, 0.12); transform: translateY(-3px); }
+.yzl-stage:has(:focus-visible) { box-shadow: 0 0 0 2px var(--yzl-cyan); }
+/* The stage's focusable control: a native button stripped back to the look the bare <li> had. */
+.yzl-stage__btn {
+  display: flex; flex-direction: column; align-items: center; gap: 0.35rem;
+  width: 100%; padding: 0; margin: 0;
+  border: 0; border-radius: inherit; background: none;
+  color: inherit; font: inherit; text-align: center;
+  cursor: pointer; outline: none;
+}
+/* Visually hidden, still read: the permanent polite announcement node. */
+.yzl-sr-only {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0;
+}
 .yzl-stage__no { font-size: 0.58rem; font-weight: 700; letter-spacing: 0.1em; color: var(--yzl-on-dark-2); opacity: 0.7; }
 .yzl-stage__icon {
   display: grid; place-items: center;
@@ -566,14 +579,14 @@ body:has(.yz-landing) .md-grid { max-width: 76rem; }
 .yzl-pipe__toggle[hidden] { display: none; }
 .yzl-pipe__toggle:hover { background: rgba(124, 77, 255, 0.22); }
 .yzl-pipe__toggle:focus-visible { outline: 2px solid var(--yzl-cyan); outline-offset: 3px; }
-.yzl-pipe__toggle[aria-pressed="true"] { background: rgba(34, 211, 238, 0.14); border-color: var(--yzl-cyan); }
+.yzl-pipe__toggle[data-state="paused"] { background: rgba(34, 211, 238, 0.14); border-color: var(--yzl-cyan); }
 /* pause bars when running, play triangle once paused */
 .yzl-pipe__toggle-icon {
   width: 0.7rem; height: 0.8rem;
   border-left: 3px solid currentColor; border-right: 3px solid currentColor;
   box-sizing: border-box;
 }
-.yzl-pipe__toggle[aria-pressed="true"] .yzl-pipe__toggle-icon {
+.yzl-pipe__toggle[data-state="paused"] .yzl-pipe__toggle-icon {
   width: 0; height: 0;
   border: 0.4rem solid transparent; border-left: 0.7rem solid currentColor; border-right: 0;
 }
