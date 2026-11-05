@@ -484,6 +484,10 @@ outstanding for both.
 | `streaming.py` | `StreamingEngine` — background decode thread, LocalAgreement stable-prefix policy (ADR-002). `prefix_stable_for_ms()` accessor + `prewarm()` feed Ghost Ahead endpoint anticipation |
 | `filters/disfluency.py` | Disfluency filter: filler removal → 2-gram dedup → **opt-in collapse pass (Rule B.5, ADR-015): sub-word repetition + prolongation collapse for Dysfluency-Friendly Mode, off by default, `_is_protected`-guarded** → self-correction rollback |
 | `endpoint.py` | Ghost Ahead pivot (spec-ghost-ahead): `EndpointAnticipator` (with debounce) — predicts end-of-utterance from partial-transcript stability + trailing silence. **Wired** into `_partial_poll_loop` via `daemon._endpoint_prewarm_tick`: on a likely endpoint, pre-warm (eager, discardable decode); `[endpoint]` off by default. Speculative finalize (Phase 2) gated |
+| `parakeet.py` | `ParakeetEngine` — NVIDIA Parakeet TDT over `onnx-asr` (`[stt] engine = "parakeet"`; default checkpoint `nemo-parakeet-tdt-0.6b-v2`, English-only). Opt-in (`yazses features enable stt-parakeet`); `onnx_asr` is imported lazily in `__init__`, and `factory.build_engine` turns a missing package into a warning plus a faster-whisper fallback. Ignores `initial_prompt` (no prompt conditioning), so personal vocabulary is recovered afterwards by `postprocess/vocab_correct.py` |
+| `moonshine.py` | `MoonshineEngine` — Moonshine over `useful-moonshine-onnx` (`[stt] engine = "moonshine"`; default `moonshine/base`), built for short CPU segments. Keeps inside upstream's 0.1–64 s audio bounds: a shorter buffer returns `""`, a longer one is split on the silence gate and the pieces joined. Takes `transcribe()`'s list-of-strings result and passes un-batched 1-D audio. Also ignores `initial_prompt` |
+| `latency.py` | Pure, dependency-free decode-latency percentiles per model (#296): `LatencyWindow` (a bounded in-memory window, 200 samples per model, owned by the daemon, nothing written to disk), `summarise`/`percentile`, and `render_status_lines` for `yazses status`. `p95_ms` is `None` below `MIN_SAMPLES_FOR_P95` = 20 samples rather than a number nobody should trust. Needs no `[learning]` opt-in |
+| `errors.py` | Failures the user can fix, phrased so they can (#310). `ModelUnavailableError` carries the printable guidance and a `notification()` for the toast, and `core/daemon.py` catches it to hold the process in ERROR state with IPC alive instead of dying with a traceback. Subclasses: `ComputeTypeUnsupportedError` (`[stt] compute_type` the CPU refuses) and `LanguageUnsupportedError` (raised by `factory.py` before any model loads, #515). `looks_like_a_blocked_network` only adds a hint; it never decides whether to fail |
 | `decoder_settings.py` | Pure: `file_decoder_settings(stt, section)` -> frozen `DecoderSettings` (model, language, task, device, compute_type, threads, beam, conditioning, `chinese_script`, `persian_normalisation`, warnings) for every **file** decode — `yazses transcribe`, `meeting recover`, the meeting post-pass without an engine, and the MCP `transcribe` tool. An empty `[recimport]`/`[meeting] model` inherits `[stt] model` (never another engine's checkpoint); the section's `language` is authoritative. `require_section()` raises `TypeError` on a whole `Config` where a section belongs — the substitution that made the MCP tool decode `small.en` English silently |
 | `faster_whisper.py` | `FasterWhisperEngine.transcribe` (fast path) + `transcribe_words()` — opt-in word-timestamp path returning `(text, list[Word])`, used by Prosody Ink (`[prosody]`) and by Diarized Recording Import (`recimport/pipeline.py`, `yazses transcribe <file>`) |
 
@@ -620,6 +624,33 @@ it an `xdg-open` argument while it opens (visible through `/proc` to the user's
 processes, and to other local users unless `/proc` has `hidepid=`). On every path it is
 the client's argument if the hand-off starts it — the exposure ADR-031 §3 records. macOS
 passes it in-process (`NSWorkspace`), Windows through `ShellExecuteW`.
+
+### `src/yazses/mcp/` (MCP server, [ADR-020](adr/adr-020-agent-protocols.md), [ADR-032](adr/adr-032-mcp-discoverability.md) — off by default)
+
+Lets another agent call YazSes. `yazses mcp-server` (`cli.py::mcp_server`) is not a service: an
+MCP client spawns it as a child process and speaks newline-delimited JSON-RPC 2.0 over its
+stdin/stdout. There is no port and no bind address; stdio, never HTTP, is the ADR-020 §2 decision.
+**stdout carries the protocol and nothing else** (diagnostics go to stderr). The tools are
+registered by `build_tools` in `mcp/server.py`; the server answers `initialize`, `tools/list`
+and `tools/call` only.
+
+| File | Role |
+|---|---|
+| `server.py` | The stdio loop (`serve`, streams injectable) and the two tools. `transcribe(path, diarize?)` is always offered: it decodes a file the caller already has through `recimport.pipeline.transcribe_file`, with `[recimport]` and `[stt]` settings (`stt/decoder_settings.py`), and touches no microphone, window or network. `ask_human(question, timeout_s)` is listed **only when `[mcp] ask_human = true`**; it holds no audio, and forwards to the daemon's `ask_human` IPC method (`caller="mcp"`). A refusal comes back as ordinary tool text; `IpcUnreachableError` becomes "YazSes is not running" |
+| `protocol.py` | Pure request to response mapping with no I/O: hand-written rather than from an SDK ([ADR-016](adr/adr-016-dependency-budget.md)). A JSON-RPC error means the call itself was wrong; a tool that ran and failed returns a result with `isError` |
+| `ask.py` | `AskHumanService`, the policy half of `ask_human`, with the speaker, listener, clock and hold probe injected. Raises `Refusal` (carrying `retry_after_s` and `deferred`) when disabled, empty, over budget or mid-hold; speaks `"<caller> asks: <question>"`; caps the wait at `MAX_TIMEOUT_S` = 120 s; charges the budget only after an answer is heard. It has no injector, so the answer goes back to the caller and is never typed into the focused window |
+| `budget.py` | Pure. `InterruptBudget`, a sliding one-hour allowance (`[mcp] ask_human_per_hour`, default 3, shared by every caller; 0 means never). A hold in progress defers the question without charging a slot |
+
+The daemon, not the MCP process, owns the microphone: `Daemon._handle_ask_human` and
+`_ask_human_listener` (`core/daemon.py`) record one answer without going through the injector, use
+the daemon's TTS backend to speak the question (without one, the call is refused), and end the
+answer with the pure `endpoint/answer.py::AnswerEndpoint` once the user stops speaking (ADR-032 §3,
+`[mcp] ask_human_end_silence_s` / `ask_human_no_speech_s`). ADR-032 §1's one-click `.mcpb` bundle
+(`packaging/mcpb/`, built by `scripts/build-mcpb.py`) contains no YazSes; its launcher runs the
+installed `yazses mcp-server`.
+
+Send to is **not** an MCP tool. It lives in `sendto/` (below) and is reached by phrase, by the IPC
+method `send_to` and by `yazses send-to` ([ADR-031](adr/adr-031-send-to-prefill-handoff.md)).
 
 ### `src/yazses/audio/`
 
