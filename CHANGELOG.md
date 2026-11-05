@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — research: Android API levels and OEM input-method and microphone restrictions ([#807](https://github.com/MSKazemi/yazses/issues/807))
+
+`design/research/2026-11-05-android-api-levels-and-oem-ime-microphone-restrictions.md` records the platform rules for an offline dictation input method (Android 8–16) with 26 cited sources and a device-test checklist. One premise of the existing plan, that an input method may record while its window is shown, is not stated by any source read. No code or ADR changed; nothing was run on a device.
+
 ### Added — Persian text normalisation has a checkbox in Settings
 
 `[stt] persian_normalisation` could only be turned on by editing `config.toml`. It is now a
