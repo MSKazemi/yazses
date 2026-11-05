@@ -17,6 +17,19 @@ Helpers here give them the same owner-only shape:
   filesystem without POSIX modes (FAT/exFAT, some network mounts) refuses ``chmod``, and
   that must cost the protection, never the write.
 
+Symbolic links are never followed to change a mode:
+
+* a *file* is opened with ``O_NOFOLLOW`` and its mode is changed with ``fchmod`` on the
+  descriptor that was opened, so a symlink planted at ``d/live.jsonl`` pointing at a
+  ``0644`` file elsewhere is neither written through nor chmod-ed. The write functions
+  raise ``OSError`` (``ELOOP``) for a symlinked file, because an owner-only store that
+  quietly writes somewhere else is not owner-only; :func:`ensure_private_file`, being
+  best effort, logs and leaves it alone;
+* a *directory* that is a symlink is left exactly as it is: it is used (users do point a
+  data directory at another disk), but the target's mode is not changed through it, and
+  the same holds for the parent directory the write functions tighten. Where the link
+  leads is the user's decision, not something this module may "fix" by chmod.
+
 On a platform whose ``os.name`` is not ``"posix"`` (Windows) every function behaves exactly
 as the plain ``Path`` call it replaces. Permissions there are ACLs, which these helpers do
 not touch: this module makes no claim of owner-only protection on Windows.
@@ -38,9 +51,52 @@ def _posix() -> bool:
     return os.name == "posix"
 
 
+# Where the platform lacks O_NOFOLLOW the flag is 0 and `_is_symlink` is the only guard.
+_O_NOFOLLOW = getattr(os, "O_NOFOLLOW", 0)
+_O_DIRECTORY = getattr(os, "O_DIRECTORY", 0)
+
+
+def _is_symlink(path: Path) -> bool:
+    try:
+        return os.path.islink(path)
+    except OSError:
+        return False
+
+
+def _fd_tighten(fd: int, path: Path) -> None:
+    """Drop group/other bits from the file ``fd`` is open on. Best effort, never raises."""
+    try:
+        mode = os.fstat(fd).st_mode
+        if mode & _GROUP_OTHER:
+            os.fchmod(fd, mode & ~_GROUP_OTHER & 0o7777)
+    except OSError:
+        log.debug("could not tighten permissions on %s", path, exc_info=True)
+
+
 def _tighten(path: Path) -> None:
-    """Drop group/other bits from an existing ``path``. Best effort, never raises."""
+    """Drop group/other bits from an existing ``path``. Best effort, never raises.
+
+    A symlink is left alone (its target is not ours to change). The mode is changed on a
+    descriptor opened with ``O_NOFOLLOW``, so a link swapped in after the check is
+    refused by the kernel rather than followed. Only when no descriptor can be had (a
+    directory the owner cannot read) does it fall back to ``chmod`` by path, and only
+    after ``path`` was just seen not to be a link.
+    """
     if not _posix() or str(path) in ("", "."):  # never chmod the working directory
+        return
+    if _is_symlink(path):
+        log.debug("not changing permissions through the symlink %s", path)
+        return
+    nonblock = getattr(os, "O_NONBLOCK", 0)
+    for extra in (_O_DIRECTORY, 0):
+        try:
+            fd = os.open(path, os.O_RDONLY | _O_NOFOLLOW | nonblock | extra)
+        except OSError:
+            continue
+        try:
+            _fd_tighten(fd, path)
+        finally:
+            os.close(fd)
         return
     try:
         mode = os.stat(path).st_mode
@@ -55,7 +111,8 @@ def private_dir(path: str | Path) -> Path:
 
     Only the leaf is made owner-only: parents are created with the default mode, because
     they may be a directory the user chose (a documents folder, a synced folder) and are
-    not ours to restrict.
+    not ours to restrict. If ``path`` is a symlink to a directory it is returned as it is
+    and the target's mode is left alone (see the module docstring).
     """
     p = Path(path)
     if not _posix():
@@ -79,7 +136,8 @@ def write_private_text(
     The containing directory is tightened if it exists (it is never created here; call
     :func:`private_dir` first). The file is opened with mode ``0600`` and, when it already
     existed looser, ``fchmod``-ed down *before* any content is written. Raises ``OSError``
-    exactly where ``Path.write_text`` would; a failure to change the mode is swallowed.
+    where ``Path.write_text`` would, and with ``ELOOP`` when ``path`` itself is a symlink;
+    a failure to change the mode is swallowed.
     """
     p = Path(path)
     if not _posix():
@@ -90,15 +148,10 @@ def write_private_text(
             p.write_text(text, encoding=encoding)
         return
     _tighten(p.parent)
-    flags = os.O_WRONLY | os.O_CREAT | (os.O_APPEND if append else os.O_TRUNC)
+    flags = os.O_WRONLY | os.O_CREAT | _O_NOFOLLOW | (os.O_APPEND if append else os.O_TRUNC)
     fd = os.open(p, flags, PRIVATE_FILE_MODE)
     try:
-        try:
-            mode = os.fstat(fd).st_mode
-            if mode & _GROUP_OTHER:
-                os.chmod(p, mode & ~_GROUP_OTHER & 0o7777)
-        except OSError:
-            log.debug("could not tighten permissions on %s", p, exc_info=True)
+        _fd_tighten(fd, p)
         fh = os.fdopen(fd, "a" if append else "w", encoding=encoding)
     except BaseException:
         os.close(fd)
@@ -118,14 +171,9 @@ def write_private_bytes(path: str | Path, data: bytes) -> None:
         p.write_bytes(data)
         return
     _tighten(p.parent)
-    fd = os.open(p, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, PRIVATE_FILE_MODE)
+    fd = os.open(p, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | _O_NOFOLLOW, PRIVATE_FILE_MODE)
     try:
-        try:
-            mode = os.fstat(fd).st_mode
-            if mode & _GROUP_OTHER:
-                os.chmod(p, mode & ~_GROUP_OTHER & 0o7777)
-        except OSError:
-            log.debug("could not tighten permissions on %s", p, exc_info=True)
+        _fd_tighten(fd, p)
         fh = os.fdopen(fd, "wb")
     except BaseException:
         os.close(fd)
@@ -145,8 +193,15 @@ def ensure_private_file(path: str | Path) -> None:
     if not _posix():
         return
     try:
-        os.close(os.open(p, os.O_WRONLY | os.O_CREAT, PRIVATE_FILE_MODE))
+        fd = os.open(
+            p, os.O_WRONLY | os.O_CREAT | _O_NOFOLLOW | getattr(os, "O_NONBLOCK", 0),
+            PRIVATE_FILE_MODE,
+        )
     except OSError:
+        # Includes ELOOP for a symlink: the link's target is not ours to chmod.
         log.debug("could not pre-create %s", p, exc_info=True)
         return
-    _tighten(p)
+    try:
+        _fd_tighten(fd, p)
+    finally:
+        os.close(fd)
