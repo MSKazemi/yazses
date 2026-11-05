@@ -6,6 +6,12 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a speech device that will not start names the device and the cause, not a missing model
+
+When a non-CPU `[stt] device` failed to load (no usable CUDA or cuDNN, a missing shared library, a driver error), YazSes reported that the model was not on the machine and could not be downloaded, with three download remedies. It now says which device failed, a short cause without file paths, and the supported action: set `[stt] device = "cpu"` in `config.toml` and run `yazses restart`. Only the message changed: same exception, same retries, same device. CPU failures, blocked downloads and compute-type errors keep their wording.
+
+What was not checked: a real GPU. The CUDA error strings the classifier recognises come from library documentation, not from a failing machine.
+
 ### Added — Persian text normalisation has a checkbox in Settings
 
 `[stt] persian_normalisation` could only be turned on by editing `config.toml`. It is now a
