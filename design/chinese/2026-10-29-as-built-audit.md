@@ -37,7 +37,7 @@ This audit inspected the public files listed below and the existing tests. A tes
 3. **Campaign PR #533 was merged**. The `CHN-*` rows already exist in `campaign/tasks.json`; avoid duplicate task IDs or separate issues for each small task.
 4. The original `design/chinese/README.md` statement that coherent switching and Mandarin command recognition are still missing describes the *September baseline*, not current main.
 5. The original surface matrix calls Meeting Mode's Han token accounting blocked; current `meeting/quality.py::tokenize` and tests explicitly handle Han quality units. **Real Mandarin meeting quality remains unmeasured**.
-6. `postprocess-compatibility.md` F1–F5, F7–F9 are marked fixed in its findings table. Open evidence: real model, optional transforms, platform injection, and the reported MCP transcription config propagation defect (F6).
+6. `postprocess-compatibility.md` F1–F5, F7–F9 are marked fixed in its findings table. Open evidence: real model, optional transforms, platform injection, and the Han-script wrapper on the MCP path (F6 itself is fixed by `8523d472`; no test sets `chinese_script` through the MCP tool).
 7. The language-switch config transaction is atomic; **optional package installation and model downloads are not rolled back** after a later failure, and an already running daemon may require a restart. Do not claim a system-wide ACID transaction.
 8. The `zh-CN`/`zh-TW` profiles represent **Mandarin plus output script**, not separate Mandarin dialect models; `zh-HK` and `yue` are deliberately not P1 aliases.
 
@@ -68,7 +68,7 @@ File transcription / Meeting Mode reuse STT + render/quality seams
 | P0 | No larger, reproducible Mandarin ASR/product benchmark for the release | Pinned benchmark manifest, model revision, CER by slice, CPU latency/RAM, artifact hashes | [#503](https://github.com/MSKazemi/yazses/issues/503) |
 | P0 | English default, config safety and offline install must remain intact | Full CI, installer/no-network/restart failure matrix, packaged smoke | [#497](https://github.com/MSKazemi/yazses/issues/497) |
 | P1 | Real multi-segment/streaming and long meeting validation absent | Real-audio paths, segmentation, timestamps, meeting recovery, notes context tests | [#501](https://github.com/MSKazemi/yazses/issues/501) |
-| P1 | MCP transcription config propagation identified as open in F6 | Minimal red test then fix through the existing recimport config interface, no new network path | [#501](https://github.com/MSKazemi/yazses/issues/501) |
+| P1 | MCP transcription config propagation (F6): **fixed** by `8523d472` (2026-10-21), before this audit's snapshot; remaining gap is a test that sets `chinese_script` through the MCP tool | `tests/test_file_transcription_honours_the_config.py::test_mcp_*` cover model, language, device, precision and the `diarize` argument; add an MCP-level `zh` + `traditional` case | [#501](https://github.com/MSKazemi/yazses/issues/501) |
 | P1 | Model-card license vs weight revision can diverge | Per-artifact SPDX source, immutable revision, checksums and legal/maintainer review when non-permissive | [#503](https://github.com/MSKazemi/yazses/issues/503) |
 | P2 | Optional CJK text transforms not fully checked | Feature-by-feature safety classification; unsupported transforms disabled/clearly excluded | [#501](https://github.com/MSKazemi/yazses/issues/501) |
 

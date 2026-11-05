@@ -26,7 +26,7 @@ Phase 0: reconcile campaign state and confirm ADR-v2-140..144 dispositions
    |        |
    |        +-- narrow reviewed phrase corrections + negative corpus
    |
-   +-- CJK compatibility: MCP red test -> bug fix
+   +-- CJK compatibility: (MCP config bug: fixed, 8523d472)
    |                   notes context token-budget test -> fix
    |                   optional feature audit
    |                   real streaming, file, meeting and 4 platform reports
@@ -51,8 +51,8 @@ The original [implementation-roadmap.md](implementation-roadmap.md) remains the 
 | `CHN-NEXT-202` | [#499](https://github.com/MSKazemi/yazses/issues/499) | L0 | 60 min | Native review of Traditional Mandarin safe-command phrase families |
 | `CHN-NEXT-203` | [#499](https://github.com/MSKazemi/yazses/issues/499) | L2 | 45 min | Turn native-reviewed phrase decisions into deterministic safe grammar and fixtures |
 | `CHN-NEXT-204` | [#499](https://github.com/MSKazemi/yazses/issues/499) | L1 | 45 min | Human review of Mandarin numeral naturalness and ranges |
-| `CHN-NEXT-301` | [#501](https://github.com/MSKazemi/yazses/issues/501) | L2 | 45 min | Capture MCP transcription config propagation defect as a red test |
-| `CHN-NEXT-302` | [#501](https://github.com/MSKazemi/yazses/issues/501) | L2 | 60 min | Correct MCP recimport language propagation behind existing interface |
+| `CHN-NEXT-301` | [#501](https://github.com/MSKazemi/yazses/issues/501) | L2 | 45 min | ~~Capture MCP transcription config propagation defect as a red test~~ Done by `8523d472` (`tests/test_file_transcription_honours_the_config.py`) |
+| `CHN-NEXT-302` | [#501](https://github.com/MSKazemi/yazses/issues/501) | L2 | 60 min | ~~Correct MCP recimport language propagation behind existing interface~~ Done by `8523d472`; residual: an MCP-level `chinese_script` test |
 | `CHN-NEXT-303` | [#501](https://github.com/MSKazemi/yazses/issues/501) | L2 | 60 min | Measure and repair long Mandarin notes context windows |
 | `CHN-NEXT-304` | [#501](https://github.com/MSKazemi/yazses/issues/501) | L1 | 45 min | Audit optional CJK-affecting text transforms and their opt-in contracts |
 | `CHN-NEXT-305` | [#501](https://github.com/MSKazemi/yazses/issues/501) | L0 | 90 min | Real Whisper Mandarin streaming/segment seam validation |
@@ -170,6 +170,8 @@ The named validation commands are a **minimum smoke** and must be supplemented b
 
 ### CHN-NEXT-301 — Capture MCP transcription config propagation defect as a red test
 
+> **Superseded (checked 2026-11-04 against `3da171b0`).** Commit `8523d472` (2026-10-21) fixed the defect and added `tests/test_file_transcription_honours_the_config.py`; `tests/test_mcp_transcribe_language.py` named below does not exist. Residual, still open: a test that sets `[stt] chinese_script` and `zh` through the MCP tool itself.
+
 **Source:** [#501](https://github.com/MSKazemi/yazses/issues/501); **risk:** L2; **estimate:** 45 minutes; **blocked by:** Audit F6 in design/chinese/postprocess-compatibility.md.
 
 **Allowed files (proposal, narrow further before campaign publication):** `tests/test_mcp_transcribe_language.py`.
@@ -181,6 +183,8 @@ The named validation commands are a **minimum smoke** and must be supplemented b
 **Reviewer command:** `uv run python -m pytest tests/test_mcp_transcribe_language.py -q`. **Out of scope / human requirement:** This validation command becomes executable when the test file is added; do not change MCP public schema yet.
 
 ### CHN-NEXT-302 — Correct MCP recimport language propagation behind existing interface
+
+> **Superseded (checked 2026-11-04).** `mcp/server.py` already passes `config.recimport` and `stt=config.stt` (`8523d472`). Only the residual MCP-level `chinese_script` test from CHN-NEXT-301 remains.
 
 **Source:** [#501](https://github.com/MSKazemi/yazses/issues/501); **risk:** L2; **estimate:** 60 minutes; **blocked by:** CHN-NEXT-301 repro accepted; verify L3 if public IPC changes needed.
 
