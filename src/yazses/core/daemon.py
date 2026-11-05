@@ -8098,6 +8098,10 @@ class Daemon:
             self._meeting_recorder = recorder
             self._state.state = TrayState.MEETING
         log.info("Meeting started: %s", meeting_id)
+        threading.Thread(
+            target=self._watch_meeting, args=(controller,),
+            name="meeting-watchdog", daemon=True,
+        ).start()
         resp: dict[str, object] = {
             "ok": True, "meeting_id": meeting_id, "dir": str(meeting_dir),
             "live_transcript": cfg.live_transcript,
@@ -8283,6 +8287,40 @@ class Daemon:
             )
         except Exception:  # pragma: no cover - defensive
             log.debug("Could not announce the meeting failure", exc_info=True)
+
+    def _watch_meeting(self, controller, interval: float | None = None) -> None:
+        """Watchdog for a running meeting: the cap and the stall notice, without a chunk.
+
+        Everything the controller does is driven by the mic callback, and a lost input
+        device is precisely the case where the callback never runs again. This is the
+        only thing that still looks. It ends when this controller is no longer the
+        running meeting.
+        """
+        from yazses.meeting.stall import WATCH_INTERVAL_S, StallNotice
+
+        notice = StallNotice()
+        while self._meeting_controller is controller:
+            self._meeting_watch_tick(controller, notice)
+            time.sleep(WATCH_INTERVAL_S if interval is None else interval)
+
+    def _meeting_watch_tick(self, controller, notice) -> None:
+        """One watchdog pass: re-check the cap, then notify once per stall. Never raises."""
+        try:
+            controller.tick()
+            if notice.observe(controller.stalled_s()):
+                self._notify_meeting_stall()
+        except Exception:  # pragma: no cover - a watchdog never costs a running meeting
+            log.debug("Meeting watchdog pass failed", exc_info=True)
+
+    def _notify_meeting_stall(self) -> None:
+        """Tell the user the running meeting has stopped hearing audio. Never raises."""
+        try:
+            from yazses.meeting.stall import STALL_BODY, STALL_TITLE
+            from yazses.system.notify import notify
+
+            notify(STALL_TITLE, STALL_BODY)
+        except Exception:  # pragma: no cover - a toast never costs a running meeting
+            log.debug("Could not announce the meeting stall", exc_info=True)
 
     def _auto_stop_meeting(self) -> None:
         """Auto-stop hook fired from the controller when ``max_minutes`` is reached.

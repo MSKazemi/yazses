@@ -114,11 +114,36 @@ class MeetingController:
                 self._queue.put(utt)
         self._check_auto_stop()
 
+    def tick(self) -> None:
+        """Re-check the cap without a chunk; the daemon's watchdog calls this.
+
+        :meth:`feed` is the only other caller, and a lost input device means ``feed`` is
+        never called again -- so without this the cap could not fire on the one meeting
+        that most needs it. A no-op once capture has stopped.
+        """
+        if self._running:
+            self._check_auto_stop()
+
+    def _cap_reached(self) -> bool:
+        """True when the meeting has hit ``max_seconds`` of audio or of stalled wall time.
+
+        Audio first: that is the cap as it always was. The wall clock counts only once it
+        disagrees with the sample count by a real gap (``store.capture_gap`` -- the same
+        threshold the summary uses), so a healthy meeting, whose clock leads its samples
+        by a few seconds of buffering, still ends exactly when it did before. Without a
+        clock ``elapsed_s() == duration_s()`` and this reduces to the audio test.
+        """
+        duration = self._session.duration_s()
+        if duration >= self._max_seconds:
+            return True
+        elapsed = self._session.elapsed_s()
+        return elapsed >= self._max_seconds and store.capture_gap(elapsed, duration) > 0
+
     def _check_auto_stop(self) -> None:
-        """Fire ``on_auto_stop`` once when captured audio reaches ``max_seconds``."""
+        """Fire ``on_auto_stop`` once when the meeting reaches ``max_seconds``."""
         if not self._max_seconds or self._on_auto_stop is None:
             return
-        if self._session.duration_s() < self._max_seconds:
+        if not self._cap_reached():
             return
         with self._auto_lock:
             if self._auto_stop_fired:

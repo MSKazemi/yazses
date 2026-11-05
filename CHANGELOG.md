@@ -57,11 +57,17 @@ What was checked: 14 tests over real sockets (6 fail on the old code). What was 
 When the daemon never booted, or the status poller crashed, the tray returned without changing its icon, so it stayed idle blue. It now turns red with a fixed reason. A starting, restarting or stopping daemon is reported as "loading" (the tooltip says so; the colour is unchanged), and an error tooltip shows the daemon's own error text on one line, at most 60 characters.
 
 What was checked: 19 tests with a fake platform, no Qt (eight fail on the old code). What was not checked: a real tray or desktop, or a real daemon crash.
+### Fixed — a meeting whose input device vanished now ends at its length cap and says so
+
+When the input device disappeared during a meeting, the capture callback stopped, so the maximum-length cap (which only ran when a chunk arrived) never fired and nothing told the user. The cap now also counts wall-clock time once it disagrees with the number of captured samples by a real gap, a small watchdog in the daemon re-checks it without needing a chunk, and one fixed notification is sent per stall of more than 30 seconds. `yazses meeting recover` keeps `capture_gap_s` when it rewrites the metadata. A healthy meeting behaves as before.
+
+What was not checked: a real unplugged device or a live meeting; the watchdog was exercised with a fake clock.
+
 ### Fixed — Meeting Mode says when audio stopped arriving during a meeting
 
 A meeting whose input device vanished kept "recording" with no signal anywhere: the status showed elapsed time but not that no audio was arriving, and the maximum-length cap never fired. `status()` now reports `stalled_s`, and a meeting whose captured audio is much shorter than its wall-clock length (more than 10 s and 2 %) records `capture_gap_s`, adds one line to `summary.md`, and keeps the recording. A healthy meeting's metadata and summary are unchanged.
 
-Not done: stopping the meeting automatically on a stall (needs a `daemon.py` change), showing `stalled_s` in `yazses meeting status`, and carrying `capture_gap_s` through `recover.py`. What was not checked: a real unplugged device or a live meeting.
+Not done: showing `stalled_s` in `yazses meeting status`. What was not checked: a real unplugged device or a live meeting.
 
 ### Added — Persian text normalisation has a checkbox in Settings
 
