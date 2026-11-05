@@ -48,7 +48,7 @@
 
         yazses = python.pkgs.buildPythonApplication rec {
           pname = "yazses";
-          version = "2.18.2";
+          version = "2.48.1";
           pyproject = true;
           src = ./.;
 
@@ -56,17 +56,21 @@
 
           # Mirrors [project.dependencies] in pyproject.toml. PySide6 is deliberately
           # absent: it is the `desktop` extra (648 MB of Qt for the overlay and tray),
-          # exposed as the separate `yazses-desktop` package below.
+          # exposed as the separate `yazses-desktop` package below. onnx-asr is absent
+          # for the same reason: it is the `parakeet` extra, not a base dependency.
+          # tests/test_flake_matches_project.py compares this list and `version`
+          # against pyproject.toml.
           dependencies = with python.pkgs; [
             faster-whisper
+            av
             sounddevice
             numpy
             typer
             platformdirs
             cryptography
-            onnx-asr
           ] ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux [
             evdev
+            jeepney
             python-xlib
           ];
 
