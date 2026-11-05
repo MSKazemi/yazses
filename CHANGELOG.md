@@ -8,11 +8,11 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed — `ask_human` and `yazses send-to` no longer report a slow daemon as "not running"
 
-The IPC client waited 2 seconds and turned any slower reply into "YazSes is not running" (for `send-to`, "starting up"), after the daemon had already asked the question and charged the budget, or opened the app and discarded the staged text. An agent then retried and interrupted the person again. The client now takes a per-call wait (listen time plus 10 s for `ask_human`, 12 s for `send-to`), and a daemon that is up but slow is reported as slow. A daemon that is truly unreachable keeps the old messages.
+The IPC client waited 2 seconds and turned any slower reply into "YazSes is not running" (for `send-to`, "starting up"), after the daemon had already asked the question and charged the budget, or opened the app and discarded the staged text. An agent then retried and interrupted the person again. The client now takes a per-call wait (the time to speak the question, plus the listen time, plus 20 s for `ask_human`; 12 s for `send-to`), and a daemon that is up but slow is reported as slow. A daemon that is truly unreachable keeps the old messages.
 
 ### Fixed — the MCP server follows the protocol where it used to bend it
 
-It answers `ping`, negotiates the protocol version instead of echoing any value a client sends, answers an unknown or missing tool name with a JSON-RPC `-32602` error, and type-checks arguments against the tool's schema, so the string `"false"` no longer switches a boolean option on. Invalid UTF-8 on stdin is a parse error and no longer ends the session. A failing tool now returns a stable sentence for its failure class instead of the raw exception text, which could carry a local path or token; the full exception goes to stderr only. Cancelling a tool that is already running still needs a threaded loop and is not part of this change.
+It answers `ping`, negotiates the protocol version instead of echoing any value a client sends, answers an unknown or missing tool name with a JSON-RPC `-32602` error, and type-checks arguments against the tool's schema, so the string `"false"` no longer switches a boolean option on. Invalid UTF-8 on stdin is a parse error and no longer ends the session. A failing tool now returns a stable sentence for its failure class instead of the raw exception text, which could carry a local path or token, and the full exception goes to stderr only. `transcribe` keeps the speech-model cause and fix ("run: yazses model download X, then: yazses restart") and names a missing optional component, without exposing a path. A JSON `5.0` is accepted for an integer argument. Cancelling a tool that is already running still needs a threaded loop and is not part of this change.
 
 ### Fixed — a stop requested while the daemon is still starting is honoured
 
@@ -20,11 +20,11 @@ It answers `ping`, negotiates the protocol version instead of echoing any value 
 
 ### Fixed — a daemon being replaced no longer deletes its successor's socket and pid file
 
-During an upgrade takeover the old daemon released the instance lock first and then removed the IPC socket and pid file, so a successor that took over in that gap lost both and could no longer be reached by the tray or the CLI. The lock is now released last, and the socket and pid file are removed only if they are still the daemon's own.
+During an upgrade takeover the old daemon released the instance lock first and then removed the IPC socket and pid file, so a successor that took over in that gap lost both and could no longer be reached by the tray or the CLI. The lock is now released last, the socket and pid file are removed only if they are still the daemon's own, and the successor waits up to 45 s for the old daemon to finish (it was 10 s).
 
 ### Fixed — when typing a dictation fails, it is no longer recorded as typed, and every loss is announced
 
-A failed injection was still counted as typed in the learning corpus, fed to the edit watcher and the status gauge, and the notice appeared once in five minutes, so a second lost dictation was silent. A lost dictation is now recorded as not typed and every one shows a notice saying so. The text is not copied to the clipboard, because that would overwrite what the person had copied.
+A failed injection was still counted as typed in the learning corpus, fed to the edit watcher and the status gauge, and the notice appeared once in five minutes, so a second lost dictation was silent. A lost dictation is now recorded as not typed and every one shows a notice saying so ("may not have been fully typed" when paced or streaming output had already started). The text is not copied to the clipboard, because that would overwrite what the person had copied.
 
 ### Fixed — a dictation during a meeting no longer ends the meeting state
 
@@ -32,7 +32,7 @@ One burst turned the state from MEETING to IDLE, which also let the audio-device
 
 ### Fixed — X11: releasing the hotkey while the microphone is opening could leave the microphone open
 
-Hold start and key release ran on different threads with no common lock, so a release during `recorder.start()` stopped a recorder that was not yet recording and the stream then opened and stayed open. They are serialised, a late hold timer is ignored, and the recorder closes a stream that `stop()` outran or one it would orphan. A real X11 session and real PortAudio were not exercised.
+Hold start and key release ran on different threads with no common lock, so a release during `recorder.start()` stopped a recorder that was not yet recording and the stream then opened and stayed open. They are serialised, a late hold timer is ignored, the recorder closes a stream that `stop()` outran or one it would orphan, and a stop request is never blocked behind a microphone open that hangs. A real X11 session and real PortAudio were not exercised.
 
 ### Fixed — streaming transcription: pressing the hotkey again could leave two decode loops on one buffer
 
@@ -48,11 +48,15 @@ The daemon's error, an engine fallback and the "no text field focused" warning a
 
 ### Fixed — Settings: Apply and restart no longer freezes the window
 
-The restart ran for up to two minutes on the GUI thread. It now runs in the background, Apply is disabled meanwhile, and the result is shown when it finishes.
+The restart ran for up to two minutes on the GUI thread. It now runs in the background, Apply is disabled meanwhile, and the result is shown when it finishes. Closing the window during a restart is refused with a hint instead of aborting the process, and quitting waits for the restart, install and language workers.
 
 ### Fixed — Settings: the General page says which key "auto" means, and long microphone names no longer force a sideways scrollbar
 
 The page now reads `auto (<key> on this system)`. The Audio and Speech pages fit their width at larger fonts, and Apply and the sidebar announce the Ctrl+Return shortcut to screen readers. The Features page and the Speech page at the largest fonts still scroll sideways in a narrow window.
+
+### Fixed — package-channel manifests are refreshed to 2.49.0
+
+The Scoop bucket, the Arch, Chocolatey, Fedora and Homebrew manifests, the winget manifests and `released-assets.json` now point at the v2.49.0 release. Every checksum was computed from the published asset and matches the release's `SHA256SUMS.txt` (the Arch source archive matches PyPI's digest). Installing through each channel was not run.
 
 ### Fixed — docs: nine capabilities, not eight, are switched on by first-run setup
 
