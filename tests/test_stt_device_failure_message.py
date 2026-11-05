@@ -11,9 +11,10 @@ This fixes the wording only. Which device is used, what is retried and the excep
 family (`ModelUnavailableError`, which `core/daemon.py` catches to hold in ERROR state)
 are unchanged.
 
-The exception texts below are assumptions about what CTranslate2 and the dynamic linker
-say; no GPU was available. The classifier keys on the device being non-CPU, so it does
-not depend on their exact wording.
+No GPU was available. The classifier needs POSITIVE evidence in the text (CUDA, cuDNN,
+cuBLAS, NVIDIA, a GPU, an unsupported device); a non-CPU device alone is not evidence.
+The strings it keys on were read out of the CTranslate2 4.8.1 binary, see
+`stt/errors.py::_DEVICE_MARKERS`.
 """
 
 from __future__ import annotations
@@ -137,6 +138,63 @@ def test_classifier():
     assert not looks_like_a_device_failure(
         OSError("[WinError 10013] forbidden by its access permissions"), "cuda"
     )
+
+
+# Failures that are the MODEL's availability, not the accelerator's. On `cuda` and `auto`
+# they used to be called device failures (the old rule: anything not a network marker),
+# so the user was told to set `device = "cpu"` instead of how to get the model.
+NOT_THE_DEVICE = [
+    ValueError("Invalid model size 'larg', expected one of: tiny, base, small, medium"),
+    RuntimeError("404 Client Error: Repository Not Found for url: https://huggingface.co/x"),
+    TimeoutError("The read operation timed out"),
+    RuntimeError("429 Client Error: Too Many Requests for url: https://huggingface.co/x"),
+    RuntimeError("500 Server Error: Internal Server Error for url: https://huggingface.co/x"),
+    RuntimeError("503 Server Error: Service Unavailable for url: https://huggingface.co/x"),
+    OSError("[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed"),
+    OSError(28, "No space left on device"),
+    OSError("[Errno 28] No space left on device: '/home/u/.cache/huggingface'"),
+    RuntimeError("Unable to open file 'model.bin' in model '/x/models/base.en'"),
+    RuntimeError("Unexpected end of file while reading model.bin (corrupt download)"),
+]
+
+# Texts a CUDA stack prints. The first six are strings found in the CTranslate2 4.8.1
+# binary; the library-load lines name the library the same way the dynamic linker does.
+DEVICE_TEXTS = [
+    "CUDA failed with error CUDA driver version is insufficient for CUDA runtime version",
+    "CUDA failed with error no CUDA-capable device is detected",
+    "CUDA failed with error out of memory",
+    "cuBLAS failed with status CUBLAS_STATUS_NOT_INITIALIZED",
+    "CUDA driver is a stub library",
+    "No GPU is available",
+    "libcublas.so.12: cannot open shared object file: No such file or directory",
+    "libcudnn_ops.so.9: cannot open shared object file: No such file or directory",
+    "Could not load library cudnn64_9.dll. Error code 126",
+    "unsupported device quux",
+    "NVIDIA driver on your system is too old",
+]
+
+
+@pytest.mark.parametrize("device", ["cuda", "auto", "CUDA"])
+@pytest.mark.parametrize("exc", NOT_THE_DEVICE, ids=lambda e: str(e)[:40])
+def test_a_model_failure_is_not_blamed_on_the_device(exc, device):
+    assert not looks_like_a_device_failure(exc, device)
+
+
+@pytest.mark.parametrize("device", ["cuda", "auto"])
+@pytest.mark.parametrize("text", DEVICE_TEXTS, ids=lambda t: t[:40])
+def test_positive_accelerator_evidence_is_a_device_failure(text, device):
+    assert looks_like_a_device_failure(RuntimeError(text), device)
+    assert looks_like_a_device_failure(text, device)
+
+
+@needs_faster_whisper
+@pytest.mark.parametrize("exc", NOT_THE_DEVICE, ids=lambda e: str(e)[:40])
+def test_a_model_failure_on_cuda_gets_the_model_guidance(mocker, exc):
+    with pytest.raises(ModelUnavailableError) as caught:
+        _load(mocker, exc, device="cuda")
+    assert type(caught.value) is ModelUnavailableError
+    assert "yazses model download base.en" in str(caught.value)
+    assert 'device = "cpu"' not in str(caught.value)
 
 
 # ---- what must not change ----------------------------------------------
