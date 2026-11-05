@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — research: small and quantized speech models and runtimes ([#794](https://github.com/MSKazemi/yazses/issues/794))
+
+`design/research/2026-11-05-small-quantized-asr-models-and-gguf-runtimes.md` lists candidates not already in the runtime-provenance note, the gaps that stop a fair comparison under the proposed ADR-033, and options for the owner. No measurements and no default changes. Every upstream page was read as a text summary; some were not read at all.
+
 ### Added — Persian text normalisation has a checkbox in Settings
 
 `[stt] persian_normalisation` could only be turned on by editing `config.toml`. It is now a
