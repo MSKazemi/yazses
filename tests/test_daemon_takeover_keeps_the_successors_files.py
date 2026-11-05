@@ -23,8 +23,10 @@ from yazses.ipc.server import JsonRpcServer
 from yazses.platform import get_platform
 from yazses.system.single_instance import SingleInstanceLock
 
+# Unix-domain sockets and an fcntl instance lock: every POSIX leg (Linux, macOS,
+# FreeBSD). Windows keeps its IPC on a named pipe, which this file does not exercise.
 pytestmark = pytest.mark.skipif(
-    sys.platform not in ("linux", "darwin") or not hasattr(socket, "AF_UNIX"),
+    sys.platform == "win32" or not hasattr(socket, "AF_UNIX"),
     reason="Unix-domain sockets are POSIX-only",
 )
 
@@ -42,7 +44,21 @@ def short_dir():
         shutil.rmtree(d, ignore_errors=True)
 
 
+def _written_pid_file(plat) -> Path:
+    """Where this platform's lifecycle backend actually put the pid file.
+
+    Linux keeps it under ``data_dir``; macOS and Windows at ``paths.pid_file``. Asking the
+    disk after ``write_pid()`` keeps the tests right on every OS, and asserting that
+    exactly one candidate exists means a test cannot pass on a path nothing ever wrote.
+    """
+    candidates = list(dict.fromkeys((plat.paths.data_dir / "daemon.pid", plat.paths.pid_file)))
+    found = [c for c in candidates if c.exists()]
+    assert len(found) == 1, f"expected exactly one pid file, found {found}"
+    return found[0]
+
+
 def _old_daemon(sock_path):
+    """A running daemon: lock held, socket bound, pid file written (all asserted)."""
     plat = get_platform()
     plat.paths.data_dir.mkdir(parents=True, exist_ok=True)
     old = Daemon(config=Config(), platform=plat)
@@ -50,15 +66,16 @@ def _old_daemon(sock_path):
     old._ipc_server = JsonRpcServer.unix(sock_path)
     old._ipc_server.serve_in_thread()
     plat.lifecycle.write_pid()
-    return old, plat
+    pid_file = _written_pid_file(plat)
+    assert sock_path.exists(), "precondition: the old daemon's socket must exist"
+    return old, plat, pid_file
 
 
 def test_a_successor_that_takes_over_mid_teardown_keeps_its_socket_and_pid(
     sandbox_paths, short_dir
 ):
     sock = short_dir / "d.sock"
-    old, plat = _old_daemon(sock)
-    pid_file = plat.paths.data_dir / "daemon.pid"
+    old, plat, pid_file = _old_daemon(sock)
     successor: dict[str, object] = {}
 
     real_release = old._instance_lock.release
@@ -90,8 +107,7 @@ def test_the_instance_lock_is_released_after_the_socket_and_pid_file_are_gone(
     sandbox_paths, short_dir
 ):
     sock = short_dir / "d.sock"
-    old, plat = _old_daemon(sock)
-    pid_file = plat.paths.data_dir / "daemon.pid"
+    old, plat, pid_file = _old_daemon(sock)
     seen: dict[str, bool] = {}
     real_release = old._instance_lock.release
 
@@ -106,16 +122,14 @@ def test_the_instance_lock_is_released_after_the_socket_and_pid_file_are_gone(
 
 
 def test_shutdown_leaves_a_pid_file_that_names_another_process(sandbox_paths, short_dir):
-    old, plat = _old_daemon(short_dir / "d.sock")
-    pid_file = plat.paths.data_dir / "daemon.pid"
+    old, plat, pid_file = _old_daemon(short_dir / "d.sock")
     pid_file.write_text(_SUCCESSOR_PID, encoding="utf-8")
     old._shutdown()
     assert pid_file.read_text(encoding="utf-8") == _SUCCESSOR_PID
 
 
 def test_control_shutdown_still_removes_its_own_pid_file(sandbox_paths, short_dir):
-    old, plat = _old_daemon(short_dir / "d.sock")
-    pid_file = plat.paths.data_dir / "daemon.pid"
+    old, plat, pid_file = _old_daemon(short_dir / "d.sock")
     assert pid_file.read_text(encoding="utf-8").strip() == str(os.getpid())
     old._shutdown()
     assert not pid_file.exists()

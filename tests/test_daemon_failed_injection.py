@@ -128,3 +128,76 @@ def test_the_failed_injection_does_not_copy_the_text_to_the_clipboard(mocker, sa
     d = _daemon(_BrokenInjector())
     d._on_hold_end()
     clip.assert_not_called()
+
+
+# ---- the notice must not claim more than the code knows ---------------------------------
+
+_LONG = "First clause here, second clause there. Third clause."
+
+
+class _EngLong:
+    def transcribe(self, *a, **k):
+        return _LONG
+
+
+class _FailsOnTheSecondCall(_WorkingInjector):
+    """Types the first clause, then breaks: some of the text IS on screen."""
+
+    def inject(self, text):
+        if self.typed:
+            raise OSError("ydotoold: connect: no such file")
+        super().inject(text)
+
+
+def _paced_daemon(injector):
+    d = _daemon(injector)
+    d._engine = _EngLong()
+    d._config.srpace.enabled = True
+    d._config.srpace.wpm = 100000.0  # real schedule, tiny delays: the test only needs 2+ chunks
+    return d
+
+
+def test_a_paced_burst_that_failed_after_its_first_clause_does_not_claim_nothing_was_typed(
+    mocker, sandbox_paths
+):
+    toasts = mocker.patch("yazses.system.notify.notify")
+    inj = _FailsOnTheSecondCall()
+    d = _paced_daemon(inj)
+    d._on_hold_end()
+    assert inj.typed, "precondition: the first clause must have been typed"
+    body = toasts.call_args.args[1]
+    assert "may not have been fully typed" in body, body
+    assert "was not typed" not in body, body
+
+
+def test_a_paced_burst_that_failed_on_its_first_clause_says_nothing_was_typed(
+    mocker, sandbox_paths
+):
+    toasts = mocker.patch("yazses.system.notify.notify")
+    d = _paced_daemon(_BrokenInjector())
+    d._on_hold_end()
+    body = toasts.call_args.args[1]
+    assert "What you just said was not typed." in body, body
+
+
+def test_a_streaming_commit_failure_does_not_claim_nothing_was_typed(mocker, sandbox_paths):
+    toasts = mocker.patch("yazses.system.notify.notify")
+    d = _daemon(_WorkingInjector())
+    d._config.streaming.enabled = True
+    d._stream_engine = mocker.MagicMock()
+    d._stream_engine.commit.return_value = _LONG  # the streaming decoder's final text
+    stream = mocker.MagicMock()
+    stream.commit.side_effect = OSError("ydotoold: connect: no such file")
+    d._stream_injector = stream
+    d._on_hold_end()
+    assert stream.commit.called, "precondition: the streaming commit path must have run"
+    body = toasts.call_args.args[1]
+    assert "may not have been fully typed" in body, body
+    assert "was not typed" not in body, body
+
+
+def test_a_plain_injection_failure_still_uses_the_absolute_wording(mocker, sandbox_paths):
+    toasts = mocker.patch("yazses.system.notify.notify")
+    d = _daemon(_BrokenInjector())
+    d._on_hold_end()
+    assert "What you just said was not typed." in toasts.call_args.args[1]
