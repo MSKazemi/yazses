@@ -77,8 +77,8 @@ Remove-Item -Recurse -Force "$env:LOCALAPPDATA\yazses"
 !!! warning "If you enabled the learning corpus, this is the step that erases it"
     The corpus holds encrypted recordings and transcripts of things you dictated. It is
     off by default, but if you turned it on, `~/.local/share/yazses/` is where it lives.
-    `yazses corpus destroy` does the same thing with a confirmation prompt, if YazSes
-    still runs.
+    `yazses corpus destroy --i-mean-it` deletes just the corpus (`corpus.db` and `clips/`)
+    if YazSes still runs; it leaves `corpus.key` and the rest of that directory.
 
 ## 4. Remove the speech models
 
