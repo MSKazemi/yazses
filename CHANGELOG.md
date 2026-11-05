@@ -6,6 +6,12 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — meeting transcripts, clipboard history and scratch notes are created owner-only
+
+Under the usual umask 022 these stores were world-readable (files `0644` in `0755` folders). On Linux and macOS they are now created `0600` in `0700` folders with no readable window, and an existing looser file or folder is tightened on its next write. The clipboard history lives in the config folder, which therefore also becomes `0700`. Windows behaviour is unchanged (no ACLs are applied).
+
+What was checked: 19 tests under umask 022 and 000 (17 fail on the old code), content bytes unchanged. What was not checked: Windows ACLs, network or FAT/NTFS mounts (only a mocked `chmod` failure).
+
 ### Added — Persian text normalisation has a checkbox in Settings
 
 `[stt] persian_normalisation` could only be turned on by editing `config.toml`. It is now a
