@@ -57,6 +57,16 @@ class X11GrabHotkey:
         self._press_time: float | None = None
         self._recording = False
         self._leaked_count = 0
+        # ``_fire_hold_start`` runs on a threading.Timer thread and ``_handle_release``
+        # on the X listener thread. One lock serialises them -- including the user
+        # callbacks -- so a release that arrives while ``on_hold_start`` is still
+        # opening the microphone waits for it and then runs ``on_hold_end`` on a
+        # recorder that is really recording, instead of racing it. ``_press_gen``
+        # identifies the press a Timer belongs to, so one that fires after its press
+        # was released (``Timer.cancel`` cannot stop a callback already running) is
+        # recognised as stale and does nothing.
+        self._lock = threading.Lock()
+        self._press_gen = 0
 
     # ── public interface ──────────────────────────────────────────────────────
 
@@ -112,28 +122,34 @@ class X11GrabHotkey:
     # ── internal ──────────────────────────────────────────────────────────────
 
     def _handle_press(self) -> None:
-        if self._press_time is not None:
-            return  # already tracking a press
-        self._press_time = time.monotonic()
-        if self._produces_char:
-            self._leaked_count += 1
-        delay = self._threshold_ms / 1000.0
-        self._timer = threading.Timer(delay, self._fire_hold_start)
-        self._timer.start()
+        with self._lock:
+            if self._press_time is not None:
+                return  # already tracking a press
+            self._press_time = time.monotonic()
+            self._press_gen += 1
+            if self._produces_char:
+                self._leaked_count += 1
+            delay = self._threshold_ms / 1000.0
+            self._timer = threading.Timer(delay, self._fire_hold_start, args=(self._press_gen,))
+            self._timer.start()
 
     def _handle_release(self) -> None:
-        self._cancel_timer()
-        was = self._recording
-        self._recording = False
-        self._press_time = None
-        self._leaked_count = 0
-        if was:
-            self._on_hold_end()
+        with self._lock:
+            self._cancel_timer()
+            was = self._recording
+            self._recording = False
+            self._press_time = None
+            self._leaked_count = 0
+            if was:
+                self._on_hold_end()
 
-    def _fire_hold_start(self) -> None:
-        if self._press_time is not None and not self._recording:
-            self._recording = True
-            self._on_hold_start(self._leaked_count if self._produces_char else 0)
+    def _fire_hold_start(self, press_gen: int | None = None) -> None:
+        with self._lock:
+            if press_gen is not None and press_gen != self._press_gen:
+                return  # a stale Timer: its press was already released
+            if self._press_time is not None and not self._recording:
+                self._recording = True
+                self._on_hold_start(self._leaked_count if self._produces_char else 0)
 
     def _cancel_timer(self) -> None:
         if self._timer is not None:

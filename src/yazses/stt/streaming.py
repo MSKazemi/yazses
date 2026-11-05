@@ -56,19 +56,32 @@ class StreamingEngine:
         # Monotonic time the LocalAgreement-confirmed prefix last changed; drives
         # prefix_stable_for_ms() for Ghost Ahead endpoint anticipation.
         self._prefix_changed_at: float = self._time()
-        self._running = False
+        # One stop token per decode thread. A single shared flag cannot tell an old,
+        # asked-to-stop loop from a new one: ``start()`` after ``request_stop()`` set it
+        # True again before the old loop (still inside a decode) looked, reviving it, so
+        # two loops then decoded one buffer. A token is only ever set, never cleared, so
+        # a loop told to stop stays stopped.
+        self._stop_token: threading.Event = threading.Event()
+        self._stop_token.set()  # nothing is running yet
         self._thread: threading.Thread | None = None
+
+    @property
+    def _running(self) -> bool:
+        return not self._stop_token.is_set()
 
     def start(self) -> None:
         """Start the background decode loop."""
-        self._running = True
-        self._buffer = []
-        self._prev_hypothesis = ""
-        self._last_emitted = ""
-        self._cumulative_chars = 0
-        self._pending_partial = None
-        self._prefix_changed_at = self._time()
-        self._thread = threading.Thread(target=self._decode_loop, daemon=True)
+        self._stop_token.set()  # retire any loop still running; it can never be revived
+        token = threading.Event()
+        self._stop_token = token
+        with self._lock:
+            self._buffer = []
+            self._prev_hypothesis = ""
+            self._last_emitted = ""
+            self._cumulative_chars = 0
+            self._pending_partial = None
+            self._prefix_changed_at = self._time()
+        self._thread = threading.Thread(target=self._decode_loop, args=(token,), daemon=True)
         self._thread.start()
 
     def request_stop(self) -> None:
@@ -81,11 +94,11 @@ class StreamingEngine:
         ending a burst never blocks on an in-flight decode; the loop observes the
         flag and exits within one cycle.
         """
-        self._running = False
+        self._stop_token.set()
 
     def stop(self) -> None:
         """Stop the decode loop and wait for it to exit."""
-        self._running = False
+        self._stop_token.set()
         if self._thread:
             self._thread.join(timeout=2.0)
 
@@ -103,7 +116,7 @@ class StreamingEngine:
 
     def commit(self) -> str:
         """Stop streaming, decode final audio, return full final transcript."""
-        self._running = False
+        self._stop_token.set()
         if self._thread:
             self._thread.join(timeout=2.0)
         with self._lock:
@@ -121,7 +134,7 @@ class StreamingEngine:
             self._cumulative_chars = 0
             self._pending_partial = None
             self._prefix_changed_at = self._time()
-        self._running = False
+        self._stop_token.set()
 
     def _note_prefix_change(self) -> None:
         """Mark that the confirmed prefix just grew (resets the stability clock)."""
@@ -148,11 +161,10 @@ class StreamingEngine:
         if audio.size >= 3200:  # >= 0.2 s
             self._decode_once(audio)
 
-    def _decode_loop(self) -> None:
-        import time
-        while self._running:
-            time.sleep(self._interval_s)
-            if not self._running:
+    def _decode_loop(self, token: threading.Event) -> None:
+        while not token.is_set():
+            # ``wait`` rather than ``sleep``: a stop ends the pause at once.
+            if token.wait(self._interval_s):
                 break
             with self._lock:
                 audio = _concat(self._buffer)
@@ -160,6 +172,10 @@ class StreamingEngine:
                 continue
             hypothesis = self._decode_once(audio)
             with self._lock:
+                if token.is_set():
+                    # Stopped (or superseded by a new start()) while decoding: this
+                    # hypothesis belongs to a buffer that no longer exists.
+                    break
                 stable_prefix = _common_prefix(self._prev_hypothesis, hypothesis)
                 delta = stable_prefix[len(self._last_emitted):]
                 if delta:

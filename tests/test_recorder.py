@@ -71,3 +71,32 @@ def test_stop_swallows_close_errors(mocker, sd):
     rec._callback(np.ones((10, 1), dtype=np.float32), 10, None, None)
     out = rec.stop()              # must not raise
     assert out.shape[0] == 10
+
+
+def test_stop_during_start_closes_the_stream_it_was_opening(mocker, sd):
+    """A stop() that runs while start() is still opening the device (the X11 key-up
+    racing the hold timer) must not leave the microphone open."""
+    rec = AudioRecorder()
+    stream = _fake_stream(mocker)
+
+    def start_then_stop_arrives():
+        rec.stop()  # the key-up, landing while the device is still opening
+
+    stream.start.side_effect = start_then_stop_arrives
+    sd.InputStream.return_value = stream
+    rec.start()
+    stream.stop.assert_called_once()
+    stream.close.assert_called_once()
+    assert rec._stream is None
+    assert not rec.has_clip
+
+
+def test_start_after_start_closes_the_stream_it_would_orphan(mocker, sd):
+    first, second = _fake_stream(mocker), _fake_stream(mocker)
+    sd.InputStream.side_effect = [first, second]
+    rec = AudioRecorder()
+    rec.start()
+    rec.start()  # no stop() between them
+    first.close.assert_called_once()
+    second.close.assert_not_called()
+    assert rec._stream is second

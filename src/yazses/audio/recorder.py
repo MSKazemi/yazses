@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from collections.abc import Callable
 from typing import TYPE_CHECKING
@@ -77,6 +78,15 @@ def _ended_on_its_own(stream: object) -> bool:
         return False
 
 
+def _close_quietly(stream: object) -> None:
+    """Stop and close ``stream``, logging rather than raising (teardown must not crash)."""
+    for name in ("stop", "close"):
+        try:
+            getattr(stream, name)()
+        except Exception as exc:
+            log.warning("Error during mic stream %s: %s", name, exc)
+
+
 class AudioRecorder:
     def __init__(
         self,
@@ -109,6 +119,13 @@ class AudioRecorder:
         self._chunks: list[np.ndarray] = []
         self._n_samples = 0
         self._stream: sd.InputStream | None = None
+        # ``start()`` can run on one thread (the X11 hotkey's hold timer) while
+        # ``stop()`` runs on another (the key-up). ``_lock`` guards the ``_stream``
+        # hand-over and ``_stop_generation`` counts the ``stop()`` calls, so a ``start()``
+        # that finishes opening the device after a ``stop()`` already ran can tell and
+        # close what it opened instead of leaving a live microphone nobody owns.
+        self._lock = threading.Lock()
+        self._stop_generation = 0
 
     def _resolve_device(self) -> int | None:
         """Resolve ``self.device`` to a PortAudio index (or None = OS default)."""
@@ -138,7 +155,13 @@ class AudioRecorder:
     def start(self) -> None:
         self._chunks = []
         self._n_samples = 0
-        self._stream = None
+        with self._lock:
+            generation = self._stop_generation
+            # A stream still held here would be orphaned by the new one (a second
+            # ``start()`` with no ``stop()`` between): close it rather than leak it.
+            previous, self._stream = self._stream, None
+        if previous is not None:
+            _close_quietly(previous)
         self.stream_interrupted = False
         device_index = self._resolve_device()
         last_exc: Exception | None = None
@@ -173,7 +196,25 @@ class AudioRecorder:
                 if pause:
                     time.sleep(pause)
                 continue
-            self._stream = stream
+            with self._lock:
+                aborted = self._stop_generation != generation
+                superseded = None
+                if not aborted:
+                    superseded, self._stream = self._stream, stream
+            if superseded is not None:
+                _close_quietly(superseded)
+            if aborted:
+                # ``stop()`` ran while the device was opening (the key was released
+                # during the open). Nobody will call ``stop()`` again for this stream,
+                # so it is ours to close; otherwise the microphone stays open.
+                log.info("Recording was stopped while the microphone was opening; closing it.")
+                _close_quietly(stream)
+                with self._lock:
+                    if self._stream is None:
+                        # Callbacks that fired before the close must not become a stale clip.
+                        self._chunks = []
+                        self._n_samples = 0
+                return
             self.current_device_name = self._opened_device_name(device_index)
             log.debug("Audio recording started (device=%s)", self.current_device_name)
             return
@@ -206,8 +247,10 @@ class AudioRecorder:
 
     def stop(self) -> np.ndarray:
         interrupted = False
-        if self._stream is not None:
+        with self._lock:
+            self._stop_generation += 1
             stream, self._stream = self._stream, None
+        if stream is not None:
             interrupted = _ended_on_its_own(stream)
             if interrupted:
                 log.warning(
