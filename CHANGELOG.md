@@ -47,6 +47,11 @@ What was checked: unit tests and two daemon-level tests with fake speaker and li
 A `params` of `"x"` or `[1]` on `initialize` or `tools/call` raised `AttributeError`, printed a traceback and ended the session with status 1. The server now answers JSON-RPC `-32602` with the request id and keeps serving, and any unexpected handler error is answered with `-32603` instead of ending the loop. Falsy non-objects (`0`, `""`, `[]`, `false`) used to be treated silently as `{}` and now get `-32602`. Notifications still get no reply.
 
 What was checked: pure `handle()` and `serve()` tests and the real `mcp-server` command against a scripted client (stdout stays protocol-only, stderr empty). What was not checked: a real MCP client (Claude Desktop, Claude Code, Codex).
+### Fixed — IPC: a very deeply nested request, or a handler result JSON cannot carry, no longer kills the connection thread
+
+A request nested a hundred thousand levels deep raised `RecursionError` in the parse step, and a handler result that was a set or bytes raised `TypeError` while building the reply; either ended the connection thread with a traceback and an empty reply. The caller now gets the existing `PARSE_ERROR` or `HANDLER_FAILED` reply and the next connection works. The Windows pipe server has the same two changes. No error codes, methods or fields were added.
+
+What was checked: 14 tests over real sockets (6 fail on the old code). What was not checked: the Windows named pipe at runtime (only a source-level check), and real multi-client load.
 
 ### Added — Persian text normalisation has a checkbox in Settings
 

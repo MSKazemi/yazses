@@ -32,6 +32,8 @@ log = logging.getLogger(__name__)
 
 Handler = Callable[[Request], object]
 
+_UNSERIALISABLE_MESSAGE = "Handler result could not be serialised"
+
 
 class JsonRpcServer:
     """Threaded JSON-RPC server.
@@ -133,6 +135,11 @@ class JsonRpcServer:
             except (ValueError, UnicodeDecodeError) as exc:
                 self._send_error(conn, None, PARSE_ERROR, f"Parse error: {exc}")
                 return
+            except RecursionError:
+                # Absurdly deep nesting is valid-looking JSON that blows the
+                # parser's stack; answer it like any other unparseable frame.
+                self._send_error(conn, None, PARSE_ERROR, "Parse error: nesting too deep")
+                return
             handler = self._handlers.get(request.method)
             if handler is None:
                 self._send_error(
@@ -155,7 +162,23 @@ class JsonRpcServer:
     @staticmethod
     def _send(conn: socket.socket, response: Response) -> None:
         try:
-            conn.sendall(response.to_json().encode("utf-8") + b"\n")
+            try:
+                payload = response.to_json().encode("utf-8")
+            except (TypeError, ValueError, RecursionError):
+                # A handler returned something JSON cannot carry (set, bytes, a
+                # cycle). Answer with the existing handler-failed error instead of
+                # closing the connection with no reply; the message is fixed so the
+                # offending content is never echoed to the caller.
+                log.exception("Handler result for request id %r is not serialisable", response.id)
+                payload = (
+                    Response(
+                        id=response.id,
+                        error=RpcError(code=HANDLER_FAILED, message=_UNSERIALISABLE_MESSAGE),
+                    )
+                    .to_json()
+                    .encode("utf-8")
+                )
+            conn.sendall(payload + b"\n")
         except OSError as exc:
             log.warning("Failed to send response: %s", exc)
 
