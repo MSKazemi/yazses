@@ -578,6 +578,7 @@ def test_cli_verifies_local_hashes_when_asked(tmp_path: Path, capsys: pytest.Cap
     argv = ["--manifest", str(HCI / "model-manifest.json"), "--artifact-root", str(root)]
     assert cli.main(argv) == 1
     assert "sha256 of faster_whisper/assets/silero_vad_v6.onnx" in capsys.readouterr().out
+    (tmp_path / "e").mkdir()  # an existing root with none of the files verifies nothing, and passes
     assert cli.main(["--manifest", str(HCI / "model-manifest.json"), "--artifact-root", str(tmp_path / "e")]) == 0
 
 
@@ -614,3 +615,129 @@ def test_the_whole_check_runs_with_the_network_blocked(
     monkeypatch.setenv("HF_HUB_OFFLINE", "1")
     assert cli.main([]) == 0
     assert "valid" in capsys.readouterr().out
+
+
+# --- review round r1105d: defects found in the first version --------------------------------------
+# Each test below failed on the cherry-picked commit (aab61863) and passes with its fix.
+
+
+@pytest.mark.parametrize("suffix", ["\n", "\r\n"])
+def test_a_trailing_newline_does_not_satisfy_an_anchored_pattern(suffix: str) -> None:
+    """Python's `$` matches before a final newline; JSON Schema (ECMA 262) `$` does not."""
+    doc = fresh()
+    entry(doc, SILERO)["artifacts"][0]["sha256"] += suffix
+    assert_only(doc, "does not match")
+    doc = fresh()
+    entry(doc, GIT)["revision"]["value"] += suffix
+    assert_only(doc, "does not match")
+
+
+def test_date_pattern_accepts_ascii_digits_only() -> None:
+    """`\\d` is Unicode-aware in Python; in JSON Schema it is [0-9]."""
+    doc = fresh()
+    doc["inventory_date"] = "\u0662\u0660\u0662\u0666-\u0661\u0660-\u0662\u0668"  # Arabic-Indic
+    assert_only(doc, "inventory_date")
+
+
+def test_a_malformed_schema_pattern_is_a_schema_error_not_a_traceback() -> None:
+    with pytest.raises(mm.SchemaError):
+        mm.validate("x", {"pattern": "("}, {})
+
+
+def test_traceability_does_not_accept_a_longer_id_as_the_quoted_one() -> None:
+    doc = {"models": [{"source": {"kind": "huggingface", "location": "Systran/faster-whisper-base"}}]}
+    assert mm.check_traceability(doc, "see `Systran/faster-whisper-base.en` only")
+    assert mm.check_traceability(doc, "see Systran/faster-whisper-base-v2")
+    assert mm.check_traceability(doc, "x-Systran/faster-whisper-base")  # a longer path on the left
+    assert mm.check_traceability(doc, "see `Systran/faster-whisper-base`, and") == []
+    assert mm.check_traceability(doc, "Systran/faster-whisper-base.") == []
+    assert mm.check_traceability(doc, "(Systran/faster-whisper-base)") == []
+
+
+def test_traceability_covers_tags_and_versioned_paths() -> None:
+    doc = fresh()
+    entry(doc, SHERPA)["revision"]["value"] = "speaker-segmentation-models-invented-tag"
+    assert_only(doc, "revision.value", inventory=INVENTORY)
+
+
+@pytest.mark.parametrize("bad", ["C:evil.bin", "C:\\evil.bin", "c:/evil.bin", "\\\\host\\share\\x", "a\x00b"])
+def test_hash_relative_path_rejects_windows_drive_and_unc_forms(tmp_path: Path, bad: str) -> None:
+    """On Windows `root / 'C:evil.bin'` is drive-relative and leaves the root."""
+    report = mm.verify_local_hashes(_hash_doc(bad, b"x"), tmp_path)
+    assert len(report.errors) == 1 and "escapes the artifact root" in report.errors[0]
+    assert report.skipped == []
+
+
+@pytest.mark.parametrize("bad", ["C:evil.py", "c:/evil.py", "\\\\host\\share\\x.py", "src/a\x00b.py"])
+def test_code_ref_rejects_windows_drive_and_unc_forms(bad: str) -> None:
+    doc = fresh()
+    entry(doc, GIT)["code_refs"][0]["path"] = bad
+    assert_only(doc, "is not a file inside the repository")
+
+
+def test_hash_check_follows_a_hub_snapshot_symlink_into_blobs(tmp_path: Path) -> None:
+    """A Hugging Face snapshot is `snapshots/<rev>/file -> ../../blobs/<hash>`: the documented
+    `--artifact-root <snapshot>` use needs the link followed, so only the *named* path is confined."""
+    blobs = tmp_path / "blobs"
+    blobs.mkdir()
+    (blobs / "abc").write_bytes(b"weights")
+    snapshot = tmp_path / "snapshots" / "rev"
+    snapshot.mkdir(parents=True)
+    try:
+        (snapshot / "m.bin").symlink_to(Path("..") / ".." / "blobs" / "abc")
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks unavailable on this platform")
+    report = mm.verify_local_hashes(_hash_doc("m.bin", b"weights"), snapshot)
+    assert report.errors == [] and len(report.checked) == 1
+
+
+def test_unreadable_artifact_is_reported_not_raised(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "m.bin").write_bytes(b"weights")
+
+    def boom(_self: Path, *_a: object, **_k: object) -> None:
+        raise PermissionError("denied")
+
+    monkeypatch.setattr(Path, "open", boom)
+    report = mm.verify_local_hashes(_hash_doc("m.bin", b"weights"), tmp_path)
+    assert len(report.errors) == 1 and "cannot read" in report.errors[0]
+
+
+def test_cli_artifact_root_must_be_an_existing_directory(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A mistyped root used to verify nothing and still print 'ok' with exit 0."""
+    manifest = str(HCI / "model-manifest.json")
+    assert cli.main(["--manifest", manifest, "--artifact-root", str(tmp_path / "typo")]) == 2
+    assert "--artifact-root" in capsys.readouterr().err
+    a_file = tmp_path / "f"
+    a_file.write_text("x", encoding="utf-8")
+    assert cli.main(["--manifest", manifest, "--artifact-root", str(a_file)]) == 2
+
+
+def test_cli_reports_how_many_hashes_were_verified(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert cli.main(["--artifact-root", str(tmp_path)]) == 0
+    assert "0 hash(es) verified" in capsys.readouterr().out
+
+
+def test_cli_exit_2_on_pathologically_nested_json(tmp_path: Path) -> None:
+    deep = tmp_path / "deep.json"
+    deep.write_text("[" * 200_000, encoding="utf-8")
+    assert cli.main(["--manifest", str(deep)]) == 2
+
+
+def test_cli_exit_2_on_a_schema_with_an_invalid_pattern(tmp_path: Path) -> None:
+    bad = tmp_path / "schema.json"
+    bad.write_text(
+        '{"type": "object", "properties": {"source_document": {"pattern": "("}}}', encoding="utf-8"
+    )
+    assert cli.main(["--schema", str(bad)]) == 2
+
+
+def test_source_document_must_exist_in_the_repository() -> None:
+    doc = fresh()
+    doc["source_document"] = "design/hci-huggingface/not-there.md"
+    assert_only(doc, "source_document")

@@ -44,6 +44,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    if args.artifact_root is not None and not args.artifact_root.is_dir():
+        # A mistyped root would otherwise skip every artifact and still end in "ok".
+        print(f"error: --artifact-root {args.artifact_root} is not a directory", file=sys.stderr)
+        return 2
+
     try:
         manifest = mm.loads_strict(args.manifest.read_text(encoding="utf-8"))
         schema = mm.loads_strict(args.schema.read_text(encoding="utf-8"))
@@ -53,6 +58,9 @@ def main(argv: list[str] | None = None) -> int:
         )
     except (OSError, ValueError) as exc:  # ValueError covers JSON errors and SchemaError
         print(f"error: {exc}", file=sys.stderr)
+        return 2
+    except RecursionError:  # absurdly nested JSON, or a schema whose $ref loops
+        print("error: input is nested too deeply to check", file=sys.stderr)
         return 2
 
     report = mm.HashReport()
@@ -69,7 +77,10 @@ def main(argv: list[str] | None = None) -> int:
     if errors:
         print(f"{len(errors)} problem(s)")
         return 1
-    print(f"ok: {len(manifest['models'])} model entries valid ({args.manifest.name})")
+    summary = f"ok: {len(manifest['models'])} model entries valid ({args.manifest.name})"
+    if args.artifact_root is not None:
+        summary += f"; {len(report.checked)} hash(es) verified, {len(report.skipped)} not on disk"
+    print(summary)
     return 0
 
 

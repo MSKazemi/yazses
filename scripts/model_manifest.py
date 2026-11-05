@@ -22,12 +22,13 @@ What it checks:
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
 
 #: Licence identifiers that forbid commercial use. A model under one of these is never
@@ -102,6 +103,36 @@ def _type_ok(value: Any, name: str) -> bool:
     raise SchemaError(f"unknown type {name!r}")
 
 
+@functools.lru_cache(maxsize=None)
+def _compile_pattern(pattern: str) -> re.Pattern[str]:
+    """Compile a schema ``pattern`` with JSON Schema (ECMA 262) semantics, not Python's.
+
+    Python's ``$`` also matches just before a final newline, so ``^[0-9a-f]{64}$`` would accept
+    a hash followed by ``\\n``; ``\\Z`` does not. Python's ``\\d`` and ``\\w`` are Unicode-aware
+    (Arabic-Indic digits match ``\\d``); ``re.ASCII`` restores ``[0-9]`` and ``[A-Za-z0-9_]``.
+    A pattern that does not compile is a defect in the *schema*, never a crash.
+    """
+    out: list[str] = []
+    in_class = False
+    i = 0
+    while i < len(pattern):
+        char = pattern[i]
+        if char == "\\" and i + 1 < len(pattern):
+            out.append(pattern[i : i + 2])
+            i += 2
+            continue
+        if char == "[":
+            in_class = True
+        elif char == "]":
+            in_class = False
+        out.append("\\Z" if char == "$" and not in_class else char)
+        i += 1
+    try:
+        return re.compile("".join(out), re.ASCII)
+    except re.error as exc:
+        raise SchemaError(f"invalid pattern {pattern!r}: {exc}") from exc
+
+
 def _same(a: Any, b: Any) -> bool:
     """Equality that does not let ``True == 1`` through."""
     return type(a) is type(b) and a == b
@@ -144,7 +175,7 @@ def validate(instance: Any, schema: Any, root: dict[str, Any], path: str = "$") 
     if isinstance(instance, str):
         if "minLength" in schema and len(instance) < schema["minLength"]:
             errors.append(f"{path}: shorter than {schema['minLength']} character(s)")
-        if "pattern" in schema and re.search(schema["pattern"], instance) is None:
+        if "pattern" in schema and _compile_pattern(schema["pattern"]).search(instance) is None:
             errors.append(f"{path}: {instance!r} does not match {schema['pattern']!r}")
     if (
         "minimum" in schema
@@ -206,12 +237,27 @@ def _models(manifest: Any) -> list[tuple[int, dict[str, Any]]]:
     return [(i, m) for i, m in enumerate(raw) if isinstance(m, dict)]
 
 
+def _is_plain_relative(rel: str) -> bool:
+    """True if ``rel`` is a non-empty relative path made of ordinary names on every platform.
+
+    Judged with both the POSIX and the Windows rules, whatever OS this runs on, so a manifest
+    that is clean on Linux cannot hide a path that leaves the root on Windows: a drive
+    (``C:x`` is drive-*relative*: it joins to ``C:`` plus that drive's current directory),
+    a UNC or rooted path, a backslash, a ``..`` component, or a NUL byte.
+    """
+    if not rel or "\x00" in rel or "\\" in rel:
+        return False
+    posix, windows = PurePosixPath(rel), PureWindowsPath(rel)
+    if posix.is_absolute() or windows.is_absolute() or windows.drive or windows.root:
+        return False
+    return bool(posix.parts) and ".." not in posix.parts and ".." not in windows.parts
+
+
 def _safe_repo_file(repo_root: Path, rel: str) -> Path | None:
     """Resolve ``rel`` under ``repo_root`` or return None if it is absolute, escapes, or is no file."""
-    posix = PurePosixPath(rel)
-    if posix.is_absolute() or ".." in posix.parts or "\\" in rel or not posix.parts:
+    if not _is_plain_relative(rel):
         return None
-    target = (repo_root / Path(*posix.parts)).resolve()
+    target = (repo_root / Path(*PurePosixPath(rel).parts)).resolve()
     if repo_root.resolve() not in target.parents or not target.is_file():
         return None
     return target
@@ -222,6 +268,14 @@ def check_semantics(manifest: Any, repo_root: Path | None = None) -> list[str]:
     errors: list[str] = []
     models = _models(manifest)
     line_counts: dict[Path, int] = {}  # one read per file per call
+
+    source_document = manifest.get("source_document") if isinstance(manifest, dict) else None
+    if (
+        repo_root is not None
+        and isinstance(source_document, str)
+        and _safe_repo_file(repo_root, source_document) is None
+    ):
+        errors.append(f"source_document: {source_document!r} is not a file inside the repository")
 
     seen: dict[str, int] = {}
     for index, model in models:
@@ -296,7 +350,9 @@ def _traceable_values(manifest: Any) -> Iterable[tuple[str, str]]:
             if isinstance(source.get("requested_as"), str):
                 yield f"{where}.source.requested_as", source["requested_as"]
         revision = model.get("revision")
-        if isinstance(revision, dict) and revision.get("kind") == "git-commit":
+        # Every known revision, not only a git commit: a tag, a versioned path or a package
+        # version is a claim about what the inventory read, and is as inventable as a commit.
+        if isinstance(revision, dict) and revision.get("kind") != "unknown":
             if isinstance(revision.get("value"), str):
                 yield f"{where}.revision.value", revision["value"]
         artifacts = model.get("artifacts")
@@ -314,8 +370,23 @@ def check_traceability(manifest: Any, inventory_text: str) -> list[str]:
     return [
         f"{where}: {value!r} does not appear in the inventory document"
         for where, value in _traceable_values(manifest)
-        if value.lower() not in haystack
+        if not _quoted(value.lower(), haystack, hub_id=".source." in where)
     ]
+
+
+def _quoted(value: str, haystack: str, *, hub_id: bool) -> bool:
+    """Is ``value`` in ``haystack`` as a whole token, not merely as a prefix or tail of another?
+
+    A bare substring test accepts ``Systran/faster-whisper-tiny`` because the inventory quotes
+    ``Systran/faster-whisper-tiny.en``. A Hub id may not continue into a longer id or path
+    (``-x``, ``.en``, ``/x``) nor sit at the end of one; any other value (hash, tag, versioned
+    path, which may sit inside a URL) only may not be glued to word characters or ``-``.
+    """
+    if hub_id:
+        pattern = r"(?<![\w./-])" + re.escape(value) + r"(?![\w-]|\.\w|/\w)"
+    else:
+        pattern = r"(?<![\w-])" + re.escape(value) + r"(?![\w-])"
+    return re.search(pattern, haystack, re.ASCII) is not None
 
 
 # --- local hashes -------------------------------------------------------------------------
@@ -356,15 +427,21 @@ def verify_local_hashes(manifest: Any, artifact_root: Path) -> HashReport:
             if not isinstance(rel, str) or not isinstance(expected, str):
                 continue
             where = f"models[{index}].artifacts[{a_index}]"
-            posix = PurePosixPath(rel)
-            if posix.is_absolute() or ".." in posix.parts or "\\" in rel:
+            if not _is_plain_relative(rel):
                 report.errors.append(f"{where}.relative_path: {rel!r} escapes the artifact root")
                 continue
-            target = artifact_root / Path(*posix.parts)
+            target = artifact_root / Path(*PurePosixPath(rel).parts)
             if not target.is_file():
                 report.skipped.append(f"{where}: {rel} is not under the artifact root")
                 continue
-            actual, size = _sha256_file(target)
+            # Symlinks are followed on purpose: a Hugging Face snapshot directory is made of
+            # links into ../../blobs, so containment of the *resolved* path would reject the
+            # documented use. The path named by the manifest is what is confined (above).
+            try:
+                actual, size = _sha256_file(target)
+            except OSError as exc:
+                report.errors.append(f"{where}: cannot read {rel}: {exc.strerror or exc}")
+                continue
             if actual != expected:
                 report.errors.append(f"{where}: sha256 of {rel} is {actual}, manifest says {expected}")
             elif isinstance(artifact.get("size_bytes"), int) and artifact["size_bytes"] != size:
