@@ -290,24 +290,33 @@ def test_a_home_directory_containing_a_space_is_stripped_whole(mocker, monkeypat
     assert "Jane" not in str(caught.value) and "Doe" not in str(caught.value)
 
 
-def test_golden_model_unavailable_message_is_byte_identical_to_the_base():
-    """Recorded from the base commit (a241a77b) for `OSError('boom')` / `base.en`."""
+def test_golden_model_unavailable_message_pins_the_wording():
+    """Recorded for `OSError('boom')` / `base.en`.
+
+    Re-recorded in r1105e: every fix line now ends with the restart a running (error
+    state) daemon needs, and the first line carries the whole answer for the tray
+    tooltip. The cause, the three routes and the closing sentence are unchanged.
+    """
     expected = (
+        "Speech model 'base.en' missing - run: yazses model download base.en, then: "
+        "yazses restart\n\n"
         "The speech-to-text model 'base.en' is not on this machine, and it could not be "
         "downloaded.\n\n  Cause: boom\n\nYazSes transcribes entirely offline, but the model "
         "itself has to arrive here once. Any one of these fixes it:\n\n"
-        "  1. Download it deliberately:   yazses model download base.en\n"
+        "  1. Download it deliberately:   yazses model download base.en, then: yazses restart\n"
         "  2. Allow YazSes (or huggingface.co) through your firewall, then: yazses restart\n"
         "  3. Fetch it by hand on any machine with network access and copy it into the "
         "cache:\n"
         f"       from: {whisper_model_url('base.en')}\n"
-        f"       into: {hub_cache_dir()}\n\n"
-        "Dictation stays unavailable until the model is present. Everything that does not "
-        "transcribe — doctor, config, the tray — keeps working."
+        f"       into: {hub_cache_dir()}\n"
+        "     then: yazses restart\n\n"
+        "Dictation stays unavailable until the model is present and the daemon has been "
+        "restarted (a running daemon does not retry on its own). Everything that does not "
+        "transcribe \u2014 doctor, config, the tray \u2014 keeps working."
     )
     assert model_unavailable_message("base.en", OSError("boom")) == expected
     assert ModelUnavailableError("base.en", OSError("boom")).notification() == (
         "YazSes cannot start dictation",
         "The speech model 'base.en' is missing and could not be downloaded. "
-        "Run: yazses model download base.en",
+        "Run: yazses model download base.en, then: yazses restart",
     )
