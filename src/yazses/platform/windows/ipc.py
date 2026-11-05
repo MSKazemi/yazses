@@ -159,6 +159,9 @@ class NamedPipeIpcServer:
             except (ValueError, UnicodeDecodeError) as exc:
                 self._send_error(handle, None, PARSE_ERROR, f"Parse error: {exc}")
                 return
+            except RecursionError:
+                self._send_error(handle, None, PARSE_ERROR, "Parse error: nesting too deep")
+                return
             handler = self._handlers.get(request.method)
             if handler is None:
                 self._send_error(handle, request.id, METHOD_NOT_FOUND, f"Unknown method: {request.method!r}")
@@ -184,7 +187,23 @@ class NamedPipeIpcServer:
         try:
             import win32file  # type: ignore[import-not-found]
 
-            win32file.WriteFile(handle, response.to_json().encode("utf-8") + b"\n")
+            try:
+                payload = response.to_json().encode("utf-8")
+            except (TypeError, ValueError, RecursionError):
+                # Mirror of JsonRpcServer._send: an unserialisable handler result
+                # becomes the existing HANDLER_FAILED reply with a fixed message.
+                log.exception("Handler result for request id %r is not serialisable", response.id)
+                payload = (
+                    Response(
+                        id=response.id,
+                        error=RpcError(
+                            code=HANDLER_FAILED, message="Handler result could not be serialised"
+                        ),
+                    )
+                    .to_json()
+                    .encode("utf-8")
+                )
+            win32file.WriteFile(handle, payload + b"\n")
         except Exception:
             log.warning("Failed to write response", exc_info=True)
 
