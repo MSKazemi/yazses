@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from yazses.ipc.client import IpcCallError
+from yazses.ipc.client import IpcTimeoutError as _SharedIpcTimeoutError
 from yazses.ipc.client import IpcUnreachableError as _SharedIpcUnreachableError
 from yazses.ipc.protocol import (
     HANDLER_FAILED,
@@ -211,6 +212,10 @@ class NamedPipeIpcServer:
         self._send(handle, Response(id=request_id, error=RpcError(code=code, message=message)))
 
 
+#: WaitNamedPipe's "timed out" (ERROR_SEM_TIMEOUT).
+_ERROR_SEM_TIMEOUT = 121
+
+
 class IpcUnreachableError(_SharedIpcUnreachableError):
     """The daemon's named pipe isn't answering.
 
@@ -237,6 +242,10 @@ class IpcUnreachableError(_SharedIpcUnreachableError):
         self.pipe_name = pipe_name
 
 
+class IpcTimeoutError(IpcUnreachableError, _SharedIpcTimeoutError):
+    """The pipe was there but no answer came within the wait (see the shared class)."""
+
+
 class NamedPipeIpcClient:
     """JSON-RPC client over a Windows named pipe."""
 
@@ -256,8 +265,11 @@ class NamedPipeIpcClient:
         except Exception:
             return False
 
-    def call(self, method: str, **params: Any) -> Any:
+    def call(self, method: str, *, wait_s: float | None = None, **params: Any) -> Any:
         """Send one request and read one response, bounded by ``timeout_s``.
+
+        ``wait_s`` overrides that bound for this call only (the same keyword as the
+        Unix client; ``timeout_s`` stays free as a daemon-side parameter).
 
         The timeout is not decoration: the Unix client applies it with
         ``sock.settimeout`` (``ipc/client.py``), but this one merely *stored*
@@ -274,11 +286,17 @@ class NamedPipeIpcClient:
         import win32pipe  # type: ignore[import-not-found]
 
         request = Request(method=method, params=params, id=1)
+        timeout_s = self._timeout_s if wait_s is None else wait_s
         # Bound the connect, too — CreateFile on a pipe whose instances are all
         # busy blocks until one frees up.
         try:
-            win32pipe.WaitNamedPipe(self._pipe_name, max(1, int(self._timeout_s * 1000)))
+            win32pipe.WaitNamedPipe(self._pipe_name, max(1, int(timeout_s * 1000)))
         except pywintypes.error as exc:
+            if getattr(exc, "winerror", None) == _ERROR_SEM_TIMEOUT:
+                # Every instance busy for the whole wait: the daemon is there.
+                timeout_err = IpcTimeoutError(self._pipe_name, cause=exc)
+                timeout_err.timeout_s = timeout_s
+                raise timeout_err from exc
             raise IpcUnreachableError(self._pipe_name, cause=exc) from exc
         try:
             handle = win32file.CreateFile(
@@ -310,14 +328,16 @@ class NamedPipeIpcClient:
 
         worker = threading.Thread(target=_exchange, name="ipc-call", daemon=True)
         worker.start()
-        worker.join(self._timeout_s)
+        worker.join(timeout_s)
         timed_out = worker.is_alive()
         _close_quietly(win32file, handle)
         if timed_out:
-            raise IpcUnreachableError(
+            timeout_err = IpcTimeoutError(
                 self._pipe_name,
-                cause=TimeoutError(f"no response within {self._timeout_s}s"),
+                cause=TimeoutError(f"no response within {timeout_s}s"),
             )
+            timeout_err.timeout_s = timeout_s
+            raise timeout_err
         if "exc" in outcome:
             raise IpcUnreachableError(self._pipe_name, cause=outcome["exc"])
 

@@ -10,7 +10,7 @@ import typer
 
 from yazses import branding
 from yazses.hotkeys.names import SETTABLE_HOTKEYS, SUPPORTED_HOTKEYS, canonical
-from yazses.ipc.client import IpcCallError, IpcUnreachableError
+from yazses.ipc.client import IpcCallError, IpcTimeoutError, IpcUnreachableError
 from yazses.platform import get_paths, get_platform
 from yazses.system.logtail import tail_records
 from yazses.system.outcomes import describe_outcomes
@@ -3627,6 +3627,10 @@ def staged_undo() -> None:
     typer.echo((info.get("pending") or {}).get("summary") or "Removed.")
 
 
+#: How long `yazses send-to` waits for the daemon to finish the hand-off (seconds).
+_SEND_TO_WAIT_S = 12.0
+
+
 def _send_to_call(client: str) -> dict | None:
     """Ask the daemon to hand its staged buffer or last burst to *client* (ADR-031)."""
     platform = get_platform()
@@ -3638,7 +3642,19 @@ def _send_to_call(client: str) -> dict | None:
         return None
     client_ipc = platform.ipc_client_factory(platform.paths.ipc_socket)
     try:
-        return client_ipc.call("send_to", target=client)
+        # The hand-off itself can outlast the client's default 2 s (the desktop app's
+        # link scheme is resolved through xdg-open or a portal, which can take several
+        # seconds), so wait longer than that for this one call.
+        return client_ipc.call("send_to", wait_s=_SEND_TO_WAIT_S, target=client)
+    except IpcTimeoutError:
+        # Slow is not absent: the daemon may already have opened the app and
+        # emptied the staged buffer, so "starting up, try again" would invite a
+        # second hand-off of text that is already gone.
+        typer.echo(
+            f"YazSes is running but did not answer within {_SEND_TO_WAIT_S:g} s. The app "
+            "may still have opened — check before running this again."
+        )
+        return None
     except IpcUnreachableError:
         typer.echo("YazSes is starting up — try again in a moment.")
         return None
