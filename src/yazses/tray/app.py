@@ -62,7 +62,24 @@ RELAUNCH_COOLDOWN_S = 15.0
 # Shown in the tooltip when the poll thread ends, so the icon says so rather than
 # freezing on whatever it last drew. Fixed strings: nothing from the exception goes in.
 _GIVE_UP_REASON = "daemon did not start — run `yazses start`"
-_POLLER_CRASH_REASON = "tray status updates stopped — restart the tray"
+_POLLER_CRASH_REASON = "tray status updates failed — retrying"
+# Both reasons above are shown on an ERROR icon, and neither ends the poll loop: the tooltip
+# tells the user to run `yazses start`, and when they do the icon has to follow the daemon
+# back to its real state. So the loop keeps looking, just slowly -- it is not asking a
+# healthy daemon anything, and a tray whose daemon is gone should cost nothing.
+_GIVE_UP_POLL_INTERVAL_S = 5.0
+# A poll pass that raised is retried after 1 s, doubling to this cap, and the backoff resets
+# on the first pass that succeeds. Bounded so a persistent fault is neither a tight error
+# loop nor a tray that takes a minute to notice the fault is gone.
+_CRASH_BACKOFF_START_S = 1.0
+_CRASH_BACKOFF_MAX_S = 10.0
+
+
+def crash_backoff_s(consecutive_crashes: int) -> float:
+    """Seconds to wait after the ``consecutive_crashes``-th poll pass in a row raised. Pure."""
+    if consecutive_crashes <= 1:
+        return _CRASH_BACKOFF_START_S
+    return min(_CRASH_BACKOFF_MAX_S, _CRASH_BACKOFF_START_S * 2.0 ** (consecutive_crashes - 1))
 
 
 @dataclass(frozen=True)
@@ -251,6 +268,8 @@ def run() -> None:
         unreachable_since: float | None = None
         relaunches = 0
         last_relaunch: float | None = None
+        gave_up_logged = False
+        crashes = 0
         while not stop_event.is_set():
             interval = _POLL_INTERVAL_S
             if update_watch.should_close():
@@ -265,6 +284,7 @@ def run() -> None:
                 info = client.call("status")
                 ever_connected = True
                 unreachable_since = None
+                gave_up_logged = False
                 state = _state_from_string(info.get("state"))
                 tray.set_state(
                     TrayModel(
@@ -331,6 +351,7 @@ def run() -> None:
                 _show_notifications(tray, info.get("notifications"))
                 if str(info.get("state") or "") in _RECORDING_STATES:
                     interval = _FAST_POLL_INTERVAL_S  # keep the icon live during a burst
+                crashes = 0  # a whole pass worked: the next fault starts a fresh backoff
             except IpcUnreachableError:
                 now = time.monotonic()
                 if unreachable_since is None:
@@ -353,15 +374,20 @@ def run() -> None:
                     tray.stop()
                     return
                 if decision.give_up:
-                    log.warning("Daemon never became reachable; stopping poll.")
+                    if not gave_up_logged:
+                        log.warning("Daemon never became reachable; polling slowly.")
+                        gave_up_logged = True
                     # The icon would otherwise stay on its last (idle) state for as long
-                    # as this process lives -- and it keeps the single-instance lock.
+                    # as this process lives -- and it keeps the single-instance lock. The
+                    # tooltip says to run `yazses start`; once the user has, the next
+                    # pass reaches the daemon and the icon follows it, so keep looking.
                     tray.set_state(
                         TrayModel(
                             state=TrayState.ERROR, last_error=_GIVE_UP_REASON, model=""
                         )
                     )
-                    return
+                    stop_event.wait(_GIVE_UP_POLL_INTERVAL_S)
+                    continue
                 tray.set_state(
                     # `model=""`: no daemon answered, so no model is known. The
                     # dataclass default ("tiny.en") would otherwise be shown as the
@@ -389,7 +415,11 @@ def run() -> None:
                     TrayModel(state=TrayState.ERROR, last_error=str(exc), model="")
                 )
             except Exception:
-                log.exception("Tray poller crashed")
+                crashes += 1
+                if crashes == 1:
+                    log.exception("Tray poller pass failed; retrying")
+                else:
+                    log.debug("Tray poller pass failed again (%d)", crashes, exc_info=True)
                 # A fixed reason, never the exception text: that can hold paths.
                 try:
                     tray.set_state(
@@ -399,7 +429,8 @@ def run() -> None:
                     )
                 except Exception:
                     log.exception("Could not show the poller crash on the tray")
-                return
+                # Never lie "idle" and never spin: ERROR stays up, the loop backs off.
+                interval = crash_backoff_s(crashes)
             stop_event.wait(interval)
 
     poll_thread = threading.Thread(target=_poller, name="tray-poller", daemon=True)

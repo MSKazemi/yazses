@@ -90,16 +90,120 @@ def _drive(
     return tray.states
 
 
-# ---- the two silent exits ----------------------------------------------------------
+# ---- the two exits that used to be silent, and are no longer exits at all ---------------
+#
+# Giving up and crashing both used to `return`: first with the icon frozen on idle, then
+# (after the fix) on ERROR -- but the poller was still dead, so once the user did what the
+# tooltip said (`yazses start`) the icon stayed ERROR for as long as the tray lived. Both
+# now show ERROR and keep polling, slowly, so the icon recovers to the real state.
+
+
+class _RecordingEvent(threading.Event):
+    """`threading.Event` whose timed waits are recorded and do not sleep."""
+
+    waits: list[float] = []  # noqa: RUF012 - replaced per test by `_drive_script`
+
+    def wait(self, timeout: float | None = None) -> bool:
+        if timeout is None:
+            return super().wait()
+        self.waits.append(timeout)
+        return self.is_set()
+
+
+class _ScriptedClient:
+    """Plays `script` for `status` calls, then snapshots how far the poller got and parks."""
+
+    def __init__(self, script: list[object], tray: _FakeTray, waits: list[float]) -> None:
+        self._script = list(script)
+        self._tray = tray
+        self._waits = waits
+        self.exhausted = threading.Event()
+        self.release = threading.Event()
+        self.states_seen = 0
+        self.waits_seen = 0
+
+    def call(self, method: str, *args, **kwargs):  # noqa: ANN002, ANN003, ANN201
+        if method != "status":
+            self.release.set()  # `shutdown` from on_quit: let the parked poller go
+            return {}
+        if not self._script:
+            if not self.exhausted.is_set():
+                self.states_seen = len(self._tray.states)
+                self.waits_seen = len(self._waits)
+                self.exhausted.set()
+            self.release.wait(5.0)
+            raise IpcUnreachableError("parked")
+        item = self._script.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+
+class _ScriptTray(_FakeTray):
+    client: _ScriptedClient
+
+    def run(self, on_quit) -> None:  # noqa: ANN001
+        assert self.client.exhausted.wait(5.0), "the poller stopped before the script ended"
+        on_quit()
+        for t in threading.enumerate():
+            if t.name == "tray-poller":
+                t.join(5.0)
+
+
+def _drive_script(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    script: list[object],
+    *,
+    boot_timeout: float,
+) -> tuple[list[TrayModel], list[float]]:
+    """Run the real `run()` against a scripted daemon; no sleeping, no desktop.
+
+    Returns the tray states and the timed waits the poller made *while the script was
+    playing*. A poller that exited early never reaches the end of the script, and the
+    tray's `run` then fails its "stopped before the script ended" assert.
+    """
+    waits: list[float] = []
+
+    class _Event(_RecordingEvent):
+        pass
+
+    _Event.waits = waits
+    tray = _ScriptTray()
+    client = _ScriptedClient(script, tray, waits)
+    tray.client = client
+    plat = types.SimpleNamespace(
+        name="fake",
+        tray_factory=lambda: tray,
+        ipc_client_factory=lambda _path: client,
+        paths=types.SimpleNamespace(data_dir=tmp_path, ipc_socket=tmp_path / "s"),
+        lifecycle=types.SimpleNamespace(
+            is_running=lambda: False, start_daemon_detached=lambda: None
+        ),
+        update_launcher=None,
+    )
+    monkeypatch.setattr(app, "get_platform", lambda: plat)
+    monkeypatch.setattr(app, "_DAEMON_BOOT_TIMEOUT_S", boot_timeout)
+    monkeypatch.setattr(app, "start_addon_refetch", lambda *a, **k: None)
+    # Only this module sees the recording Event: `threading` itself is untouched.
+    monkeypatch.setattr(
+        app,
+        "threading",
+        types.SimpleNamespace(Event=_Event, Thread=threading.Thread),
+    )
+    app.run()
+    return tray.states[: client.states_seen], waits[: client.waits_seen]
+
+
+_IDLE = {"state": "idle", "hotkey": "f9", "model": "tiny.en", "uptime_s": 3.0}
 
 
 def test_daemon_that_never_boots_ends_on_an_error_icon(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """Give-up used to `return` with no set_state: the icon stayed idle blue."""
-    tray = _FakeTray()
-    states = _drive(
-        monkeypatch, tmp_path, tray, _Client(IpcUnreachableError("no socket")), boot_timeout=0.0
+    states, _waits = _drive_script(
+        monkeypatch, tmp_path, [IpcUnreachableError("no socket")], boot_timeout=0.0
     )
 
     assert states, "the poller gave up without telling the tray anything"
@@ -110,16 +214,30 @@ def test_daemon_that_never_boots_ends_on_an_error_icon(
     assert last.last_error in tip
 
 
+def test_after_giving_up_the_tray_keeps_polling_and_recovers_when_the_daemon_starts(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The tooltip says `yazses start`; once the user has, the icon must follow the daemon."""
+    script: list[object] = [IpcUnreachableError("no socket")] * 3 + [_IDLE]
+    states, waits = _drive_script(monkeypatch, tmp_path, script, boot_timeout=0.0)
+
+    assert [m.state for m in states] == [TrayState.ERROR] * 3 + [TrayState.IDLE]
+    assert states[0].last_error == app._GIVE_UP_REASON
+    assert states[-1].model == "tiny.en" and states[-1].last_error is None
+    # Slow and bounded: 5-10 s between looks while there is no daemon, never a tight loop.
+    give_up_waits = waits[:3]
+    assert give_up_waits == [app._GIVE_UP_POLL_INTERVAL_S] * 3
+    assert 5.0 <= app._GIVE_UP_POLL_INTERVAL_S <= 10.0
+
+
 def test_a_crashed_poller_ends_on_an_error_icon(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """The crash handler used to `return` with no set_state, so the last icon stayed."""
-    tray = _FakeTray()
-    states = _drive(
+    states, _waits = _drive_script(
         monkeypatch,
         tmp_path,
-        tray,
-        _Client(RuntimeError("secret /home/u/x path")),
+        [RuntimeError("secret /home/u/x path")],
         boot_timeout=30.0,
     )
 
@@ -129,6 +247,28 @@ def test_a_crashed_poller_ends_on_an_error_icon(
     assert last.last_error
     # The exception text can hold paths or device names; the tray shows a fixed reason.
     assert "secret" not in last.last_error and "/home" not in last.last_error
+
+
+def test_a_crashed_pass_backs_off_never_shows_idle_and_recovers(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    script: list[object] = [RuntimeError("boom")] * 5 + [_IDLE, RuntimeError("again"), _IDLE]
+    states, waits = _drive_script(monkeypatch, tmp_path, script, boot_timeout=30.0)
+
+    kinds = [m.state for m in states]
+    assert kinds == (
+        [TrayState.ERROR] * 5 + [TrayState.IDLE, TrayState.ERROR, TrayState.IDLE]
+    )  # ERROR is never replaced by anything but the real state
+    # 1, 2, 4, 8, 10 (capped), then a successful pass resets the backoff to 1 again.
+    crash_waits = [w for w in waits if w != app._POLL_INTERVAL_S]
+    assert crash_waits == [1.0, 2.0, 4.0, 8.0, 10.0, 1.0]
+
+
+def test_crash_backoff_is_bounded_and_monotonic() -> None:
+    seq = [app.crash_backoff_s(n) for n in range(1, 40)]
+    assert seq[0] == 1.0 and max(seq) == 10.0
+    assert seq == sorted(seq)
+    assert app.crash_backoff_s(0) == 1.0  # defensive: never a zero-wait spin
 
 
 def test_a_daemon_still_booting_shows_loading_not_idle(
