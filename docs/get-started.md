@@ -76,7 +76,8 @@ build. The [validation matrix](validation-matrix.md) shows what testers have con
     ```
 
     On a first run most rows read `[OK]`, and a few `[WARN]` rows are normal: the daemon is not
-    running yet, the speech model is not downloaded yet (it is fetched on first dictation), and
+    running yet, the speech model is not downloaded yet (it is fetched the first time the
+    daemon starts), and
     there is no config file yet (built-in defaults apply). A healthy first run ends with a
     `Good to go` line that counts the optional warnings. A `[FAIL]` row is a real problem; most
     rows name their fix, and `yazses quickstart` (below) covers the rest. If doctor reports that you were added
@@ -148,10 +149,12 @@ The text appears in the focused app one to two seconds after you let go (a media
 modifier you rarely use, so it does not interfere with normal typing. You can also
 [choose a different key](how-to/change-hotkey.md).
 
-!!! tip "The first dictation downloads the speech model"
-    The first time YazSes transcribes, it downloads the Whisper model once. After that,
-    dictation never uses the network. To set up a machine that is never online, see
-    [running fully air-gapped](how-to/air-gapped.md).
+!!! tip "The first start downloads the speech model"
+    The first time the YazSes daemon starts, it downloads the Whisper model once. This is
+    the one step that needs the network, and a notification says so. The hotkey does not
+    respond until the download finishes, and dictation starts working as soon as it does.
+    After that, dictation never uses the network. To set up a machine that is never online,
+    see [running fully air-gapped](how-to/air-gapped.md).
 
 ## What to try next
 

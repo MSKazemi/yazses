@@ -92,6 +92,11 @@ def test_model_check_warns_when_absent(tmp_path):
     assert status == "WARN"
     assert "medium.en" in detail
     assert "download" in detail.lower() or "first" in detail.lower()
+    # The fetch happens at daemon start (Daemon._build_pipeline), before the hotkey is
+    # hooked -- not at the first dictation -- and the remedy command stays named.
+    assert "first dictation" not in detail
+    assert "the first time the daemon starts" in detail
+    assert "yazses model download medium.en" in detail
 
 
 def test_model_check_ok_for_local_path(tmp_path):

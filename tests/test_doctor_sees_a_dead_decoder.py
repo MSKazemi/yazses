@@ -1,7 +1,8 @@
 """`yazses doctor` must notice that nothing can be transcribed.
 
 On a real Windows host on 2026-08-23 doctor reported exactly two problems, and neither
-of them was that dictation could never work there. It printed
+of them was that dictation could never work there. It printed (the wording then; the row
+now says "the first time the daemon starts")
 
     [WARN] STT model: base.en not downloaded — fetched automatically on first dictation
 
@@ -125,9 +126,9 @@ def test_run_doctor_actually_runs_the_check() -> None:
 def test_the_decoder_row_is_reported_before_the_model_row() -> None:
     """Read order is fix order, and these two rows are easy to confuse.
 
-    Both talk about STT and the model row is reassuring -- "fetched automatically on
-    first dictation". Printing it above a dead decoder is how that Windows output
-    managed to look nearly healthy while nothing could be transcribed.
+    Both talk about STT and the model row is reassuring -- "fetched automatically the
+    first time the daemon starts". Printing it above a dead decoder is how that Windows
+    output managed to look nearly healthy while nothing could be transcribed.
     """
     import ast
     import inspect
