@@ -113,6 +113,9 @@ The models, benchmarks and low-RAM pages gave same-laptop latency figures that d
 ### Added — research: small and quantized speech models and runtimes ([#794](https://github.com/MSKazemi/yazses/issues/794))
 
 `design/research/2026-11-05-small-quantized-asr-models-and-gguf-runtimes.md` lists candidates not already in the runtime-provenance note, the gaps that stop a fair comparison under the proposed ADR-033, and options for the owner. No measurements and no default changes. Every upstream page was read as a text summary; some were not read at all.
+### Added — research: local accelerator backends for offline speech recognition ([#795](https://github.com/MSKazemi/yazses/issues/795))
+
+`design/research/2026-11-05-local-accelerator-backends-for-offline-asr.md` gives a cited backend × OS × runtime support matrix (51 of 72 cells cite a source), the offline and driver constraints, and what `yazses status` does not report today. It recommends deferring all accelerators. No speed or power claim was tested.
 
 ### Added — Persian text normalisation has a checkbox in Settings
 
