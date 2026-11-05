@@ -116,6 +116,9 @@ The models, benchmarks and low-RAM pages gave same-laptop latency figures that d
 ### Added — research: local accelerator backends for offline speech recognition ([#795](https://github.com/MSKazemi/yazses/issues/795))
 
 `design/research/2026-11-05-local-accelerator-backends-for-offline-asr.md` gives a cited backend × OS × runtime support matrix (51 of 72 cells cite a source), the offline and driver constraints, and what `yazses status` does not report today. It recommends deferring all accelerators. No speed or power claim was tested.
+### Added — research: multilingual, accent and code-switch evaluation design ([#797](https://github.com/MSKazemi/yazses/issues/797))
+
+`design/research/2026-11-05-multilingual-accent-and-code-switch-evaluation-design.md` audits public evaluation sets and their licences, records the training-data leakage risk per engine family, the per-language normalisation traps and the failure accounting for unsupported languages. No results; no public Tamil or Persian-English code-switch set was found.
 
 ### Added — Persian text normalisation has a checkbox in Settings
 
