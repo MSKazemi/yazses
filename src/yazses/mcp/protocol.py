@@ -24,7 +24,12 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from yazses.ipc.protocol import INVALID_REQUEST, JSONRPC_VERSION, METHOD_NOT_FOUND
+from yazses.ipc.protocol import (
+    INVALID_PARAMS,
+    INVALID_REQUEST,
+    JSONRPC_VERSION,
+    METHOD_NOT_FOUND,
+)
 
 #: What this server implements. A client that asks for another revision is
 #: answered in its own — it cannot downgrade after the handshake, and the three
@@ -32,6 +37,9 @@ from yazses.ipc.protocol import INVALID_REQUEST, JSONRPC_VERSION, METHOD_NOT_FOU
 PROTOCOL_VERSION = "2025-06-18"
 
 SERVER_INFO = {"name": "yazses", "title": "YazSes"}
+
+#: Fixed text: a client's malformed value is never reflected back in the error.
+_INVALID_PARAMS_MESSAGE = "Invalid params: params must be an object."
 
 
 @dataclass(frozen=True)
@@ -59,6 +67,18 @@ def _ok(rid: Any, result: dict[str, Any]) -> dict[str, Any]:
     return {"jsonrpc": JSONRPC_VERSION, "id": rid, "result": result}
 
 
+def _params_of(request: dict[str, Any]) -> dict[str, Any] | None:
+    """The request's ``params`` as an object, or ``None`` when it is not one.
+
+    Absent and ``null`` both mean "no parameters" and give ``{}``. Any other
+    non-object value (``"x"``, ``1``, ``[1]``, ``[]``) is the caller's bug.
+    """
+    raw = request.get("params")
+    if raw is None:
+        return {}
+    return raw if isinstance(raw, dict) else None
+
+
 def handle(request: dict[str, Any], tools: tuple[ToolSpec, ...]) -> dict[str, Any] | None:
     """Answer one MCP request, or ``None`` when it is a notification.
 
@@ -75,7 +95,9 @@ def handle(request: dict[str, Any], tools: tuple[ToolSpec, ...]) -> dict[str, An
         return None  # a notification — acknowledged by saying nothing
 
     if method == "initialize":
-        params = request.get("params") or {}
+        params = _params_of(request)
+        if params is None:
+            return _error(rid, INVALID_PARAMS, _INVALID_PARAMS_MESSAGE)
         return _ok(rid, {
             # Echo the client's revision. Telling it a newer one leaves it unable
             # to adapt, since the handshake is already over by the time it reads
@@ -92,7 +114,9 @@ def handle(request: dict[str, Any], tools: tuple[ToolSpec, ...]) -> dict[str, An
         ]})
 
     if method == "tools/call":
-        params = request.get("params") or {}
+        params = _params_of(request)
+        if params is None:
+            return _error(rid, INVALID_PARAMS, _INVALID_PARAMS_MESSAGE)
         name = params.get("name")
         offered = ", ".join(t.name for t in tools) or "none"
         if name is None:

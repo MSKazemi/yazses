@@ -184,7 +184,20 @@ def serve(config, stdin: TextIO | None = None, stdout: TextIO | None = None) -> 
                           "error": {"code": -32600, "message": "Request must be an object."}})
             continue
 
-        reply = handle(request, tools)
+        try:
+            reply = handle(request, tools)
+        except Exception as exc:  # noqa: BLE001 - one bad frame must not end the session
+            # The client cannot restart this process mid-session. Fixed text on the
+            # wire (nothing from the frame or the exception is reflected back) and
+            # one concise line on stderr, never a traceback. A notification has no
+            # id to answer, so it stays silent on stdout as the protocol requires.
+            log.error("mcp: internal error handling a request (%s)", type(exc).__name__)
+            reply = (
+                {"jsonrpc": "2.0", "id": request["id"],
+                 "error": {"code": -32603, "message": "Internal error."}}
+                if request.get("id") is not None
+                else None
+            )
         if reply is not None:
             _write(sink, reply)
     return 0
