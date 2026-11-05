@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — research: a dated evidence log for XR (VRChat OSC, WebXR, OpenXR)
+
+`design/xr/EVIDENCE.md` records what the primary sources say and do not say, the constraints they imply for any future adapter (never send without confirmation, 144-character limit, no delivery acknowledgement, a likely third send path under ADR-019), and an experiment described but not built. Research only: nothing was tested on a headset or VRChat client and the ADR-030 freeze is unchanged. WebXR and the OpenXR specification were read only in part.
+
 ### Added — Persian text normalisation has a checkbox in Settings
 
 `[stt] persian_normalisation` could only be turned on by editing `config.toml`. It is now a
