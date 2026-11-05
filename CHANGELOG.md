@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — research: emergency stop and unintended activation threat model for hands-free input ([#816](https://github.com/MSKazemi/yazses/issues/816))
+
+`design/research/2026-11-05-emergency-stop-and-unintended-activation-threat-model.md` ranks the gaps in the stop and recovery paths (an untimed voice stop, no spoken resume, a hold that can outlive its cause, placeholder thresholds) against the code and tests that exist, and proposes synthetic tests. Research only: no hardware or user evidence, and the named tests were not re-run for the note.
+
 ### Added — Persian text normalisation has a checkbox in Settings
 
 `[stt] persian_normalisation` could only be turned on by editing `config.toml`. It is now a
