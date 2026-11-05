@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — an unreadable `config.toml` no longer prints an empty `[]:` section
+
+A config file that could not be read as a whole (bad TOML, a NUL byte, a decode or permission error) produced `config.toml: []: could not be read (...); using defaults throughout`. A problem with the whole file belongs to no section, so the `[]:` prefix is gone. Every other warning format is unchanged.
+
 ### Added — Persian text normalisation has a checkbox in Settings
 
 `[stt] persian_normalisation` could only be turned on by editing `config.toml`. It is now a
