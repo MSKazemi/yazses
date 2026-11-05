@@ -1,12 +1,13 @@
 # Pre-publication privacy and release checklist (Hugging Face HCI artifacts)
 
 Status: checklist and evidence report dated 2026-10-28; read-only. Part of epic #692 / issue #701.
+The release-gate table was updated on 2026-11-05 for the merges of 2026-10-30; the audit rows below were not re-run.
 **This is a review gate, not an authorisation to publish.** Nothing here creates, uploads or
 changes anything on the Hub. The account owner decides whether any artifact is published.
 
-Scope: the static Space prototype (`examples/hci-hf-lab/`, draft PR #703), its draft dataset card,
-and any model repository. The Space source is audited as it stands in that branch; it is not on
-the Hub.
+Scope: the static Space prototype (`examples/hci-hf-lab/`, PR #703, merged 2026-10-30), its draft
+dataset card, and any model repository. The Space source was audited as it stood in the PR branch
+on 2026-10-28; it is not on the Hub.
 
 ## How to read the status column
 
@@ -22,12 +23,12 @@ the Hub.
 
 Publication of any HCI artifact stays **BLOCKED** until all of these hold:
 
-| Gate | State on 2026-10-28 |
+| Gate | State on 2026-11-05 (earlier state on 2026-10-28) |
 |---|---|
-| Static demo reviewed by the owner (#693, draft PR #703) | BLOCKED: open draft, not reviewed |
+| Static demo reviewed by the owner (#693, PR #703) | OPEN: PR #703 merged 2026-10-30 (merge commit `ad4b876b`); an owner review for publication is not recorded here. Was: BLOCKED, open draft |
 | Publication playbook (#698) | BLOCKED: [drafted](HF_PUBLICATION.md), not reviewed |
-| Model provenance inventory reviewed (#694, draft PR #704) | BLOCKED: open draft, not reviewed |
-| Every OPEN row below resolved or accepted by the owner in writing | BLOCKED: see the tables |
+| Model provenance inventory reviewed (#694, PR #704) | OPEN: PR #704 merged 2026-10-30 (merge commit `d81a1e1a`); an owner review for publication is not recorded here. Was: BLOCKED, open draft |
+| Every OPEN row below resolved or accepted by the owner in writing | BLOCKED: A9, A10, A11 and several B and C rows are still OPEN; no written acceptance recorded |
 | ADR-030 alignment confirmed for a public release | OPEN: owner decision |
 
 ## A. Static Space audit
@@ -96,5 +97,5 @@ project does not redistribute upstream weights.
 
 ## Cross-references
 
-Epic #692; prototype #693 (draft PR #703); provenance #694 (draft PR #704); fixtures #699;
+Epic #692; prototype #693 (PR #703, merged 2026-10-30); provenance #694 (PR #704, merged 2026-10-30); fixtures #699;
 publication playbook #698 ([HF_PUBLICATION.md](HF_PUBLICATION.md)); egress inventory ADR-019; `AGENTS.md`; direction ADR-030.

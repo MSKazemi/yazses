@@ -1,11 +1,11 @@
 # Fixture schema gap analysis (prototype 0.1 against issue #699)
 
-Status: analysis dated 2026-10-28; documentation only. **Implemented as option B in #710, pending
-maintainer confirmation:** the schema stays in `examples/hci-hf-lab/`, versioned to 1.0. Section 5
+Status: analysis dated 2026-10-28; documentation only. **Implemented as option B in PR #710 (merged
+2026-10-30), pending maintainer confirmation:** the schema stays in `examples/hci-hf-lab/`, versioned to 1.0. Section 5
 records how each gap was closed in PR #710; the sections above are kept as the analysis that led
 there. Part of epic #692 / issue #699. It compares
-what the synthetic Space prototype ships (`examples/hci-hf-lab/`, draft PR #703: `fixtures.js`,
-`fixtures.schema.json`, schema `0.1-prototype`) with what #699 asks the canonical fixture set to
+what the synthetic Space prototype ships (`examples/hci-hf-lab/`, PR #703, merged 2026-10-30: `fixtures.js`,
+`fixtures.schema.json`, schema `0.1-prototype`, since versioned to 1.0 by PR #710) with what #699 asks the canonical fixture set to
 contain. It does **not** create a second schema: #699 says the Space consumes the dataset and must
 not define its own, and the prototype's schema describes itself as provisional.
 
@@ -23,8 +23,8 @@ under `design/` would create exactly the duplication the issue forbids. The opti
 | C. Split: the schema and validator live in `design/`, the Space ships a generated copy of the fixtures | Cleanest contract, and the Space copy is generated, never hand-edited. Needs a generator and a drift test, like the Hub export. |
 
 No recommendation is made here: the choice affects #703, #696 and any future dataset on the Hub,
-and it belongs to the maintainer. PR #710 implements option B; no maintainer decision is recorded
-on #699 yet. Whichever is chosen, the fields in section 3 are the same.
+and it belongs to the maintainer. PR #710 (merged 2026-10-30) implements option B; #699 was closed on
+2026-10-30, the same minute as the merges, and carries no comment recording a maintainer decision. Whichever is chosen, the fields in section 3 are the same.
 
 ## 2. What the prototype already satisfies
 
@@ -102,5 +102,5 @@ semantics, the agent APIs, the live daemon or `src/yazses/`; and any Hub publica
 gate in [HF_PRIVACY_PREPUBLISH.md](HF_PRIVACY_PREPUBLISH.md) and the playbook in
 [HF_PUBLICATION.md](HF_PUBLICATION.md).
 
-Cross-references: epic #692; #693 (draft PR #703); #696 (the EEG/EOG protocol depends on this schema:
+Cross-references: epic #692; #693 (PR #703, merged 2026-10-30); #696 (the EEG/EOG protocol depends on this schema:
 [EEG_EOG_FEASIBILITY_PROTOCOL.md](EEG_EOG_FEASIBILITY_PROTOCOL.md)); #700; #701; #698.
