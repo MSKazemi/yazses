@@ -74,6 +74,7 @@ from yazses.commands.revise import DictationLedger, parse_revise
 from yazses.config import Config, load_config
 from yazses.inject.streaming import StreamingInjector
 from yazses.ipc.protocol import Request
+from yazses.mcp.budget import InterruptBudget
 from yazses.platform import Platform, get_platform
 from yazses.platform.base import (
     PRIMARY_MODIFIER_CTRL,
@@ -532,6 +533,11 @@ class Daemon:
         )
         self._state = _DaemonState()
         self._lock = threading.RLock()
+        # One interruption budget for the daemon's lifetime, built here and not on the
+        # first `ask_human` request: two simultaneous first requests could each build
+        # one, and each would then enjoy a full hour (audit AGT-01). The limit is
+        # applied per request, so a changed `[mcp] ask_human_per_hour` still lands.
+        self._ask_human_budget = InterruptBudget(max_per_hour=self._config.mcp.ask_human_per_hour)
         self._hotkey: HotkeyBackend | None = None
         # Optional dedicated command key (force-command mode). Runs its own
         # listener in a background thread; _command_mode is set while held.
@@ -9485,7 +9491,6 @@ class Daemon:
         whether to ask again.
         """
         from yazses.mcp.ask import AskHumanService, Refusal
-        from yazses.mcp.budget import InterruptBudget
 
         params = request.params if isinstance(request.params, dict) else {}
         question = str(params.get("question") or "")
@@ -9496,9 +9501,7 @@ class Daemon:
         # a budget built inside it would start empty every time (audit AGT-01). A
         # changed `[mcp] ask_human_per_hour` is applied in place, keeping what is spent.
         limit = self._config.mcp.ask_human_per_hour
-        budget = getattr(self, "_ask_human_budget", None)
-        if budget is None:
-            budget = self._ask_human_budget = InterruptBudget(max_per_hour=limit)
+        budget = self._ask_human_budget
         budget.max_per_hour = limit
 
         service = AskHumanService(

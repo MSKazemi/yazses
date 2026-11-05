@@ -15,6 +15,7 @@ the whole policy tests without waiting an hour or holding a key.
 
 from __future__ import annotations
 
+import threading
 from collections import deque
 from dataclasses import dataclass, field
 
@@ -52,6 +53,11 @@ class InterruptBudget:
 
     max_per_hour: int
     _spent: deque[float] = field(default_factory=deque, repr=False)
+    #: Slots promised to questions that are being asked right now. The IPC server runs
+    #: one thread per connection, so "check, then speak, then charge" lets N callers all
+    #: pass the check before the first is charged; a reservation closes that gap.
+    _pending: int = field(default=0, repr=False)
+    _lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
 
     def allow(self, caller: str, *, now: float, holding: bool = False) -> Verdict:
         """May *caller* ask a question right now?
@@ -60,13 +66,49 @@ class InterruptBudget:
         after this returns (no audio device, the user has walked away), and an
         agent should not lose its hour to a question nobody heard.
         """
+        with self._lock:
+            return self._decide(now=now, holding=holding)
+
+    def reserve(self, caller: str, *, now: float, holding: bool = False) -> Verdict:
+        """:meth:`allow` and, when it says yes, hold the slot — atomically.
+
+        Concurrent callers cannot both be told yes for the last slot. The hold is not a
+        charge: settle it with :meth:`commit` once the question was answered, or give it
+        back with :meth:`release` if it was not (nothing was heard, or it could not be
+        asked), which keeps the rule that an unanswered question costs no slot.
+        """
+        with self._lock:
+            verdict = self._decide(now=now, holding=holding)
+            if verdict.ok:
+                self._pending += 1
+            return verdict
+
+    def commit(self, *, now: float) -> None:
+        """Turn a :meth:`reserve` hold into a charge."""
+        with self._lock:
+            self._pending = max(0, self._pending - 1)
+            self._evict(now)
+            self._spent.append(now)
+
+    def release(self) -> None:
+        """Hand a :meth:`reserve` hold back without charging it."""
+        with self._lock:
+            self._pending = max(0, self._pending - 1)
+
+    def record(self, caller: str, *, now: float) -> None:
+        """Charge one slot — call this once the question has actually been asked."""
+        with self._lock:
+            self._evict(now)
+            self._spent.append(now)
+
+    def _decide(self, *, now: float, holding: bool) -> Verdict:
+        """The yes/no, for a caller that already holds ``_lock``."""
         if self.max_per_hour <= 0:
             return Verdict(
                 ok=False,
                 reason="Spoken questions are switched off (mcp.ask_human_per_hour = 0).",
                 retry_after_s=None,
             )
-
         if holding:
             # The user is mid-sentence and the daemon knows it. Waiting is the
             # whole answer; charging for it would punish an agent for the user's
@@ -77,7 +119,6 @@ class InterruptBudget:
                 retry_after_s=HOLD_RETRY_S,
                 deferred=True,
             )
-
         self._evict(now)
         if len(self._spent) >= self.max_per_hour:
             oldest = self._spent[0]
@@ -89,12 +130,16 @@ class InterruptBudget:
                 ),
                 retry_after_s=max(0.0, oldest + WINDOW_S - now),
             )
+        if len(self._spent) + self._pending >= self.max_per_hour:
+            # Not spent: a question is being asked right now and may yet go unanswered
+            # (which costs nothing). "Not now", so the caller is told to re-ask.
+            return Verdict(
+                ok=False,
+                reason="Another spoken question is being asked right now; try again shortly.",
+                retry_after_s=HOLD_RETRY_S,
+                deferred=True,
+            )
         return Verdict(ok=True)
-
-    def record(self, caller: str, *, now: float) -> None:
-        """Charge one slot — call this once the question has actually been asked."""
-        self._evict(now)
-        self._spent.append(now)
 
     def _evict(self, now: float) -> None:
         while self._spent and now - self._spent[0] >= WINDOW_S:
