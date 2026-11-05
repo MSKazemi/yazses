@@ -119,6 +119,9 @@ The models, benchmarks and low-RAM pages gave same-laptop latency figures that d
 ### Added — research: multilingual, accent and code-switch evaluation design ([#797](https://github.com/MSKazemi/yazses/issues/797))
 
 `design/research/2026-11-05-multilingual-accent-and-code-switch-evaluation-design.md` audits public evaluation sets and their licences, records the training-data leakage risk per engine family, the per-language normalisation traps and the failure accounting for unsupported languages. No results; no public Tamil or Persian-English code-switch set was found.
+### Added — research: code-aware correction and spoken technical vocabulary ([#804](https://github.com/MSKazemi/yazses/issues/804))
+
+`design/research/2026-11-05-code-aware-correction-and-spoken-technical-vocabulary.md` compares prompt biasing, post-recognition correction, spoken-symbol grammars, editor context and local rewriting against what the code does today, with a synthetic evaluation plan. No behaviour change and nothing was measured.
 
 ### Added — Persian text normalisation has a checkbox in Settings
 
