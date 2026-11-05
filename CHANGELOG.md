@@ -92,6 +92,9 @@ What was checked: nine static tests, and a local render in a browser (0 text cha
 ### Fixed — docs: architecture pages match the code for `yazses stop`, MCP and the speech-engine modules
 
 `docs/architecture.md` said `yazses stop` goes over IPC; it sends SIGTERM on Linux and macOS, and only Windows tries the IPC `shutdown` first. `design/architecture.md` gains the missing `mcp/` section and the `parakeet`, `moonshine`, `latency` and `errors` rows of the `stt/` table. Each statement was checked against the code; no guard test covers these two additions.
+### Fixed — docs: latency figures are marked as single-run, decode-only, ranking-only
+
+The models, benchmarks and low-RAM pages gave same-laptop latency figures that disagree by 4–7× without saying so, and one sentence ("most people… go back to base.en") had no data behind it. The sentence is removed, the tables now say they are decode-only and good for ranking, and the pages note that the model revision and the machine load were not recorded. No number changed. Re-measuring needs the hardware and the private harness.
 
 ### Added — Persian text normalisation has a checkbox in Settings
 
