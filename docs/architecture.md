@@ -480,9 +480,16 @@ nothing in the daemon currently sets it.
 The CLI and system tray never touch the pipeline directly — they talk to the
 daemon over a small **JSON-RPC 2.0** channel (newline-delimited JSON). On Linux
 and macOS this is a **Unix domain socket**; on Windows it is a **named pipe**
-(`src/yazses/ipc/`). This is how `yazses status`, `yazses stop`, and
-`yazses mark-wrong` reach a running daemon, and how the daemon reports live state
-(model, PID, ready/loading, mic level) back to callers.
+(`src/yazses/ipc/`). This is how `yazses status` and `yazses mark-wrong` reach a
+running daemon, and how the daemon reports live state (model, PID, ready/loading,
+mic level) back to callers.
+
+`yazses stop` is the exception: it does not go through IPC. It calls the platform
+`LifecycleBackend.stop_daemon`, which on Linux and macOS is a plain `SIGTERM` to the
+daemon's PID. Only the Windows backend asks the daemon over IPC first (the `shutdown`
+method), waits for the process to exit, and terminates it if it did not acknowledge or
+is still alive. The tray's Quit
+and the in-app update hand-off also send `shutdown` over IPC.
 
 ## Platform abstraction
 
