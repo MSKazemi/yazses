@@ -81,6 +81,9 @@ What was not checked: a real GPU. The CUDA error strings the classifier recognis
 ### Fixed — an unreadable `config.toml` no longer prints an empty `[]:` section
 
 A config file that could not be read as a whole (bad TOML, a NUL byte, a decode or permission error) produced `config.toml: []: could not be read (...); using defaults throughout`. A problem with the whole file belongs to no section, so the `[]:` prefix is gone. Every other warning format is unchanged.
+### Fixed — `flake.nix` matches the project again (version and dependencies)
+
+The Nix flake was pinned at 2.18.2 and listed the optional `onnx-asr` while omitting `av` and `jeepney`. It now matches `pyproject.toml`, and `tests/test_flake_matches_project.py` keeps the version and the Linux base dependencies from drifting. The flake builds from the local tree, so no source hash changes. Not checked: Nix is not installed here, so the flake was not evaluated or built, and the nixpkgs attribute names for `av` and `jeepney` are unconfirmed.
 
 ### Added — Persian text normalisation has a checkbox in Settings
 
