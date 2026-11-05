@@ -221,14 +221,44 @@ class LanguageUnsupportedError(ModelUnavailableError):
     already handles the base type, because a missing model raises it too.
     """
 
-    def __init__(self, engine: str, model: str, language: str, reason: str) -> None:
+    def __init__(
+        self,
+        engine: str,
+        model: str,
+        language: str,
+        reason: str,
+        *,
+        requested_engine: str = "",
+        requested_model: str = "",
+        requested_failure: str = "",
+    ) -> None:
+        """The ``requested_*`` fields are set only when a fallback engine was refused
+        after the configured engine failed to start: the message then leads with that
+        failure (and its fix) instead of blaming a fallback model the user never chose.
+        """
         self.model = model
         self.engine = engine
         self.language = language
         self.cause = reason
-        RuntimeError.__init__(
-            self,
-            "\n".join([
+        self.requested_engine = requested_engine
+        self.requested_model = requested_model
+        self.requested_failure = requested_failure
+        if requested_engine:
+            lines = [
+                f"The {requested_engine} engine is not running because "
+                f"{requested_failure}.",
+                "",
+                f"  The faster-whisper fallback cannot take over for {language!r}: "
+                f"{reason}",
+                "",
+                f"{language!r} needs the {requested_engine} engine "
+                f"({requested_model or 'your configured model'}) or a multilingual "
+                "Whisper model. Fix the engine above, or set [stt] engine = "
+                '"faster-whisper" with a multilingual model. '
+                "`yazses language status` shows the pairing; then: yazses restart",
+            ]
+        else:
+            lines = [
                 f"YazSes will not transcribe {language!r} with {engine} / {model!r}.",
                 "",
                 f"  {reason}",
@@ -236,10 +266,17 @@ class LanguageUnsupportedError(ModelUnavailableError):
                 "Dictation stays unavailable until [stt] language, engine and model "
                 "agree, rather than silently typing English. "
                 "`yazses language status` shows the pairing; then: yazses restart",
-            ]),
-        )
+            ]
+        RuntimeError.__init__(self, "\n".join(lines))
 
     def notification(self) -> tuple[str, str]:
+        if self.requested_engine:
+            return (
+                "YazSes cannot start dictation",
+                f"The {self.requested_engine} engine is not running because "
+                f"{self.requested_failure}; {self.language!r} needs it or a "
+                "multilingual Whisper model. Run: yazses language status",
+            )
         return (
             "YazSes cannot start dictation",
             f"[stt] language = {self.language!r} cannot be transcribed by "
