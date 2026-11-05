@@ -73,6 +73,18 @@ the silent streak, is listed in `CAPTURE_DOUBTING_DISCARDS`, and shows a toast n
 that stopped delivering audio (it does not say silence). Real unplug behaviour depends on the
 PortAudio host API and is tested here only with injected fakes. Tests:
 `tests/test_recorder_device_change_mid_recording.py` (the former strict xfail now passes).
+### Fixed — the phonetic corrector no longer rewrites paths, URLs, e-mail addresses, file names or versions
+
+Was: with `[phonetic] enabled` and "Sara" in the vocabulary, `/home/user/notes.txt` came out as
+`/home/Sara/notes.txt`, because "user" and "Sara" share a phonetic key. The same happened inside
+URLs, e-mail addresses (`user@example.com`), Windows paths and `user.txt`. The corrector is off by
+default, so this reached only people who turned it on.
+
+Now: a token inside any of those shapes is left byte for byte; ordinary words beside them are still
+corrected. The shapes come from `postprocess/persian_text.py` (`structured_spans`), which already
+defined them for the Persian normaliser, rather than a second pattern set. Tests:
+`tests/test_phonetic_skips_identifiers.py`; the strict xfail in
+`tests/test_persian_pipeline_preservation.py` is now an ordinary passing test.
 
 ### Changed — CI: the macOS 3.11 test leg runs on `main` and manual runs, not on every pull request
 
