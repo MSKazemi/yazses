@@ -9630,7 +9630,8 @@ class Daemon:
         # Persist a rotating diagnostic log so `yazses start` (detached, stdout
         # to /dev/null) still leaves a record. Metadata only at INFO — the
         # transcript text is logged at DEBUG only, never in the default file.
-        from logging.handlers import RotatingFileHandler
+        from yazses.system.private_files import private_dir
+        from yazses.system.private_log import PrivateRotatingFileHandler
 
         log_dir = self._platform.paths.log_dir
         target = log_dir / "daemon.log"
@@ -9644,8 +9645,11 @@ class Daemon:
                 existing.setLevel(level)
                 return
         try:
-            log_dir.mkdir(parents=True, exist_ok=True)
-            handler = RotatingFileHandler(target, maxBytes=1_000_000, backupCount=3)
+            # Owner-only, like every other plaintext store: at DEBUG this file holds the
+            # dictated text, and the process umask (022) would make it world-readable.
+            # The handler also keeps the file private across rotation, which re-creates it.
+            private_dir(log_dir)
+            handler = PrivateRotatingFileHandler(target, maxBytes=1_000_000, backupCount=3)
             handler.setFormatter(logging.Formatter(fmt))
             handler.setLevel(level)
             logging.getLogger().addHandler(handler)
