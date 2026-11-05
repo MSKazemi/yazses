@@ -80,7 +80,7 @@ flags take rather than inventing a second vocabulary. It changes visibility and
 nothing else: a hidden row keeps its staged edit, and both Apply and Restore
 defaults act on the whole model, never on what happens to be on screen.
 
-**A switch that cannot explain itself is not a setting.** With <!-- registry:total -->151<!-- /registry --> capabilities,
+**A switch that cannot explain itself is not a setting.** With <!-- registry:total -->152<!-- /registry --> capabilities,
 a checkbox and a tier tell the user nothing about what a row does, when to reach
 for it, or what ticking it writes. `settingsui/help.py` renders that from the same
 registry entries `yazses features info` prints — one source, three renderings: a
@@ -247,7 +247,7 @@ the tray all speak to the daemon over the same JSON-RPC channel, which is why
 killed and relaunched without disturbing dictation.
 
 Both front ends also share one definition of *enabling* a capability. Twenty-four of
-the 151 rows need an optional Python package (`gaze` needs mediapipe, `cocktail`
+the 152 rows need an optional Python package (`gaze` needs mediapipe, `cocktail`
 needs speechbrain, and so on), and `yazses features enable` has always installed
 those before telling you to restart. The settings window now does the same, on a
 worker thread, through the identical `system/deps.py` call — so the two cannot
@@ -687,8 +687,8 @@ the dictation hot path with the microphone, the transcript and the injector.
 | Commands & automation | 10 | 3 | 13 |
 | Learning, memory & analytics | 6 | 3 | 9 |
 | Conversation & recording capture | 5 | 3 | 8 |
-| Multilingual | 2 | 5 | 7 |
-| **Total** | **126** | **25** | **151** |
+| Multilingual | 3 | 5 | 8 |
+| **Total** | **127** | **25** | **152** |
 
 Two readings of that chart matter.
 

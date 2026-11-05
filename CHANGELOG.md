@@ -6,6 +6,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Persian text normalisation has a checkbox in Settings
+
+`[stt] persian_normalisation` could only be turned on by editing `config.toml`. It is now a
+checkbox on the Settings Features page, under Multilingual, labelled "Persian text (فارسی)". It is
+off by default, so an upgrade changes nothing. It only acts when `[stt] language` is Persian.
+
+If you tick it while the language is something else, the line under the Apply button says it changes
+nothing you dictate. Until now only `yazses features enable` said so, and the checkbox would read ON
+and do nothing. The advice is read after every write of that Apply, so choosing Persian and ticking the
+box together gives no false warning; while a language profile is still being prepared it is not shown,
+because that write has not landed. The same applies to the spoken-command capabilities that need a
+command key: they were silent in the window too.
+
+The help text now matches `postprocess/persian_text.py`: any zero-width non-joiner at the very start or
+end of the text is removed (not just one), and Unicode NFC and the bidi-control strip also reach URLs,
+emails and paths; only the letter changes and the joiner collapse leave those alone.
+
+What was checked: unit tests for the control's group, help text, key, default and round trip, for the
+advice (controller and the real window's Apply, offscreen) and for the language-chosen-in-the-same-Apply
+case. What was not checked: the checkbox was not seen in a real Settings window, so its placement and
+wording have not been seen on screen, and no Persian speaker has read the label.
+
 ### Changed — CI: the macOS 3.11 test leg runs on `main` and manual runs, not on every pull request
 
 Over the last 30 `test.yml` runs on 2026-11-04, 12 of 42 macOS jobs (29%) were cancelled after about 15 minutes with no runner ever assigned (Linux 3 of 93, Windows 2 of 42, arm64 0 of 21), and the macOS queue wait had a median of 2.1 minutes and a maximum of 29, against a median of 0.1 for the other runners. A burst of 12 PRs put 24 macOS jobs into the free pool and the cancellations cascaded into `ci-gate` failures. Every PR launched two macOS legs, `macos-latest` on Python 3.11 and on 3.12. The 3.11 leg now runs on pushes to `main` and on `workflow_dispatch` only; `macos-latest` on 3.12 still runs on every PR, so OS coverage is unchanged, and Linux and Windows still prove 3.11 on every PR. No job was renamed, `ci-gate` is unchanged (a leg that does not exist is not a skipped job), and no macOS leg may fail. The matrix's `exclude` is now an expression on `github.event_name`, because GitHub does not allow `matrix` in a job-level `if:`. `.github/CI_POLICY.md` section 13.1 records the numbers and the reasoning; `tests/test_ci_test_matrix.py` renders both cases offline.

@@ -1659,6 +1659,14 @@ class SettingsWindow:
         # sidebar dots, the row accents and the category counts must follow.
         self._refresh_staged_views()
 
+        # Advice for capabilities that read ON yet change nothing in this configuration
+        # (the CLI prints the same after `features enable`). Read after every write above
+        # so a language chosen in this same Apply counts; skipped while a language profile
+        # is still being prepared, because that write has not landed and the advice could
+        # be wrong.
+        if not language_started:
+            report.caveats.update(self._controller.caveats_for(report.enabled))
+
         summary = self._summarise(report)
         if hotkey_changed:
             summary = f"Hold-to-talk key set to {self._hotkey_baseline}. {summary}".strip()
@@ -2131,6 +2139,7 @@ class SettingsWindow:
                 f"{slug} needs packages that are not installed ({' '.join(packages)}). "
                 f"Install them with: yazses features enable {slug}"
             )
+        parts.extend(report.caveats.values())
         return "  ".join(parts)
 
     def _warn(self, title: str, body: str) -> None:
