@@ -103,6 +103,11 @@ _PLAIN_IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]{0,63}")
 _PATHISH = re.compile(r"""(^|[\s'"(=])/|[A-Za-z]:[\\/]|\\|~[\\/]""")
 _MAX_PUBLIC_LINE = 240
 
+#: The commands a fix sentence names ("yazses model", "yazses restart"). A first line
+#: that already holds all of them carries the fix and is not followed by it again.
+#: Lower-case on purpose: the product name in prose is "YazSes".
+_COMMAND = re.compile(r"\byazses [a-z]+\b")
+
 
 def _pathish(line: str) -> bool:
     return bool(_PATHISH.search(line)) or line.count("/") >= 2
@@ -157,7 +162,10 @@ def _speech_model_message(exc: BaseException) -> str | None:
             fix = "Run: yazses doctor."
     else:
         return None
-    return f"{_first_line_if_safe(exc) or fallback} {fix}"
+    first = _first_line_if_safe(exc)
+    if first is not None and all(c in first for c in _COMMAND.findall(fix)):
+        return first  # cause and fix already on the line: say neither twice
+    return f"{first or fallback} {fix}"
 
 
 def _failure_text(name: str, exc: BaseException) -> str:

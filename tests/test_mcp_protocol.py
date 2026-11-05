@@ -435,8 +435,11 @@ def test_a_missing_speech_model_tells_the_agent_what_to_do():
 
     text = _failure(ModelUnavailableError("base.en", f"offline: {SENTINEL}"))
 
-    assert "model 'base.en' is not on this machine" in text
-    assert "yazses model download base.en" in text and "yazses restart" in text
+    # Robust to the wording of stt/errors.py: what must hold is that the name, the
+    # download command and the restart command each reach the agent exactly once.
+    assert "base.en" in text
+    assert text.count("yazses model download") == 1, text
+    assert text.count("yazses restart") == 1, text
 
 
 def test_only_the_first_line_of_a_model_error_is_exposed():
@@ -478,6 +481,8 @@ def test_every_speech_model_error_class_gives_a_fix_and_no_sentinel(build, fix):
     text = _failure(build())
 
     assert fix in text, text
+    assert text.count(fix) == 1, "the fix is said once, not once by the error and once by us"
+    assert text.count("yazses restart") <= 1, text
     assert "SENTINEL-TOKEN-7731" not in text
     assert "\n" not in text and "Cause" not in text
 
@@ -538,3 +543,46 @@ def test_a_non_integral_value_is_still_not_an_integer(value):
     _Flag.seen.clear()
     reply = _call([_Flag()], name="flag", arguments={"path": "a", "n": value})
     assert reply["result"]["isError"] is True and _Flag.seen == []
+
+
+def test_a_first_line_that_already_holds_the_fix_is_not_followed_by_a_second_one():
+    """A first line that names both commands is the whole answer; one that names only
+    the cause gets the fixed fix sentence appended."""
+    from yazses.stt.errors import ModelUnavailableError
+
+    class _SaysItAll(ModelUnavailableError):
+        def __init__(self) -> None:
+            RuntimeError.__init__(
+                self,
+                "Speech model 'tiny' missing - run: yazses model download tiny, then: "
+                f"yazses restart\n\n  Cause: {SENTINEL}",
+            )
+            self.model = "tiny"
+
+    class _SaysTheCauseOnly(ModelUnavailableError):
+        def __init__(self) -> None:
+            RuntimeError.__init__(self, f"The model 'tiny' is not here.\n\n  Cause: {SENTINEL}")
+            self.model = "tiny"
+
+    whole = _failure(_SaysItAll())
+    assert whole == (
+        "transcribe failed: Speech model 'tiny' missing - run: yazses model download "
+        "tiny, then: yazses restart"
+    )
+    cause_only = _failure(_SaysTheCauseOnly())
+    assert "The model 'tiny' is not here." in cause_only
+    assert cause_only.count("yazses model download tiny") == 1
+    assert cause_only.count("yazses restart") == 1
+    assert "SENTINEL-TOKEN-7731" not in whole + cause_only
+
+
+@pytest.mark.parametrize("model", ["base.en", "Systran/faster-whisper-small", "tiny"])
+def test_the_real_model_error_names_its_model_and_commands_once(model):
+    """The real class, whatever wording stt/errors.py currently uses."""
+    from yazses.stt.errors import ModelUnavailableError
+
+    text = _failure(ModelUnavailableError(model, f"HF said: {SENTINEL}"))
+
+    assert model in text
+    assert text.count("yazses model download") == 1 and text.count("yazses restart") == 1
+    assert "SENTINEL-TOKEN-7731" not in text and "Cause" not in text and "\n" not in text
