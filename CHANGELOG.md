@@ -104,6 +104,9 @@ The models, benchmarks and low-RAM pages gave same-laptop latency figures that d
 ### Added — research: a dated evidence log for XR (VRChat OSC, WebXR, OpenXR)
 
 `design/xr/EVIDENCE.md` records what the primary sources say and do not say, the constraints they imply for any future adapter (never send without confirmation, 144-character limit, no delivery acknowledgement, a likely third send path under ADR-019), and an experiment described but not built. Research only: nothing was tested on a headset or VRChat client and the ADR-030 freeze is unchanged. WebXR and the OpenXR specification were read only in part.
+### Added — research: how the proposed interaction kernel (ADR-025) fits the grounding code that already exists
+
+`design/research/kernel-contract-fit.md` compares ADR-025's six types with `grounding/`, `activation/` and `cmdsafety/`, lists the gaps (action proposal, authority, undo, outcome verification), and notes two naming clashes. It recommends nothing and accepts nothing: ADR-025 stays Proposed. No hardware or user testing.
 
 ### Added — Persian text normalisation has a checkbox in Settings
 
