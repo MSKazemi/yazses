@@ -131,3 +131,97 @@ def test_stt_parakeet_feature_status_tracks_config():
     cfg = Config()
     cfg.stt.engine = "parakeet"
     assert find_feature(cfg, "stt-parakeet").on is True
+
+
+# ---- the fallback must not hide why the requested engine is not running -------------
+#
+# Parakeet v3 lists `de`. With the stt-parakeet extra missing, the fallback swaps the
+# (Parakeet) model for the English-only `base.en`, which the language guard then refuses.
+# That refusal used to be the only thing the ERROR state and the toast carried: it told
+# the user to change a model they never chose and never named the extra.
+
+_V3 = "nemo-parakeet-tdt-0.6b-v3"
+
+
+def _fake_parakeet_load(monkeypatch, exc: BaseException) -> None:
+    def _load(self):
+        raise exc
+
+    monkeypatch.setattr("yazses.stt.parakeet.ParakeetEngine._load", _load)
+
+
+def test_parakeet_missing_extra_with_german_leads_with_the_real_cause(
+    fake_whisper, monkeypatch
+):
+    from yazses.stt.errors import LanguageUnsupportedError, ModelUnavailableError
+
+    _fake_parakeet_load(monkeypatch, ModuleNotFoundError("no onnx_asr", name="onnx_asr"))
+    with pytest.raises(LanguageUnsupportedError) as info:
+        build_engine(SttConfig(engine="parakeet", model=_V3, language="de"))
+    exc = info.value
+    assert isinstance(exc, ModelUnavailableError)  # the daemon's ERROR-hold type
+    text = str(exc)
+    # Leads with the requested engine's failure and its fix, not the fallback model.
+    assert text.splitlines()[0].startswith("The parakeet engine is not running because")
+    assert "onnx_asr" in text
+    assert "yazses features enable stt-parakeet" in text
+    assert "'de'" in text
+    assert "multilingual Whisper model" in text
+    assert exc.language == "de"
+    title, body = exc.notification()
+    assert title == "YazSes cannot start dictation"
+    assert "yazses features enable stt-parakeet" in body and "'de'" in body
+    assert fake_whisper == []  # nothing was loaded
+
+
+def test_parakeet_load_failure_with_german_names_the_failure(fake_whisper, monkeypatch):
+    from yazses.stt.errors import LanguageUnsupportedError
+
+    _fake_parakeet_load(monkeypatch, RuntimeError("/home/someone/private/path boom"))
+    with pytest.raises(LanguageUnsupportedError) as info:
+        build_engine(SttConfig(engine="parakeet", model=_V3, language="de"))
+    text = str(info.value)
+    assert text.splitlines()[0].startswith("The parakeet engine is not running because")
+    assert "failed to load (RuntimeError" in text
+    assert "'de'" in text
+    assert "/home/someone" not in text  # the reason carries the type only
+
+
+@pytest.mark.parametrize("language", ["en", ""])
+def test_parakeet_fallback_unchanged_for_english_and_autodetect(
+    fake_whisper, monkeypatch, language
+):
+    _fake_parakeet_load(monkeypatch, ModuleNotFoundError("x", name="onnx_asr"))
+    engine = build_engine(SttConfig(engine="parakeet", model=_V3, language=language))
+    assert isinstance(engine, FasterWhisperEngine)
+    assert fake_whisper[0][0] == "base.en"
+    assert engine.fallback_from == "parakeet"
+    assert "yazses features enable stt-parakeet" in engine.fallback_reason
+
+
+def test_parakeet_fallback_unchanged_for_a_multilingual_whisper_model(
+    fake_whisper, monkeypatch
+):
+    _fake_parakeet_load(monkeypatch, RuntimeError("boom"))
+    engine = build_engine(SttConfig(engine="parakeet", model="small", language="en"))
+    assert isinstance(engine, FasterWhisperEngine)
+    assert fake_whisper[0][0] == "small"
+    assert engine.fallback_from == "parakeet"
+
+
+def test_plain_language_refusal_message_is_unchanged():
+    from yazses.stt.errors import LanguageUnsupportedError
+
+    exc = LanguageUnsupportedError("faster-whisper", "base.en", "de", "why")
+    assert str(exc).startswith("YazSes will not transcribe 'de' with faster-whisper")
+    assert "[stt] language = 'de'" in exc.notification()[1]
+
+
+def test_moonshine_fallback_unchanged_for_english(fake_whisper, monkeypatch):
+    def _boom(self, config):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr("yazses.stt.moonshine.MoonshineEngine.__init__", _boom)
+    engine = build_engine(SttConfig(engine="moonshine", language="en"))
+    assert isinstance(engine, FasterWhisperEngine)
+    assert engine.fallback_from == "moonshine"

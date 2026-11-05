@@ -94,8 +94,7 @@ def _build_raw_engine(stt: "SttConfig") -> "SttEngine":
                 "Parakeet STT engine failed to load — falling back to faster-whisper"
             )
             reason = _load_error_reason(exc)
-        return _mark_fallback(_build_faster_whisper(stt, fallback_from="parakeet"),
-                              "parakeet", reason)
+        return _fallback_to_faster_whisper(stt, "parakeet", reason)
     if name == "moonshine":
         try:
             from yazses.stt.moonshine import MoonshineEngine
@@ -116,8 +115,7 @@ def _build_raw_engine(stt: "SttConfig") -> "SttEngine":
                 "Moonshine STT engine failed to load — falling back to faster-whisper"
             )
             reason = _load_error_reason(exc)
-        return _mark_fallback(_build_faster_whisper(stt, fallback_from="moonshine"),
-                              "moonshine", reason)
+        return _fallback_to_faster_whisper(stt, "moonshine", reason)
     if name not in ("", DEFAULT_ENGINE):
         log.warning(
             "Unknown [stt] engine %r — falling back to %s "
@@ -127,6 +125,32 @@ def _build_raw_engine(stt: "SttConfig") -> "SttEngine":
         return _mark_fallback(_build_faster_whisper(stt), name,
                               "it is not an engine YazSes knows")
     return _build_faster_whisper(stt)
+
+
+def _fallback_to_faster_whisper(
+    stt: "SttConfig", requested: str, reason: str
+) -> "SttEngine":
+    """Build the faster-whisper fallback for a *requested* engine that did not load.
+
+    If the fallback model cannot do the configured language (the swap to the
+    English-only `base.en` makes that likely for a non-English config), the plain
+    refusal would blame a model the user never chose and say nothing of the engine
+    that actually failed. Re-raise it carrying the requested engine and *reason* so
+    the ERROR state and toast lead with the real cause and its fix. Same exception
+    type, so `core/daemon.py`'s ERROR-hold handling is unchanged.
+    """
+    from yazses.stt.errors import LanguageUnsupportedError
+
+    try:
+        engine = _build_faster_whisper(stt, fallback_from=requested)
+    except LanguageUnsupportedError as exc:
+        raise LanguageUnsupportedError(
+            exc.engine, exc.model, exc.language, str(exc.cause),
+            requested_engine=requested,
+            requested_model=(getattr(stt, "model", "") or "").strip(),
+            requested_failure=reason,
+        ) from exc
+    return _mark_fallback(engine, requested, reason)
 
 
 def _load_error_reason(exc: BaseException) -> str:

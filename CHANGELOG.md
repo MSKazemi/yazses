@@ -68,6 +68,11 @@ What was not checked: a real unplugged device or a live meeting; the watchdog wa
 A meeting whose input device vanished kept "recording" with no signal anywhere: the status showed elapsed time but not that no audio was arriving, and the maximum-length cap never fired. `status()` now reports `stalled_s`, and a meeting whose captured audio is much shorter than its wall-clock length (more than 10 s and 2 %) records `capture_gap_s`, adds one line to `summary.md`, and keeps the recording. A healthy meeting's metadata and summary are unchanged.
 
 Not done: showing `stalled_s` in `yazses meeting status`. What was not checked: a real unplugged device or a live meeting.
+### Fixed — a failed Parakeet load now names its real cause when the fallback cannot take over
+
+With `engine = "parakeet"`, a language Parakeet supports (for example `de`) and the `stt-parakeet` extra missing, the fallback model `base.en` is English-only, so the error told the user to change a model they never chose and never said the extra was missing. The error (same type, so the daemon's error hold is unchanged) now opens with the requested engine's failure and its fix (`yazses features enable stt-parakeet`). English and auto-detect configs still fall back to `base.en` as before.
+
+What was checked: six tests with a fake engine loader. What was not checked: a real model load.
 
 ### Added — Persian text normalisation has a checkbox in Settings
 
