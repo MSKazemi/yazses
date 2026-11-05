@@ -6,6 +6,62 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `ask_human` and `yazses send-to` no longer report a slow daemon as "not running"
+
+The IPC client waited 2 seconds and turned any slower reply into "YazSes is not running" (for `send-to`, "starting up"), after the daemon had already asked the question and charged the budget, or opened the app and discarded the staged text. An agent then retried and interrupted the person again. The client now takes a per-call wait (listen time plus 10 s for `ask_human`, 12 s for `send-to`), and a daemon that is up but slow is reported as slow. A daemon that is truly unreachable keeps the old messages.
+
+### Fixed — the MCP server follows the protocol where it used to bend it
+
+It answers `ping`, negotiates the protocol version instead of echoing any value a client sends, answers an unknown or missing tool name with a JSON-RPC `-32602` error, and type-checks arguments against the tool's schema, so the string `"false"` no longer switches a boolean option on. Invalid UTF-8 on stdin is a parse error and no longer ends the session. A failing tool now returns a stable sentence for its failure class instead of the raw exception text, which could carry a local path or token; the full exception goes to stderr only. Cancelling a tool that is already running still needs a threaded loop and is not part of this change.
+
+### Fixed — a stop requested while the daemon is still starting is honoured
+
+`yazses stop` or SIGTERM during the model load printed "stopped", and then the daemon finished loading and kept running. The start-up path now checks for a stop request after the pipeline is built and again before it starts listening.
+
+### Fixed — a daemon being replaced no longer deletes its successor's socket and pid file
+
+During an upgrade takeover the old daemon released the instance lock first and then removed the IPC socket and pid file, so a successor that took over in that gap lost both and could no longer be reached by the tray or the CLI. The lock is now released last, and the socket and pid file are removed only if they are still the daemon's own.
+
+### Fixed — when typing a dictation fails, it is no longer recorded as typed, and every loss is announced
+
+A failed injection was still counted as typed in the learning corpus, fed to the edit watcher and the status gauge, and the notice appeared once in five minutes, so a second lost dictation was silent. A lost dictation is now recorded as not typed and every one shows a notice saying so. The text is not copied to the clipboard, because that would overwrite what the person had copied.
+
+### Fixed — a dictation during a meeting no longer ends the meeting state
+
+One burst turned the state from MEETING to IDLE, which also let the audio-device monitor re-initialise PortAudio under the meeting's input stream. The state returns to MEETING, a meeting counts as audio in use, and `remote_stop` and a failed remote connect no longer cancel a recording in progress.
+
+### Fixed — X11: releasing the hotkey while the microphone is opening could leave the microphone open
+
+Hold start and key release ran on different threads with no common lock, so a release during `recorder.start()` stopped a recorder that was not yet recording and the stream then opened and stayed open. They are serialised, a late hold timer is ignored, and the recorder closes a stream that `stop()` outran or one it would orphan. A real X11 session and real PortAudio were not exercised.
+
+### Fixed — streaming transcription: pressing the hotkey again could leave two decode loops on one buffer
+
+Each decode loop now has its own stop token, and a stopped loop's late result is discarded instead of being written into the next utterance.
+
+### Fixed — recovering from a missing speech model no longer dead-ends
+
+The error now leads with the cause and both commands (`yazses model download X`, then `yazses restart`), because a daemon that failed to load its model never retries. A successful `yazses model download` of the configured model tells you to run `yazses restart` when a daemon is running.
+
+### Fixed — the Linux tray menu shows what the other trays show
+
+The daemon's error, an engine fallback and the "no text field focused" warning appear as disabled lines, and with the daemon unreachable the menu no longer reads "idle" with Start meeting enabled.
+
+### Fixed — Settings: Apply and restart no longer freezes the window
+
+The restart ran for up to two minutes on the GUI thread. It now runs in the background, Apply is disabled meanwhile, and the result is shown when it finishes.
+
+### Fixed — Settings: the General page says which key "auto" means, and long microphone names no longer force a sideways scrollbar
+
+The page now reads `auto (<key> on this system)`. The Audio and Speech pages fit their width at larger fonts, and Apply and the sidebar announce the Ctrl+Return shortcut to screen readers. The Features page and the Speech page at the largest fonts still scroll sideways in a narrow window.
+
+### Fixed — docs: nine capabilities, not eight, are switched on by first-run setup
+
+The Dysfluency-Friendly card lacked the sentence the other eight carry, so `docs/features.md` and `yazses features` disagreed. A test now derives the set from the code. Design pages no longer call the merged #711 and #483 "draft PRs".
+
+### Fixed — the phonetic corrector no longer scans every protected span for every token
+
+`correct_text` compared each token with every URL, path, e-mail and version span, so a long dictation with many identifiers cost tokens times spans (800,800 visits for 400 paths and 2,800 tokens). The spans are merged once and each token is checked with a bisect. Output is byte-identical.
+
 ### Documentation — the public media library says who it is for and how it is licensed
 
 `assets/media/` is the one place for finished YazSes images, carousels and videos that anyone may repost to help the project
