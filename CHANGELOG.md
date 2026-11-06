@@ -78,6 +78,38 @@ defaults were re-checked against v2.49.0; a tenth carousel is held back because 
 CLI lists nine. A test refuses an approved row without a licence, an incomplete or out-of-order carousel, and any editable source file, PDF,
 video or large binary in the folder.
 
+### Fixed — X11: the clipboard injector no longer deletes whole words when it erases
+
+Its backspaces now clear held modifiers, as the xdotool backend's already did, so a hold-to-talk Ctrl still held at hold start no longer turns each BackSpace into Ctrl+BackSpace. Its key combos also map `meta` to Super like the xdotool backend (#544). Covered by fake-runner tests only; not verified on a real X11 session.
+
+### Fixed — IPC: a client that stalls mid-request no longer writes a crash-like traceback into the daemon log
+
+A client that connected and sent nothing, sent part of a line and went quiet, or reset the connection mid-line made the connection thread die with an uncaught timeout, and its traceback in the log read like a crash. The server now logs one line and closes that connection. Replies, error codes and message wording are unchanged.
+
+### Fixed — security: the Meeting Mode recording is created owner-only
+
+`audio.wav` is now created `0600`, like the transcript, `live.jsonl` and `meeting.json`, and a symlink planted at that path is refused instead of written through. Before, the raw meeting audio took the process umask and was usually created `0644`. Linux only.
+
+### Fixed — CI: the streaming replay fixture is pinned to LF
+
+The Windows test jobs on `main` failed one test because Git for Windows checked the fixture out with CRLF and its pinned SHA-256 no longer matched. It is now pinned to LF like the other byte-hashed fixtures.
+
+### Added — first run says when it is ready
+
+After YazSes downloads its speech model, a desktop notice says "YazSes is ready — hold <key> to dictate". It appears only after a download in that run, never for a cached model or an offline install.
+
+### Added — Settings asks before closing with unapplied changes
+
+Closing the window with staged changes now asks Apply, Discard or Cancel (Cancel is the default and the Escape answer) instead of dropping them silently. While a package install or language-profile preparation is running, Apply is unavailable and only Discard or Cancel is offered. Apply closes the window only if everything was saved; if a row fails it stays staged, and if Apply starts a restart or install the window stays open. Covered by offscreen tests with a simulated dialog.
+
+### Documentation — which launchers start the first-run model download
+
+Troubleshooting has an entry for "The app opened and nothing happened for minutes", linked from Get started. `yazses start`, the macOS app and the Windows *YazSes* shortcut start the download; the Linux app-grid entry and the Windows *YazSes Settings* shortcut open only Settings, so the answer there is `yazses start`.
+
+### Added — research and tests that change no runtime behaviour
+
+Streaming (#796, Phase R1): the always-true `assert partial is not None or True` engine test is replaced by a deterministic one, and fake-screen tests pin current StreamingEngine/StreamingInjector behaviour, with strict xfails where the replay oracle forbids it (an overwritten unpolled partial; commit/cancel acting on a newly focused field or a moved caret; code-point counting over ZWJ emoji, combining accents and Arabic harakat) — fake injector only, no real editor. The synthetic motor-imagery EEG stress script gains a reference-channel ablation, a held-out reliability table and an abstention rate; it corrects an earlier claim, since blink, clench and speaking give no false candidates at the authored strength even without the EOG/EMG gate, and with the gate removed speaking false candidates first appear between 16 and 17 times that strength (seeds 0-19) — all numbers come from hand-authored waveforms, not human EEG. The #700 Hugging Face replay acceptance criteria are each mapped to a named test, with added negative cases. Four dated research notes: a prompt-injection-via-transcripts threat model (#803), an offline ASR runtime and model-provenance audit (#792), the Android first-use journey and model-provisioning UX (#806, #809), and an on-device ASR measurement protocol (#808) — proposals and protocols only, no device measurements.
+
 ### Fixed — the daemon's own shutdown now stops the push-to-talk recorder
 
 An input stream left open by a hold in progress is released by the daemon's teardown, and its audio is dropped rather than typed, instead of waiting for process exit. This matters for in-process embedding and tests; no user-visible microphone-indicator fix is claimed. Covered by a fake-recorder test on Linux only.
