@@ -102,6 +102,10 @@ The Unix socket is bound under a `0o177` umask, so it is born `0600` instead of 
 
 Downloads write to a `.part` file with a 30 s timeout, verify length (and an optional SHA-256) before renaming into place, and remove the partial on failure; a truncated cached model is no longer trusted and is re-downloaded.
 
+### Added — Settings: a Refresh button beside the Microphone list
+
+A microphone plugged in after the Audio page opened is now listed after one click, with the current selection kept and nothing staged. When the device list cannot be read (the enumerator reports a PortAudio failure as an empty list), the previous list is kept and the footer says so. The star follows the saved pin, and a staged choice whose device has gone stays selected as "(not connected)". Verified offscreen with a patched device enumerator only; no real hotplug or physical desktop was tested.
+
 ### Added — tests and research that change no behaviour
 
 A pure, dependency-free streaming replay oracle (`yazses.stt.streaming_replay`) that runs all 16 `streaming-replay-v1.jsonl` fixtures (spec Phase R0, #796; synthetic traces only, no evidence about any editor, injector or ASR model). Synthetic Persian+English and Han+ASCII mixed-script vectors pinning that the default pipeline loses no characters (not evidence of code-switch support). A test that "send to" only pre-fills and never emits a submit; real-client behaviour (Claude, Claude Code, Codex, per OS) remains unverified. An automated static audit for the #701 Hugging Face privacy preflight (the publication gate stays BLOCKED and the CSP row OPEN). A test requiring every `src/yazses` package to be named in the architecture reference, and a Meeting Mode section in `design/architecture.md`. Two dated research notes: the Android ADR traceability matrix (#812; proposed wording only, no ADR edited, the "visible IME window needs no foreground service" premise unverified pending a device test) and a comparison of multimodal arbitration policies against the one-camera rule (#815).
