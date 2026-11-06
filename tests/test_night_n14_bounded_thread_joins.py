@@ -19,9 +19,7 @@ TESTS = Path(__file__).resolve().parent
 
 # Files whose unbounded join is fixed on another, unmerged branch. Each entry is
 # temporary: remove it when that branch lands, and this guard then covers it.
-PENDING_ELSEWHERE: dict[str, str] = {
-    "test_settingsui_restart_off_gui_thread.py": "owned by the settings-UI branch",
-}
+PENDING_ELSEWHERE: dict[str, str] = {}
 
 
 def _is_none(node: ast.AST) -> bool:
