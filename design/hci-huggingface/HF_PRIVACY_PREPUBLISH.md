@@ -1,7 +1,7 @@
 # Pre-publication privacy and release checklist (Hugging Face HCI artifacts)
 
 Status: checklist and evidence report dated 2026-10-28; read-only. Part of epic #692 / issue #701.
-The release-gate table was updated on 2026-11-05 for the merges of 2026-10-30; the audit rows below were not re-run.
+The release-gate table was updated on 2026-11-05 for the merges of 2026-10-30. The A, B and C rows were re-checked against main @ `1698395d` on 2026-11-06 (static checks only, see "Re-check 2026-11-06" below).
 **This is a review gate, not an authorisation to publish.** Nothing here creates, uploads or
 changes anything on the Hub. The account owner decides whether any artifact is published.
 
@@ -49,6 +49,24 @@ prompt, or any claim the page makes that it cannot keep.
 | A9 | A Content Security Policy blocks future regressions | None is set. A static Space cannot set response headers (not verified against current Hub documentation); a `<meta http-equiv="Content-Security-Policy">` with `default-src 'self'` would cover script, style, image and connect sources, but it cannot set `frame-ancestors` | none yet | maintainer | OPEN: recommendation, decide and test in the browser before adding |
 | A10 | Hub-side behaviour: the Hub wraps Space pages and operates its own cookies and request logging | Outside the artifact's control. The page may say that **the demo** sends nothing; it must not say that visiting the Hub page is private | not examined | owner | OPEN: wording check at publication; compare the live page's Network tab with the local one |
 | A11 | Runtime proof of no egress | The checks above are static plus one manual local run. No automated browser test blocks the network and fails on any request | none | maintainer | OPEN: optional, a headless-browser check would turn A2 and A3 from static into observed |
+
+### Re-check 2026-11-06 (main @ `1698395d`, static only)
+
+Command: `uv run python -m pytest tests/test_hci_hf_lab.py tests/test_hf_preflight.py -q` gave 257 passed (exit 0).
+`node examples/hci-hf-lab/resolver.test.js` passed. The `grep -rn -E "https?://"` below found no hits in the lab's shipped files.
+
+| Rows | Result on 2026-11-06 | Evidence |
+|---|---|---|
+| A1-A4 | unchanged, PASS (static) | `test_app_files_use_no_device_or_network_api`, `test_app_files_have_no_external_urls`; new `test_701_current_trees_pass_the_static_privacy_audit` repeats the scan over the whole `examples/hci-hf-lab` tree |
+| A3 (showcase) | new: PASS (static) for `huggingface/showcase`: no external script, stylesheet, image, frame or form, no remote CSS, every referenced asset exists. It has outbound `<a href>` links and one canonical `<link>`, which transmit nothing until followed | same test, `allow_outbound_anchors=True` |
+| A5-A8 | unchanged | existing tests listed in each row |
+| A9 | still OPEN: neither page has a CSP meta tag; the reason is the one in the row (a static Space cannot set headers, a meta tag is a recommendation not yet browser-tested) | `test_701_csp_is_present_or_its_absence_is_documented` keeps this row OPEN while no CSP exists, and requires `default-src 'self'` if one is added |
+| A10, A11 | still OPEN: needs the live Hub / a headless browser; nothing here observes a runtime network request | none |
+| B1-B6, C | unchanged; B1 and B5 remain owner decisions | rows above |
+| Negative checks | new: an injected external script, `fetch(`, `getUserMedia`, remote `@import`, unknown asset URL and a missing README licence each make the audit fail | `test_701_audit_fails_on_injected_regressions`, `test_701_showcase_audit_fails_on_an_injected_external_script` |
+
+This re-check is static. It is not a Hub runtime network-inspector result, and it does not approve publication:
+the release gate above stays BLOCKED.
 
 Reproduce the static checks:
 

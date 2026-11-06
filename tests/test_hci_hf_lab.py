@@ -799,3 +799,118 @@ def test_the_manifest_generator_agrees_with_the_committed_manifest() -> None:
         cwd=ROOT, capture_output=True, text=True, encoding="utf-8", timeout=25, check=False,
     )
     assert proc.returncode == 0, proc.stdout + proc.stderr
+
+
+# --------------------------------------------------------------------------------------
+# #701 privacy preflight, automated (static source checks only; no Hub runtime result)
+# --------------------------------------------------------------------------------------
+
+SHOWCASE = ROOT / "huggingface" / "showcase"
+GATE_DOC = ROOT / "design" / "hci-huggingface" / "HF_PRIVACY_PREPUBLISH.md"
+_LOAD_TAG = re.compile(r"<(script|link|img|iframe|embed|object|source|video|audio|form)\b([^>]*)>", re.I | re.S)
+_REF_ATTR = re.compile(r"""\b(?:src|href|action|data)\s*=\s*["']([^"']*)["']""", re.I)
+_EXTERNAL = re.compile(r"^(?:[a-z][a-z0-9+.-]*:)?//", re.I)
+_AUDITED_SUFFIXES = {".js", ".css", ".html"}
+
+
+def audit_static_tree(root: Path, *, allow_outbound_anchors: bool) -> list[str]:
+    """Return the privacy findings for a static Space tree (empty means none found).
+
+    Flags external loadable resources (script, stylesheet, image, frame, embed, form),
+    camera/network/storage identifiers, remote CSS url()/@import, assets that are
+    referenced but missing, and a README front matter with no licence. A plain
+    <a href> to another site is allowed only when asked for: a link transmits nothing
+    until the visitor follows it.
+    """
+    findings: list[str] = []
+    for path in sorted(p for p in root.rglob("*") if p.is_file() and p.suffix in _AUDITED_SUFFIXES):
+        rel = path.relative_to(root).as_posix()
+        text = path.read_text(encoding="utf-8")
+        findings += [f"{rel}: forbidden identifier {t}" for t in FORBIDDEN_IDENTIFIERS if t in text]
+        if path.suffix == ".css":
+            findings += [f"{rel}: remote CSS reference {m}" for m in re.findall(
+                r"""(?:url\(\s*["']?|@import\s+(?:url\(\s*)?["']?)((?:https?:)?//[^"')\s]+)""", text, re.I)]
+        if path.suffix == ".js":
+            findings += [f"{rel}: external URL {u}" for u in re.findall(r"https?://[^\s\"'`)]+", text)]
+        if path.suffix == ".html":
+            for tag, attrs in _LOAD_TAG.findall(text):
+                for ref in _REF_ATTR.findall(attrs):
+                    if _EXTERNAL.match(ref):
+                        if tag.lower() == "link" and "canonical" in attrs.lower() and allow_outbound_anchors:
+                            continue
+                        findings.append(f"{rel}: external <{tag.lower()}> reference {ref}")
+                    elif not ref.startswith(("#", "mailto:")) and not (path.parent / ref).is_file():
+                        findings.append(f"{rel}: <{tag.lower()}> references unknown asset {ref}")
+            if not allow_outbound_anchors:
+                findings += [f"{rel}: outbound link {u}"
+                             for u in re.findall(r"""href=["'](https?://[^"']+)""", text, re.I)]
+    readme = root / "README.md"
+    front = readme.read_text(encoding="utf-8").split("---\n", 2)[1] if readme.is_file() else ""
+    if not re.search(r"^license:\s*\S+", front, re.M):
+        findings.append("README.md: front matter declares no licence")
+    return findings
+
+
+def _append(path: Path, text: str) -> None:
+    path.write_text(path.read_text(encoding="utf-8") + text, encoding="utf-8")
+
+
+def _drop_license(path: Path) -> None:
+    path.write_text(re.sub(r"^license:.*\n", "", path.read_text(encoding="utf-8"), flags=re.M), encoding="utf-8")
+
+
+def _copy_tree(src: Path, dst: Path) -> Path:
+    shutil.copytree(src, dst, ignore=shutil.ignore_patterns("eval", "*.test.js", "node_modules"))
+    return dst
+
+
+@pytest.mark.parametrize(("tree", "outbound"), [(LAB, False), (SHOWCASE, True)])
+def test_701_current_trees_pass_the_static_privacy_audit(tree: Path, outbound: bool) -> None:
+    assert audit_static_tree(tree, allow_outbound_anchors=outbound) == []
+
+
+def test_701_csp_is_present_or_its_absence_is_documented() -> None:
+    """A static Space cannot set headers; a CSP meta is a recommendation (row A9). If a
+    CSP meta is ever added it must default to 'self'; until then A9 must stay OPEN."""
+    gate = GATE_DOC.read_text(encoding="utf-8")
+    for page in (LAB / "index.html", SHOWCASE / "index.html"):
+        html = page.read_text(encoding="utf-8")
+        meta = re.search(r"""<meta[^>]+http-equiv=["']Content-Security-Policy["'][^>]*>""", html, re.I)
+        if meta:
+            assert "default-src 'self'" in meta.group(0), f"{page}: CSP must default to 'self'"
+        else:
+            assert re.search(r"\| A9 \|.*\| OPEN", gate), "no CSP meta, so row A9 must stay OPEN and documented"
+
+
+def test_701_publication_gate_claims_no_approval() -> None:
+    gate = GATE_DOC.read_text(encoding="utf-8")
+    assert "stays **BLOCKED**" in gate
+    assert "not an authorisation to publish" in gate
+
+
+@pytest.mark.parametrize(
+    ("label", "edit", "needle"),
+    [
+        ("external script", lambda r: _append(r / "index.html", '<script src="https://cdn.example/x.js"></script>'),
+         "external <script>"),
+        ("fetch call", lambda r: _append(r / "app.js", "\nfetch('x');\n"), "fetch("),
+        ("getUserMedia", lambda r: _append(r / "app.js", "\nnavigator.mediaDevices.getUserMedia({});\n"),
+         "getUserMedia"),
+        ("remote css", lambda r: _append(r / "style.css", "\n@import url(https://f.example/a.css);\n"),
+         "remote CSS"),
+        ("unknown asset", lambda r: _append(r / "index.html", '<img src="assets/nope.png">'), "unknown asset"),
+        ("missing licence", lambda r: _drop_license(r / "README.md"), "no licence"),
+    ],
+)
+def test_701_audit_fails_on_injected_regressions(tmp_path: Path, label: str, edit: Any, needle: str) -> None:
+    root = _copy_tree(LAB, tmp_path / "lab")
+    assert audit_static_tree(root, allow_outbound_anchors=False) == []
+    edit(root)
+    findings = audit_static_tree(root, allow_outbound_anchors=False)
+    assert any(needle in f for f in findings), f"{label}: expected {needle!r} in {findings}"
+
+
+def test_701_showcase_audit_fails_on_an_injected_external_script(tmp_path: Path) -> None:
+    root = _copy_tree(SHOWCASE, tmp_path / "showcase")
+    _append(root / "index.html", '<script src="//evil.example/t.js"></script>')
+    assert any("external <script>" in f for f in audit_static_tree(root, allow_outbound_anchors=True))
