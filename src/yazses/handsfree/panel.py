@@ -408,6 +408,26 @@ class PanelModel:
 # --------------------------------------------------------------------------- fact merging
 
 
+def _gaze_target_abilities(static: HandsFreeFacts, live: HandsFreeFacts) -> str:
+    """The abilities line for the plan the merged row prints: the live daemon's.
+
+    The static and live sides are classified in different processes, so in different
+    environments -- `doctor` over SSH sees no display while the daemon runs in X11, or a
+    service daemon lacks ``DISPLAY`` while the panel has it. The row prints the live
+    reason, so it must print the live abilities too: pairing one session's reason with
+    another's "close this" verdict would make a false safety claim. The daemon passes its
+    own ``[gaze]`` flags, so its line is the config-aware one. An older daemon that sends
+    no line borrows the static one only when both describe the same plan.
+    """
+    if live.gaze_target_abilities:
+        return live.gaze_target_abilities
+    same_plan = live.gaze_target_available is None or (
+        live.gaze_target_available == static.gaze_target_available
+        and live.gaze_target_reason == static.gaze_target_reason
+    )
+    return static.gaze_target_abilities if same_plan else ""
+
+
 def merge_facts(static: HandsFreeFacts, live: HandsFreeFacts | None) -> HandsFreeFacts:
     """Overlay what the running daemon knows on what the config and the OS say. Pure.
 
@@ -473,6 +493,7 @@ def merge_facts(static: HandsFreeFacts, live: HandsFreeFacts | None) -> HandsFre
         gaze_target_capabilities=(
             live.gaze_target_capabilities or static.gaze_target_capabilities
         ),
+        gaze_target_abilities=_gaze_target_abilities(static, live),
         safety_configured=live.safety_configured or static.safety_configured,
         safety_window_ms=(
             live.safety_window_ms if live.safety_window_ms is not None else static.safety_window_ms

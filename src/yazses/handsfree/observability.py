@@ -272,6 +272,10 @@ class HandsFreeFacts:
     #: position, other windows' geometry, focus, and pointer injection labelled separate.
     #: ``""`` = not asked, or a session the matrix does not assess.
     gaze_target_capabilities: str = ""
+    #: What Glance-Type does here, one line (`target_semantics.glance_type_abilities`):
+    #: dictation, "focus/minimize this", "close this", calibration, the pointer as a
+    #: separate feature. ``""`` = not asked.
+    gaze_target_abilities: str = ""
     #: Whether the user opted into the global stop + stale-signal watchdog.
     safety_configured: bool = False
     #: The staleness window in force, in milliseconds; ``None`` = not known.
@@ -857,15 +861,18 @@ def _gaze_target_row(facts: HandsFreeFacts) -> HealthRow | None:
     # The capability row is appended, not substituted: it is the evidence for the sentence,
     # and it is where a reader sees that a granted pointer permission is a separate thing.
     caps = f" ({facts.gaze_target_capabilities})" if facts.gaze_target_capabilities else ""
+    # Then what that means for the user: what Glance-Type does and refuses here.
+    does = f". Here: {facts.gaze_target_abilities}" if facts.gaze_target_abilities else ""
     if facts.gaze_target_available:
         return HealthRow(
-            label, Health.OK, (facts.gaze_target_reason or "window under the gaze point") + caps
+            label, Health.OK,
+            (facts.gaze_target_reason or "window under the gaze point") + caps + does,
         )
     return HealthRow(
         label,
         Health.DEGRADED,
         "none — " + (facts.gaze_target_reason or "this session cannot resolve gaze to a window")
-        + caps,
+        + caps + does,
         facts.gaze_target_remedy or "no local fix on this session",
     )
 
@@ -941,6 +948,7 @@ PAYLOAD_KEYS: tuple[str, ...] = (
     "gaze_target_reason",
     "gaze_target_remedy",
     "gaze_target_capabilities",
+    "gaze_target_abilities",
     "safety_configured",
     "safety_window_ms",
     "safety",
@@ -1080,6 +1088,7 @@ def facts_from_payload(payload: Mapping[str, object] | None) -> HandsFreeFacts |
         gaze_target_reason=_text(payload.get("gaze_target_reason"), ""),
         gaze_target_remedy=_text(payload.get("gaze_target_remedy"), ""),
         gaze_target_capabilities=_text(payload.get("gaze_target_capabilities"), ""),
+        gaze_target_abilities=_text(payload.get("gaze_target_abilities"), ""),
         safety_configured=bool(payload.get("safety_configured", False)),
         safety_window_ms=_number(payload.get("safety_window_ms")),
         safety=_safety_from_payload(payload.get("safety")),

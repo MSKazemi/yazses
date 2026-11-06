@@ -261,7 +261,8 @@ def test_gaze_status_prints_the_capabilities_and_the_refusal_on_wayland(
     assert result.exit_code == 0, result.output
     assert "capabilities: screen position: no;" in result.output
     assert "pointer injection (separate, not a target): with permission" in result.output
-    assert "is refused here, never sent to the focused window" in result.output
+    assert '"close this": refused, with a notification; never sent to the focused window' \
+        in result.output
 
 
 # ---- the daemon: a deixis phrase where no target can exist --------------------------

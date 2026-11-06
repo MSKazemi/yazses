@@ -1873,6 +1873,7 @@ def _handsfree_checks(
     from yazses.handsfree.probe import (
         calibration_facts,
         facts_from_config,
+        gaze_destructive_flags,
         gaze_target_facts,
         pointer_facts,
         pointer_route_facts,
@@ -1901,7 +1902,10 @@ def _handsfree_checks(
             read_context=read_context,
         )
         facts = replace(facts, calibration_validity=validity, calibration_reason=reason)
-        facts = gaze_target_facts(facts)
+        confirm, refuse = gaze_destructive_flags(cfg)
+        facts = gaze_target_facts(
+            facts, confirm_destructive=confirm, refuse_destructive_fallback=refuse
+        )
 
     # What only the running daemon can see (consumer states, the shared camera, the gate, the
     # pointer's permission). `live_facts` is the test seam: ``False`` = ask nobody.

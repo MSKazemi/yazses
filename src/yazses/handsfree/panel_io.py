@@ -131,6 +131,7 @@ def gather_panel_inputs(
         from yazses.handsfree.probe import (
             calibration_facts,
             facts_from_config,
+            gaze_destructive_flags,
             gaze_target_facts,
             pointer_facts,
         )
@@ -156,7 +157,10 @@ def gather_panel_inputs(
                 read_context=read_context,
             )
             static = replace(static, calibration_validity=validity, calibration_reason=reason)
-            static = gaze_target_facts(static)
+            confirm, refuse = gaze_destructive_flags(cfg)
+            static = gaze_target_facts(
+                static, confirm_destructive=confirm, refuse_destructive_fallback=refuse
+            )
         if static.features_requested:
             gate = camera_gate if camera_gate is not None else _camera_gate(cfg, platform)
             if gate is not None:
