@@ -49,7 +49,7 @@ class XdotoolInjector:
         if count <= 0:
             return
         subprocess.run(
-            ["xdotool", "key", "--repeat", str(count), "BackSpace"],
+            ["xdotool", "key", "--clearmodifiers", "--repeat", str(count), "BackSpace"],
             check=True,
             timeout=_timeout_for(count),
         )

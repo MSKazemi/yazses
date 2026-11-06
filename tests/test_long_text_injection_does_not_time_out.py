@@ -169,6 +169,16 @@ def test_xdotool_long_text_and_keys_do_not_time_out(clock):
     inj.inject_backspaces(LONG)
 
 
+def test_xdotool_backspaces_clear_held_modifiers_like_every_other_path(clock):
+    """Synthetic (fake runner, no real X11): a held hold-to-talk modifier must be cleared.
+
+    The daemon cleans leaked characters at hold start, while the hotkey may still be
+    down; `type` and the key-sequence path already pass --clearmodifiers.
+    """
+    XdotoolInjector().inject_backspaces(5)
+    assert clock[0][0] == ["xdotool", "key", "--clearmodifiers", "--repeat", "5", "BackSpace"]
+
+
 # ---- the budget itself ------------------------------------------------------
 
 
