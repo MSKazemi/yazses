@@ -8,7 +8,7 @@
 
 **Existing research to reuse, not duplicate:** [P0/P1 artifact study](EEG_EOG_FEASIBILITY_PROTOCOL.md), [existing EEG/EOG synthetic replay](../../scripts/hci_eegeog_replay.py), [multimodal fixture schema](../../examples/hci-hf-lab/fixtures.schema.json) (#699), [2026 brain interface feasibility report](../research/state-of-the-art/2026-11-03-brain-interface-feasibility.md).
 
-**Executable artifacts:** [Synthetic motor-imagery stress script](../../scripts/hci_eeg_mi_synthetic.py), [28 isolated regression tests](../../tests/test_hci_eeg_mi_synthetic.py).
+**Executable artifacts:** [Synthetic motor-imagery stress script](../../scripts/hci_eeg_mi_synthetic.py), [30 isolated regression tests](../../tests/test_hci_eeg_mi_synthetic.py).
 
 ## Scientific question
 
@@ -27,7 +27,7 @@ The code uses **Python standard library only**, requires no hardware, network, m
     python scripts/hci_eeg_mi_synthetic.py --seed 0 --drift-amplitude 0.85
     python scripts/hci_eeg_mi_synthetic.py --sweep-drift 0.30,0.50,0.75,0.85 --sweep-seeds 20
     python scripts/hci_eeg_mi_synthetic.py --seed 0 --no-reference-channel
-    python scripts/hci_eeg_mi_synthetic.py --sweep-leakage 0,1,2,4,8,16,32 --sweep-seeds 20
+    python scripts/hci_eeg_mi_synthetic.py --sweep-leakage 0,1,2,4,8,16,17,18,19,20,24,28,32 --sweep-seeds 20
     python scripts/hci_eeg_mi_synthetic.py --reliability --train-seeds 10 --sweep-seeds 20
     python -m pytest tests/test_hci_eeg_mi_synthetic.py -q
 
@@ -102,7 +102,7 @@ Reading: in this synthetic setup a rest-amplitude drop of about 26% (to ~0.74) i
 
 ### Dependence on a clean reference channel, and abstention
 
-- **Correction (2026-11-06).** An earlier version of this page said blink, clench and speaking show 0 false candidates *only because* a clean EOG/EMG reference channel feeds the quality gate. The ablation below shows that is not what this generator does. At the authored leakage the three blocks stay at 0 with the gate removed too. The authored artifacts are *added* to C3/C4: blink is a slow bump, clench alternates at the 50 Hz Nyquist rate and speaking is broadband noise. Added energy tends to raise 10 Hz power, and only a fall in power can produce a candidate. So the 0 / 0 / 0 row is a property of the generator, not evidence that the gate rejects artifacts. A contaminated reference channel and artifacts that *suppress* 10 Hz power were not modelled.
+- **Correction (2026-11-06).** An earlier version of this page said blink, clench and speaking show 0 false candidates *only because* a clean EOG/EMG reference channel feeds the quality gate. The ablation below shows that is not what this generator does. At the authored leakage the three blocks stay at 0 with the gate removed too. The authored artifacts are *added* to C3/C4: blink is a slow bump, clench alternates at the 50 Hz Nyquist rate and speaking is broadband noise. Only a fall in 10 Hz power can produce a candidate, and an added artifact changes that power only through its own 10 Hz component, which can add to or cancel the mu rhythm depending on phase. At the authored leakage that component is negligible or absent. The clench alternation has no 10 Hz component over a whole 1 s window, and in every scored window (250 ms hops) its contribution is zero to floating-point precision. The blink bump reaches at most about 0.008 in 10 Hz amplitude on C3, and speaking about 0.013 on average. The rest mu amplitude is 1.00 on each channel, and a candidate needs the window's 10 Hz power, averaged over C3 and C4, to fall below 55% of the calibrated rest power. So the 0 / 0 / 0 row is a property of the generator, not evidence that the gate rejects artifacts. A contaminated reference channel and artifacts that *suppress* 10 Hz power were not modelled.
 - **Abstention is large.** In the seed-0 run, 96 of 416 post-calibration windows (23.1%) were rejected as unusable (flatline 32, muscle artifact 40, missing or non-finite 19, ocular artifact 5), leaving 320 eligible windows. Across seeds 0-19 the figure is 95-96 of 416 (about 23%); it is driven by the scripted blocks, so it is not an estimate of real-world usable time. A real evaluation must report this fraction beside any hit or false-candidate figure.
 
 ### Reference-channel ablation — synthetic only (2026-11-06)
@@ -113,10 +113,11 @@ Reading: in this synthetic setup a rest-amplitude drop of about 26% (to ~0.74) i
 | --- | --- | --- | --- | --- | --- | --- |
 | 0, 1, 2, 4, 8, 16 | on | 0 / 0 / 0 | 0 / 0 / 0 | 40 | 23.05% | 1.8-2.0% |
 | 0, 1, 2, 4, 8, 16 | off | 0 / 0 / 0 | 0 / 0 / 0 | 40 | 12.26% | 1.9-2.8% |
-| 32 | on | 0 / 0 / 0 | 0 / 0 / 0 | 40 | 23.05% | 1.73% |
-| 32 | off | 0 / 0 / **3** | 0 / 0 / **67.5** | 40 | 12.26% | 3.38% |
+| 17, 18, 19, 20, 24, 28, 32 | on | 0 / 0 / 0 | 0 / 0 / 0 | 40 | 23.05% | 1.7-1.8% |
+| 17, 18, 19, 20 | off | 0 / 0 / **1** | 0 / 0 / **22.5** | 40 | 12.26% | 2.9-3.0% |
+| 24, 28, 32 | off | 0 / 0 / **3** | 0 / 0 / **67.5** | 40 | 12.26% | 3.1-3.4% |
 
-How to read it. With the gate removed, the first artifact false candidates appear only at 32× the authored leakage, and only in `speaking`. Broadband noise that large can cancel the 10 Hz component by chance. The gate's measurable effect at the authored leakage is abstention: removing it lifts eligible time from about 77% to about 88% of post-calibration windows. Leakage values between 16 and 32 were not run, so the onset is bracketed, not located. None of this describes real ocular or muscle artifacts.
+How to read it. With the gate removed, the first artifact false candidate appears at 17× the authored leakage, in `speaking` only. Over seeds 0-19 the onset lies between 16× (0 false candidates) and 17× (1). Only whole-number leakage values were run there, so the onset is bracketed to that interval, not located more finely, and a different seed set could move it. The count rises to 3 by 24× and stays at 3 up to 32×. Blink and clench give 0 at every leakage run. The likely mechanism is chance cancellation. The speaking noise reaches C3 and C4 through the same EMG channel, and its 10 Hz component grows in proportion to the leakage, to about 0.21 in amplitude on average at 16× and 0.32 at 24×. An occasional window where that component is large and in the opposing phase pulls the averaged power under the threshold. The gate's measurable effect at the authored leakage is abstention: removing it lifts eligible time from about 77% to about 88% of post-calibration windows. None of this describes real ocular or muscle artifacts.
 
 ### Reliability of the suppression score — synthetic only
 
@@ -151,7 +152,7 @@ How to read it. The 0.7-0.8 bin is the authored `drift_rest` block: a mean score
 | Quiet reading / sustained attention | **NOT TESTED** - no block; real task-related mu variation was not modelled |
 | Other real-world confounds (fatigue, electrode drift, mains interference, real eye or jaw movement spectra) | **NOT TESTED** |
 
-**Tests:** the isolated Pytest module has 28 cases: 13 original, 6 for the golden hash, default-equivalence, drift-sweep monotonicity, determinism and the drift CLI flags, and 9 added on 2026-11-06. The new 9 cover the reference-channel ablation, the leakage sweep's hourly arithmetic, the four-way state partition, train/test seed disjointness, ECE on toy inputs and the new CLI flags. The seed-0 default output hash did not change. Checks include reproducibility, a pinned seed-0 output hash, synthetic notices, mandatory false drift case, blink/clench/speaking/dropout/flatline refusal, causality under future-data mutation, independent stop, NaN/missing handling, inference independence from labels, CLI JSON output and bounded timestamps. For the original 13-test version, the blob hashes of script/tests uploaded to the research branch matched the locally tested files.
+**Tests:** the isolated Pytest module has 30 cases: 13 original, 6 for the golden hash, default-equivalence, drift-sweep monotonicity, determinism and the drift CLI flags, and 11 added on 2026-11-06. The new 11 cover the reference-channel ablation, the leakage sweep's hourly arithmetic, gate-off 0 / 0 / 0 artifact false candidates at the authored leakage (seeds 0-1), the clench alternation's zero 10 Hz power, the four-way state partition, train/test seed disjointness, ECE on toy inputs and the new CLI flags. The seed-0 default output hash did not change. Checks include reproducibility, a pinned seed-0 output hash, synthetic notices, mandatory false drift case, blink/clench/speaking/dropout/flatline refusal, causality under future-data mutation, independent stop, NaN/missing handling, inference independence from labels, CLI JSON output and bounded timestamps. For the original 13-test version, the blob hashes of script/tests uploaded to the research branch matched the locally tested files.
 
 **Not run:** full project test suite, Ruff/CI, real EEG, BrainFlow hardware, real participants, cross-session independent data or publication-grade analysis. Do **not** imply the isolated tests establish whole-repository correctness.
 

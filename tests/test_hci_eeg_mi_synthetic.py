@@ -237,6 +237,20 @@ def test_leakage_sweep_reports_per_block_and_labelled_hourly_arithmetic() -> Non
     assert authored["reference_gate_off"]["abstention_rate"] < authored["reference_gate_on"]["abstention_rate"]
 
 
+def test_gate_off_at_the_authored_leakage_gives_no_artifact_false_candidates() -> None:
+    # The results page's correction: blink/clench/speaking stay at 0 at the authored
+    # leakage even with the EOG/EMG gate removed, so the gate is not what keeps them at 0.
+    authored = M.leakage_sweep([1.0], range(2))["rows"][0]
+    assert authored["reference_gate_off"]["false_candidates_by_block"] == {
+        "blink": 0, "clench": 0, "speaking": 0}
+
+
+def test_nyquist_rate_clench_adds_nothing_at_10_hz() -> None:
+    # Clench alternates sign every sample (50 Hz at FS=100), which the 10 Hz
+    # quadrature projection cancels over a whole 1 s window.
+    assert M._power_10hz([2.5 * (-1) ** j for j in range(M.FS)]) < 1e-20
+
+
 def test_state_summary_partitions_every_post_calibration_window() -> None:
     s = M.state_summary(M.generate(0))
     assert s["abstained"] + s["candidate_band"] + s["unknown_band"] + s["rest_band"] == s["windows"]
