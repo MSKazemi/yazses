@@ -86,8 +86,9 @@ def apply_voice_punctuation(text: str) -> str:
         return text
     s = text
     for pattern, repl in _FORMATTING_RES:
-        # A lambda, so a replacement is never parsed for backslash escapes.
-        s = pattern.sub(lambda _m, r=repl: r, s)
+        # The replacements are literal "\n"/"\t" characters with no backslash,
+        # so re.sub has no escape to parse in them.
+        s = pattern.sub(repl, s)
     # Absorb whitespace before the phrase so the symbol hugs the prior word;
     # whatever follows (usually a space) is preserved.
     s = _ATTACH_RE.sub(_attach, s)
