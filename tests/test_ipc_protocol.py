@@ -200,3 +200,21 @@ def test_the_server_answers_a_bare_array_instead_of_dying():
     payload = json.loads(reply)
     assert "error" in payload, payload
     assert "Parse error" in payload["error"]["message"], payload
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        '{"jsonrpc":"2.0","id":1,"error":"boom"}',
+        '{"jsonrpc":"2.0","id":1,"error":[1]}',
+        '{"jsonrpc":"2.0","id":1,"error":{"code":"x","message":"m"}}',
+        '{"jsonrpc":"2.0","id":1,"error":{"code":null}}',
+        '{"jsonrpc":"2.0","id":1,"error":{"code":[1]}}',
+        # float infinity: int(inf) is an OverflowError, which used to escape unchanged.
+        '{"jsonrpc":"2.0","id":1,"error":{"code":1e999}}',
+    ],
+)
+def test_a_malformed_error_member_is_a_value_error(line):
+    # Probed on 1698395d: a string or list `error` raised AttributeError (no `.get`).
+    with pytest.raises(ValueError):
+        Response.from_json(line)

@@ -7,7 +7,7 @@ import socket
 from pathlib import Path
 from typing import Any
 
-from yazses.ipc.protocol import NOT_REACHABLE, Request, Response, RpcError
+from yazses.ipc.protocol import INTERNAL_ERROR, NOT_REACHABLE, Request, Response, RpcError
 
 
 class IpcCallError(RuntimeError):
@@ -92,7 +92,14 @@ class JsonRpcClient:
             raise err from exc
         except OSError as exc:
             raise IpcUnreachableError(self._socket_path, cause=exc) from exc
-        response = Response.from_json(line.decode("utf-8"))
+        try:
+            response = Response.from_json(line.decode("utf-8"))
+        except ValueError as exc:  # JSONDecodeError and UnicodeDecodeError are ValueErrors
+            # The daemon closed without answering, or sent something that is not a
+            # JSON-RPC response. One typed error instead of three untyped ones.
+            raise IpcCallError(
+                RpcError(code=INTERNAL_ERROR, message=f"Daemon sent a malformed reply to {method!r}")
+            ) from exc
         if response.error is not None:
             raise IpcCallError(response.error)
         return response.result

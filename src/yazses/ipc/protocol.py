@@ -103,8 +103,18 @@ class Response:
         err = data.get("error")
         rpc_error: RpcError | None = None
         if err is not None:
+            # A string or list `error` has no `.get` (AttributeError) and a
+            # non-numeric `code` made int() raise something else; a foreign or
+            # buggy daemon can send either. Everything malformed leaves as ValueError.
+            if not isinstance(err, dict):
+                raise ValueError(f"Response 'error' must be an object, got {type(err).__name__}")
+            try:
+                code = int(err.get("code", INTERNAL_ERROR))
+            except (TypeError, ValueError, OverflowError):
+                # OverflowError: JSON 1e999 parses to float inf and int(inf) raises it.
+                raise ValueError(f"Response error 'code' is not an integer: {err.get('code')!r}") from None
             rpc_error = RpcError(
-                code=int(err.get("code", INTERNAL_ERROR)),
+                code=code,
                 message=str(err.get("message", "")),
                 data=err.get("data"),
             )
