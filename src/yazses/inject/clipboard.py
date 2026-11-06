@@ -4,6 +4,7 @@ import subprocess
 import time
 
 from yazses.inject.payload import hide_payload
+from yazses.inject.wtype import wtype_key_argv
 from yazses.inject.xdotool import _timeout_for as xdotool_timeout_for
 from yazses.inject.xdotool import _xdotool_combo
 from yazses.inject.ydotool import run_ydotool_keys, ydotool_key_timeout
@@ -97,17 +98,9 @@ class ClipboardInjector:
             if _ydotool_ready():
                 run_ydotool_keys(keys, timeout=ydotool_key_timeout(keys))
             elif shutil.which("wtype"):
-                args: list[str] = []
-                for key in keys:
-                    parts = key.split("+")
-                    modifiers = parts[:-1]
-                    key_name = parts[-1]
-                    for mod in modifiers:
-                        args += ["-M", mod]
-                    args += ["-k", key_name]
-                    for mod in modifiers:
-                        args += ["-m", mod]
-                subprocess.run(["wtype"] + args, check=True, timeout=10)
+                # Same combo translation as WtypeInjector: `meta`/`super`/`cmd`
+                # are not wtype modifier names, and wtype exits 1 on them.
+                subprocess.run(wtype_key_argv(keys), check=True, timeout=10)
             else:
                 raise RuntimeError("No tool available to send key sequence on Wayland (install ydotool or wtype)")
         else:
