@@ -8175,6 +8175,7 @@ class Daemon:
                 return {"ok": False, "reason": "a meeting is already running; `yazses meeting stop` first"}
             if self._state.state not in (TrayState.IDLE, TrayState.PAUSED):
                 return {"ok": False, "reason": f"busy ({self._state.state.value})"}
+            controller = None
             try:
                 from yazses.meeting import store
                 from yazses.meeting.controller import MeetingController
@@ -8210,6 +8211,15 @@ class Daemon:
                 recorder.start()
             except Exception as exc:
                 log.exception("Meeting start failed")
+                # The controller opens audio.wav when it is built and starts its
+                # live-transcript worker before the mic is opened, so a recorder that
+                # cannot start (no device, PortAudio refusing the stream) would leave
+                # both behind for the life of the daemon -- one more pair per retry.
+                if controller is not None:
+                    try:
+                        controller.stop_capture()
+                    except Exception:  # noqa: BLE001 - cleanup must not mask the cause
+                        log.debug("Releasing the failed meeting failed", exc_info=True)
                 # The tray's Start meeting entry shows this reason itself, but the
                 # CLI caller and an auto-stop have no such surface — and a meeting
                 # that failed to start is exactly the failure someone walks away from.
