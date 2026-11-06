@@ -29,12 +29,12 @@ import shutil
 import sys
 import tomllib
 from pathlib import Path
-from urllib.parse import urlsplit
 
 import pytest
 import typer.main as tm
 
 import yazses.cli as cli_mod
+from tests.json_schema_subset import errors as _errors
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "render-mcp-server-json.py"
@@ -175,7 +175,8 @@ def test_main_prints_the_path_and_the_marker(tmp_path: Path, capsys) -> None:
 # The registry publishes one JSON schema per dated release. The template's `$schema`
 # names the current one, and a verbatim copy of it is vendored under
 # tests/fixtures/mcp_registry/ so the check runs offline and without `jsonschema`
-# (a dependency of the optional `mcp` SDK only, not of a base or dev install).
+# (a dependency of the optional `mcp` SDK only, not of a base or dev install); the
+# walk is tests/json_schema_subset.py, shared with the `.mcpb` manifest check.
 #
 # Source:   https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json
 # Fetched:  2026-10-30. The registry's docs at modelcontextprotocol/registry commit
@@ -191,98 +192,10 @@ def test_main_prints_the_path_and_the_marker(tmp_path: Path, capsys) -> None:
 SCHEMA_FILE = ROOT / "tests" / "fixtures" / "mcp_registry" / "server.schema.2025-12-11.json"
 SCHEMA_CANONICAL_SHA256 = "64cff5eeae54d30932207dfb38324e12eeaeb4abaa09f73dc42c9a9ca319f76e"
 
-#: Keywords that annotate and never reject. Anything else the walk meets that it does
-#: not implement fails the test rather than passing silently.
-_ANNOTATIONS = frozenset({
-    "$comment", "$id", "$schema", "definitions", "description", "example", "examples",
-    "default", "title",
-})
-_JSON_TYPES = {
-    "object": lambda v: isinstance(v, dict),
-    "array": lambda v: isinstance(v, list),
-    "string": lambda v: isinstance(v, str),
-    "boolean": lambda v: isinstance(v, bool),
-    "integer": lambda v: isinstance(v, int) and not isinstance(v, bool),
-    "number": lambda v: isinstance(v, (int, float)) and not isinstance(v, bool),
-    "null": lambda v: v is None,
-}
-
 
 @pytest.fixture(scope="module")
 def schema() -> dict:
     return json.loads(SCHEMA_FILE.read_text(encoding="utf-8"))
-
-
-def _is_uri(value: str) -> bool:
-    parts = urlsplit(value)
-    return bool(parts.scheme) and bool(parts.netloc or parts.path)
-
-
-def _errors(node: dict, value, root: dict, at: str = "$") -> list[str]:
-    """Draft-07 validation of the keywords the registry's schema uses. Small on purpose."""
-    errors: list[str] = []
-    for key, rule in node.items():
-        if key in _ANNOTATIONS:
-            continue
-        if key == "$ref":
-            assert rule.startswith("#/definitions/"), rule
-            errors += _errors(root["definitions"][rule.rsplit("/", 1)[1]], value, root, at)
-        elif key == "type":
-            types = [rule] if isinstance(rule, str) else rule
-            if not any(_JSON_TYPES[t](value) for t in types):
-                errors.append(f"{at}: not of type {rule}")
-        elif key == "required":
-            if isinstance(value, dict):
-                errors += [f"{at}: missing {name!r}" for name in rule if name not in value]
-        elif key == "properties":
-            if isinstance(value, dict):
-                for name, sub in rule.items():
-                    if name in value:
-                        errors += _errors(sub, value[name], root, f"{at}.{name}")
-        elif key == "additionalProperties":
-            if isinstance(value, dict):
-                for name in (k for k in value if k not in node.get("properties", {})):
-                    if rule is False:
-                        errors.append(f"{at}: unexpected {name!r}")
-                    elif isinstance(rule, dict):
-                        errors += _errors(rule, value[name], root, f"{at}.{name}")
-        elif key == "items":
-            if isinstance(value, list):
-                for i, item in enumerate(value):
-                    errors += _errors(rule, item, root, f"{at}[{i}]")
-        elif key == "pattern":
-            if isinstance(value, str) and not re.search(rule, value):
-                errors.append(f"{at}: {value!r} does not match {rule}")
-        elif key == "minLength":
-            if isinstance(value, str) and len(value) < rule:
-                errors.append(f"{at}: shorter than {rule}")
-        elif key == "maxLength":
-            if isinstance(value, str) and len(value) > rule:
-                errors.append(f"{at}: longer than {rule}")
-        elif key == "enum":
-            if value not in rule:
-                errors.append(f"{at}: {value!r} not in {rule}")
-        elif key == "const":
-            if value != rule:
-                errors.append(f"{at}: {value!r} is not {rule!r}")
-        elif key == "not":
-            if not _errors(rule, value, root, at):
-                errors.append(f"{at}: matches a forbidden schema {rule}")
-        elif key == "anyOf":
-            branches = [_errors(sub, value, root, at) for sub in rule]
-            if all(branches):
-                errors.append(f"{at}: matches none of anyOf: {branches}")
-        elif key == "allOf":
-            for sub in rule:
-                errors += _errors(sub, value, root, at)
-        elif key == "format":
-            if rule != "uri":
-                raise AssertionError(f"{at}: format {rule!r} is not implemented here")
-            if isinstance(value, str) and not _is_uri(value):
-                errors.append(f"{at}: {value!r} is not a uri")
-        else:
-            raise AssertionError(f"{at}: schema keyword {key!r} is not implemented here")
-    return errors
 
 
 def test_the_vendored_schema_is_the_published_one(schema: dict) -> None:
