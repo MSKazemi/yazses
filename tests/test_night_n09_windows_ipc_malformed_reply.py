@@ -73,7 +73,10 @@ def _client() -> win_ipc.NamedPipeIpcClient:
 
 
 MALFORMED_REPLIES = {
-    # The daemon closed the pipe without answering at all.
+    # ReadFile returned no bytes before any newline. (A real server hang-up
+    # usually makes ReadFile raise ERROR_BROKEN_PIPE instead, which the client
+    # reports as IpcUnreachableError before parsing; this covers the case where
+    # the read ends cleanly with nothing in the buffer.)
     "empty": b"",
     "not-json": b"this is not json\n",
     "truncated-json": b'{"jsonrpc": "2.0", "id": 1, "res\n',
