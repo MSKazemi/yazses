@@ -895,7 +895,9 @@ class SettingsWindow:
         from PySide6.QtWidgets import (
             QFormLayout,
             QGroupBox,
+            QHBoxLayout,
             QLabel,
+            QPushButton,
             QSlider,
             QVBoxLayout,
         )
@@ -934,7 +936,18 @@ class SettingsWindow:
         )
         self._mic_box = mic
         self._mic_baseline = model.microphone
-        form.addRow(QLabel("Microphone:"), mic)
+        refresh = QPushButton("Refresh")
+        refresh.setAccessibleName("Refresh microphones")
+        refresh.setToolTip(
+            "Look for microphones plugged in since this window opened. "
+            "Your selection is kept and nothing is saved."
+        )
+        refresh.clicked.connect(self._refresh_microphones)
+        mic_row = QHBoxLayout()
+        mic_row.setContentsMargins(0, 0, 0, 0)
+        mic_row.addWidget(mic, 1)
+        mic_row.addWidget(refresh)
+        form.addRow(QLabel("Microphone:"), mic_row)
 
         slider = QSlider(Qt.Orientation.Horizontal)
         slider.setRange(0, VAD_SLIDER_STEPS)
@@ -1064,6 +1077,42 @@ class SettingsWindow:
             if above
             else "Below the line — audio this quiet is discarded as silence."
         )
+
+    def _refresh_microphones(self) -> None:
+        """Re-list the microphones, keeping whatever is selected and staging nothing.
+
+        Runs on the GUI thread, like the probe that builds the page; it is a click the
+        user asked for. When enumeration fails the list is left as it was (an empty
+        result from a failed probe must not wipe a working list). Signals are blocked
+        while the items are rebuilt so the page is not marked dirty, and the selection
+        is restored by value, not by label.
+        """
+        mic = getattr(self, "_mic_box", None)
+        if mic is None:
+            return
+        try:
+            from yazses.audio.devices import current_default_input_name, list_input_devices
+
+            devices, default_name = list_input_devices(), current_default_input_name()
+        except Exception:  # noqa: BLE001 - keep the existing list
+            log.debug("could not re-enumerate input devices", exc_info=True)
+            return
+        from yazses.settingsui.controls import mic_choices
+
+        selected = mic.currentData()
+        selected = self._mic_baseline if selected is None else selected
+        choices = mic_choices(devices, default_name=default_name, pinned=selected)
+        blocked = mic.blockSignals(True)
+        try:
+            mic.clear()
+            for choice in choices:
+                mic.addItem(choice.label, choice.value)
+            for index, choice in enumerate(choices):
+                if choice.value == selected:
+                    mic.setCurrentIndex(index)
+                    break
+        finally:
+            mic.blockSignals(blocked)
 
     def _probe_devices(self):
         """(devices, default_name), or ([], None) when audio cannot be opened."""
