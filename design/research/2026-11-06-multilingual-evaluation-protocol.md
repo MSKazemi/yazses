@@ -104,7 +104,7 @@ normalise silently.
 | P4 | fa | `کتاب` (U+06A9 …) | `كتاب` (Arabic Kaf U+0643) | raw CER 1 S; `fa-eval-v1` CER 0 (Kaf mapped) |
 | P5 | fa | `یک` with Farsi Yeh U+06CC | same word with Arabic Yeh U+064A | raw CER 1 S; `fa-eval-v1` CER 0 |
 | P6 | fa | `۱۲` (U+06F1 U+06F2) | `12` (Latin) | `fa-eval-v1` does **not** fold digits [Verified-in-repo, spec §6]: CER 2 S; reported also as digit-form mismatch |
-| P7 | fa | `سلام` | `سلام` preceded by U+200F (RLM) | raw CER 1 I; the evaluation normaliser must state whether bidi controls are stripped (the production `persian_text.py` strips them, base note §5) |
+| P7 | fa | `سلام` | `سلام` preceded by U+200F (RLM) | raw CER 1 I; `fa-eval-v1` CER also 1 I, because it does **not** strip bidi marks [Verified-in-repo, `design/specs/persian-benchmark-and-validation.md` §6]. Production `persian_text.py` would not remove this mark either: its strip covers only embeddings/overrides U+202A-U+202E and isolates U+2066-U+2069, not RLM/LRM [Verified-in-repo, `src/yazses/postprocess/persian_text.py:58`]. Any change is a new normaliser id |
 | H1 | zh | `我们` (U+6211 U+4EEC, Simplified) | `我們` (U+6211 U+5011, Traditional) | as-typed CER 1/2; script-normalised CER 0 |
 | H2 | zh | `你好。` (U+3002) | `你好.` (U+002E) | punctuation-removed CER 0; raw CER 1 S. NFKC does **not** fold U+3002 to U+002E, but does fold full-width U+FF0C to U+002C [Verified locally 2026-11-06: CPython `unicodedata` (Unicode 15.0.0) maps `"。，"` to `"。,"` under NFKC] — so punctuation must be removed by an explicit rule, never by relying on NFKC |
 | H3 | zh | `二十` | `20` | CER 2 S; counted also as numeral-form mismatch; no numeral folding in the primary metric |
@@ -181,7 +181,7 @@ choice turns a correct hypothesis into an error, those artefacts need their own 
 5. **Record.** Each review leaves a row: artefact path, SHA-256, language/locale, reviewer
    pseudonym, self-stated competence, date, decision (`approved`/`changed`/`rejected`), count of
    changes, disagreement count. Pseudonyms only; legal names and emails are never required (as the
-   Chinese protocol already says, line 93).
+   Chinese release gates already say, `design/chinese/2026-10-29-validation-and-release-gates.md:93`).
 6. **Effect of a missing review.** A cell whose artefacts lack a review row is labelled
    `exploratory` and cannot appear in `docs/`, a release note, a README or any support statement.
    This is the evaluation-side twin of the localisation rule that a `draft` page carries a visible
@@ -206,7 +206,7 @@ per-language rate from an unreviewed reference or an unpinned grapheme segmenter
 
 1. Accept two-reviewer references (§5.1) as the bar for a public number, or one reviewer plus
    agreement on a double-reviewed sample?
-2. Should the evaluation normaliser strip bidi controls (vector P7) as production does?
+2. `fa-eval-v1` keeps every bidi mark and production strips only U+202A-U+202E and U+2066-U+2069 (vector P7). Should a later evaluation normaliser version strip bidi controls, and if so which set (does it include RLM/LRM/ALM)?
 3. Who owns folding this addendum into the base note?
 4. The base note's §12 questions (AISHELL-1 licence, IndicVoices gating, CC BY-SA manifests,
    public scorer, consent template) still gate §1.
