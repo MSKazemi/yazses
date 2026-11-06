@@ -22,6 +22,7 @@ from yazses.ipc.client import IpcTimeoutError as _SharedIpcTimeoutError
 from yazses.ipc.client import IpcUnreachableError as _SharedIpcUnreachableError
 from yazses.ipc.protocol import (
     HANDLER_FAILED,
+    INTERNAL_ERROR,
     INVALID_REQUEST,
     METHOD_NOT_FOUND,
     PARSE_ERROR,
@@ -342,7 +343,16 @@ class NamedPipeIpcClient:
             raise IpcUnreachableError(self._pipe_name, cause=outcome["exc"])
 
         line, _, _ = bytes(outcome.get("buf", b"")).partition(b"\n")
-        response = Response.from_json(line.decode("utf-8"))
+        try:
+            response = Response.from_json(line.decode("utf-8"))
+        except ValueError as exc:  # JSONDecodeError and UnicodeDecodeError are ValueErrors
+            # Mirror of the Unix client (ipc/client.py): a daemon that closed
+            # without answering, or answered with something that is not a
+            # JSON-RPC response, is one typed IpcCallError (-32603) that every
+            # caller already catches, not a bare ValueError that tracebacks.
+            raise IpcCallError(
+                RpcError(code=INTERNAL_ERROR, message=f"Daemon sent a malformed reply to {method!r}")
+            ) from exc
         if response.error is not None:
             raise IpcCallError(response.error)
         return response.result
