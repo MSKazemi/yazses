@@ -57,7 +57,7 @@ def test_umask_is_restored_when_bind_fails() -> None:
         # Parent is a file, so mkdir/bind fails.
         with _short_dir() as d:
             blocker = Path(d) / "f"
-            blocker.write_text("x")
+            blocker.write_text("x", encoding="utf-8")
             srv = JsonRpcServer.unix(blocker / "s.sock")
             with pytest.raises(OSError):
                 srv.serve_in_thread()
