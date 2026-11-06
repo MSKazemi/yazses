@@ -1038,6 +1038,17 @@ uv run python scripts/bench-stt.py data/librispeech-sample --engine faster-whisp
 
 The script will output a Markdown row at the end. Open a PR to add your row to the table!
 
+The harness refuses to report numbers it cannot stand behind:
+
+- If the engine factory falls back to a different engine than the one you asked for, the script
+  exits with status 2 instead of scoring the fallback under the requested name. Pass
+  `--allow-fallback` to score it anyway; the row is then labelled `FALLBACK`.
+- Every file is counted as scored or failed, with a reason for each failure. If fewer than all
+  files were scored, the script prints the results and exits with status 3; pass
+  `--allow-partial` to exit 0, and the row still states the coverage.
+- `--json-out FILE` writes a header (commit, engine, library versions, CPU, OS, normaliser) and
+  one row per file. Peak memory is reported as the process's true peak resident size.
+
 ## What you can and cannot re-run
 
 The benchmark harness reuses the shipping code rather than a reimplementation and writes JSON
