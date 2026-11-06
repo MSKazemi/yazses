@@ -523,11 +523,12 @@ are written once against the interfaces and never branch on the operating system
 | `PermissionsBackend` | Probe keyboard/microphone permissions, explain how to grant them | input group | TCC prompts | microphone privacy switch; elevation check |
 | `TrayBackend` | Tray / menu-bar UI | PySide6 `QSystemTrayIcon` | rumps | pystray |
 
-These are the core seven. `platform/base.py` defines seven more, most of them
-optional, so a bundle may set them to `None` where an OS has no implementation yet:
-`HostBackend`, `FileOpener`, `UrlOpener` (the "send to" hand-off),
-`FocusedAppProvider` (macOS and Windows only), `UpdateLauncher` (Windows only),
-`PackRuntime`, and `AccessibilityBackend` (Linux only).
+These are the core seven. `platform/base.py` defines seven more. Four are built on
+demand by functions in `platform/factory.py`, with one implementation per OS family:
+`HostBackend`, `FileOpener`, `UrlOpener` (the "send to" hand-off) and `PackRuntime`
+(the add-on pack loader). Three are optional fields of the platform bundle, left
+`None` where an OS has no implementation yet: `FocusedAppProvider` (macOS and Windows
+only), `UpdateLauncher` (Windows only) and `AccessibilityBackend` (Linux only).
 
 The **EMG hotkey backend** (`platform/emg/backend.py`) is a
 platform-independent `HotkeyBackend` implementation — it reads squeeze events
