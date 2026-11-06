@@ -305,7 +305,10 @@ def test_every_declared_input_is_read_by_the_action(action: Path) -> None:
     data = yaml.safe_load(action.read_text(encoding="utf-8")) or {}
     body = yaml.safe_dump(data.get("runs") or {})
     for key in data.get("inputs") or {}:
-        assert f"inputs.{key}" in body, (
+        # A bounded match, so reading `inputs.python-version` does not count as reading an
+        # input named `python`; the `inputs['key']` / `inputs["key"]` forms count too.
+        pattern = rf"inputs\.{re.escape(key)}(?![\w-])|inputs\[\s*['\"]{re.escape(key)}['\"]\s*\]"
+        assert re.search(pattern, body), (
             f"{action.relative_to(REPO)} declares input {key!r} but never reads `inputs.{key}`"
         )
 
