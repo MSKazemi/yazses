@@ -63,8 +63,9 @@ independently.
   `7b7f5436cfcb02fae583a05b512ea96467fd449fe54cb49a5e4f06c51a1e43b8` (PyPI digest).
 - **[Fact]** `https://api.github.com/repos/snakers4/silero-vad/license`: `spdx_id: MIT`,
   file `LICENSE` (blob `0bf5e90c…`).
-- **[Fact]** The model ships inside the wheel (`src/yazses/meeting/silero_vad.py:7`), so
-  the package version is the closest available revision.
+- **[Fact, per the project's own docstring]** The model ships inside the wheel
+  (`src/yazses/meeting/silero_vad.py:7`); the wheel was not opened tonight. If so, the
+  package version is the closest available revision.
 - **Resolution:** licence `stated`, `mit`; revision `package-version`,
   `silero-vad 6.2.3 (uv.lock)`. A pip user can resolve any version at or above 5.1.2, which
   the `as_stated`/value text must say.
@@ -102,7 +103,9 @@ independently.
   **an unrelated library**, summary "Rewrites queries from lucene syntax to Amazon
   Cloudsearch syntax", author Keith Mitchell, home page `github.com/kemitche/l2cs`,
   licence `BSD`, latest `2.0.2`. YazSes's install hint is `pip install "l2cs>=2.0"`
-  (`pyproject.toml:367`, `src/yazses/gaze/factory.py:14`). That hint is satisfied by the
+  (`pyproject.toml:367`, `src/yazses/gaze/factory.py:14`, and the CHANGELOG entry at
+  `CHANGELOG.md:8755`). It lives in a `pyproject.toml` comment and a module docstring; no runtime
+  message or user-guide page prints it. That hint is satisfied by the
   unrelated 2.0.2 and installs a package with no `Pipeline`, so
   `from l2cs import Pipeline` (`src/yazses/gaze/l2cs.py:18`) fails. The upstream README
   installs from git instead: `pip install git+https://github.com/edavalosanaya/L2CS-Net.git@main`.
@@ -112,6 +115,12 @@ independently.
   ResNet" (`src/yazses/gaze/l2cs.py:25`). **[Inference]** Neither repository bundles or
   resolves weights, so with the real package installed the constructor would call
   `torch.load(None)` and fail. Not executed tonight.
+- **[Inference]** The availability probe would not catch the wrong package. `gaze status`
+  checks only that a top-level module named `l2cs` is importable
+  (`src/yazses/gaze/factory.py:41`, `:61`; `importlib` `find_spec` in
+  `src/yazses/system/deps.py:49`). So with the unrelated package installed, the probe would
+  report the backend as available and the failure would come later, at construction. Not
+  executed.
 - **[Inference]** The `l2cs` backend is therefore unreachable by its documented install path,
   and the hint sends users to an unrelated third-party package of the same name — a
   name-confusion supply-chain risk, even though that particular package is benign as far
@@ -206,7 +215,9 @@ reason. Two of three revision gaps close; `l2cs-net` stays unknown with a reason
 **[Proposal]** The validator requires every Hub id, revision and hash in the manifest to be
 quoted whole in `design/hci-huggingface/model-provenance.md` (`scripts/check_model_manifest.py:10`).
 So each change below needs the same value written into the inventory row first
-(`model-provenance.md:78`/`:142` for whisper-large, `:108-110`, `:111-112` (Silero), `:113`, `:114`), with "observed 2026-11-06" and the source URL. Leave `inventory_date` alone
+(`model-provenance.md:78`/`:142` for whisper-large; `:109` sherpa segmentation and `:110`
+3D-Speaker; `:111-112` Silero; `:113` MediaPipe; `:114` L2CS-Net. `:108` is the upstream
+pyannote row, which is not a gap), with "observed 2026-11-06" and the source URL. Leave `inventory_date` alone
 unless the reviewer re-dates the whole inventory; each changed revision carries its own
 `observed_on`.
 
