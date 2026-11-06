@@ -168,10 +168,16 @@ def test_add_chunk_is_a_valid_playback_listener_across_threads():
         for _ in range(200):
             seen.append(tl.word_at(1.0))
 
-    threads = [threading.Thread(target=play), threading.Thread(target=query)]
+    threads = [
+        threading.Thread(target=play, name="play", daemon=True),
+        threading.Thread(target=query, name="query", daemon=True),
+    ]
     for t in threads:
         t.start()
     for t in threads:
-        t.join()
+        # Bounded: a deadlock fails here in seconds, naming the thread,
+        # instead of hanging until the suite's 300 s pytest-timeout.
+        t.join(timeout=10.0)
+        assert not t.is_alive(), f"{t.name} still running after 10 s (deadlock?)"
     assert tl.word_at(1.0) == 49
     assert all(-1 <= s <= 49 for s in seen)

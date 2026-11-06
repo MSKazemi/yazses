@@ -252,15 +252,23 @@ def test_concurrent_get_and_evict_do_not_raise():
         except Exception as exc:  # pragma: no cover
             errors.append(exc)
 
-    getters = [threading.Thread(target=worker_get) for _ in range(4)]
-    evictor = threading.Thread(target=worker_evict)
+    getters = [threading.Thread(target=worker_get, daemon=True) for _ in range(4)]
+    evictor = threading.Thread(target=worker_evict, name="evictor", daemon=True)
     evictor.start()
-    for t in getters:
-        t.start()
-    for t in getters:
-        t.join()
-    stop.set()
-    evictor.join()
+    try:
+        for t in getters:
+            t.start()
+        for t in getters:
+            # Bounded: a deadlock fails here in seconds, naming the thread,
+            # instead of hanging until the suite's 300 s pytest-timeout.
+            t.join(timeout=10.0)
+            assert not t.is_alive(), f"{t.name} still running after 10 s (deadlock?)"
+    finally:
+        # Always release the evictor, even when a getter assertion failed above,
+        # so it does not spin on past the test.
+        stop.set()
+    evictor.join(timeout=10.0)
+    assert not evictor.is_alive(), "evictor still running 10 s after stop was set"
     # Loads were queued by the getters; run them now and make sure the pool is consistent.
     h.run_queued()
     assert errors == []

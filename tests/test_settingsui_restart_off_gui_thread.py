@@ -160,10 +160,11 @@ def test_closing_the_window_mid_restart_is_refused_and_quitting_waits_for_the_th
         assert thread.isRunning()
 
         # The quit path blocks on the thread, so something must release it meanwhile.
-        releaser = threading.Thread(target=release.set)
+        releaser = threading.Thread(target=release.set, name="releaser", daemon=True)
         releaser.start()
         qapp.aboutToQuit.emit()
-        releaser.join()
+        releaser.join(timeout=10.0)
+        assert not releaser.is_alive(), "releaser still running after 10 s (deadlock?)"
         assert not thread.isRunning(), "quit must wait for the worker, not destroy it"
     finally:
         release.set()

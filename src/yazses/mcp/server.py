@@ -95,25 +95,52 @@ _ASK_HUMAN_MARGIN_S = 20.0
 _ASK_HUMAN_PREFIX_CHARS = 16
 
 
+#: The listening time used when the caller gives none, or one that is not usable.
+_ASK_HUMAN_DEFAULT_LISTEN_S = 30.0
+#: The daemon never listens for less than this (``AskHumanService.ask``).
+_ASK_HUMAN_LISTEN_FLOOR_S = 1.0
+
+
+def ask_human_listen_s(timeout_s: object) -> float:
+    """The listening time, in seconds, that both this client and the daemon will use.
+
+    This value is what is sent to the daemon as ``timeout_s``, and the client's wait
+    is worked out from it, so the two sides cannot disagree. Before this they did:
+    the daemon reads ``timeout_s or 30.0``, so a ``0`` meant 30 s of listening,
+    while the client counted 0 s and stopped waiting about 20 s after the question
+    was read out. A person who answered for longer than that was cut off on the
+    client side: the question had been asked and charged to the hour, and the
+    model was told only that YazSes "did not reply".
+
+    Zero, a negative number, NaN or anything that is not a number means "not
+    given" (30 s). The result is clamped to the daemon's own range, 1 to 120 s, so
+    an infinity or a NaN is never put on the wire either.
+    """
+    if isinstance(timeout_s, bool):
+        return _ASK_HUMAN_DEFAULT_LISTEN_S
+    try:
+        listen = float(timeout_s)  # type: ignore[arg-type]
+    except (TypeError, ValueError, OverflowError):
+        return _ASK_HUMAN_DEFAULT_LISTEN_S
+    if listen != listen or listen <= 0:  # NaN, zero or negative
+        return _ASK_HUMAN_DEFAULT_LISTEN_S
+    return max(_ASK_HUMAN_LISTEN_FLOOR_S, min(listen, _ASK_HUMAN_LISTEN_CAP_S))
+
+
 def ask_human_wait_s(timeout_s: object, question: str = "") -> float:
     """How long to wait on the daemon for an ``ask_human`` reply.
 
-    The estimated time to speak the question, plus the requested listening time
-    (capped at 120 s), plus a 20 s margin for transcription. The IPC client's
-    default 2 s is shorter than a spoken answer, so the old call gave up while the
-    user was still talking and reported a running daemon as not running; and a
-    fixed small margin ended before a long question had even finished being read
-    out.
+    The estimated time to speak the question, plus the listening time
+    (:func:`ask_human_listen_s`: 1 to 120 s), plus a 20 s margin for
+    transcription. The IPC client's default 2 s is shorter than a spoken answer,
+    so the old call gave up while the user was still talking and reported a
+    running daemon as not running; and a fixed small margin ended before a long
+    question had even finished being read out.
     """
-    try:
-        listen = float(timeout_s)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
-        listen = 30.0
-    if listen != listen or listen < 0:  # NaN or negative
-        listen = 30.0
+    listen = ask_human_listen_s(timeout_s)
     chars = (len(question) if isinstance(question, str) else 0) + _ASK_HUMAN_PREFIX_CHARS
     speaking = min(chars / _ASK_HUMAN_SPOKEN_CHARS_PER_S, _ASK_HUMAN_SPEAK_CAP_S)
-    return min(listen, _ASK_HUMAN_LISTEN_CAP_S) + speaking + _ASK_HUMAN_MARGIN_S
+    return listen + speaking + _ASK_HUMAN_MARGIN_S
 
 
 def _seconds(value: float | None) -> str:
@@ -137,6 +164,9 @@ def ask_human_tool(config) -> ToolSpec:
 
         platform = get_platform()
         client = platform.ipc_client_factory(platform.paths.ipc_socket)
+        # One listening time for both sides: sent to the daemon as-is, and the
+        # client's wait is derived from it (see `ask_human_listen_s`).
+        listen = ask_human_listen_s(timeout_s)
         try:
             # `call` takes keyword params, not a dict — passing a dict makes it a
             # positional argument and raises TypeError before the socket is
@@ -144,9 +174,9 @@ def ask_human_tool(config) -> ToolSpec:
             # tests used a fake client that accepted anything.
             reply = client.call(
                 "ask_human",
-                wait_s=ask_human_wait_s(timeout_s, question),
+                wait_s=ask_human_wait_s(listen, question),
                 question=question,
-                timeout_s=timeout_s,
+                timeout_s=listen,
                 caller="mcp",
             )
         except IpcTimeoutError as exc:

@@ -601,18 +601,20 @@ def fig_states() -> str:
         b += cell(mxs[i], my, mw, 44, name, sub, hover, "yz-box yz-box--chip", "mode")
     b.append(text(x0, 248, "Modes are entered over IPC, never by the hotkey, and each returns to IDLE when it finishes.", "yz-s"))
 
-    # The two states in the enum that the daemon never sets. A tidier diagram
-    # would quietly imply it does.
+    # The two states outside the loop. A tidier diagram would quietly imply they are
+    # ordinary steps: ERROR is entered only on a fixable start-up failure (the daemon
+    # holds there, `core/daemon.py::_await_shutdown_in_error`) or shown by the tray when
+    # the daemon stops answering; nothing sets PAUSED.
     gy = 274
-    for i, (name, note) in enumerate((("ERROR", "set by the tray"), ("PAUSED", "never set"))):
+    for i, (name, note) in enumerate((("ERROR", "start-up failure"), ("PAUSED", "never set"))):
         gx = x0 + i * 150
         b.append(f'<g class="yz-node">{tip(f"{name} — {note}")}')
         b.append(box(gx, gy, 138, 36, "yz-box yz-box--untimed"))
         b.append(text(gx + 69, gy + 16, name, "yz-l yz-ghost", "middle"))
         b.append(text(gx + 69, gy + 29, note, "yz-s", "middle"))
         b.append("</g>")
-    b.append(text(x0 + 316, gy + 14, "In the type, but not states the daemon enters. ERROR is what the tray shows", "yz-s"))
-    b.append(text(x0 + 316, gy + 30, "when the daemon stops answering IPC; nothing currently sets PAUSED.", "yz-s"))
+    b.append(text(x0 + 316, gy + 14, "Outside the loop. ERROR: start-up failed fixably, or the tray lost the daemon", "yz-s"))
+    b.append(text(x0 + 316, gy + 30, "(it stops answering IPC). Nothing currently sets PAUSED.", "yz-s"))
 
     return svg(
         "states",
@@ -624,9 +626,9 @@ def fig_states() -> str:
         "early exits return to IDLE: from RECORDING when the audio was silent, and from "
         "TRANSCRIBING when there was nothing to type. Four further modes hang off IDLE and are "
         "entered over IPC rather than by the hotkey: MEETING, REMOTE_SETUP into REMOTE_ACTIVE, "
-        "ENROLLING and READBACK; each returns to IDLE. Two more states exist in the type but are "
-        "not entered by the daemon: ERROR is set by the tray when the daemon stops answering, and "
-        "nothing currently sets PAUSED.",
+        "ENROLLING and READBACK; each returns to IDLE. Two more states sit outside the loop: the "
+        "daemon enters ERROR only when start-up fails in a way the user can fix, and the tray also "
+        "shows ERROR when the daemon stops answering; nothing currently sets PAUSED.",
         b,
     )
 

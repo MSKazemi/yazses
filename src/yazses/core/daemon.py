@@ -523,6 +523,9 @@ class Daemon:
     #: Class-level for the same partial-daemon reason as the attributes above; while it is
     #: None the two hold handlers behave exactly as they always have.
     _autostop: AutoStopTurn | None = None
+    #: True from a hold-start whose microphone failed to open until the next hold-start.
+    #: Read by `_autostop_defer_end`: a tap on a burst that never began must not latch.
+    _hold_start_failed: bool = False
     #: Hesitation-hold (ADR-v2-101): the filled-pause judge of a latched turn, or None.
     _hesitation: HesitationMonitor | None = None
     #: `[stt] idle_unload_s` (ADR-029): the engine wrapper that may release the model, or
@@ -3945,6 +3948,16 @@ class Daemon:
         turn = self._autostop
         if turn is None or not turn.release(time.monotonic()):
             return False
+        if turn.latched and self._hold_start_failed:
+            # The press never became a recording: the microphone failed to open in
+            # `_on_hold_start`, which already told the user. Latching here would swallow
+            # this release, so the end handler's cleanup never ran -- the streaming
+            # decode loop kept spinning, the GNOME modifier stayed held and, for the
+            # command key, `_command_mode` survived into the user's next ordinary
+            # dictation and turned it into an (unmatched) command. Let it end normally;
+            # `_on_hold_end` already treats a release with no burst as a stray.
+            turn.cancel()
+            return False
         threading.Thread(
             target=self._autostop_watch, daemon=True, name="autostop-watch"
         ).start()
@@ -3980,6 +3993,7 @@ class Daemon:
     def _on_hold_start(self, leaked: int) -> None:
         if self._autostop is not None and self._autostop.press(time.monotonic()):
             return  # a second tap while latched: its release ends the turn
+        self._hold_start_failed = False
         if self._hesitation is not None:
             self._hesitation.reset()  # ADR-v2-101: each turn's filled-pause verdict starts empty
         if self._predict is not None:
@@ -4069,9 +4083,19 @@ class Daemon:
                 self._recorder.start()
             except Exception as exc:
                 log.error("Microphone unavailable: %s", exc)
+                self._hold_start_failed = True
                 self._streaming_active = False
                 if self._poll_stop is not None:
                     self._poll_stop.set()
+                # Tear down what this handler started above rather than rely on a
+                # release to do it: the decode loop re-decodes its buffer once per
+                # interval until told to stop, and the injector belongs to a burst
+                # that will never commit (a stray release returns before taking it).
+                if self._stream_engine is not None:
+                    self._stream_engine.request_stop()
+                if self._stream_injector is not None:
+                    self._stream_injector.cancel()
+                    self._stream_injector = None
                 with self._lock:
                     self._state.last_error = f"Microphone unavailable: {exc}"
                     self._state.state = self._resting_state()

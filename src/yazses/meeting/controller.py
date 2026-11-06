@@ -118,7 +118,9 @@ class MeetingController:
         if self._seg is not None:
             utt = self._seg.push(chunk)
             if utt is not None:
-                self._queue.put(utt)
+                # Paired with where it began in the audio, read now: the worker runs
+                # later, and by then the segmenter may have emitted the next one.
+                self._queue.put((utt, self._seg.last_start_s))
         self._check_auto_stop()
 
     @property
@@ -173,9 +175,12 @@ class MeetingController:
             item = self._queue.get()
             if item is None:
                 break
+            audio, start_s = item
             try:
-                text = self._engine.transcribe(item, self._sr)
-                self._session.add_live_line(text)
+                text = self._engine.transcribe(audio, self._sr)
+                # Stamped with the utterance's start in the recording, not with the
+                # moment its decode finished (see `UtteranceSegmenter.last_start_s`).
+                self._session.add_live_line(text, t=start_s)
             except Exception as exc:  # pragma: no cover - engine-dependent
                 log.warning("Live transcription failed (%s).", exc)
 
@@ -215,7 +220,7 @@ class MeetingController:
         if self._seg is not None:
             tail = self._seg.flush()
             if tail is not None:
-                self._queue.put(tail)
+                self._queue.put((tail, self._seg.last_start_s))
             self._queue.put(None)
             if self._worker is not None:
                 self._worker.join(timeout=30.0)

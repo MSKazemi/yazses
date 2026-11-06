@@ -1,6 +1,6 @@
 # YazSes XR — evidence log: platform audit (XR-R02)
 
-**Status: RESEARCH RECORD, 2026-11-05. Documentation only.** Nothing here was tested on any headset, any VRChat client, any avatar or any XR runtime. No YazSes XR adapter, bridge or demo exists, and nothing below is a compatibility claim. This file does not lift the [ADR-030](../adr/adr-030-agent-era-direction.md) freeze. It is the evidence behind task XR-R02 in [TASKS.md](TASKS.md), and it covers only that task. Demand (XR-R01), transport comparison (XR-R03), the threat review (XR-R04) and the decision memo (XR-R05) are still undone.
+**Status: RESEARCH RECORD, 2026-11-05. Documentation only.** Nothing here was tested on any headset, any VRChat client, any avatar or any XR runtime. No YazSes XR adapter, bridge or demo exists, and nothing below is a compatibility claim. This file does not lift the [ADR-030](../adr/adr-030-agent-era-direction.md) freeze. It is the evidence behind task XR-R02 in [TASKS.md](TASKS.md), and it covers only that task. Demand (XR-R01) and the decision memo (XR-R05) are still undone. The transport comparison (XR-R03) and threat review (XR-R04) were drafted on 2026-11-06 in [TRANSPORT-AND-THREATS.md](TRANSPORT-AND-THREATS.md); both are proposals and neither is complete.
 
 **Method.** Public primary sources only (vendor and standards-body pages), each fetched on 2026-11-05 through a page-to-text tool. The "last updated" values for VRChat pages are the page front matter as reported by that tool, not a date printed on the page. "Not read in full" means a part of the source was not seen, so an "absent" finding is weaker there.
 
@@ -48,7 +48,7 @@ Reading of [ADR-019](../adr/adr-019-egress-inventory-and-escalation.md) and `tes
 
 | # | Gate before any implementation | State on 2026-11-05 |
 |---|---|---|
-| 1 | Substantive non-contributor demand, or a documented maintainer change to the evidence condition | **Not met.** Per the lead's brief an earlier XR implementation PR was closed unmerged on 2026-11-02 with "no XR implementation is planned"; I did not re-verify this on GitHub. No evidence log of demand exists (XR-R01 undone). |
+| 1 | Substantive non-contributor demand, or a documented maintainer change to the evidence condition | **Not met.** An earlier XR implementation PR was closed unmerged on 2026-11-02 with "no XR implementation is planned"; not re-verified here on 2026-11-05, and verified on 2026-11-06 as PR #732 (see [TRANSPORT-AND-THREATS.md](TRANSPORT-AND-THREATS.md), section 0). No evidence log of demand exists (XR-R01 undone). |
 | 2 | ADR-030 amendment that lifts or scopes the freeze for this experiment | **Not met.** The 2026-11-01 amendment names a single biosignal exception and says the freeze is not lifted. |
 | 3 | Decision on transport, egress, consent and safety boundaries | **Not met.** DECISIONS.md D1 to D10 are open; section 3 above only frames D3, D5 and D7. |
 | 4 | Bounded delivery milestone and issue set | **Not met.** Not applicable until gates 1 to 3 pass. |

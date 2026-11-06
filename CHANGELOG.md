@@ -42,6 +42,86 @@ Double-clicking the app starts the menu-bar icon, which used any daemon it found
 
 Every built bundle's `manifest.json` is checked offline against the spec's own JSON schema (manifest version 0.3, vendored from modelcontextprotocol/mcpb at commit 70fe3b34), with deliberately broken manifests to show the check catches errors. The draft-07 validator for the MCP registry's `server.json` moved to `tests/json_schema_subset.py` so both checks share it.
 
+### Changed — CI: the cache, permission and shared-setup rules are enforced by tests ([#537](https://github.com/MSKazemi/yazses/issues/537))
+
+The rules in `.github/CI_POLICY.md` §7–§8 are now checked statically. Every cache key must name what makes it valid (OS, architecture, interpreter, lockfile hash), and no `pull_request_target` or `workflow_run` job may touch a cache (`tests/test_ci_cache_policy.py`). Each job's write scopes are pinned and cannot grow silently (`tests/test_ci_permission_ceiling.py`). Callers of the shared setup action are checked against its inputs and outputs. Dependabot now also updates the action pins inside `.github/actions/setup-uv-python`, which it never scanned before. No workflow changed. Before/after CI timings still need real runs.
+
+### Fixed — hands-free auto-stop: a tap on a microphone that failed to open no longer latches a turn
+
+The release now ends the turn normally, which stops the streaming decode loop and releases the held modifier, and after a failed command-key tap the next dictation is no longer treated as a command.
+
+### Fixed — recording past `max_record_seconds` is no longer cut without a trace
+
+The first audio block past the cap logs one warning per recording, naming the cap and how many seconds were captured, and sets `AudioRecorder.truncated`. The cap itself is unchanged; meeting and streaming capture run without it and are unaffected. The daemon does not yet tell the user.
+
+### Fixed — an unknown engine next to a Parakeet or Moonshine model no longer ends in a misleading "speech model missing"
+
+The faster-whisper fallback now uses `base.en` and logs why, instead of being handed a model it cannot load and stopping with a fix that named the wrong cause.
+
+### Fixed — voice punctuation no longer doubles punctuation the decoder already added
+
+"Hello, comma, world period." types "Hello, world.", and two spoken "tab key"s type two tabs. Synthetic examples only; no real Whisper output has been checked yet.
+
+### Fixed — Windows: Settings no longer reports a successful restart as failed
+
+The window reads `yazses restart` output as UTF-8, the encoding the command writes when piped, and a failure whose exception has no message names the exception type.
+
+### Fixed — overlay windows have names screen readers can announce
+
+The sonar, Voice Mouse Grid and Mouth-Sound Switch windows have a title and an accessible name; the scan strip and the grid describe the highlighted item and the layout in text, not only by colour. Not yet checked with a real screen reader.
+
+### Fixed — Linux: `yazses doctor` no longer reports keyboard capture as OK when only a game controller is readable
+
+It now looks for a readable full keyboard via /sys and reports DENIED, with the advice to join the input group, when none can be read.
+
+### Fixed — Windows: a malformed daemon reply is one typed IPC error
+
+Not JSON, invalid UTF-8, a wrong jsonrpc version, a malformed error object or an empty read now raise the same -32603 error as on Linux and macOS, instead of a traceback from `yazses status`, `stop` and the tray.
+
+### Fixed — IPC: requests with non-finite numbers or non-scalar ids get a valid parse error
+
+A request whose id or params held 1e400, NaN or Infinity, or whose id was an object, array or boolean, got a reply that was not valid JSON-RPC. It now gets a parse error with a null id.
+
+### Fixed — MCP `ask_human` no longer stops waiting while the daemon is still listening
+
+With `timeout_s` 0 the daemon listened for up to 30 s while the tool gave up about 20 s after the question was read out, losing a longer answer that had already been counted. Both sides now use the same listening time.
+
+### Fixed — `yazses transcribe` reads names containing a colon as local files
+
+The decoder is given an explicit local `file:` URL, so `Interview:1.mp3` no longer fails with "Protocol not found" and `concat:a.wav|b.wav` is no longer read as a libavformat protocol instruction.
+
+### Fixed — macOS: a stop during hotkey start-up is no longer lost (#578)
+
+If the daemon is told to stop (Quit, `yazses stop`, SIGTERM) while its hotkey listener is still starting, it now stops instead of possibly running on with the permissions it read at start. Not yet confirmed on a Mac.
+
+### Fixed — Wayland (wtype): key combos with `meta`, `control`, `enter`, `esc` or `del` work
+
+The wtype backend and the clipboard fallback's wtype path accept the same key names as the ydotool backend; before, such voice commands failed with an error.
+
+### Fixed — Meeting Mode live lines are stamped when the utterance began
+
+Each line in `live.jsonl` and `live-transcript.md` is on the same timeline as `audio.wav` and `transcript.md`, instead of being stamped when its decode finished.
+
+### Fixed — `yazses gaze calibrate` no longer saves a broken calibration or hangs
+
+When the eye tracker's angles never moved, lay on one line, or were NaN or infinite, it now stops, says nothing was saved and why, and exits with status 1.
+
+### Fixed — `send-to` refuses C1 control characters
+
+Text containing U+0080–U+009F is refused, as ADR-031 already promised for every control character except tab, newline and carriage return.
+
+### Fixed — `yazses doctor` no longer reports "multiple yazses on PATH" for a directory or non-executable file
+
+It also no longer crashes on Python 3.11–3.13 when a PATH entry cannot be read.
+
+### Fixed — docs: architecture pages and install pages match the code
+
+The architecture pages no longer describe a Windows service (Windows runs a detached process with an HKCU\Run autostart), say the daemon enters ERROR after a fixable start-up failure, and state that an unsupported `[stt] language` is refused; the validation matrix and install-cost page name the right build and Linux log and PID locations.
+
+### Added — tests, tooling and research that change no runtime behaviour
+
+`scripts/bench-stt.py` refuses to score an engine fallback under the requested name (exit 2, or `--allow-fallback`), accounts for every file (exit 3 below full coverage, or `--allow-partial`), reports true peak memory and can write per-file JSON (#793). `scripts/eye_eval_figures.py` turns the eye-control analysis report into deterministic tables, figures and a sha256 manifest (#426). Every `Thread.join` in the tests is bounded, with a guard against regressions. A synthetic cross-session EEG evaluation harness (numpy only; synthetic, not human EEG). Research notes and decision packets: Spoken Edit count words, the streaming commit/cancel focus policy (#796), the #827 review evidence, co-design and consent (#814), hands-free measurement (#817), multilingual evaluation (#797), Android distribution trust (#810), XR transport, interaction-kernel replay scenarios, and model-licence gaps (#694) — proposals only.
+
 ## [2.50.0] - 2026-11-06
 
 ### Fixed — `ask_human` and `yazses send-to` no longer report a slow daemon as "not running"

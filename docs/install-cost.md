@@ -199,7 +199,9 @@ On Linux, a full dictation install touches these and nothing else:
 | Adds you to the **`input` group** | read the hold-to-talk key from the kernel | yes — `sudo gpasswd -d $USER input` |
 | Enables **`ydotoold`** (Wayland only) | the only way to inject keystrokes on GNOME/KDE Wayland | yes — `systemctl --user disable --now ydotoold` |
 | Writes config to `~/.config/yazses/` | your settings | yes — delete it |
-| Writes data to `~/.local/share/yazses/` | logs, PID, learning corpus if enabled | yes — delete it |
+| Writes data to `~/.local/share/yazses/` | lock files, and the learning corpus, meetings and voiceprints if enabled | yes — delete it |
+| Writes the diagnostic log to `~/.local/state/yazses/` | what `yazses logs` reads — timing and state; transcripts only at `DEBUG` | yes — delete it |
+| Writes the daemon's PID file to `$XDG_RUNTIME_DIR/yazses/` | finding the running daemon | yes — the session clears it at logout |
 | systemd **user** unit | start at login — enabled by the first `yazses start` | yes — `yazses autostart disable` |
 
 !!! note "The `input` group is the one real security consideration, and it is worth understanding"

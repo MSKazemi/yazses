@@ -6769,7 +6769,17 @@ def gaze_calibrate(
         )
         raise typer.Exit(1)
 
-    cal = fit_calibration(samples)
+    try:
+        cal = fit_calibration(samples)
+    except ValueError as exc:
+        # Degenerate (gaze never moved / moved along one line) or non-finite samples:
+        # fitting them would save a map that sends every gaze to one point or line.
+        typer.echo(
+            f"Calibration failed, nothing was saved: {exc}.\n"
+            "  Check the camera sees your eyes clearly, then run `yazses gaze calibrate` again.",
+            err=True,
+        )
+        raise typer.Exit(1) from None
     # Bind the map to the desktop it was measured on (ADR-v2-149). Without this the
     # coefficients cannot be told apart from ones fitted on a different monitor
     # arrangement, which is the failure that misroutes dictation silently.

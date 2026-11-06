@@ -5,6 +5,8 @@
 **Scope:** An optional, local-first integration layer for social VR, Unity/Unreal, WebXR, and, eventually, headset-based multimodal input.
 
 > This is a public design record, not a feature announcement. No YazSes XR bridge, VRChat adapter, Unity package, headset client, or XR command is claimed to ship today.
+>
+> **No XR implementation is planned.** An XR library pull request (#732) was closed unmerged by the owner on 2026-11-02 because it conflicted with the ADR-030 freeze and with this proposal; its code is archived, not on `main`.
 
 ## The proposition
 
@@ -22,6 +24,8 @@ A compelling future demo is: dictate a message in a local VR scene, review it, a
 | How do we decide whether a prototype works? | [EVALUATION.md](EVALUATION.md) |
 | What are the issue-sized work packages? | [TASKS.md](TASKS.md) |
 | Which decisions are still open? | [DECISIONS.md](DECISIONS.md) |
+| What do the platforms' own documents say? (XR-R02) | [EVIDENCE.md](EVIDENCE.md) |
+| Which transport, and what could go wrong? (XR-R03, XR-R04 drafts) | [TRANSPORT-AND-THREATS.md](TRANSPORT-AND-THREATS.md) |
 
 ## Fit with the current project
 
