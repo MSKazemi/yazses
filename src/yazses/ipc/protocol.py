@@ -9,6 +9,7 @@ JSON-RPC 2.0 conventions but with YazSes-specific codes in the -32099..-32000
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -45,7 +46,10 @@ class Request:
 
     @classmethod
     def from_json(cls, line: str) -> Request:
-        data = json.loads(line)
+        # Python's json accepts NaN/Infinity and lets 1e400 overflow to inf; neither
+        # is JSON, and a non-finite value reaching a handler or the echoed id turns
+        # the reply into something only Python can parse. Both leave as ValueError.
+        data = json.loads(line, parse_constant=_reject_constant, parse_float=_finite_float)
         # A bare array, string, number or null is valid JSON and has no `.get`, so
         # this used to leave the method with an AttributeError. The server catches
         # (ValueError, UnicodeDecodeError) to answer with a JSON-RPC parse error, so
@@ -63,7 +67,38 @@ class Request:
         params = data.get("params") or {}
         if not isinstance(params, dict):
             raise ValueError("Request 'params' must be an object")
-        return cls(method=method, params=params, id=data.get("id"))
+        request_id = data.get("id")
+        if not _is_valid_id(request_id):
+            # The server echoes `id` into its reply verbatim. An object, array or
+            # boolean id is outside JSON-RPC 2.0 (String, Number or Null only), and a
+            # non-finite one (1e400 parses to inf) was echoed as the bare token
+            # `Infinity`/`NaN`: not JSON, so any non-Python caller could not parse the
+            # reply it was owed. Rejected here, it gets a parse error with a null id.
+            raise ValueError(f"Request 'id' must be a string, number or null, got {type(request_id).__name__}")
+        return cls(method=method, params=params, id=request_id)
+
+
+def _reject_constant(token: str) -> Any:
+    """``json.loads`` hook: NaN, Infinity and -Infinity are not JSON (RFC 8259 §6)."""
+    raise ValueError(f"Non-finite number {token} is not valid JSON")
+
+
+def _finite_float(token: str) -> float:
+    """``json.loads`` hook: an overflowing literal such as 1e400 would parse to inf."""
+    value = float(token)
+    if not math.isfinite(value):
+        raise ValueError(f"Number {token} is out of range")
+    return value
+
+
+def _is_valid_id(value: object) -> bool:
+    if value is None or isinstance(value, str):
+        return True
+    if isinstance(value, bool):  # bool is an int subclass; JSON true/false is not a Number
+        return False
+    if isinstance(value, int):
+        return True
+    return isinstance(value, float) and math.isfinite(value)
 
 
 @dataclass
