@@ -78,6 +78,30 @@ defaults were re-checked against v2.49.0; a tenth carousel is held back because 
 CLI lists nine. A test refuses an approved row without a licence, an incomplete or out-of-order carousel, and any editable source file, PDF,
 video or large binary in the folder.
 
+### Fixed — a meeting that cannot open the microphone no longer leaks a file handle and a thread
+
+When the recorder failed to start (no input device, a vanished device, PortAudio refusing the stream), the meeting's `audio.wav` stayed open and its live-transcript worker kept running for the life of the daemon, and every retry from the tray added another pair. The failed start now stops the controller it built. The empty meeting folder from the failed attempt is still left on disk, as before.
+
+### Fixed — the OS default microphone is found by index, not by name
+
+`sounddevice` exposes the default device as an indexable pair object, which the lookup never indexed, so it always fell back to matching by name and marked every input sharing the default's name (identical USB microphones, or one microphone listed under several host APIs) as the default.
+
+### Fixed — Moonshine no longer loses a long dictation just past a multiple of 60 seconds
+
+Bursts over 64 s are split into 60 s pieces; a leftover of 0.1 s or less went straight to the model, whose own assertion then failed the whole dictation. Such a leftover is now dropped.
+
+### Fixed — Persian normalisation is idempotent again
+
+Bidi control characters are now removed before NFC and before the boundary half-space (ZWNJ) is stripped. A control at either end of the text could keep a half-space, and one between a letter and its combining mark could leave the text decomposed, so a second pass changed the text again.
+
+### Fixed — Spoken Edit keeps your line breaks
+
+"Delete the last word(s)" and "delete the last sentence" rebuilt the kept text with single spaces, turning the dictated line and paragraph breaks before the deleted words into spaces.
+
+### Fixed — one non-finite audio level no longer blanks the overlay
+
+A JSON `Infinity` or `NaN` audio level in the daemon's status reply set the overlay's adaptive peak to infinity and left its sonar dark for the rest of the session, and drew a full tray level ring marked below the gate. Such a reading is now ignored by the overlay and hides the tray ring.
+
 ### Fixed — X11: the clipboard injector no longer deletes whole words when it erases
 
 Its backspaces now clear held modifiers, as the xdotool backend's already did, so a hold-to-talk Ctrl still held at hold start no longer turns each BackSpace into Ctrl+BackSpace. Its key combos also map `meta` to Super like the xdotool backend (#544). Covered by fake-runner tests only; not verified on a real X11 session.
