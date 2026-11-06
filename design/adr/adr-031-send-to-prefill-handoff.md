@@ -219,9 +219,50 @@ Where the build differs from §1–§5, or chose something the record left open:
   exactly what happens — the three phrases, the CLI, pre-filled and never sent, no web
   fallback, the 14,000-character refusal — and that it is **not yet verified** against
   any real client. The per-client verified-version line §5 asks `features info` to carry
-  waits for the validation rows: there is no version to name yet.
+  is derived from the validation record below (`sendto/validation.py::ROWS`): with no
+  row it reads "Not yet verified against any real Claude or Codex app."
 - **Unverified:** no hand-off has yet been tried against a real Claude or Codex install on
   any platform.
+
+## Validation record (§5)
+
+*Added 2026-11-06 (#637).* §5 is kept as one record in two forms that must agree:
+`src/yazses/sendto/validation.py::ROWS`, which `yazses features info sendto` reads to name
+the verified client versions, and the table below, for people.
+`tests/test_sendto_validation_record.py` fails when they differ, when a row is incomplete
+(target, OS, an opener that OS can take, a real date, client and YazSes versions, tester,
+an `https://` evidence link), and when a target with a `submitted` row is still in
+`TARGETS` — §5's removal rule as a failing test. Every row, `submitted` ones included,
+must name a live target or one in `REMOVED_TARGETS` exactly as written, so a mistyped
+slug cannot turn the removal rule off; removing a target moves its slug there. Only `prefilled-not-submitted` verifies;
+`not-prefilled` and `did-not-open` are recorded results, not verifications. A row comes
+only from a real run against a real client — never from a test, a fake opener or a
+vendor's documentation.
+
+**How a row is made (Linux first).** On a desktop with the client installed and signed
+in: `yazses features enable sendto`, `yazses restart`, staged mode on; dictate a synthetic
+prompt ("validation prompt, do not send") into the staged buffer, then run
+`yazses send-to <target>` with no TEXT, once per target, so the daemon makes the hand-off
+and its log names the opener path (`yazses logs`: "handed the link to the desktop
+portal" is `portal`, "opening the link with xdg-open" or "trying xdg-open once" is
+`xdg-open`). Record whether a new conversation opened, whether the whole prompt was in
+the input box, and whether anything was sent before Enter was pressed (the client's
+conversation history shows it). Take the client version from its About box and post the
+details where the evidence link points. Use synthetic text only, never a real prompt.
+Then, in one change: add the row to `ROWS` and to the table below; rewrite each "nothing
+tried yet" sentence `tests/test_sendto_validation_record.py` lists (the `send-to` CLI
+help among them); run `uv run python scripts/gen-docs.py` and
+`uv run python scripts/gen-man.py` (a verified row changes `docs/features.md`, the CLI
+help changes the reference and the man page); and, if the outcome is `submitted`, move
+the slug from `TARGETS` to `REMOVED_TARGETS` and say why in the release notes.
+
+<!-- sendto-validation:start -->
+| Target | OS | Environment | Client version | YazSes version | Opener | Date | Outcome | Tester | Evidence |
+|---|---|---|---|---|---|---|---|---|---|
+
+*No row yet: no hand-off has been tried against a real Claude or Codex app on any
+platform.*
+<!-- sendto-validation:end -->
 
 ## Alternatives considered
 

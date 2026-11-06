@@ -656,6 +656,7 @@ text in the prompt box, and the user presses Enter. Reached by the whole-utteran
 | File | Role |
 |---|---|
 | `targets.py` | Pure. The **closed** target table (custom schemes only — no `https://`, nothing configurable), `parse_send_phrase` (anchored at both ends), hand-rolled percent-encoding pinned to `urllib.parse.quote` by the tests, `plan_handoff` (refuses over 14,000 characters or a 32,000-character URL, empty text, control characters, invalid Unicode — never truncates), and `choose_text` (the staged buffer when staged mode is on, else the last burst) |
+| `validation.py` | Pure. ADR-031 §5's "never sent" record: `ROWS` (one row per real run — target, OS, client version, opener path, outcome, tester, evidence link; **empty**, nothing has been tried against a real client), `row_problems`, `submitted_targets` (a target seen to submit may not stay in `TARGETS`) and `verification_sentence`, which `system/features.py` puts on the `sendto` card. ADR-031's record table must match `ROWS` (`tests/test_sendto_validation_record.py`) |
 | `handoff.py` | The opener seam (`Callable[[str], bool]`, injected) and `hand_off`. The default opener checks the scheme against the closed table, then calls `platform.get_url_opener().open_url(url)` — the platform `UrlOpener` seam — so this package spawns nothing and imports no network primitive itself. Logs the target and the length, never the text or the URL, including when the opener raises |
 
 Invariants: the staged buffer is cleared only after a successful hand-off; the last burst
