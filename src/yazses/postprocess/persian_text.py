@@ -171,6 +171,12 @@ def normalise_persian(text: str) -> str:
     # characters far outside Persian scope. Canonical composition can still
     # fuse a base+mark pair (alef + hamza -> U+0623); marks Unicode has no
     # composed form for survive untouched.
+    #
+    # §6 controls come out *first*: a control is a composition starter, so one
+    # sitting between a letter and its combining mark would block NFC, and one
+    # sitting outside a boundary ZWNJ would hide it from the §5 strip. Removing
+    # it afterwards left both jobs for a second call, breaking idempotence.
+    text = strip_bidi_controls(text)
     text = unicodedata.normalize("NFC", text)
 
     # §5 boundary rule and §6 controls apply to the string as a whole. Doing
@@ -178,7 +184,6 @@ def normalise_persian(text: str) -> str:
     # an override past either rule (the span regex cannot start on ZWNJ, and
     # `\S+` only *keeps* controls that this step has already removed).
     text = text.strip(ZWNJ)
-    text = strip_bidi_controls(text)
 
     out: list[str] = []
     last = 0
