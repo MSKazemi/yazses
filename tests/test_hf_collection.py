@@ -406,35 +406,83 @@ def test_hub_errors_become_short_messages_without_the_body(code, cls, needle) ->
     assert err.exit_code == (2 if cls is hc.AuthError else 3)
 
 
+# The two tests below need the REAL huggingface_hub, and they run it in a fresh interpreter.
+#
+# huggingface_hub resolves `logging` lazily through `huggingface_hub.utils`, so a worker
+# whose hub module graph an earlier test left inconsistent (a child module re-imported
+# under a parent that still holds an older or fake sibling) fails the first `HfApi`
+# access with "cannot import name 'logging' from 'huggingface_hub'". That is exactly what
+# turned the Windows legs red on main 16795488, while Linux, with a different test order,
+# stayed green. These tests check this script against the installed library; a clean
+# process makes that check independent of whatever ran before it in the same worker.
+# `importorskip` stays in the parent, so the FreeBSD leg and simulate-missing-deps (which
+# block the hub only in-process) still skip before any subprocess starts.
+
+
+def _run_fresh(code: str) -> None:
+    """Run `code` in a new interpreter with scripts/ loaded by path; fail with its output."""
+    import subprocess
+    import textwrap
+
+    prelude = textwrap.dedent(
+        f"""
+        import importlib.util, sys
+        def _load(name):
+            spec = importlib.util.spec_from_file_location(name, {str(SCRIPTS)!r} + "/" + name + ".py")
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[name] = module
+            spec.loader.exec_module(module)
+            return module
+        pf = _load("hf_preflight")
+        hc = _load("hf_collection")
+        """
+    )
+    proc = subprocess.run(
+        [sys.executable, "-c", prelude + textwrap.dedent(code)],
+        capture_output=True, text=True, timeout=120, cwd=str(ROOT),
+    )
+    assert proc.returncode == 0, f"stdout:\n{proc.stdout}\nstderr:\n{proc.stderr}"
+
+
 def test_the_script_calls_only_the_verified_huggingface_hub_api() -> None:
     """Every HfApi method the adapter names exists in the installed huggingface_hub."""
     import re
 
-    hub = pytest.importorskip("huggingface_hub")
+    pytest.importorskip("huggingface_hub")
     source = (ROOT / "scripts" / "hf_collection.py").read_text(encoding="utf-8")
     used = set(re.findall(r"self\._api\.([a-z_]+)", source))
     assert {"list_collections", "get_collection", "create_collection", "add_collection_item",
             "update_collection_item", "update_collection_metadata"} <= used
-    for name in used | {"get_organization_overview", "get_user_overview", "whoami"}:
-        assert hasattr(hub.HfApi, name), name
+    names = sorted(used | {"get_organization_overview", "get_user_overview", "whoami"})
+    _run_fresh(
+        f"""
+        import huggingface_hub as hub
+        missing = [n for n in {names!r} if not hasattr(hub.HfApi, n)]
+        assert not missing, missing
+        """
+    )
 
 
-def test_the_adapter_makes_dry_runs_anonymous(monkeypatch) -> None:
+def test_the_adapter_makes_dry_runs_anonymous() -> None:
     """With token=False every call is forwarded token=False, the huggingface_hub spelling of
     'send no Authorization header'."""
     pytest.importorskip("huggingface_hub")
-    seen: list[object] = []
+    _run_fresh(
+        """
+        seen = []
 
-    class Api:
-        def get_organization_overview(self, owner, token=None):
-            seen.append(token)
+        class Api:
+            def get_organization_overview(self, owner, token=None):
+                seen.append(token)
 
-        def list_collections(self, owner=None, token=None):
-            seen.append(token)
-            return []
+            def list_collections(self, owner=None, token=None):
+                seen.append(token)
+                return []
 
-    client = hc.HfApiClient(False, "yazses")
-    client._api = Api()
-    assert client.namespace_exists("yazses") is True
-    assert client.list_collections("yazses") == []
-    assert seen == [False, False]
+        client = hc.HfApiClient(False, "yazses")
+        client._api = Api()
+        assert client.namespace_exists("yazses") is True
+        assert client.list_collections("yazses") == []
+        assert seen == [False, False], seen
+        """
+    )
