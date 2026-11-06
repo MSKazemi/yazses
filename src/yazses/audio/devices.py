@@ -33,8 +33,11 @@ def _default_input_index() -> int | None:
         import sounddevice as sd
 
         dev = sd.default.device
-        # sd.default.device is (input_idx, output_idx); -1 means "unset".
-        idx = dev[0] if isinstance(dev, (list, tuple)) else dev
+        # sd.default.device is (input_idx, output_idx); -1 means "unset". It is an
+        # ``_InputOutputPair`` -- indexable but neither a list nor a tuple -- so test for
+        # indexing, not for a sequence type: ``int(pair)`` raised and made this always None.
+        indexable = hasattr(dev, "__getitem__") and not isinstance(dev, (str, bytes))
+        idx = dev[0] if indexable else dev
         idx = int(idx)
         return idx if idx >= 0 else None
     except Exception:  # pragma: no cover - depends on the audio backend
@@ -56,10 +59,12 @@ def list_input_devices(
         import sounddevice as sd
 
         query = sd.query_devices
-    if default_index is None:
-        default_index = _default_input_index()
+    # A caller-supplied hint of either kind is used as given: PortAudio is consulted
+    # only when neither was passed.
     if default_index is None and default_name is None:
-        default_name = current_default_input_name()
+        default_index = _default_input_index()
+        if default_index is None:
+            default_name = current_default_input_name()
 
     try:
         raw = query()
