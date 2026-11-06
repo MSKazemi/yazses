@@ -5,6 +5,7 @@ import time
 
 from yazses.inject.payload import hide_payload
 from yazses.inject.xdotool import _timeout_for as xdotool_timeout_for
+from yazses.inject.xdotool import _xdotool_combo
 from yazses.inject.ydotool import run_ydotool_keys, ydotool_key_timeout
 
 # Milliseconds to wait after wl-copy sets the clipboard before sending Ctrl+V, so
@@ -80,8 +81,10 @@ class ClipboardInjector:
             else:
                 raise RuntimeError("No tool available to send BackSpace on Wayland (install ydotool or wtype)")
         else:
+            # --clearmodifiers as in XdotoolInjector: a still-held hold-to-talk
+            # Ctrl would otherwise turn each BackSpace into a word delete.
             subprocess.run(
-                ["xdotool", "key", "--repeat", str(count), "BackSpace"],
+                ["xdotool", "key", "--clearmodifiers", "--repeat", str(count), "BackSpace"],
                 check=True,
                 timeout=xdotool_timeout_for(count),
             )
@@ -109,7 +112,7 @@ class ClipboardInjector:
                 raise RuntimeError("No tool available to send key sequence on Wayland (install ydotool or wtype)")
         else:
             subprocess.run(
-                ["xdotool", "key", "--clearmodifiers"] + keys,
+                ["xdotool", "key", "--clearmodifiers"] + [_xdotool_combo(k) for k in keys],
                 check=True,
                 timeout=xdotool_timeout_for(len(keys)),
             )
