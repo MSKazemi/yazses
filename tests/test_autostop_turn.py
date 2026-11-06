@@ -156,11 +156,14 @@ def test_only_one_of_several_racing_ticks_ends_the_turn():
     def tick() -> None:
         results.append(turn.tick(t + 5.0, True))
 
-    threads = [threading.Thread(target=tick) for _ in range(8)]
+    threads = [threading.Thread(target=tick, daemon=True) for _ in range(8)]
     for th in threads:
         th.start()
     for th in threads:
-        th.join()
+        # Bounded: a deadlocked tick fails here in seconds, naming the thread,
+        # instead of hanging until the suite's 300 s pytest-timeout.
+        th.join(timeout=10.0)
+        assert not th.is_alive(), f"{th.name} still running after 10 s (deadlock?)"
     assert results.count(True) == 1
 
 
