@@ -2043,16 +2043,32 @@ def _path_str(path: "str | bytes") -> str:
 
 
 def _yazses_paths_on_path() -> list[str]:
-    """Distinct resolved paths of `yazses` executables found on PATH (which -a)."""
+    """Distinct resolved paths of `yazses` executables found on PATH (which -a).
+
+    A candidate counts only when the shell could actually run it: a regular file with
+    the execute bit, the same test ``shutil.which`` applies. A bare ``exists()`` also
+    matched a *directory* named ``yazses`` -- a source checkout under a PATH entry such
+    as ``.`` or ``~/src`` -- and a non-executable leftover, so doctor warned about
+    "multiple yazses on PATH" when only one could ever run.
+
+    One unreadable PATH entry (an ``EACCES`` from ``stat``, e.g. another user's
+    ``bin`` inherited through ``sudo -E``) is skipped instead of raised: this runs
+    unguarded inside ``run_doctor``, and on Python < 3.14 ``Path.exists`` re-raises
+    ``PermissionError``, which took the whole report down.
+    """
     seen: list[str] = []
     for d in os.environ.get("PATH", "").split(os.pathsep):
         if not d:
             continue
         cand = Path(d) / "yazses"
-        if cand.exists():
+        try:
+            if not (cand.is_file() and os.access(cand, os.X_OK)):
+                continue
             real = str(cand.resolve())
-            if real not in seen:
-                seen.append(real)
+        except (OSError, RuntimeError):  # unreadable entry / symlink loop: not runnable
+            continue
+        if real not in seen:
+            seen.append(real)
     return seen
 
 
