@@ -160,7 +160,8 @@ self-contained study; bring results to the
    YazSes now carries the machinery to collect it: `[gaze_refine]` (off by default)
    pairs clicks with gaze, promotes a refinement only if it wins on held-out clicks,
    and `yazses gaze rollback` undoes it, with click observers for X11, Windows and
-   macOS (none on Wayland). None of those observers has yet run on real hardware.
+   macOS (none on Wayland). Only the Windows observer has run on real hardware, with
+   synthetic presses; none has yet fed a real calibration session.
 2. **Eye-agreement confidence vs ground truth.** Our per-frame confidence is
    a proxy. How well does left/right iris-offset divergence actually correlate
    with gaze error across faces, lighting, and webcams?

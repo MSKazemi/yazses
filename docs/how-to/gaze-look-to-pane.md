@@ -116,6 +116,14 @@ status also has a `click observer` line. Refinement learns only from your clicks
 means it stays dormant on this session, and the line says why. On a Wayland desktop, for
 example, there is no global click stream to observe. Dictation and gaze routing are not
 affected.
+
+A registered observer can still fail to start: macOS may not have granted Input Monitoring
+and Accessibility, or X11 may refuse XInput2. While the daemon runs, `gaze status` asks it
+and adds an `implicit refinement` line: `✓ running in the daemon (N clicks seen, M paired
+with gaze)`, or `✗ dormant in the running daemon --` followed by the reason. `yazses doctor`
+shows the same answer in its `Click observer [gaze_refine]` row. The click observers are
+tested against simulated operating-system interfaces. Only the Windows one has run on a
+real desktop, and none has yet been used in a real calibration session.
 `yazses gaze rollback` tells you the same about the calibration it restores. The camera is
 identified by its index only, so swapping a different webcam onto the same index is not
 detected.

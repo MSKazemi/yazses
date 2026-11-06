@@ -203,6 +203,10 @@ privacy-safe report. **Partly met (collection), per OS:**
   RemoteDesktop portal only sends input, it never reports it). XInput2 through XWayland would see only X
   clients' clicks, a plausible partial stream the refiner must not be fed. `yazses doctor` and the
   daemon log repeat the reason.
+- **Every OS — a failed start is reported where the user looks:** the daemon's `status` carries a
+  `gaze_refine` block (active, the reason, click and pair counts only), so `yazses doctor` and
+  `yazses gaze status` name a refused hook, a denied permission or a lost X11 connection instead
+  of only saying a backend is registered. Hermetic tests only.
 
 The exit gate is therefore satisfied for the guard (a refinement can never replace a better baseline,
 mutation-checked) and open for collection until a real-device sample exists on at least one OS.

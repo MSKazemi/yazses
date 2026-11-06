@@ -264,7 +264,7 @@ Status vocabulary in this programme:
 | Eye-agreement confidence | **LIVE** | `gaze/confidence.py`, MediaPipe tests | validate proxy against ground truth |
 | Look-to-window routing | **LIVE (X11)** | `gaze/targeter.py`, `gaze/desktop.py`, daemon | Wayland target semantics; field error rate |
 | Gaze + speech deixis | **LIVE** | `gaze/deixis.py`, daemon, confirmation tests | hardware validation |
-| Implicit calibration (click capture, held-out gate, atomic apply + rollback) | **CORE** | `gaze/implicit.py`, `gaze/clicks.py`, `gaze/refine.py`, `gaze/refine_runtime.py`, `[gaze_refine]`, `yazses gaze rollback` (#397, #398) | a real OS click observer: `Platform.click_observer_factory` is `None` on every OS, so the runtime stays dormant and logs why |
+| Implicit calibration (click capture, held-out gate, atomic apply + rollback) | **CORE** | `gaze/implicit.py`, `gaze/clicks.py`, `gaze/refine.py`, `gaze/refine_runtime.py`, `[gaze_refine]`, `yazses gaze rollback` (#397, #398) | observers registered on X11, Windows and macOS (#607; `None` on Wayland, with the reason): only the Windows producer has run on hardware (synthetic presses, 2026-10-22), X11 and macOS have no smoke report, and no real calibration session has paired a click with gaze yet; a refused hook or permission is reported by `yazses doctor` / `gaze status` from the daemon's `status` |
 | Gaze field-measurement report | **LIVE (CLI)** | `yazses gaze measure`, golden-file test (#399) | tester reports on real hardware (#104) |
 | Head pose → cursor runtime | **LIVE (X11, macOS, Windows; Wayland via portal, untested live; opt-in)** | `headpointer/controller.py`, `headpointer/runtime.py`, `[headpointer]`, `yazses headpointer ...` (#404) | real-hardware validation of a *driven* pointer, including the first real GNOME consent dialog; the x sign is fixed (2026-10-13, one webcam: left turn = +yaw, so `x_gain` is negative); gains are now per second with speed caps (`max_speed_*`) but every magnitude is provisional and unmeasured; dwell is timed in real milliseconds (`dwell_ms`, 700 ms provisional default, unmeasured; a camera stall restarts it rather than counting) and `freshness_ms` is bounded (0 or over a minute is repaired and reported); the old `dwell_hold_frames` is read as frames at a nominal 30 fps; the macOS and Windows pointer sinks have never run on a Mac or a PC (audit of #402, 2026-10-15): on Windows a relative move is scaled by the user's Pointer Speed / "Enhance pointer precision" (Microsoft's `MOUSEINPUT` Remarks), so the same head movement can travel a different distance, and the sink only warns; on macOS `CGEventPost` is silent without the user's post-event approval, so the sink checks `CGPreflightPostEventAccess` and raises |
 | Dwell click, recenter, pause, clutch, progress ring | **LIVE (opt-in)** | `headpointer/controller.py`, overlay dwell ring (#405) | accessibility co-design and fatigue study (#419) before any default is recommended; a dwell can no longer click on the sample that first shows it (a hold at or below one camera frame is held for one more sample), and the overlay polls fast while a dwell can start; the ring is drawn from a polled `status`, so how it looks on a real screen at a given `dwell_ms` is unverified (fakes and a fake clock only) |
@@ -281,9 +281,10 @@ Status vocabulary in this programme:
 ### Important planning corrections
 
 1. **Issue #101 was closed with only the pure implicit-calibration estimator present.**
-   Click capture and the guarded apply/rollback path now exist (#397, #398), but no platform ships a
-   click observer yet, so implicit calibration is still dormant everywhere. Do not describe it as
-   delivered until an OS backend and a field measurement exist.
+   Click capture and the guarded apply/rollback path now exist (#397, #398), and click observers are
+   registered on X11, Windows and macOS (#607), but only the Windows producer has run on real
+   hardware and no field measurement exists. Do not describe implicit calibration as delivered on
+   an OS until that OS has a smoke report and a real calibration session.
 2. **`headpointer` and `gesture` already have generic campaign tasks**
    (`WIRE-HEADPOINTER-001`, `WIRE-GESTURE-001`) under #164. New issues should refine those tasks
    and satisfy them, not create a second competing implementation.
