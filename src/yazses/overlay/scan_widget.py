@@ -16,6 +16,7 @@ from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import QWidget
 
+from yazses.overlay.a11y import SCAN_NAME, scan_description
 from yazses.overlay.scanstrip import StripLayout, strip_layout
 
 
@@ -40,6 +41,8 @@ class ScanWidget(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
+        self.setWindowTitle(SCAN_NAME)
+        self.setAccessibleName(SCAN_NAME)
 
     def show_scan(
         self, labels: tuple[str, ...], index: int, screen: tuple[int, int, int, int]
@@ -48,11 +51,15 @@ class ScanWidget(QWidget):
         layout = strip_layout(labels, index, screen)
         if layout is None:
             self._layout = None
+            self.setAccessibleDescription("")
             if self.isVisible():
                 self.hide()
             return
         if layout != self._layout:
             self._layout = layout
+            # The lit cell is painted in the accent colour; this says the same thing in
+            # words, and only when the highlight moves (see overlay/a11y.py).
+            self.setAccessibleDescription(scan_description(labels, index))
             x, y, w, h = layout.window
             self.setGeometry(x, y, w, h)
             self.update()
