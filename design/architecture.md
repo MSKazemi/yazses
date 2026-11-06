@@ -513,6 +513,53 @@ Privacy (ADR-011/012): fully offline; diarization labels are transient; voicepri
 opt-in, consent-gated, on-device, and never auto-enrolls third parties. Cloud escalation is
 designed but deferred (ADR-v2-126).
 
+### `src/yazses/meeting/` (Meeting Mode, [ADR-v2-127](adr/adr-v2-127-live-meeting-mode.md), [ADR-v2-128](adr/adr-v2-128-meeting-minutes-generation.md))
+
+Whole-meeting capture: the daemon keeps owning the microphone and forwards each chunk to one
+`MeetingController`; the controller streams audio to disk, shows a rolling live transcript,
+and at stop hands the recording to the same batch pipeline `yazses transcribe` uses
+(`recimport/`, above). Every heavy backend (STT engine, diarizer, embedder, notes LLM, VAD,
+clock, session) is injected, so the whole flow is unit-tested with fakes and no model.
+
+| File | Role |
+|---|---|
+| `controller.py` | `MeetingController` — `feed()` per chunk, `tick()` for the watchdog, `stop_capture()`, `finalize()`, `status()` |
+| `session.py` | `MeetingSession` + `WavFileSink` — streams 16-bit mono WAV to disk (bounded memory), injected clock, rolling live lines. Never transcribes |
+| `segmenter.py` | `UtteranceSegmenter` — **pure** VAD state machine cutting continuous audio into utterances (hangover / min / max length) |
+| `vad.py`, `silero_vad.py` | `build_is_silent()` picks the `is_silent` predicate: calibrated RMS gate by default, Silero only when selected **and** its optional `silero` extra loads; otherwise falls back, never breaks capture |
+| `finalize.py` | `finalize_meeting()` — delegates to `recimport.pipeline.transcribe_file` (no duplicated diarization/alignment/naming), then quality check, then optional minutes |
+| `quality.py` | Pure decode-collapse detector (`assess`, `warning`): repetition-loop and live-vs-batch disagreement verdicts. Stdlib only |
+| `notes.py` | Local-LLM minutes by turn-aware map-reduce; dormant (returns `None`) with no LLM configured |
+| `stall.py` | Pure policy for the "meeting is not hearing audio" notice: after `STALL_NOTIFY_S`, once per stall, re-armed when audio resumes |
+| `store.py` | Per-meeting folder I/O (`meeting.json`, `transcript.json`, `live.jsonl`, rendered outputs, `attempts/`), `relabel` (re-render, never re-diarize), capture/quality summaries |
+| `recover.py` | Retry of a post-pass that never completed; refuses a finished meeting unless forced or its quality check failed |
+| `participants.py` | Opt-in enrolment of a named speaker cluster as an encrypted voiceprint (needs `retain_audio`) |
+
+Invariants (read from the code at the cited places):
+
+- **The audio callback never blocks on a model.** `feed()` only appends to the WAV sink and
+  queues a finished utterance; transcription runs on the `meeting-live` worker thread
+  (`controller.py::_live_loop`), drained and joined at `stop_capture()`.
+- **The cap is owned by the controller, not the recorder**, so audio up to the cap is
+  finalized rather than dropped. `on_auto_stop` fires at most once (`_auto_lock`,
+  `_check_auto_stop`) and the real stop is deferred to a worker, so the mic stream is never
+  stopped from its own callback. `tick()` re-checks the cap because a lost input device means
+  `feed()` is never called again.
+- **The live transcript is rendered before the batch pass** (`controller.py::finalize` calls
+  `store.write_live_transcript` first), so it survives a post-pass that raises.
+- **The transcript is never sacrificed to the notes.** `finalize_meeting` wraps minutes
+  generation in a broad guard, and skips the notes pass for silent / no-speech audio and for
+  `degenerate` / `thin` transcripts, so no invented minutes are written over a bad decode.
+- **The recording is kept whenever it is the only way to a better transcript**:
+  `audio_kept = retain_audio or quality.suspect or capture_gap > 0` (`controller.py::finalize`).
+- **Recovery never opens a `MeetingSession`** (its constructor truncates `audio.wav`) and never
+  deletes the recording; a previous result moves to `attempts/` instead of being overwritten
+  (`recover.py` module docstring, `store.archive_outputs`).
+- **Biometrics stay local**: participant voiceprints are stored only encrypted with the
+  machine-bound key and enrolled only by explicit user action (ADR-011/012).
+
+IPC methods for this package are listed in the table under *IPC methods* below.
+
 ### `src/yazses/packs/` (ADR-028 — feature add-on packs for frozen installs)
 
 Windows installer build only (Phase 1). A heavy feature's libraries arrive as a `.yazpack`
