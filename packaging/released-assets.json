@@ -1,18 +1,18 @@
 {
-    "version": "2.50.0",
+    "version": "2.51.0",
     "published": "2026-11-06",
     "assets": [
         "SHA256SUMS.txt",
-        "YazSes-2.50.0-macos-arm64.dmg",
-        "YazSes-2.50.0-macos-arm64.intoto.jsonl",
-        "YazSes-2.50.0-macos-x86_64.dmg",
-        "YazSes-2.50.0-macos-x86_64.intoto.jsonl",
-        "YazSes-2.50.0-windows-x64.exe",
-        "YazSes-2.50.0-windows-x64.intoto.jsonl",
-        "yazses-2.50.0-deb.intoto.jsonl",
-        "yazses-2.50.0-mcpb.intoto.jsonl",
-        "yazses-2.50.0.mcpb",
-        "yazses_2.50.0_amd64.deb",
-        "yazses_2.50.0_arm64.deb"
+        "YazSes-2.51.0-macos-arm64.dmg",
+        "YazSes-2.51.0-macos-arm64.intoto.jsonl",
+        "YazSes-2.51.0-macos-x86_64.dmg",
+        "YazSes-2.51.0-macos-x86_64.intoto.jsonl",
+        "YazSes-2.51.0-windows-x64.exe",
+        "YazSes-2.51.0-windows-x64.intoto.jsonl",
+        "yazses-2.51.0-deb.intoto.jsonl",
+        "yazses-2.51.0-mcpb.intoto.jsonl",
+        "yazses-2.51.0.mcpb",
+        "yazses_2.51.0_amd64.deb",
+        "yazses_2.51.0_arm64.deb"
     ]
 }
