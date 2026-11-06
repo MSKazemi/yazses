@@ -42,6 +42,15 @@ These GitHub umbrella issues already exist. Use them for discussion and coordina
 | [#503](https://github.com/MSKazemi/yazses/issues/503) — Mandarin model evidence | harness, baseline, alternative probes | CHN-40..42 |
 | [#505](https://github.com/MSKazemi/yazses/issues/505) — Mandarin release validation | native review + release gate | CHN-43..50 |
 
+**#499 status (2026-11-06).** The software parts of CHN-20..23 are on `main`: the English
+grammar sits behind the language registry and is pinned to the pre-extraction classifier by
+`tests/fixtures/commands/en_grammar_parity.json` (rule table and outputs from commit
+bbd285a5); the Mandarin grammar, the bounded numeral parser, Simplified and Traditional
+positive vectors, and a negative corpus with per-script coverage for every shipped action
+are tested. The user page carries the full phrase table, marked unreviewed and
+experimental. What remains is the native review (CMD-08), tracked in #505. Until it is
+recorded in `zh.PHRASE_REVIEW`, nothing calls Mandarin commands supported.
+
 Do not create one GitHub issue for each 15–30 minute contributor task. ADR-023 and `campaign/README.md` intentionally keep those in the campaign inventory.
 
 ### Current campaign mapping

@@ -1,0 +1,2809 @@
+{
+ "description": "Frozen English Tier-1 behaviour from before the language-registry extraction (#499 CMD-01). Generated once from src/yazses/commands/grammar.py at commit bbd285a5, the parent of 8e2db38b (which moved the English rules into commands/grammars/en.py). Do not regenerate it from the current code: that would make the parity check compare the code with itself. A deliberate English grammar change updates the affected rows by hand, in the same PR, with a CHANGELOG entry.",
+ "source_commit": "bbd285a585646eac6ca8402687aff77b88502705",
+ "rules": [
+  {
+   "pattern": "^delete\\s+(?:the\\s+)?last\\s+(\\d+)\\s+words?$",
+   "flags": 34,
+   "intent": "edit",
+   "action": "delete_words",
+   "arg_names": [
+    "n"
+   ]
+  },
+  {
+   "pattern": "^delete\\s+(?:the\\s+)?last\\s+word$",
+   "flags": 34,
+   "intent": "edit",
+   "action": "delete_words",
+   "arg_names": []
+  },
+  {
+   "pattern": "^delete\\s+(?:the\\s+)?last\\s+(\\d+)\\s+lines?$",
+   "flags": 34,
+   "intent": "edit",
+   "action": "delete_lines",
+   "arg_names": [
+    "n"
+   ]
+  },
+  {
+   "pattern": "^delete\\s+(?:the\\s+)?last\\s+line$",
+   "flags": 34,
+   "intent": "edit",
+   "action": "delete_lines",
+   "arg_names": []
+  },
+  {
+   "pattern": "^undo(?:\\s+that)?$",
+   "flags": 34,
+   "intent": "edit",
+   "action": "undo",
+   "arg_names": []
+  },
+  {
+   "pattern": "^undo\\s+(\\d+)\\s+times?$",
+   "flags": 34,
+   "intent": "edit",
+   "action": "undo_n",
+   "arg_names": [
+    "n"
+   ]
+  },
+  {
+   "pattern": "^save(?:\\s+file)?(?:\\s+now)?$",
+   "flags": 34,
+   "intent": "edit",
+   "action": "save",
+   "arg_names": []
+  },
+  {
+   "pattern": "^copy(?:\\s+(?:that|this|line|selection))?$",
+   "flags": 34,
+   "intent": "edit",
+   "action": "copy",
+   "arg_names": []
+  },
+  {
+   "pattern": "^paste(?:\\s+here)?$",
+   "flags": 34,
+   "intent": "edit",
+   "action": "paste",
+   "arg_names": []
+  },
+  {
+   "pattern": "^comment(?:\\s+(?:this\\s+line|the\\s+line|this\\s+selection|this|line|selection|out))?$",
+   "flags": 34,
+   "intent": "edit",
+   "action": "comment",
+   "arg_names": []
+  },
+  {
+   "pattern": "^select\\s+(\\d+)\\s+lines?$",
+   "flags": 34,
+   "intent": "edit",
+   "action": "select_lines",
+   "arg_names": [
+    "n"
+   ]
+  },
+  {
+   "pattern": "^select\\s+(?:to\\s+)?end$",
+   "flags": 34,
+   "intent": "edit",
+   "action": "select_to_end",
+   "arg_names": []
+  },
+  {
+   "pattern": "^select\\s+all$",
+   "flags": 34,
+   "intent": "edit",
+   "action": "select_all",
+   "arg_names": []
+  },
+  {
+   "pattern": "^(?:press\\s+)?(?:enter|return)$",
+   "flags": 34,
+   "intent": "edit",
+   "action": "press_enter",
+   "arg_names": []
+  },
+  {
+   "pattern": "^new\\s+line$",
+   "flags": 34,
+   "intent": "edit",
+   "action": "press_enter",
+   "arg_names": []
+  },
+  {
+   "pattern": "^(?:press\\s+)?tab$",
+   "flags": 34,
+   "intent": "edit",
+   "action": "press_tab",
+   "arg_names": []
+  },
+  {
+   "pattern": "^(?:press\\s+)?(?:escape|esc)$",
+   "flags": 34,
+   "intent": "edit",
+   "action": "press_escape",
+   "arg_names": []
+  },
+  {
+   "pattern": "^(?:press\\s+)?backspace$",
+   "flags": 34,
+   "intent": "edit",
+   "action": "press_backspace",
+   "arg_names": []
+  },
+  {
+   "pattern": "^cut(?:\\s+(?:that|this|line|selection))?$",
+   "flags": 34,
+   "intent": "edit",
+   "action": "cut",
+   "arg_names": []
+  },
+  {
+   "pattern": "^go\\s+to\\s+line\\s+(\\d+)$",
+   "flags": 34,
+   "intent": "navigate",
+   "action": "go_to_line",
+   "arg_names": [
+    "n"
+   ]
+  },
+  {
+   "pattern": "^page\\s+up$",
+   "flags": 34,
+   "intent": "navigate",
+   "action": "page_up",
+   "arg_names": []
+  },
+  {
+   "pattern": "^page\\s+down$",
+   "flags": 34,
+   "intent": "navigate",
+   "action": "page_down",
+   "arg_names": []
+  },
+  {
+   "pattern": "^(?:go\\s+to\\s+)?(?:start|beginning)\\s+of\\s+(?:the\\s+)?line$",
+   "flags": 34,
+   "intent": "navigate",
+   "action": "line_home",
+   "arg_names": []
+  },
+  {
+   "pattern": "^(?:go\\s+to\\s+)?end\\s+of\\s+(?:the\\s+)?line$",
+   "flags": 34,
+   "intent": "navigate",
+   "action": "line_end",
+   "arg_names": []
+  },
+  {
+   "pattern": "^(?:go|move)\\s+up$",
+   "flags": 34,
+   "intent": "navigate",
+   "action": "arrow_up",
+   "arg_names": []
+  },
+  {
+   "pattern": "^(?:go|move)\\s+down$",
+   "flags": 34,
+   "intent": "navigate",
+   "action": "arrow_down",
+   "arg_names": []
+  },
+  {
+   "pattern": "^(?:go|move)\\s+left$",
+   "flags": 34,
+   "intent": "navigate",
+   "action": "arrow_left",
+   "arg_names": []
+  },
+  {
+   "pattern": "^(?:go|move)\\s+right$",
+   "flags": 34,
+   "intent": "navigate",
+   "action": "arrow_right",
+   "arg_names": []
+  },
+  {
+   "pattern": "^(?:go\\s+to|jump\\s+to|find)\\s+(?:function|method|def)\\s+(.+)$",
+   "flags": 34,
+   "intent": "navigate",
+   "action": "go_to_function",
+   "arg_names": [
+    "name"
+   ]
+  },
+  {
+   "pattern": "^(?:go\\s+to|jump\\s+to|find)\\s+class\\s+(.+)$",
+   "flags": 34,
+   "intent": "navigate",
+   "action": "go_to_class",
+   "arg_names": [
+    "name"
+   ]
+  },
+  {
+   "pattern": "^(?:go\\s+to|open)\\s+file\\s+(.+)$",
+   "flags": 34,
+   "intent": "navigate",
+   "action": "go_to_file",
+   "arg_names": [
+    "name"
+   ]
+  },
+  {
+   "pattern": "^run\\s+(?:the\\s+)?tests?$",
+   "flags": 34,
+   "intent": "terminal",
+   "action": "run_tests",
+   "arg_names": []
+  },
+  {
+   "pattern": "^run\\s+(?:the\\s+)?build$",
+   "flags": 34,
+   "intent": "terminal",
+   "action": "run_build",
+   "arg_names": []
+  },
+  {
+   "pattern": "^run\\s+that$",
+   "flags": 34,
+   "intent": "terminal",
+   "action": "run_last",
+   "arg_names": []
+  },
+  {
+   "pattern": "^run\\s+(.+)$",
+   "flags": 34,
+   "intent": "terminal",
+   "action": "run_command",
+   "arg_names": [
+    "cmd"
+   ]
+  },
+  {
+   "pattern": "^rename\\s+(?:this|symbol|it)\\s+to\\s+(.+)$",
+   "flags": 34,
+   "intent": "refactor",
+   "action": "rename_symbol",
+   "arg_names": [
+    "name"
+   ]
+  },
+  {
+   "pattern": "^new\\s+function\\s+(?:called?\\s+)?(.+)$",
+   "flags": 34,
+   "intent": "edit",
+   "action": "new_function",
+   "arg_names": [
+    "name"
+   ]
+  },
+  {
+   "pattern": "^new\\s+class\\s+(?:called?\\s+)?(.+)$",
+   "flags": 34,
+   "intent": "edit",
+   "action": "new_class",
+   "arg_names": [
+    "name"
+   ]
+  },
+  {
+   "pattern": "^new\\s+file\\s+(?:called?\\s+)?(.+)$",
+   "flags": 34,
+   "intent": "edit",
+   "action": "new_file",
+   "arg_names": [
+    "name"
+   ]
+  }
+ ],
+ "cases": [
+  {
+   "input": "delete last 3 words",
+   "intent": "edit",
+   "action": "delete_words",
+   "args": {
+    "n": "3"
+   }
+  },
+  {
+   "input": "delete last word",
+   "intent": "edit",
+   "action": "delete_words",
+   "args": {}
+  },
+  {
+   "input": "delete last 1 word",
+   "intent": "edit",
+   "action": "delete_words",
+   "args": {
+    "n": "1"
+   }
+  },
+  {
+   "input": "delete the last 5 words",
+   "intent": "edit",
+   "action": "delete_words",
+   "args": {
+    "n": "5"
+   }
+  },
+  {
+   "input": "delete the last word",
+   "intent": "edit",
+   "action": "delete_words",
+   "args": {}
+  },
+  {
+   "input": "delete last three words",
+   "intent": "edit",
+   "action": "delete_words",
+   "args": {
+    "n": "3"
+   }
+  },
+  {
+   "input": "delete last two words",
+   "intent": "edit",
+   "action": "delete_words",
+   "args": {
+    "n": "2"
+   }
+  },
+  {
+   "input": "delete last 2 lines",
+   "intent": "edit",
+   "action": "delete_lines",
+   "args": {
+    "n": "2"
+   }
+  },
+  {
+   "input": "delete last line",
+   "intent": "edit",
+   "action": "delete_lines",
+   "args": {}
+  },
+  {
+   "input": "delete last 1 line",
+   "intent": "edit",
+   "action": "delete_lines",
+   "args": {
+    "n": "1"
+   }
+  },
+  {
+   "input": "delete the last 3 lines",
+   "intent": "edit",
+   "action": "delete_lines",
+   "args": {
+    "n": "3"
+   }
+  },
+  {
+   "input": "delete the last line",
+   "intent": "edit",
+   "action": "delete_lines",
+   "args": {}
+  },
+  {
+   "input": "undo",
+   "intent": "edit",
+   "action": "undo",
+   "args": {}
+  },
+  {
+   "input": "undo that",
+   "intent": "edit",
+   "action": "undo",
+   "args": {}
+  },
+  {
+   "input": "undo 3 times",
+   "intent": "edit",
+   "action": "undo_n",
+   "args": {
+    "n": "3"
+   }
+  },
+  {
+   "input": "undo 1 time",
+   "intent": "edit",
+   "action": "undo_n",
+   "args": {
+    "n": "1"
+   }
+  },
+  {
+   "input": "undo five times",
+   "intent": "edit",
+   "action": "undo_n",
+   "args": {
+    "n": "5"
+   }
+  },
+  {
+   "input": "save",
+   "intent": "edit",
+   "action": "save",
+   "args": {}
+  },
+  {
+   "input": "save file",
+   "intent": "edit",
+   "action": "save",
+   "args": {}
+  },
+  {
+   "input": "save file now",
+   "intent": "edit",
+   "action": "save",
+   "args": {}
+  },
+  {
+   "input": "save now",
+   "intent": "edit",
+   "action": "save",
+   "args": {}
+  },
+  {
+   "input": "copy",
+   "intent": "edit",
+   "action": "copy",
+   "args": {}
+  },
+  {
+   "input": "copy that",
+   "intent": "edit",
+   "action": "copy",
+   "args": {}
+  },
+  {
+   "input": "copy this",
+   "intent": "edit",
+   "action": "copy",
+   "args": {}
+  },
+  {
+   "input": "copy line",
+   "intent": "edit",
+   "action": "copy",
+   "args": {}
+  },
+  {
+   "input": "copy selection",
+   "intent": "edit",
+   "action": "copy",
+   "args": {}
+  },
+  {
+   "input": "paste",
+   "intent": "edit",
+   "action": "paste",
+   "args": {}
+  },
+  {
+   "input": "paste here",
+   "intent": "edit",
+   "action": "paste",
+   "args": {}
+  },
+  {
+   "input": "comment",
+   "intent": "edit",
+   "action": "comment",
+   "args": {}
+  },
+  {
+   "input": "comment out",
+   "intent": "edit",
+   "action": "comment",
+   "args": {}
+  },
+  {
+   "input": "comment this",
+   "intent": "edit",
+   "action": "comment",
+   "args": {}
+  },
+  {
+   "input": "comment line",
+   "intent": "edit",
+   "action": "comment",
+   "args": {}
+  },
+  {
+   "input": "select 3 lines",
+   "intent": "edit",
+   "action": "select_lines",
+   "args": {
+    "n": "3"
+   }
+  },
+  {
+   "input": "select 1 line",
+   "intent": "edit",
+   "action": "select_lines",
+   "args": {
+    "n": "1"
+   }
+  },
+  {
+   "input": "select end",
+   "intent": "edit",
+   "action": "select_to_end",
+   "args": {}
+  },
+  {
+   "input": "select to end",
+   "intent": "edit",
+   "action": "select_to_end",
+   "args": {}
+  },
+  {
+   "input": "select all",
+   "intent": "edit",
+   "action": "select_all",
+   "args": {}
+  },
+  {
+   "input": "go to line 42",
+   "intent": "navigate",
+   "action": "go_to_line",
+   "args": {
+    "n": "42"
+   }
+  },
+  {
+   "input": "go to line 1",
+   "intent": "navigate",
+   "action": "go_to_line",
+   "args": {
+    "n": "1"
+   }
+  },
+  {
+   "input": "go to function main",
+   "intent": "navigate",
+   "action": "go_to_function",
+   "args": {
+    "name": "main"
+   }
+  },
+  {
+   "input": "go to method render",
+   "intent": "navigate",
+   "action": "go_to_function",
+   "args": {
+    "name": "render"
+   }
+  },
+  {
+   "input": "jump to function parse_args",
+   "intent": "navigate",
+   "action": "go_to_function",
+   "args": {
+    "name": "parse_args"
+   }
+  },
+  {
+   "input": "find def calculate",
+   "intent": "navigate",
+   "action": "go_to_function",
+   "args": {
+    "name": "calculate"
+   }
+  },
+  {
+   "input": "go to class MyModel",
+   "intent": "navigate",
+   "action": "go_to_class",
+   "args": {
+    "name": "MyModel"
+   }
+  },
+  {
+   "input": "jump to class BaseHandler",
+   "intent": "navigate",
+   "action": "go_to_class",
+   "args": {
+    "name": "BaseHandler"
+   }
+  },
+  {
+   "input": "go to file config.py",
+   "intent": "navigate",
+   "action": "go_to_file",
+   "args": {
+    "name": "config.py"
+   }
+  },
+  {
+   "input": "open file utils.py",
+   "intent": "navigate",
+   "action": "go_to_file",
+   "args": {
+    "name": "utils.py"
+   }
+  },
+  {
+   "input": "run tests",
+   "intent": "terminal",
+   "action": "run_tests",
+   "args": {}
+  },
+  {
+   "input": "run test",
+   "intent": "terminal",
+   "action": "run_tests",
+   "args": {}
+  },
+  {
+   "input": "run the tests",
+   "intent": "terminal",
+   "action": "run_tests",
+   "args": {}
+  },
+  {
+   "input": "run build",
+   "intent": "terminal",
+   "action": "run_build",
+   "args": {}
+  },
+  {
+   "input": "run the build",
+   "intent": "terminal",
+   "action": "run_build",
+   "args": {}
+  },
+  {
+   "input": "run that",
+   "intent": "terminal",
+   "action": "run_last",
+   "args": {}
+  },
+  {
+   "input": "run pytest",
+   "intent": "terminal",
+   "action": "run_command",
+   "args": {
+    "cmd": "pytest"
+   }
+  },
+  {
+   "input": "run make install",
+   "intent": "terminal",
+   "action": "run_command",
+   "args": {
+    "cmd": "make install"
+   }
+  },
+  {
+   "input": "rename this to new_handler",
+   "intent": "refactor",
+   "action": "rename_symbol",
+   "args": {
+    "name": "new_handler"
+   }
+  },
+  {
+   "input": "rename symbol to BaseProcessor",
+   "intent": "refactor",
+   "action": "rename_symbol",
+   "args": {
+    "name": "BaseProcessor"
+   }
+  },
+  {
+   "input": "rename it to calculate_total",
+   "intent": "refactor",
+   "action": "rename_symbol",
+   "args": {
+    "name": "calculate_total"
+   }
+  },
+  {
+   "input": "new function process_data",
+   "intent": "edit",
+   "action": "new_function",
+   "args": {
+    "name": "process_data"
+   }
+  },
+  {
+   "input": "new function called helper",
+   "intent": "edit",
+   "action": "new_function",
+   "args": {
+    "name": "helper"
+   }
+  },
+  {
+   "input": "new class DataHandler",
+   "intent": "edit",
+   "action": "new_class",
+   "args": {
+    "name": "DataHandler"
+   }
+  },
+  {
+   "input": "new class call MyMixin",
+   "intent": "edit",
+   "action": "new_class",
+   "args": {
+    "name": "call MyMixin"
+   }
+  },
+  {
+   "input": "new file models.py",
+   "intent": "edit",
+   "action": "new_file",
+   "args": {
+    "name": "models.py"
+   }
+  },
+  {
+   "input": "The quick brown fox jumps over the lazy dog",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "I need to refactor this module later",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "The temperature outside is twenty degrees",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "She walked along the river path at dusk",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "This function handles authentication tokens",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "comment this line",
+   "intent": "edit",
+   "action": "comment",
+   "args": {}
+  },
+  {
+   "input": "comment the line",
+   "intent": "edit",
+   "action": "comment",
+   "args": {}
+  },
+  {
+   "input": "comment this selection",
+   "intent": "edit",
+   "action": "comment",
+   "args": {}
+  },
+  {
+   "input": "The architecture of modern distributed systems has evolved considerably over the past two decades.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Early client-server models relied on monolithic applications where all logic resided in a single deployable unit.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "As organisations grew, those monoliths became unwieldy and expensive to maintain.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Engineers began decomposing large applications into smaller, independently deployable services.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "This approach, now widely known as microservices, trades simplicity for scalability and fault isolation.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Each service owns its own data store, communicates over well-defined APIs, and can be deployed independently.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "The Kubernetes container orchestration platform has become the de-facto standard for managing fleets of such services.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Kubernetes schedules workloads across a pool of worker nodes, automatically restarting failed containers.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Operators declare the desired state of the system, and the control plane continuously reconciles reality with that declaration.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Horizontal pod autoscaling adjusts replica counts based on observed CPU utilisation or custom metrics.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Weather patterns over the North Atlantic influence precipitation across Northern Europe.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Warm, moist air masses originating in the subtropics collide with cold polar air, producing frontal systems.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "These fronts move from west to east, driven by the prevailing westerly winds at mid-latitudes.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "When a warm front advances, it glides above the denser cold air, producing widespread stratiform clouds.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Conversely, cold fronts undercut the warm air, causing it to rise rapidly and form cumulonimbus towers.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Such deep convection often produces heavy rainfall, lightning, and occasionally hail.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Meteorologists use numerical weather prediction models to forecast these phenomena up to a week in advance.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Ensemble forecasting quantifies uncertainty by running multiple simulations with slightly perturbed initial conditions.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "The spread among ensemble members indicates how confident forecasters can be in a given prediction.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Accurate temperature and humidity profiles from radiosondes launched twice daily feed the data-assimilation schemes.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Ancient Rome's water supply infrastructure was remarkably sophisticated for its era.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Aqueducts transported fresh water from distant mountain springs to the city using gravity alone.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Engineers maintained a constant downhill gradient across hundreds of kilometres by constructing arches, tunnels, and siphons.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "At the terminal end, large distribution tanks called castella divided the flow among multiple lead pipes.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "The Aqua Claudia, completed under Emperor Claudius in the first century, stretched over sixty kilometres.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Its multiple-tiered arcades are still visible in the Roman countryside today.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Millions of litres flowed into public fountains, bath-houses, and the homes of wealthy citizens every day.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Overflow from public basins kept streets relatively clean, draining into the Cloaca Maxima sewer system.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "This engineering prowess allowed Rome to sustain a population of over a million people at its height.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "The infrastructure ultimately outlasted the empire itself; several aqueducts were repaired and re-used in the medieval period.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Fermentation is a metabolic process in which microorganisms convert sugars into alcohol, acids, or gases.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Yeasts are the primary agents in alcoholic fermentation, breaking down glucose into ethanol and carbon dioxide.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Brewers exploit this reaction to produce beer, wine, cider, and other beverages.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "The concentration of alcohol in the finished product depends on the initial sugar content and the yeast strain used.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Lactic acid bacteria perform a different kind of fermentation, producing lactic acid as the main by-product.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "This process preserves vegetables in preparations such as sauerkraut, kimchi, and traditional pickles.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "The acid lowers the pH of the food, inhibiting the growth of harmful spoilage organisms.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Koji, a mould cultivated on cooked rice or barley, secretes amylase enzymes that break down starches.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Japanese brewers use koji as the saccharification agent in sake production, converting rice starch to fermentable sugars.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Cheesemakers rely on rennet and lactic acid bacteria to coagulate milk proteins and develop complex flavour compounds.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "The hippocampus, a seahorse-shaped structure buried within the medial temporal lobe, plays a central role in memory formation.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Declarative memories — facts and autobiographical episodes — are initially encoded in hippocampal circuits.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Over time, through a process called systems consolidation, these memories are gradually transferred to neocortical networks.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Damage to the hippocampus, as seen in patients with advanced Alzheimer's disease, impairs the ability to form new explicit memories.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Spatial navigation also depends heavily on hippocampal activity; place cells fire when an animal occupies a particular location.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Grid cells in the entorhinal cortex provide a metric coordinate system that the hippocampus uses to construct cognitive maps.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Sleep appears to be critical for consolidation: slow-wave sleep facilitates the transfer of memories to the cortex.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "During rapid-eye-movement sleep, the brain replays hippocampal activity patterns from the day, potentially strengthening synaptic connections.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Researchers have shown that targeted disruption of sharp-wave ripple events during sleep impairs retention of newly learned spatial tasks.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Understanding these mechanisms may eventually guide the development of interventions for memory disorders.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Mountain glaciers form when annual snowfall consistently exceeds annual melt, causing snow to accumulate and compact into dense ice.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Under its own weight, glacial ice deforms and flows slowly downhill through valleys carved over millennia.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "The Rhône Glacier in the Swiss Alps has retreated dramatically since systematic measurements began in the nineteenth century.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Climate scientists attribute the accelerating retreat primarily to rising mean temperatures caused by increased atmospheric greenhouse gases.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "As a glacier shrinks, it exposes polished bedrock and deposits moraines — ridges of unsorted sediment pushed by the ice.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Glacial meltwater feeds rivers and aquifers that billions of people depend on for drinking water and irrigation.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Where glaciers calve into the ocean or into large lakes, they release icebergs that can drift for months before melting.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "The albedo effect amplifies warming: ice reflects a large fraction of incoming solar radiation, whereas exposed rock and water absorb far more.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Permafrost degradation compounds the problem by releasing carbon dioxide and methane stored in frozen organic matter.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "International research programmes deploy autonomous sensors on and around glaciers to monitor mass balance year-round.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "The printing press developed by Johannes Gutenberg around 1440 fundamentally altered the flow of information in European society.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Before movable type, books had to be copied by hand, a labour-intensive process that kept literacy rates low and book prices high.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Gutenberg's innovation combined a metal alloy type system with an oil-based ink and a screw press adapted from winemaking.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Within decades, printing houses had spread across the continent, dramatically lowering the cost of producing texts.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "The Bible was among the first major works printed; the Gutenberg Bible remains one of the most valuable printed books in existence.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Cheap printed materials accelerated the Renaissance, the Reformation, and ultimately the Scientific Revolution.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Scholars could now share findings rapidly across borders, building on each other's work in a way impossible under manuscript culture.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Standardised spelling and grammar emerged partly because typesetters needed consistent conventions to work efficiently.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Literacy rates climbed as affordable books and pamphlets became widely available to the merchant and artisan classes.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "The press did not guarantee accurate information: propaganda and misinformation spread just as readily as scholarly texts.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Coral reefs occupy less than one percent of the ocean floor yet support an estimated quarter of all marine species.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "The structural foundation is secreted by tiny colonial animals called hard corals, which extract calcium carbonate from seawater.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Symbiotic algae known as zooxanthellae live within coral tissues and provide up to ninety percent of the host's energy through photosynthesis.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "When water temperatures exceed a threshold for several weeks, corals expel their algae in a process called bleaching.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "A bleached coral is not dead, but it is severely stressed and will perish if warm conditions persist.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Ocean acidification, caused by the absorption of excess atmospheric carbon dioxide, weakens carbonate skeletons and slows reef growth.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Overfishing removes herbivorous fish that graze on algae, allowing algae to overgrow and smother corals.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Marine protected areas that restrict fishing and anchoring have shown measurable improvements in reef health and fish biomass.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Coral restoration programmes propagate fragments of heat-tolerant coral strains in underwater nurseries before transplanting them onto degraded reefs.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "The long-term survival of these ecosystems depends on rapid reductions in global greenhouse gas emissions.",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "   ",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "the quick brown fox jumps over the lazy dog",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "undo the last three commits before you deploy",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "comment the line about the retry budget",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "run kubectl get pods",
+   "intent": "terminal",
+   "action": "run_command",
+   "args": {
+    "cmd": "kubectl get pods"
+   }
+  },
+  {
+   "input": "run the numbers again before Friday",
+   "intent": "terminal",
+   "action": "run_command",
+   "args": {
+    "cmd": "the numbers again before Friday"
+   }
+  },
+  {
+   "input": "go to line seven",
+   "intent": "navigate",
+   "action": "go_to_line",
+   "args": {
+    "n": "7"
+   }
+  },
+  {
+   "input": "delete the last three words",
+   "intent": "edit",
+   "action": "delete_words",
+   "args": {
+    "n": "3"
+   }
+  },
+  {
+   "input": "undo that.",
+   "intent": "edit",
+   "action": "undo",
+   "args": {}
+  },
+  {
+   "input": ", select all.",
+   "intent": "edit",
+   "action": "select_all",
+   "args": {}
+  },
+  {
+   "input": "Undo that",
+   "intent": "edit",
+   "action": "undo",
+   "args": {}
+  },
+  {
+   "input": "then I told him to undo that and he did",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "the save file dialog was confusing",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "reticulate the splines",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "سلام دنیا",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "we shipped 42 features this year",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "go to line ۴۲",
+   "intent": "navigate",
+   "action": "go_to_line",
+   "args": {
+    "n": "۴۲"
+   }
+  },
+  {
+   "input": "go to line ٤٢",
+   "intent": "navigate",
+   "action": "go_to_line",
+   "args": {
+    "n": "٤٢"
+   }
+  },
+  {
+   "input": "‪select all‬",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "‌undo‌",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "برو به خط ۴۲",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "undo کن",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "run command git push origin main",
+   "intent": "terminal",
+   "action": "run_command",
+   "args": {
+    "cmd": "command git push origin main"
+   }
+  },
+  {
+   "input": "go down",
+   "intent": "navigate",
+   "action": "arrow_down",
+   "args": {}
+  },
+  {
+   "input": "move left",
+   "intent": "navigate",
+   "action": "arrow_left",
+   "args": {}
+  },
+  {
+   "input": "go right",
+   "intent": "navigate",
+   "action": "arrow_right",
+   "args": {}
+  },
+  {
+   "input": "move up",
+   "intent": "navigate",
+   "action": "arrow_up",
+   "args": {}
+  },
+  {
+   "input": "cut that",
+   "intent": "edit",
+   "action": "cut",
+   "args": {}
+  },
+  {
+   "input": "delete the last two lines",
+   "intent": "edit",
+   "action": "delete_lines",
+   "args": {
+    "n": "2"
+   }
+  },
+  {
+   "input": "Delete last word.",
+   "intent": "edit",
+   "action": "delete_words",
+   "args": {}
+  },
+  {
+   "input": "delete the last 3 words",
+   "intent": "edit",
+   "action": "delete_words",
+   "args": {
+    "n": "3"
+   }
+  },
+  {
+   "input": "find class ConfigLoader",
+   "intent": "navigate",
+   "action": "go_to_class",
+   "args": {
+    "name": "ConfigLoader"
+   }
+  },
+  {
+   "input": "open file src/main.py",
+   "intent": "navigate",
+   "action": "go_to_file",
+   "args": {
+    "name": "src/main.py"
+   }
+  },
+  {
+   "input": "jump to function parse_config",
+   "intent": "navigate",
+   "action": "go_to_function",
+   "args": {
+    "name": "parse_config"
+   }
+  },
+  {
+   "input": "end of line",
+   "intent": "navigate",
+   "action": "line_end",
+   "args": {}
+  },
+  {
+   "input": "go to beginning of the line",
+   "intent": "navigate",
+   "action": "line_home",
+   "args": {}
+  },
+  {
+   "input": "new class Widget",
+   "intent": "edit",
+   "action": "new_class",
+   "args": {
+    "name": "Widget"
+   }
+  },
+  {
+   "input": "new file called notes.md",
+   "intent": "edit",
+   "action": "new_file",
+   "args": {
+    "name": "notes.md"
+   }
+  },
+  {
+   "input": "new function called parse_args",
+   "intent": "edit",
+   "action": "new_function",
+   "args": {
+    "name": "parse_args"
+   }
+  },
+  {
+   "input": "page down",
+   "intent": "navigate",
+   "action": "page_down",
+   "args": {}
+  },
+  {
+   "input": "page up",
+   "intent": "navigate",
+   "action": "page_up",
+   "args": {}
+  },
+  {
+   "input": "press backspace",
+   "intent": "edit",
+   "action": "press_backspace",
+   "args": {}
+  },
+  {
+   "input": "press enter",
+   "intent": "edit",
+   "action": "press_enter",
+   "args": {}
+  },
+  {
+   "input": "new line",
+   "intent": "edit",
+   "action": "press_enter",
+   "args": {}
+  },
+  {
+   "input": "esc",
+   "intent": "edit",
+   "action": "press_escape",
+   "args": {}
+  },
+  {
+   "input": "press tab",
+   "intent": "edit",
+   "action": "press_tab",
+   "args": {}
+  },
+  {
+   "input": "rename this to new_name",
+   "intent": "refactor",
+   "action": "rename_symbol",
+   "args": {
+    "name": "new_name"
+   }
+  },
+  {
+   "input": "run ls -la | grep toml && echo $HOME",
+   "intent": "terminal",
+   "action": "run_command",
+   "args": {
+    "cmd": "ls -la | grep toml && echo $HOME"
+   }
+  },
+  {
+   "input": "Select all!",
+   "intent": "edit",
+   "action": "select_all",
+   "args": {}
+  },
+  {
+   "input": "select five lines",
+   "intent": "edit",
+   "action": "select_lines",
+   "args": {
+    "n": "5"
+   }
+  },
+  {
+   "input": "Undo that.",
+   "intent": "edit",
+   "action": "undo",
+   "args": {}
+  },
+  {
+   "input": "undo three times",
+   "intent": "edit",
+   "action": "undo_n",
+   "args": {
+    "n": "3"
+   }
+  },
+  {
+   "input": "delete the last passwords",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "please undo that",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "save the file and then close it",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "撤销。",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "撤銷",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "撤销三次",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "復原兩次",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "保存文件",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "儲存檔案",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "复制",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "複製",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "剪切",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "剪下",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "粘贴",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "貼上",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "删除最后一个词",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "刪除最後一個詞",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "删除最后十二个单词",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "刪除最後二十三個單詞",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "删除最后一行",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "刪除最後一行",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "删除最后十行",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "刪除最後九十九行",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "注释这一行",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "註解這一行",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "选择两行",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "選取兩行",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "选择到结尾",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "選取到結尾",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "全选",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "全選",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "按回车键",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "按回車鍵",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "按 Tab 键",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "按 Escape 鍵",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "按 Escape 键",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "按退格键",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "按退格鍵",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "转到第十一行",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "轉到第二十行",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "转到第一百二十三行",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "跳到第两百行",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "轉到第一百零五行",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "跳到第兩百一十行",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "前往第 150 行",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "转到第九百九十九行",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "打开文件README.md",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "上一页",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "上一頁",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "下一页",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "下一頁",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "转到行首",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "轉到行首",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "转到行尾",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "轉到行尾",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "光标向上",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "游標向上",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "光标向下",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "游標向下",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "光标向左",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "游標向左",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "光标向右",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "游標向右",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "转到函数 main",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "轉到函式 render",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "转到类 Parser",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "轉到類別 Parser",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "打开文件 README.md",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "開啟檔案 設定.toml",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "我想撤销昨天做出的那个决定",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "请保存这个想法供以后讨论",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "复制这些内容到报告里以后再检查",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "剪切和复制是两种不同的编辑操作",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "粘贴功能在这个应用里有一点问题",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "删除最后一个词这个命令需要谨慎使用",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "我们删除最后三行之后重新运行了测试",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "注释这一行代码的原因写在设计文档里",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "选择两行文本以后再进行比较",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "选择到结尾通常适合处理长段落",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "全选按钮位于编辑菜单中",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "回车键在这个键盘上有点松",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Tab 键也可以改变焦点",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Escape 键的标签已经磨损",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "退格键旁边是回车键",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "转到第十一行这个步骤写在说明里",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "上一页的图展示了实验结果",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "下一页会解释为什么这样设计",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "行首和行尾的空格都要保留",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "光标向上移动时动画会变慢",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "游標向右移動時不要修改文字",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "函数 main 负责处理输入数据",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "查找函数定义的方法有很多",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "类 Parser 负责语法分析",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "打开文件之后先不要修改内容",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "開啟檔案之後先閱讀說明",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "这个文件名叫 README.md",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "我们需要保存文件格式的兼容性",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "撤銷功能應該可以恢復上一步",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "全選並不總是安全的操作",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "运行测试应该在提交之前完成",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "執行測試之前先保存目前工作",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "运行 rm -rf / 绝对不是这里应该执行的命令",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "把光标向左移动一点会更容易阅读",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "他删除了最后一封邮件才发现那是合同",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "请不要删除最后一行的签名",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "删除最后一个词以后整句话的意思就变了",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "我把发送按钮和删除按钮放得太近了",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "发送之前请再检查一遍收件人",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "邮件已经发送给了一百二十个客户",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "請在發送之前刪除最後一段",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "刪除最後兩行之前先備份檔案",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "他們決定撤銷那份兩百頁的報告",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "撤销三次申请之后他终于放弃了",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "撤销这个决定需要董事会同意",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "保存期限是三百六十五天",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "保存好你的密码，不要发送给任何人。",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "儲存檔案的位置可以在設定裡更改",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "这段代码复制自开源项目并保留了许可证",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "複製貼上不是學習程式的好方法",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "复制粘贴的速度比打字快多了",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "剪切下来的照片已经发给你了",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "剪下這篇文章寄給老師",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "粘贴在墙上的通知被风吹掉了",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "第一百二十三行有一个拼写错误",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "请转到第三章再阅读一百页",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "跳到第五十行之前先看看注释",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "我们在第九百九十九行找到了错误",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "一百零五行的函数太长了",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "兩百行以內的檔案比較容易審查",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "选择一百个样本进行测试",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "選取十個志願者參加實驗",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "全选这个功能在手机上不太好用",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "按回车键之后程序就崩溃了",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "换行符在不同系统中的写法不一样",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "換行之後縮排會自動對齊",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "新的一行诗写在笔记本的最后",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "退格键坏了所以我只能用删除键",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "上一页和下一页的按钮应该更大一些",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "光标在行首闪烁表示可以输入",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "游標移到行尾之後再按一次",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "注释应该解释为什么而不是做了什么",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "註解這一行的作者已經離職了",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "打开文件夹以后找到那份合同",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "打开文件夹里的config.toml",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "打开文件 config.toml 之后再修改端口",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "開啟檔案 設定.toml 之前先備份",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "查找函数 main 的定义花了很久",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "跳到类 Parser 的说明之前先读概述",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "转到函数 main 之后再决定",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "运行一百次测试才发现这个问题",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "執行兩百次之後結果仍然一樣",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "删除记录需要管理员权限",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "撤銷、儲存和複製都在編輯選單裡",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "Undo.",
+   "intent": "edit",
+   "action": "undo",
+   "args": {}
+  },
+  {
+   "input": "UNDO THAT!",
+   "intent": "edit",
+   "action": "undo",
+   "args": {}
+  },
+  {
+   "input": "  save file now  ",
+   "intent": "edit",
+   "action": "save",
+   "args": {}
+  },
+  {
+   "input": "Save.",
+   "intent": "edit",
+   "action": "save",
+   "args": {}
+  },
+  {
+   "input": "delete last eleven words",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "go to line ten",
+   "intent": "navigate",
+   "action": "go_to_line",
+   "args": {
+    "n": "10"
+   }
+  },
+  {
+   "input": "go to line 0",
+   "intent": "navigate",
+   "action": "go_to_line",
+   "args": {
+    "n": "0"
+   }
+  },
+  {
+   "input": "Go To Line 42?",
+   "intent": "navigate",
+   "action": "go_to_line",
+   "args": {
+    "n": "42"
+   }
+  },
+  {
+   "input": "undo one time",
+   "intent": "edit",
+   "action": "undo_n",
+   "args": {
+    "n": "1"
+   }
+  },
+  {
+   "input": "select ten lines",
+   "intent": "edit",
+   "action": "select_lines",
+   "args": {
+    "n": "10"
+   }
+  },
+  {
+   "input": "run rm -rf /",
+   "intent": "terminal",
+   "action": "run_command",
+   "args": {
+    "cmd": "rm -rf /"
+   }
+  },
+  {
+   "input": "run the tests.",
+   "intent": "terminal",
+   "action": "run_tests",
+   "args": {}
+  },
+  {
+   "input": "run",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "rename this to fooBar",
+   "intent": "refactor",
+   "action": "rename_symbol",
+   "args": {
+    "name": "fooBar"
+   }
+  },
+  {
+   "input": "new file called main.py",
+   "intent": "edit",
+   "action": "new_file",
+   "args": {
+    "name": "main.py"
+   }
+  },
+  {
+   "input": "open file README.md",
+   "intent": "navigate",
+   "action": "go_to_file",
+   "args": {
+    "name": "README.md"
+   }
+  },
+  {
+   "input": "find def parse_args",
+   "intent": "navigate",
+   "action": "go_to_function",
+   "args": {
+    "name": "parse_args"
+   }
+  },
+  {
+   "input": "jump to class Parser",
+   "intent": "navigate",
+   "action": "go_to_class",
+   "args": {
+    "name": "Parser"
+   }
+  },
+  {
+   "input": "press Esc",
+   "intent": "edit",
+   "action": "press_escape",
+   "args": {}
+  },
+  {
+   "input": "Escape",
+   "intent": "edit",
+   "action": "press_escape",
+   "args": {}
+  },
+  {
+   "input": "new line please",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "cut selection",
+   "intent": "edit",
+   "action": "cut",
+   "args": {}
+  },
+  {
+   "input": "paste here!",
+   "intent": "edit",
+   "action": "paste",
+   "args": {}
+  },
+  {
+   "input": "select all.",
+   "intent": "edit",
+   "action": "select_all",
+   "args": {}
+  },
+  {
+   "input": "Page Down…",
+   "intent": "navigate",
+   "action": "page_down",
+   "args": {}
+  },
+  {
+   "input": "go up",
+   "intent": "navigate",
+   "action": "arrow_up",
+   "args": {}
+  },
+  {
+   "input": "end of the line",
+   "intent": "navigate",
+   "action": "line_end",
+   "args": {}
+  },
+  {
+   "input": "beginning of line",
+   "intent": "navigate",
+   "action": "line_home",
+   "args": {}
+  },
+  {
+   "input": "\"undo\"",
+   "intent": "edit",
+   "action": "undo",
+   "args": {}
+  },
+  {
+   "input": "'save'",
+   "intent": "edit",
+   "action": "save",
+   "args": {}
+  },
+  {
+   "input": "`copy`",
+   "intent": "edit",
+   "action": "copy",
+   "args": {}
+  },
+  {
+   "input": "undo that that",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "delete the last 1000000 lines",
+   "intent": "edit",
+   "action": "delete_lines",
+   "args": {
+    "n": "1000000"
+   }
+  },
+  {
+   "input": "go to line ١٢",
+   "intent": "navigate",
+   "action": "go_to_line",
+   "args": {
+    "n": "١٢"
+   }
+  },
+  {
+   "input": "go to line １２",
+   "intent": "navigate",
+   "action": "go_to_line",
+   "args": {
+    "n": "１２"
+   }
+  },
+  {
+   "input": "\n",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "save this thought for later",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  },
+  {
+   "input": "the quick brown fox",
+   "intent": "dictate",
+   "action": "inject",
+   "args": {}
+  }
+ ]
+}

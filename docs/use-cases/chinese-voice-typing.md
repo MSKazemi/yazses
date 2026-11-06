@@ -80,18 +80,69 @@ The measurement and its caveats are documented in
 Conversion is a reversible character mapping, so it cannot repair a mishearing — it only
 stops a correct transcription from arriving in the wrong script.
 
-## Chinese voice commands: safe core only
+## Chinese voice commands: experimental, safe core only
 
-When `[commands] enabled = true` (the default), the Tier-1 command grammar follows
-`[stt] language` when `[commands] language = "auto"`. With Mandarin selected, YazSes
-recognizes a conservative, whole-utterance command set in both Simplified and Traditional
-forms: undo/save/copy/cut/paste, bounded word/line deletion and selection, Enter/Tab/Escape/
-Backspace, line/page/cursor navigation, and explicit go-to function/class/file commands.
+Mandarin voice commands are an **experimental preview**. No native Mandarin speaker has
+reviewed the phrases yet ([#505](https://github.com/MSKazemi/yazses/issues/505)), so every
+row in the table below is marked *unreviewed*. Expect phrasing that sounds unnatural to
+you, and please report it.
+
+They are off on a default install, which uses the English grammar. They turn on only when
+you choose Mandarin: with `[commands] language = "auto"` (the default) the command grammar
+follows `[stt] language`, so a Mandarin language profile (`yazses language set zh-CN` or
+`zh-TW`) selects them. `[commands] language = "zh"` selects them explicitly.
 
 ```toml
 [commands]
 language = "auto"  # follows [stt] language; explicit "en" or "zh" overrides
 ```
+
+To dictate Mandarin **without** Mandarin commands, pin `language = "en"` under
+`[commands]`. The English grammar never matches a Chinese sentence, so everything you say
+in Chinese is typed as text, and English commands such as "undo that" still work.
+`enabled = false` under `[commands]` stops the dictation key from running any command at
+all; only the dedicated command-mode key, if you bound one, still runs them.
+
+A phrase is a command only when it is the **whole utterance**, with nothing before or
+after it apart from punctuation. "保存文件" saves; "请保存这个文件" or "保存文件之后再说"
+is typed as text. Each phrase below is one accepted wording; `N` stands for a number
+(see the limits further down) and `name` for one identifier or file name.
+
+| Action (English equivalent) | Simplified examples | Traditional examples | Native review |
+|---|---|---|---|
+| `undo` (undo) | `撤销` · `撤销操作` | `撤銷` · `復原` | unreviewed |
+| `undo_n` (undo N times) | `撤销三次` · `撤销 3 次` | `撤銷五次` · `復原兩次` | unreviewed |
+| `save` (save file) | `保存` · `保存文件` | `儲存檔案` · `存檔` | unreviewed |
+| `copy` (copy) | `复制` | `複製` | unreviewed |
+| `cut` (cut) | `剪切` | `剪下` | unreviewed |
+| `paste` (paste) | `粘贴` · `贴上` | `貼上` · `黏貼` | unreviewed |
+| `delete_words` (delete the last N words) | `删除最后一个词` · `删除最后十二个单词` | `刪除最後一個詞` · `刪除最後二十三個單詞` | unreviewed |
+| `delete_lines` (delete the last N lines) | `删除最后一行` · `删除最后两行` | `刪除最後一行` · `刪除最後九十九行` | unreviewed |
+| `comment` (comment this line) | `注释这一行` · `注释当前行` | `註解這一行` · `註釋這一行` | unreviewed |
+| `select_lines` (select N lines) | `选择两行` · `选取三行` | `選取兩行` · `選擇三行` | unreviewed |
+| `select_to_end` (select to end) | `选择到结尾` · `选择到末尾` | `選取到結尾` | unreviewed |
+| `select_all` (select all) | `全选` · `全部选择` | `全選` · `全部選擇` | unreviewed |
+| `press_enter` (press Enter / new line) | `按回车键` · `换行` · `新的一行` | `按回車鍵` · `換行` | unreviewed |
+| `press_tab` (press Tab) | `按 Tab 键` | `按 Tab 鍵` | unreviewed |
+| `press_escape` (press Escape) | `按 Escape 键` · `按 esc 键` | `按 Escape 鍵` | unreviewed |
+| `press_backspace` (press Backspace) | `按退格键` | `按退格鍵` | unreviewed |
+| `go_to_line` (go to line N) | `转到第一百二十三行` · `跳到第两百行` · `前往第 150 行` | `轉到第一百零五行` · `跳到第兩百一十行` | unreviewed |
+| `page_up` (page up) | `上一页` · `向上翻页` | `上一頁` · `向上翻頁` | unreviewed |
+| `page_down` (page down) | `下一页` · `向下翻页` | `下一頁` · `向下翻頁` | unreviewed |
+| `line_home` (start of line) | `转到行首` · `跳到这一行开头` | `轉到行首` · `前往這一行開頭` | unreviewed |
+| `line_end` (end of line) | `转到行尾` · `前往这一行结尾` | `轉到行尾` · `跳到這一行結尾` | unreviewed |
+| `arrow_up` (move up) | `光标向上` · `光标上移` | `游標向上` · `游標上移` | unreviewed |
+| `arrow_down` (move down) | `光标向下` · `光标下移` | `游標向下` · `游標下移` | unreviewed |
+| `arrow_left` (move left) | `光标向左` · `光标左移` | `游標向左` · `游標左移` | unreviewed |
+| `arrow_right` (move right) | `光标向右` · `光标右移` | `游標向右` · `游標右移` | unreviewed |
+| `go_to_function` (go to function name) | `转到函数 main` · `查找函数 parse_args` | `轉到函式 render` · `查找函數 parse_args` | unreviewed |
+| `go_to_class` (go to class name) | `转到类 Parser` | `轉到類別 Parser` · `轉到類 Parser` | unreviewed |
+| `go_to_file` (open file name) | `打开文件 README.md` · `开启文件 main.py` | `開啟檔案 設定.toml` · `打開檔案 README.md` | unreviewed |
+
+Each phrase sends the same command as its English equivalent: `撤销三次` and "undo 3 times"
+reach the editor as the same action with the same count. The tests check that this table and
+the grammar agree in both directions, and that the review column matches the review state
+recorded in the code.
 
 This is intentionally **not full parity with the English command grammar yet**. Mandarin
 terminal execution (the English `run ...` family) and open-ended refactor/create commands
