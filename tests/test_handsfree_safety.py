@@ -146,11 +146,14 @@ def test_pause_is_safe_from_any_thread():
         except BaseException as exc:  # pragma: no cover - a raise here is the failure
             errors.append(exc)
 
-    threads = [threading.Thread(target=hammer) for _ in range(8)]
+    threads = [threading.Thread(target=hammer, daemon=True) for _ in range(8)]
     for thread in threads:
         thread.start()
     for thread in threads:
-        thread.join()
+        # Bounded: a deadlock fails here in seconds, naming the thread,
+        # instead of hanging until the suite's 300 s pytest-timeout.
+        thread.join(timeout=10.0)
+        assert not thread.is_alive(), f"{thread.name} still running after 10 s (deadlock?)"
 
     assert errors == []
     assert gate.state is SafetyState.PAUSED
