@@ -182,3 +182,118 @@ def test_cli_drift_amplitude_and_sweep_flags() -> None:
     body = json.loads(sweep.stdout)
     assert body["synthetic"] and "not physiology" in body["note"]
     assert body["sweep"] == M.drift_sweep([0.5, 0.85], range(2))
+
+
+# --- Reference-channel ablation, reliability and unknown-state rates (synthetic only) ---
+
+ARTIFACT_BLOCKS = ("blink", "clench", "speaking")
+
+
+def test_default_arguments_keep_the_pinned_output() -> None:
+    """The new knobs at their defaults must not perturb the hash-pinned report."""
+    assert M.run(0, reference_gate=True, artifact_leakage=None) == M.run(0)
+    assert M.generate(2, artifact_leakage=1.0) == M.generate(2)
+
+
+def test_no_reference_channel_ignores_eog_and_emg_entirely() -> None:
+    data = M.generate(0)
+    for name in ("eog", "emg"):
+        data["channels"][name] = [None] * len(data["channels"][name])
+    with pytest.raises(ValueError, match="no usable calibration"):
+        M.replay(data)   # with the gate on, a missing reference fails closed at calibration
+    ungated = M.replay(data, reference_gate=False)
+    assert ungated["eligible_windows"] > 0
+    assert "ocular_artifact" not in ungated["abstention_reasons"]
+    assert "muscle_artifact" not in ungated["abstention_reasons"]
+
+
+def test_no_reference_run_is_labelled_and_keeps_inference_label_free() -> None:
+    report = M.run(0, reference_gate=False)
+    assert report["reference_channel"] == "absent: EOG/EMG quality gate removed"
+    d = M.generate(0)
+    r1 = M.replay(d, reference_gate=False)
+    d["blocks"] = [dict(b, label="x") for b in d["blocks"]]
+    assert r1 == M.replay(d, reference_gate=False)
+
+
+def test_leakage_sweep_reports_per_block_and_labelled_hourly_arithmetic() -> None:
+    body = M.leakage_sweep([1.0, 8.0], range(2))
+    assert body["synthetic"] and "not an estimate" in body["rate_note"]
+    for row in body["rows"]:
+        for gate in ("reference_gate_on", "reference_gate_off"):
+            per = row[gate]["false_candidates_by_block"]
+            assert set(per) == set(ARTIFACT_BLOCKS)
+            for block in ARTIFACT_BLOCKS:
+                count = per[block]
+                exposure_s = 2 * 8
+                assert row[gate]["synthetic_rate_per_hour"][block] == round(3600 * count / exposure_s, 3)
+            assert 0.0 <= row[gate]["abstention_rate"] <= 1.0
+            assert 0.0 <= row[gate]["unknown_state_rate"] <= 1.0
+    authored = body["rows"][0]
+    assert authored["artifact_leakage"] == 1.0
+    # With the gate on, the scripted artifacts never fire at the authored leakage.
+    assert not any(authored["reference_gate_on"]["false_candidates_by_block"].values())
+    # Removing the gate removes the ocular/muscle abstentions.
+    assert authored["reference_gate_off"]["abstention_rate"] < authored["reference_gate_on"]["abstention_rate"]
+
+
+def test_gate_off_at_the_authored_leakage_gives_no_artifact_false_candidates() -> None:
+    # The results page's correction: blink/clench/speaking stay at 0 at the authored
+    # leakage even with the EOG/EMG gate removed, so the gate is not what keeps them at 0.
+    authored = M.leakage_sweep([1.0], range(2))["rows"][0]
+    assert authored["reference_gate_off"]["false_candidates_by_block"] == {
+        "blink": 0, "clench": 0, "speaking": 0}
+
+
+def test_nyquist_rate_clench_adds_nothing_at_10_hz() -> None:
+    # Clench alternates sign every sample (50 Hz at FS=100), which the 10 Hz
+    # quadrature projection cancels over a whole 1 s window.
+    assert M._power_10hz([2.5 * (-1) ** j for j in range(M.FS)]) < 1e-20
+
+
+def test_state_summary_partitions_every_post_calibration_window() -> None:
+    s = M.state_summary(M.generate(0))
+    assert s["abstained"] + s["candidate_band"] + s["unknown_band"] + s["rest_band"] == s["windows"]
+    assert s["windows"] == 416
+    assert s["abstained"] == 96   # documented seed-0 figure, gate on
+    assert s["abstention_rate"] == round(96 / 416, 6)
+    assert s["unknown_state_rate"] == round(s["unknown_band"] / s["windows"], 6)
+
+
+def test_reliability_fits_on_train_seeds_and_scores_held_out_seeds_only() -> None:
+    rel = M.reliability(range(0, 3), range(3, 5), bins=5)
+    assert rel["train_seeds"] == [0, 1, 2] and rel["test_seeds"] == [3, 4]
+    assert not set(rel["train_seeds"]) & set(rel["test_seeds"])
+    assert "uncalibrated" in rel["note"]
+    table = rel["held_out_raw_bins"]
+    assert len(table) == 5
+    assert sum(b["count"] for b in table) == rel["held_out_windows"]
+    for b in table:
+        if b["count"]:
+            assert 0.0 <= b["mean_score"] <= 1.0 and 0.0 <= b["imagery_fraction"] <= 1.0
+    assert 0.0 <= rel["held_out_ece_raw"] <= 1.0
+    assert 0.0 <= rel["held_out_ece_binned"] <= 1.0
+    # The fitted map must depend on training seeds only: changing the test set leaves it unchanged.
+    assert rel["fitted_bin_map"] == M.reliability(range(0, 3), range(7, 9), bins=5)["fitted_bin_map"]
+
+
+def test_reliability_rejects_overlapping_seed_sets() -> None:
+    with pytest.raises(ValueError, match="disjoint"):
+        M.reliability(range(0, 3), range(2, 4))
+
+
+def test_ece_is_zero_for_a_perfectly_calibrated_toy_and_positive_otherwise() -> None:
+    assert M.expected_calibration_error([0.0, 0.0, 1.0, 1.0], [0, 0, 1, 1], bins=2) == 0.0
+    assert M.expected_calibration_error([0.9, 0.9], [0, 0], bins=10) == pytest.approx(0.9)
+
+
+def test_cli_ablation_and_reliability_flags() -> None:
+    one = subprocess.run([sys.executable, str(SCRIPT), "--seed", "0", "--no-reference-channel"],
+                         capture_output=True, text=True, check=True, timeout=30)
+    assert json.loads(one.stdout) == M.run(0, reference_gate=False)
+    sweep = subprocess.run([sys.executable, str(SCRIPT), "--sweep-leakage", "1,8", "--sweep-seeds", "2"],
+                           capture_output=True, text=True, check=True, timeout=60)
+    assert json.loads(sweep.stdout) == M.leakage_sweep([1.0, 8.0], range(2))
+    rel = subprocess.run([sys.executable, str(SCRIPT), "--reliability", "--sweep-seeds", "4",
+                          "--train-seeds", "2"], capture_output=True, text=True, check=True, timeout=60)
+    assert json.loads(rel.stdout) == M.reliability(range(0, 2), range(2, 4))
