@@ -6799,7 +6799,7 @@ def gaze_status() -> None:
         load_calibration_record,
         rollback_available,
     )
-    from yazses.gaze.target_semantics import describe_gaze_target
+    from yazses.gaze.target_semantics import describe_gaze_target, glance_type_abilities
     from yazses.gaze.topology import Validity
 
     platform = get_platform()
@@ -6833,9 +6833,15 @@ def gaze_status() -> None:
         # The evidence for the line above, one capability at a time; pointer injection is
         # printed as separate so a granted portal permission is not read as a target.
         typer.echo(f"    capabilities: {target.capability_summary}")
-    if not target.available:
-        typer.echo("    a destructive gaze command (\"close this\") is refused here, never "
-                   "sent to the focused window")
+    # What that means for the user, one thing they would try per line (#418). The X11
+    # "close this" rows depend on two [gaze] flags, so they are read from this config.
+    typer.echo(f"  what Glance-Type does on this session ({target.session}):")
+    for ability in glance_type_abilities(
+        target,
+        confirm_destructive=cfg.gaze.confirm_destructive,
+        refuse_destructive_fallback=cfg.gaze.refuse_destructive_fallback,
+    ):
+        typer.echo(f"    {mark(ability.can)} {ability.label}: {ability.outcome}")
     typer.echo(f"  {mark(cal is not None)} calibration ({calibration_path(platform.paths.data_dir)})")
     if cal is None and check.stale:
         # #415: the file is there and damaged -- not the same as never having calibrated.

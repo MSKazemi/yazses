@@ -5,7 +5,7 @@
 | **ID** | spec-eye-wayland-gaze-target |
 | **Status** | Accepted (desk research; not yet validated on a live GNOME or KDE session) |
 | **Date** | 2026-10-20 |
-| **Modules** | `src/yazses/gaze/target_capabilities.py` (the matrix, pure), `src/yazses/gaze/target_semantics.py` (the plan, pure), `core/daemon.py` (`_deixis_without_gaze_target`) |
+| **Modules** | `src/yazses/gaze/target_capabilities.py` (the matrix, pure), `src/yazses/gaze/target_semantics.py` (the plan and the user-facing list, pure), `core/daemon.py` (`_deixis_without_gaze_target`) |
 | **Related** | ADR-v2-010 (gaze-routed dictation), ADR-v2-146 (pointer output is a separate boundary), ADR-v2-148 (recovery hierarchy), ADR-v2-149 (one coordinate space), [glance-type.md](glance-type.md), [eye-pointer-output.md](eye-pointer-output.md), risk R-15 |
 | **Issues** | #418 (EYE-WAYLAND-001) |
 
@@ -162,6 +162,37 @@ validation on hardware before it ships. Each belongs in its own child issue, not
   accessibility trees, and keeps every coordinate surface-relative. If it lands, it is the
   supported path to re-examine.
 
+## What the user is told
+
+`glance_type_abilities()` (`gaze/target_semantics.py`, pure) turns a plan into one row per
+thing a user would try: dictation to the looked-at window, "focus/minimize this",
+"close this", calibration, and moving the pointer, which is labelled as a separate feature.
+`yazses gaze status` prints the rows under *what Glance-Type does on this session*. The
+`Gaze target` row in `yazses doctor`, `yazses status` and the hands-free controls window
+carries the one-line summary (`HandsFreeFacts.gaze_target_abilities`, on the daemon wire).
+
+Three properties are tested in `tests/test_gaze_glance_abilities.py`:
+
+- **Wayland is decided.** Where no gaze target can exist, the rows are the same for every
+  value of the `[gaze]` flags, and "close this" reads "never sent to the focused window".
+- **The pointer row is the only one that reads `pointer_injection`.** A Wayland row with
+  pointer injection forced to `yes` gives the same gaze rows.
+- **The report matches the code.** On X11, "close this" is two rows, because the daemon
+  treats them differently. The test runs `Daemon._try_deixis` with a fake targeter for every
+  combination of `confirm_destructive`, `refuse_destructive_fallback` and "gaze picked the
+  window or not", and holds each row to what the daemon did.
+
+The X11 rows also make one existing behaviour visible. When gaze cannot pick a window, the
+target is the focused window, and with the default `refuse_destructive_fallback = false`
+"close this" closes it **without asking** (ADR-v2-010's frictionless fallback, which
+ADR-v2-148 kept for installs that did not opt into the hands-free floor). That is not a
+Wayland question, and this spec does not change it. It is now printed instead of being
+discoverable only in the code. Whether the default should change is an owner decision.
+
+`yazses status` reads the daemon's wire, which carries no config. There the X11 rows name
+the deciding key instead of guessing its value. `doctor` and the panel read the config, and
+the panel merge prefers their line.
+
 ## Validation still owed
 
 Acceptance criterion two asks for GNOME and KDE behaviour "investigated with current
@@ -172,7 +203,9 @@ been observed on a live session. Three things remain:
    and a GTK 4 screen-coordinate `GetExtents` answer.
 2. On a Plasma 6 Wayland session, record whether the plasma window management protocol is
    refused to an unlisted client.
-3. Confirm that `yazses gaze status` prints the matrix row on both sessions.
+3. Confirm that `yazses gaze status` prints the matrix row and the *what Glance-Type does
+   on this session* list on both sessions, and that a spoken "close this" shows the refusal
+   notification.
 
 None of these can change the shipped answer, which is `none` on Wayland. They can only
 confirm it, or refine a cell from "compositor-specific" toward "no".

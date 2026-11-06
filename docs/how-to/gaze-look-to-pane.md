@@ -100,6 +100,15 @@ Glance-Type (look-to-pane) status:
   ✓ route_dictation = True
   ✓ gaze backend/deps (mediapipe)
   ✓ X11 desktop backend (xdotool)
+  ✓ gaze target: X11: gaze resolves to the window under a calibrated desktop pixel
+    capabilities: screen position: yes; other windows' geometry: yes; focus another window: yes; pointer injection (separate, not a target): yes
+  what Glance-Type does on this session (x11):
+    ✓ dictation to the window you look at: yes, with [gaze] route_dictation on; an uncertain estimate stays in the focused window
+    ✓ "focus this" / "minimize this": yes, on the window gaze picked, or the focused window when gaze cannot pick one
+    ✓ "close this" on the window gaze picked: asks first, with a confirm notification
+    ✓ "close this" when gaze cannot pick a window: runs on the focused window without asking ([gaze] refuse_destructive_fallback = false)
+    ✓ gaze calibration: yes
+    ✓ moving the pointer (Head-Pointer, a separate feature): the desktop allows it; it does not make a gaze target
   ✓ calibration (/home/you/.local/share/yazses/gaze_calibration.json)
 
 Ready — dictation will land in the window you look at.
@@ -120,7 +129,9 @@ affected.
 identified by its index only, so swapping a different webcam onto the same index is not
 detected.
 
-Every line must be a `✓`. If one is `✗`, the message tells you the next step.
+Every top-level line must be a `✓`. If one is `✗`, the message tells you the next step.
+In the indented *what Glance-Type does on this session* list, a `✗` is not a fault: it
+states what this session, or one of your `[gaze]` settings, does not allow.
 
 ## Use it
 
@@ -144,6 +155,14 @@ Closing a gaze-picked window asks first via a notification button, because
 webcam gaze is deliberately coarse. Controlled by `[gaze] deixis` (on by
 default whenever gaze is enabled); this works even with `route_dictation`
 off, in which case your glance never steals focus — it only resolves "this".
+
+When gaze **cannot** pick a window (the estimate is uncertain, or no face is
+visible), "this" falls back to the window that already has focus. For "focus" and
+"minimize" that is harmless. For **"close this"** it means the *focused* window closes
+without a question, which is the default (`[gaze] refuse_destructive_fallback = false`).
+Set it to `true` (the hands-free preset does) and a "close this" that gaze could not
+resolve is refused with a notification instead. `yazses gaze status` prints which of the
+two applies to you.
 
 ## Test that it actually works
 
@@ -233,10 +252,23 @@ Tips that make the biggest difference:
 ### Nothing routes on Wayland
 
 Glance-Type is **X11-only**. On Wayland (the default on many GNOME systems) a
-program cannot focus another app's window, so YazSes leaves dictation on the
-focused window and logs that gaze is dormant. Check with
-`echo $XDG_SESSION_TYPE`; if it says `wayland`, log out and pick an **"Xorg"** /
-X11 session at the login screen, or use an X11-based desktop.
+program cannot read where other apps' windows are or focus one, so there is no
+gaze target at all. On a Wayland session:
+
+- dictation goes to the window that already has focus;
+- "focus this", "minimize this" and "close this" are refused with a notification;
+  "close this" is never sent to the focused window instead;
+- `yazses gaze calibrate` refuses, because nothing could use the result;
+- Head-Pointer, if you use it, still works through the Remote Desktop permission. It
+  is a separate feature and does not give Glance-Type a target.
+
+`yazses gaze status` lists exactly this under *what Glance-Type does on this session*,
+and `yazses doctor` repeats it on the `Gaze target` row. The full table, with the
+reason for each row, is in
+[What Glance-Type does on Wayland](../capability-matrix.md#what-glance-type-does-on-wayland).
+
+Check with `echo $XDG_SESSION_TYPE`; if it says `wayland`, log out and pick an
+**"Xorg"** / X11 session at the login screen, or use an X11-based desktop.
 
 ## Turn it off
 

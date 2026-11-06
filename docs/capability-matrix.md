@@ -97,6 +97,17 @@ only; pointer injection (separate, not a target): with permission`. "Compositor-
 only" means a desktop offers the capability only through its own private interface, such
 as KWin scripting or a GNOME Shell extension. YazSes does not depend on any of those.
 
+Below that row, `yazses gaze status` lists *what Glance-Type does on this session*: the
+table above, for your session. `yazses doctor`, `yazses status` and the hands-free
+controls window print the same list on the `Gaze target` row. On X11 the list also says
+what "close this" does when gaze cannot pick a window. By default it closes the focused
+window without asking. With `[gaze] refuse_destructive_fallback = true` it is refused.
+
+These Wayland answers come from protocol documentation and toolkit source code. Nobody has
+yet watched them on a live GNOME or KDE session, so they are unverified on real hardware.
+The checks still to run are listed in the
+[design spec](https://github.com/MSKazemi/yazses/blob/main/design/specs/eye-wayland-gaze-target.md).
+
 ## Linux: which session am I in?
 
 ```bash

@@ -473,6 +473,11 @@ def merge_facts(static: HandsFreeFacts, live: HandsFreeFacts | None) -> HandsFre
         gaze_target_capabilities=(
             live.gaze_target_capabilities or static.gaze_target_capabilities
         ),
+        # Static first, unlike its neighbours: `doctor` and the panel read the user's
+        # `[gaze]` flags, the daemon's wire does not, so the static line is the more exact.
+        gaze_target_abilities=(
+            static.gaze_target_abilities or live.gaze_target_abilities
+        ),
         safety_configured=live.safety_configured or static.safety_configured,
         safety_window_ms=(
             live.safety_window_ms if live.safety_window_ms is not None else static.safety_window_ms

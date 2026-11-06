@@ -38,6 +38,7 @@ __all__ = [
     "calibration_facts",
     "face_release_findings",
     "facts_from_config",
+    "gaze_destructive_flags",
     "gaze_target_facts",
     "pointer_facts",
     "pointer_route_facts",
@@ -126,6 +127,8 @@ def gaze_target_facts(
     environ: Mapping[str, str] | None = None,
     fixed_session: Callable[[], str | None] | None = None,
     xdotool_available: Callable[[], bool] | None = None,
+    confirm_destructive: bool | None = None,
+    refuse_destructive_fallback: bool | None = None,
 ) -> HandsFreeFacts:
     """Record what a gaze target can be on this session (#418). Only when gaze is requested.
 
@@ -133,15 +136,28 @@ def gaze_target_facts(
     session through ``describe_host()`` and the environment, the same planner the daemon
     and ``yazses gaze status`` use, so the three cannot disagree. Total -- an unreadable
     host leaves the fields at "not asked", which the row does not print as good news.
+
+    The two ``[gaze]`` flags only shape the X11 "close this" rows of
+    ``gaze_target_abilities``; ``None`` (the daemon's status poll, which passes no
+    config) makes those rows name the key instead of guessing its value.
     """
     if "gaze" not in facts.features_requested:
         return facts
     try:
-        from yazses.gaze.target_semantics import describe_gaze_target
+        from yazses.gaze.target_semantics import (
+            abilities_summary,
+            describe_gaze_target,
+            glance_type_abilities,
+        )
 
         plan = describe_gaze_target(
             environ, fixed_session=fixed_session, xdotool_available=xdotool_available
         )
+        abilities = abilities_summary(glance_type_abilities(
+            plan,
+            confirm_destructive=confirm_destructive,
+            refuse_destructive_fallback=refuse_destructive_fallback,
+        ))
     except Exception:  # noqa: BLE001 - a diagnostic must not be the thing that raises
         return facts
     return replace(
@@ -150,6 +166,21 @@ def gaze_target_facts(
         gaze_target_reason=plan.reason,
         gaze_target_remedy=plan.remedy,
         gaze_target_capabilities=plan.capability_summary,
+        gaze_target_abilities=abilities,
+    )
+
+
+def gaze_destructive_flags(cfg: Any) -> tuple[bool | None, bool | None]:
+    """``[gaze]`` ``(confirm_destructive, refuse_destructive_fallback)`` for the probe.
+
+    ``None`` for a flag the config does not carry (``cfg`` may be ``None`` in `doctor`).
+    """
+    section = getattr(cfg, "gaze", None)
+    confirm = getattr(section, "confirm_destructive", None)
+    refuse = getattr(section, "refuse_destructive_fallback", None)
+    return (
+        confirm if isinstance(confirm, bool) else None,
+        refuse if isinstance(refuse, bool) else None,
     )
 
 

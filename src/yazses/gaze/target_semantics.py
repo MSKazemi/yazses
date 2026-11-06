@@ -37,6 +37,12 @@ a window, **refused** where it cannot, whatever ``refuse_destructive_fallback`` 
 no gaze target, the focused window is not a stand-in for one). The matrix, its sources and
 the GNOME/KDE findings are in ``design/specs/eye-wayland-gaze-target.md``.
 
+**What a user is told.** :func:`glance_type_abilities` turns a plan into the list a person
+would ask about -- dictate to the looked-at window, "focus/minimize this", "close this",
+calibrate, and the pointer as a separate feature -- and is what ``yazses gaze status``,
+``yazses doctor``, ``yazses status`` and the hands-free panel print, so the docs, the
+status surfaces and the daemon's behaviour say the same thing.
+
 Pure: it reads nothing. :func:`classify_session` takes the environment and the OS-fixed
 bucket as arguments (the caller gets the latter from ``describe_host()``, the platform
 seam), so every row of the matrix is reachable from any machine.
@@ -49,7 +55,9 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 
 from yazses.gaze.target_capabilities import (
+    Capability,
     CapabilityFact,
+    Support,
     capabilities_for,
     gaze_target_supported,
     summarize,
@@ -59,10 +67,13 @@ __all__ = [
     "DestructiveDeixis",
     "DictationRoute",
     "GazeTargetPlan",
+    "GlanceAbility",
     "TargetBasis",
     "WAYLAND_REASON",
+    "abilities_summary",
     "classify_session",
     "describe_gaze_target",
+    "glance_type_abilities",
     "plan_gaze_target",
 ]
 
@@ -250,6 +261,161 @@ def plan_gaze_target(session: str, *, xdotool_available: bool | None = None) -> 
         "run YazSes from inside a graphical X11 session",
         capabilities_for("headless"),
     )
+
+
+@dataclass(frozen=True)
+class GlanceAbility:
+    """One thing a user would try with Glance-Type, and what happens on this session."""
+
+    #: Stable id: ``route_dictation``, ``gaze_commands``, ``close`` (no gaze target),
+    #: ``close_gazed`` / ``close_fallback`` (X11), ``calibrate``, ``pointer``.
+    key: str
+    #: What the user would try, in their words.
+    label: str
+    #: What actually happens, in one clause. Names the config key when the answer
+    #: depends on one that the caller did not supply.
+    outcome: str
+    #: Whether it does the thing at all (a confirm-first action counts as doing it).
+    can: bool
+    #: A short ``label: verdict`` for the one-line doctor/status summary.
+    short: str
+
+
+def _pointer_ability(plan: GazeTargetPlan) -> GlanceAbility | None:
+    """The pointer row: the only row that reads ``POINTER_INJECTION``, and it says separate."""
+    fact = next(
+        (f for f in plan.capabilities if f.capability is Capability.POINTER_INJECTION), None
+    )
+    if fact is None:
+        return None
+    # What the *desktop* allows, not whether Head-Pointer is on or wired: that has its
+    # own row (`Pointer output`). This row exists to say the two are not the same thing.
+    words, short = {
+        Support.YES: ("the desktop allows it", "allowed"),
+        Support.CONSENT: (
+            "through the Remote Desktop permission, where your desktop's portal offers it",
+            "with permission",
+        ),
+        Support.COMPOSITOR_SPECIFIC: ("only through this compositor's own interface", "no"),
+        Support.NO: ("the desktop does not allow it", "no"),
+    }[fact.support]
+    return GlanceAbility(
+        "pointer",
+        "moving the pointer (Head-Pointer, a separate feature)",
+        f"{words}; it does not make a gaze target",
+        fact.support in (Support.YES, Support.CONSENT),
+        f"pointer: separate, {short}",
+    )
+
+
+def glance_type_abilities(
+    plan: GazeTargetPlan,
+    *,
+    confirm_destructive: bool | None = None,
+    refuse_destructive_fallback: bool | None = None,
+) -> tuple[GlanceAbility, ...]:
+    """What Glance-Type does on *plan*'s session, one row per thing a user would try. Pure.
+
+    Where no gaze target can exist (every Wayland session, headless, Windows, macOS, X11
+    without ``xdotool``) the answer is fixed and the two flags are not read: nothing is
+    routed, every gaze command is refused with a notification, "close this" is never sent
+    to the focused window, and calibration is refused.
+
+    On X11 "close this" is two rows, because the code treats them differently:
+    a window gaze picked asks first unless ``[gaze] confirm_destructive = false``; with
+    no gaze pick, the target is only the focused window, which ``[gaze]
+    refuse_destructive_fallback`` either refuses or (its default, ADR-v2-010's
+    frictionless fallback) closes without asking. A flag given as ``None`` is unknown --
+    the daemon's status wire carries no config -- and the row names the key instead of
+    guessing. ``tests/test_gaze_glance_abilities.py`` runs ``Daemon._try_deixis`` for
+    every combination and holds this list to what it does.
+    """
+    rows: list[GlanceAbility] = []
+    if not plan.available:
+        rows += [
+            GlanceAbility(
+                "route_dictation", "dictation to the window you look at",
+                "no; it goes to the window that already has focus", False,
+                "dictation: focused window only",
+            ),
+            GlanceAbility(
+                "gaze_commands", "\"focus this\" / \"minimize this\"",
+                "refused, with a notification", False, "gaze commands: refused",
+            ),
+            GlanceAbility(
+                "close", "\"close this\"",
+                "refused, with a notification; never sent to the focused window", False,
+                "\"close this\": refused, never sent to the focused window",
+            ),
+            GlanceAbility(
+                "calibrate", "gaze calibration",
+                "refused; nothing on this session could use it", False,
+                "calibration: refused",
+            ),
+        ]
+    else:
+        if confirm_destructive is None:
+            gazed = GlanceAbility(
+                "close_gazed", "\"close this\" on the window gaze picked",
+                "asks first, unless [gaze] confirm_destructive = false", True,
+                "\"close this\": asks first (confirm_destructive)",
+            )
+        elif confirm_destructive:
+            gazed = GlanceAbility(
+                "close_gazed", "\"close this\" on the window gaze picked",
+                "asks first, with a confirm notification", True,
+                "\"close this\": asks first",
+            )
+        else:
+            gazed = GlanceAbility(
+                "close_gazed", "\"close this\" on the window gaze picked",
+                "runs without asking ([gaze] confirm_destructive = false)", True,
+                "\"close this\": runs without asking",
+            )
+        if refuse_destructive_fallback is None:
+            fallback = GlanceAbility(
+                "close_fallback", "\"close this\" when gaze cannot pick a window",
+                "refused if [gaze] refuse_destructive_fallback = true; otherwise runs on "
+                "the focused window without asking", True,
+                "no gaze pick: see refuse_destructive_fallback",
+            )
+        elif refuse_destructive_fallback:
+            fallback = GlanceAbility(
+                "close_fallback", "\"close this\" when gaze cannot pick a window",
+                "refused, with a notification; never sent to the focused window", False,
+                "no gaze pick: refused",
+            )
+        else:
+            fallback = GlanceAbility(
+                "close_fallback", "\"close this\" when gaze cannot pick a window",
+                "runs on the focused window without asking "
+                "([gaze] refuse_destructive_fallback = false)", True,
+                "no gaze pick: closes the focused window",
+            )
+        rows += [
+            GlanceAbility(
+                "route_dictation", "dictation to the window you look at",
+                "yes, with [gaze] route_dictation on; an uncertain estimate stays in the "
+                "focused window", True, "dictation: gazed window",
+            ),
+            GlanceAbility(
+                "gaze_commands", "\"focus this\" / \"minimize this\"",
+                "yes, on the window gaze picked, or the focused window when gaze cannot "
+                "pick one", True, "gaze commands: yes",
+            ),
+            gazed,
+            fallback,
+            GlanceAbility("calibrate", "gaze calibration", "yes", True, "calibration: yes"),
+        ]
+    pointer = _pointer_ability(plan)
+    if pointer is not None:
+        rows.append(pointer)
+    return tuple(rows)
+
+
+def abilities_summary(abilities: tuple[GlanceAbility, ...]) -> str:
+    """The ``short`` of every row on one line, for the doctor/status row. ``""`` if none."""
+    return "; ".join(a.short for a in abilities)
 
 
 def describe_gaze_target(
