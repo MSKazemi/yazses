@@ -154,6 +154,26 @@ placeholder identity would otherwise fail at submission, long after the build lo
 
 Find them in Partner Center under the product's **Product identity** page.
 
+## Privacy switches on the Store build
+
+Windows gates the microphone behind *Settings → Privacy & Security → Microphone*. The
+`.exe`, pip, winget, Scoop and Chocolatey installs are desktop apps, governed by **"Let
+desktop apps access your microphone"**. The MSIX is a packaged app: Windows lists it by
+name on the same page, and the desktop-apps switch does not govern it
+([#653](https://github.com/MSKazemi/yazses/issues/653)). So on the Store build:
+
+- `yazses doctor` and the start-up check do not read the desktop-apps switch. They still
+  honour the device-wide and per-user switches, which apply to every app.
+- The per-app YazSes entry is not read either, because Microsoft does not document where
+  it is stored. If YazSes alone is switched off, `doctor` cannot see it, and the
+  microphone advice points to the YazSes entry in the app list.
+- The camera advice says the Store build cannot use the camera features at all (no
+  `webcam` capability and no camera runtime, see above) instead of naming a switch.
+
+All of this rests on Microsoft's documentation and unit tests with a simulated registry.
+It has **not run on a real MSIX install**. Checking it on one (desktop-apps switch off,
+YazSes on, `yazses doctor` shows the microphone as OK) is part of preparing a submission.
+
 ## ⚠ Product type in Partner Center
 
 The reserved `YazSes` product is typed **"EXE or MSI app"**. That product type takes a

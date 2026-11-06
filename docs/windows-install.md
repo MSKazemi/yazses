@@ -434,7 +434,9 @@ those remappers.
 
 **"YazSes keeps re-prompting for microphone access."** Windows treats
 unsigned apps as new identities each time their hash changes. After every
-update you may need to re-allow.
+update you may need to re-allow. This applies to the `.exe`, pip, winget, Scoop and
+Chocolatey installs. The Store / MSIX build has a fixed package identity, so `doctor`
+does not give it this advice (not yet checked on a real Store install).
 
 **"`doctor` says the microphone is denied."** Allow it in *Settings → Privacy &
 Security → Microphone*, and check **"Let desktop apps access your microphone"** is
