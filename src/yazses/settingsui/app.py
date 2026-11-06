@@ -2129,6 +2129,12 @@ class SettingsWindow:
         Otherwise, if any page holds a change Apply has not written (the same judgement
         that draws the sidebar dots), ask Apply / Discard / Cancel. A hidden window has
         nobody to answer a dialog, so it closes as before.
+
+        While a package install or language preparation owns Apply (the button is
+        disabled for it), the prompt offers only Discard / Cancel and says why: the
+        prompt must not be a back door around the disabled button. Closing during such a
+        worker was already allowed, so Discard keeps that, and Cancel keeps the change
+        for an Apply once the worker is done.
         """
         if self._restart_thread is not None:
             self._hint.setText("Restarting YazSes… please wait, then close the window.")
@@ -2138,26 +2144,40 @@ class SettingsWindow:
         dirty = self._dirty_pages()
         if not dirty:
             return True
-        choice = self._ask_unsaved_close(dirty)
+        can_apply = self._apply_available()
+        choice = self._ask_unsaved_close(dirty, can_apply=can_apply)
         if choice == "discard":
             return True
-        if choice != "apply":
+        if choice != "apply" or not can_apply:
             return False
         self._on_apply()
         # Close only on a clean, finished Apply. A row that failed stays staged, and a
         # restart or package/language worker started by this Apply must be seen through:
         # in either case the window stays open on the outcome Apply just reported.
-        busy = any(
+        return not self._worker_running() and not self._dirty_pages()
+
+    def _worker_running(self) -> bool:
+        """Whether a restart, package-install or language worker thread is still alive."""
+        return any(
             getattr(self, name, None) is not None
             for name in ("_restart_thread", "_install_thread", "_language_thread")
         )
-        return not busy and not self._dirty_pages()
 
-    def _unsaved_close_box(self, pages: frozenset[str]):
-        """The Apply / Discard / Cancel prompt, built but not shown; Cancel is the default.
+    def _apply_available(self) -> bool:
+        """Whether Apply may run now: the Apply button's own gate, plus any live worker.
 
-        Cancel is both the default (Enter) and the escape (Esc) answer, so a reflexive
-        keypress never throws away or writes anything.
+        Each worker start disables the button and its finish re-enables it; the thread
+        check also covers the moment between a worker's start and that repaint.
+        """
+        return self._apply_button.isEnabled() and not self._worker_running()
+
+    def _unsaved_close_box(self, pages: frozenset[str], can_apply: bool = True):
+        """The unapplied-changes prompt, built but not shown; Cancel is the default.
+
+        It offers Apply / Discard / Cancel, or only Discard / Cancel while Apply is
+        unavailable (see :meth:`_close_allowed`). Cancel is both the default (Enter) and
+        the escape (Esc) answer, so a reflexive keypress never throws away or writes
+        anything.
         """
         from PySide6.QtWidgets import QMessageBox
 
@@ -2168,18 +2188,25 @@ class SettingsWindow:
         box.setWindowTitle("Unapplied changes")
         box.setText("Some changes have not been applied yet.")
         changed = f"Changed: {', '.join(names)}. " if names else ""
-        box.setInformativeText(f"{changed}Apply them now, discard them, or keep editing?")
-        box.setStandardButtons(sb.Apply | sb.Discard | sb.Cancel)
+        if can_apply:
+            box.setInformativeText(f"{changed}Apply them now, discard them, or keep editing?")
+            box.setStandardButtons(sb.Apply | sb.Discard | sb.Cancel)
+        else:
+            box.setInformativeText(
+                f"{changed}Apply is unavailable until the current preparation finishes. "
+                "Discard them, or keep editing and apply afterwards?"
+            )
+            box.setStandardButtons(sb.Discard | sb.Cancel)
         box.setDefaultButton(sb.Cancel)
         box.setEscapeButton(sb.Cancel)
         box.setModal(True)
         return box
 
-    def _ask_unsaved_close(self, pages: frozenset[str]) -> str:
+    def _ask_unsaved_close(self, pages: frozenset[str], can_apply: bool = True) -> str:
         """Show the prompt and answer ``"apply"``, ``"discard"`` or ``"cancel"``."""
         from PySide6.QtWidgets import QMessageBox
 
-        box = self._unsaved_close_box(pages)
+        box = self._unsaved_close_box(pages, can_apply)
         try:
             box.exec()
             clicked = box.standardButton(box.clickedButton())
