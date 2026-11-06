@@ -52,6 +52,12 @@ yazses features enable chinese-script   # installs the `chinese` extra
 yazses restart
 ```
 
+`features enable chinese-script` only pins the script. It does not change the speech
+language or the model, so it refuses, and writes nothing, until `[stt] language = "zh"`
+is set. Script conversion on English or auto-detected speech is a combination
+`yazses doctor` reports as a failure. The settings window refuses it the same way, and
+both point you at `yazses language set zh-CN` (or `zh-TW`).
+
 ## Why `chinese_script` matters more than it sounds
 
 Whisper decides **per utterance** whether to answer in Simplified or Traditional

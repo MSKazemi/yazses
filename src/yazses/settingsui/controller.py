@@ -603,6 +603,15 @@ class SettingsController:
             refusal = enable_refusal(feat.slug, self._raw_config()) if feat.slug == PRESET_SLUG else ""
             if refusal:
                 return ToggleResult(ok=False, error=f"{feat.name} not enabled. {refusal}")
+            # #497: the same language-coherence check `yazses features enable` asks, so
+            # a Han-script or engine toggle cannot half-apply a language profile here.
+            from yazses.language.status import feature_toggle_refusal
+
+            language_refusal = feature_toggle_refusal(cfg, feat.on_writes)
+            if language_refusal:
+                return ToggleResult(
+                    ok=False, error=f"{feat.name} not enabled: {language_refusal}"
+                )
 
         writes = feat.on_writes if desired else feat.off_writes
         for index, (section, key, value, quote) in enumerate(writes):

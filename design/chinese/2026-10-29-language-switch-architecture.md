@@ -104,7 +104,7 @@ yazses language set zh-TW --no-restart --yes
 
 ### CLI and GUI parity
 
-Both callers must use `language.service.prepare_language_change` and `apply_language_change`, never duplicate model/script selection. Settings controls are derived from the profile registry (`settingsui/language_view.py`); selecting a profile stages a no-I/O preview, displays required install/download actions, and does not write until Apply. Language model selection and low-level config controls must not race with the staged change. A running daemon restart must be announced; a GUI crash or cancellation must not partially write config. Qt-free preview logic has direct tests; real Settings smoke remains separate.
+Both callers must use `language.service.prepare_language_change` and `apply_language_change`, never duplicate model/script selection. Settings controls are derived from the profile registry (`settingsui/language_view.py`); selecting a profile stages a no-I/O preview, displays required install/download actions, and does not write until Apply. Language model selection and low-level config controls must not race with the staged change. A running daemon restart must be announced; a GUI crash or cancellation must not partially write config. Qt-free preview logic has direct tests; real Settings smoke remains separate. The per-feature toggles (`yazses features enable` and the Settings capability rows) are not a second path to a profile: both ask `language.status.feature_toggle_refusal`, which applies the toggle's `[stt]` writes to a copy and refuses only when `derive_status` would report a problem it does not report today (#497).
 
 ## Failure and recovery table
 
@@ -117,6 +117,7 @@ Both callers must use `language.service.prepare_language_change` and `apply_lang
 | Download fails | Old config remains byte-exact | retry from user-approved state | `test_language_service.py` |
 | Install succeeds, config edit later conflicts | Installed dependency may remain; no stale config applied | reread/re-resolve; note irreversible prerequisite | `test_configedit_atomic.py` |
 | Duplicate/invalid TOML/candidate repair | Abort before replace | show candidate-specific diagnostic, preserve original | `test_configedit_atomic.py` |
+| Single-key toggle would split a profile (`features enable chinese-script` on non-`zh` speech; `stt-parakeet`/`stt-moonshine` on non-English speech) | Refuse before any write, pack or install; only when the toggle *adds* a `derive_status` problem, never on disable | name `yazses language set zh-CN`/`zh-TW`, or keep `faster-whisper` | `test_language_feature_toggle_coherence.py` |
 | Concurrent Settings and CLI edits | One writer's unrelated changes survive; no mixed state | bounded retry, then conflict message | `test_language_service.py` |
 | Meeting finalization active | Guard restart before switching running process | defer restart/stop safely; keep recording | `test_cli_language_set.py` + real meeting exercise |
 | Restart fails after commit | Config is new; runtime may be old or unavailable | explicit restart-needed/recovery state; never claim active success | **Add integration test** |
