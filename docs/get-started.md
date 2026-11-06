@@ -151,9 +151,12 @@ modifier you rarely use, so it does not interfere with normal typing. You can al
 
 !!! tip "The first start downloads the speech model"
     The first time the YazSes daemon starts, it downloads the Whisper model once. This is
-    the one step that needs the network, and a notification says so. The hotkey does not
-    respond until the download finishes, and dictation starts working as soon as it does.
-    After that, dictation never uses the network. To set up a machine that is never online,
+    the one step that needs the network, and a notification titled *YazSes is downloading
+    its speech model* says so. The hotkey does not respond until the download finishes,
+    and dictation starts working as soon as it does. No second notification says it is
+    done. To check, run `yazses status`: it shows `state:    loading` while the model is
+    fetched and `state:    idle` once you can dictate. If the tray is on and not already
+    running, the daemon starts its icon at that same moment. After that, dictation never uses the network. To set up a machine that is never online,
     see [running fully air-gapped](how-to/air-gapped.md).
 
 ## What to try next
@@ -187,7 +190,10 @@ The common ones:
   relaunch.
 - **It types into the wrong window, or nowhere.** See
   [dictation types into the wrong window](how-to/wrong-window.md).
-- **"Silent audio — discarding".** The voice gate is set above your voice. Run
+- **Nothing happens for minutes after the first launch.** The speech model is still
+  downloading. See
+  [the app opened and nothing happened](troubleshooting.md#the-app-opened-and-nothing-happened-for-minutes).
+- **"Silent audio -- discarding".** The voice gate is set above your voice. Run
   `yazses mic-level --set` again, then `yazses restart` so the running daemon picks up the new
   threshold; see [the guide](how-to/silent-audio-discarding.md).
 

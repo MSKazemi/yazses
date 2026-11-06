@@ -51,6 +51,45 @@ Two details worth knowing:
     also lists the failures that are deliberately left for you, so you can tell
     which kind you are looking at.
 
+## The app opened and nothing happened for minutes
+
+**Symptom.** You started YazSes for the first time, from the app grid, the `.dmg` or
+`yazses start`, and nothing seems to happen. Holding the hotkey does nothing either.
+
+**Why.** The first start downloads the speech model (`base.en` unless you chose another).
+The daemon fetches it before it starts listening for the hotkey, so the key does nothing
+until the download is done. This is the one step that needs the network.
+
+**Fix.** Usually, just wait. To see what it is doing:
+
+- **The download notice.** When the model is not on disk yet, YazSes shows a notification
+  titled *YazSes is downloading its speech model*. It does not show one when the model is
+  already cached or when you asked for offline mode.
+- **`yazses status`.** While the model is fetched it prints `state:    loading`. Before
+  the daemon can answer at all it says the daemon *is running … but still starting up*.
+  `state:    idle` means you can dictate.
+- **The tray.** A tray that is already running shows the `loading` state in its tooltip
+  or menu (⏳ in the macOS menu bar). Otherwise the daemon starts the tray icon only once
+  the model has loaded, so the icon appearing is your cue that dictation works. No
+  separate "ready" notification is sent.
+
+If the download fails (a firewall, a proxy, no network), the wait ends in an error
+instead. A notification titled *YazSes cannot start dictation* says *The speech model
+'…' is missing and could not be downloaded*, `yazses status` shows `state:    error`, and
+a tray that is already running turns red. The message names the two commands that fix
+it:
+
+```sh
+yazses model download base.en   # or the model you configured
+yazses restart
+```
+
+To skip the wait on a new machine, run `yazses model download base.en` (or your model)
+before the first start.
+`yazses doctor` names this in its `STT model` row (`not downloaded — fetched
+automatically the first time the daemon starts`). For a machine that is never online,
+see [running fully air-gapped](how-to/air-gapped.md).
+
 ## My desktop asked to allow "Remote Desktop" — why does a dictation app want that?
 
 Because on Wayland there is no narrower permission to ask for. `RemoteDesktop` is the
