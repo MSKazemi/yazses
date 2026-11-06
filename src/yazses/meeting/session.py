@@ -8,11 +8,40 @@ clock are injectable, so the whole lifecycle is unit-testable with fakes and no 
 """
 from __future__ import annotations
 
+import os
 import wave
 from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
+
+
+def _open_private_wb(path: Path):
+    """Open ``path`` for binary writing, owner-only (``0600``) and never through a symlink.
+
+    The recording is raw, unencrypted meeting audio; every other file in the meeting
+    folder is written ``0600`` by ``system/private_files``. ``wave.open(path, "wb")``
+    took the umask instead (``0644`` on a ``022`` login) and followed a symlink planted
+    at ``audio.wav``. Here the file is created ``0600``, a looser existing one is
+    tightened before any frame is written (best effort: a filesystem without POSIX
+    modes refuses ``fchmod`` and that must not cost the recording), and a symlink is
+    refused with ``OSError``. On Windows (ACLs, no claim made) it is a plain ``open``.
+    """
+    if os.name != "posix":
+        return open(path, "wb")  # noqa: SIM115 - closed by WavFileSink.close
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(path, flags, 0o600)
+    try:
+        mode = os.fstat(fd).st_mode
+        if mode & 0o077:
+            os.fchmod(fd, mode & ~0o077 & 0o7777)
+    except OSError:
+        pass
+    try:
+        return os.fdopen(fd, "wb")
+    except BaseException:
+        os.close(fd)
+        raise
 
 
 class WavFileSink:
@@ -21,7 +50,12 @@ class WavFileSink:
     def __init__(self, path: str | Path, sample_rate: int = 16000) -> None:
         self._path = Path(path)
         self._sr = sample_rate
-        self._wav = wave.open(str(self._path), "wb")
+        self._fh = _open_private_wb(self._path)
+        try:
+            self._wav = wave.open(self._fh, "wb")
+        except BaseException:
+            self._fh.close()
+            raise
         self._wav.setnchannels(1)
         self._wav.setsampwidth(2)  # int16
         self._wav.setframerate(sample_rate)
@@ -34,6 +68,10 @@ class WavFileSink:
     def close(self) -> None:
         try:
             self._wav.close()
+        except Exception:  # pragma: no cover - defensive teardown
+            pass
+        try:
+            self._fh.close()
         except Exception:  # pragma: no cover - defensive teardown
             pass
 
