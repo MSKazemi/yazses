@@ -216,6 +216,16 @@ manifest. A rate below the **provisional** minimum prints `insufficient data`. T
 inferential test until the analysis plan is frozen (#425), and tests use synthetic records that
 prove the code, not the product. Real participant data stays outside this repository.
 
+Paper tables and figures come from that report, never from a spreadsheet: run the analysis with
+`--format json --out report.json`, then
+`uv run python scripts/eye_eval_figures.py report.json --out <dir>`. It writes CSV tables
+(counts, outcomes, false activations, latency, session retest, exclusions, missing data), one
+outcome and one latency SVG per stratum (host + config; latency is never pooled), and a
+`manifest.json` that hashes every file and the source report and lists which report claims and
+source runs each table or figure carries. `insufficient data` stays an empty cell with its reason
+and is drawn as words, never as a zero; stdlib only, so the output is byte-identical across
+machines. It refuses an unknown `analysis_version` major or a report not marked provisional.
+
 ### E4 — cross-computer replication
 
 **Question:** does the same OS/software work on different physical machines/cameras?
