@@ -13,6 +13,7 @@ from dataclasses import dataclass
 
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?\u061f])\s+")
 _LAST_WORD = re.compile(r"(\w+)(\W*)$")
+_WORD = re.compile(r"\S+")
 
 _NUMBER_WORDS = {
     "a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
@@ -48,20 +49,26 @@ def delete_last_sentence(text: str) -> EditResult:
     stripped = text.rstrip()
     if not stripped:
         return EditResult(text, False)
-    parts = _SENTENCE_SPLIT.split(stripped)
-    if len(parts) <= 1:
+    # Cut at the last sentence boundary rather than re-joining the kept sentences: a
+    # join would flatten any "new line" / "new paragraph" break between them into a
+    # space, and the daemon re-types this text over the original burst.
+    boundaries = list(_SENTENCE_SPLIT.finditer(stripped))
+    if not boundaries:
         return EditResult("", True)  # only one sentence → clear it
-    return EditResult(" ".join(parts[:-1]), True)
+    return EditResult(stripped[:boundaries[-1].start()], True)
 
 
 def delete_last_words(text: str, n: int = 1) -> EditResult:
     if n <= 0:
         return EditResult(text, False)
-    words = text.split()
+    words = list(_WORD.finditer(text))
     if not words:
         return EditResult(text, False)
-    kept = words[:-n] if n < len(words) else []
-    return EditResult(" ".join(kept), True)
+    if n >= len(words):
+        return EditResult("", True)
+    # Slice the original rather than " ".join the kept words, which rewrote every line
+    # break the user dictated before the deleted words into a space.
+    return EditResult(text[:words[-n].start()].rstrip(), True)
 
 
 def _recase_last_word(text: str, fn) -> EditResult:
