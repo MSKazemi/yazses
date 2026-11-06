@@ -110,7 +110,8 @@ class Response:
                 raise ValueError(f"Response 'error' must be an object, got {type(err).__name__}")
             try:
                 code = int(err.get("code", INTERNAL_ERROR))
-            except (TypeError, ValueError):
+            except (TypeError, ValueError, OverflowError):
+                # OverflowError: JSON 1e999 parses to float inf and int(inf) raises it.
                 raise ValueError(f"Response error 'code' is not an integer: {err.get('code')!r}") from None
             rpc_error = RpcError(
                 code=code,
