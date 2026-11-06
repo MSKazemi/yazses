@@ -80,13 +80,13 @@ Every path ends with the user's words either in the field, on the clipboard with
 | R1 | `commitText` returns `false` (connection no longer valid) [S1] or no `InputConnection` | "Copied to clipboard — paste it" notice, persistent until dismissed | Paste; the notice offers nothing else | ADR-MOB-003:57-61. Announce as a polite live-region notice, after capture has stopped (finding 2). |
 | R2 | `Refused(SECURE_FIELD)` at press | "Mic off in password fields" | None needed | Already refused before capture [Code, `HoldSession.kt:110-115`, `DeliveryGuard.kt:20-21`]. The text must not be copied to the clipboard either: nothing was recorded. |
 | R3 | `SECURE_ABORT` mid-burst (focus moved to a password field) | "Stopped: password field — nothing was kept" | None | `ActivationSource.kt:35-36`: audio discarded. |
-| R4 | `NothingHeard` | "Didn't hear anything — hold and speak" | Retry | #807 C4: with the Android 12+ privacy toggle off, the mic delivers silence, which an RMS gate reports as nothing heard. The message should add "Check the microphone toggle" when the level meter never moved above floor [Assumption on how to tell them apart; U3]. |
+| R4 | `NothingHeard` | "Microphone muted or unavailable — hold and speak" | Retry | #807 C4: with the Android 12+ privacy toggle off, the mic delivers silence, which an RMS gate reports as nothing heard. The message should add "Check the microphone toggle" when the level meter never moved above floor [Assumption on how to tell them apart; U3]. |
 | R5 | `Refused(BLANK_TEXT)` | Same text as R4 | Retry | A blank decode looks the same to the user as silence; one message, not two. |
 | R6 | `DecodeFailed` / model missing | "Speech model missing — open YazSes to download" with a button that opens the app | Opens onboarding / model screen | Error names the fix (#89). Model-state wording belongs to the #806/#809 note. |
-| R7 | `CAP_REACHED` (toggle) | "Stopped at 5:00 — your text was added" | None | The burst is decoded, not lost (`ActivationDriver.kt:84-88`). |
+| R7 | `CAP_REACHED` (toggle) | "Stopped at 5:00 — your text was added" | None | The burst is decoded, not lost: the end edge passes the captured audio to `session.onRelease` (`ActivationDriver.kt:147-152`), and `ActivationDriverTest.kt:45` ("the cap force-stops at exactly the cap and decodes the audio captured so far") proves it. |
 | R8 | Misrecognition | User taps undo | Verified undo (finding 5); if verification fails: "Can't undo — the text was changed" | WCAG 2.5.2 allows completion on the up-event when the result can be undone [Primary, S5]; undo is what makes hold-to-talk meet that option. |
 | R9 | Field or app language is not English (only `.en` models pinned) | Nothing is blocked; a one-time hint "English only for now" in the key bar | Settings link | Do not guess the field's language. Honest limitation, not an error. |
-| R10 | Mic permission revoked or auto-reset (#807 C5, C6) | "Microphone permission needed — open YazSes" | Opens the onboarding activity | An IME cannot request the permission itself (#807 C5). |
+| R10 | Mic permission revoked or auto-reset (#807 C5, C6) | "Microphone permission needed — open YazSes" | Opens the onboarding activity | An IME cannot request the permission itself (#807 C5). The capture layer already reports this case as `CaptureStopReason.PERMISSION_LOST` (`MicrophoneCapture.kt:20`, raised at `:125`), the signal the #806/#809 note relies on. |
 
 ## 6. Accessibility acceptance tests
 
@@ -94,7 +94,7 @@ Every path ends with the user's words either in the field, on the clipboard with
 
 | # | Test | Where | Pass condition |
 |---|---|---|---|
-| A1 | Toggle start/stop with `debounceMs = 0` survives a double-tap timing (two taps at most 300 ms apart start and stop) | CI, `:core:session` | Exists in part: the driver rejects a toggle with non-zero debounce (`ActivationDriver.kt:22-26`). Add a test that a 0 ms debounce toggle starts on the first tap. |
+| A1 | Toggle start/stop with `debounceMs = 0` survives a double-tap timing (two taps at most 300 ms apart start and stop) | CI, `:core:session` | Exists in part: the driver rejects a toggle with non-zero debounce (`ActivationDriver.kt:22-26`). The first-tap start and second-tap stop are already tested (`ActivationDriverTest.kt:23`, `:29`); add only a test that a second tap less than 300 ms after the first still stops and decodes. |
 | A2 | Every `SessionEffect` and `EndCause` maps to exactly one message id and announcement policy | CI, proposed pure `KeyBarMessages` (section 8) | Exhaustive `when`; a new enum value fails compilation. |
 | A3 | No announcement is scheduled between `StartCapture` and `StopCapture` | CI, same | Policy returns "announce before" or "announce after" only. |
 | A4 | Verified undo refuses when text before cursor differs, is shorter, or is null | CI, `:core:session` | Covers the Persian/emoji corpus below. |
