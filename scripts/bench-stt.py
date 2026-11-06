@@ -66,22 +66,30 @@ def _build_normalizer():
     return (lambda t: normalizer(t)), "whisper"
 
 def get_peak_rss_mb() -> float:
+    """The process's *peak* RSS in MB, or 0.0 when no peak is available.
+
+    `psutil`'s ``memory_info().rss`` is the *current* RSS, read after the last file,
+    not the peak -- and the printed row calls this number a peak. So the peak comes
+    from ``ru_maxrss`` where `resource` exists (POSIX) and from Windows' ``peak_wset``
+    otherwise; a platform offering neither reports N/A rather than a current value
+    under a peak label.
+    """
+    try:
+        import resource
+    except ImportError:
+        resource = None  # type: ignore[assignment]
+    if resource is not None:
+        # ru_maxrss is kilobytes on Linux and *bytes* on macOS. This number goes into a
+        # published comparison table, so getting the unit wrong would not look like a
+        # bug -- it would look like a Mac using 1/1024th the memory.
+        divisor = 1024 * 1024 if sys.platform == "darwin" else 1024
+        return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / divisor
     try:
         import psutil
-        process = psutil.Process(os.getpid())
-        if hasattr(process.memory_info(), 'peak_wset'):
-            return process.memory_info().peak_wset / (1024 * 1024)
-        return process.memory_info().rss / (1024 * 1024)
     except ImportError:
-        try:
-            import resource
-            # ru_maxrss is kilobytes on Linux and *bytes* on macOS/BSD. This number
-            # goes into a published comparison table, so getting the unit wrong would
-            # not look like a bug — it would look like a Mac using 1/1024th the memory.
-            divisor = 1024 * 1024 if sys.platform == "darwin" else 1024
-            return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / divisor
-        except ImportError:
-            return 0.0
+        return 0.0
+    peak = getattr(psutil.Process(os.getpid()).memory_info(), "peak_wset", None)
+    return peak / (1024 * 1024) if peak else 0.0
 
 def _load_adapters():
     """Import the sibling adapters module by path.
@@ -429,7 +437,10 @@ def main(argv: list[str] | None = None) -> int:
         engine = _build_engine(stt_config)
         load_s = time.perf_counter() - t0
 
-        engine_check = check_engine(args.engine, args.model, _describe_engine(engine))
+        # Compared the way the factory reads it (`_build_raw_engine`): stripped, lower-cased,
+        # empty meaning faster-whisper -- so `--engine Parakeet` is not a false "fallback".
+        requested = args.engine.strip().lower() or "faster-whisper"
+        engine_check = check_engine(requested, args.model, _describe_engine(engine))
         for warning in engine_check.warnings:
             print(f"Warning: {warning}")
         if engine_check.is_fallback:

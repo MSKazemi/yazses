@@ -111,6 +111,13 @@ def test_main_refuses_a_fallback_engine_by_default(bench, monkeypatch, tmp_path)
     assert bench.main([str(data), "--engine", "parakeet"]) == bench.EXIT_FALLBACK == 2
 
 
+def test_main_compares_the_engine_name_the_way_the_factory_reads_it(
+        bench, monkeypatch, tmp_path) -> None:
+    _patch(monkeypatch, bench, FakeEngine())
+    data = _corpus(tmp_path, {"a": "the cat sat"})
+    assert bench.main([str(data), "--engine", " Faster-Whisper "]) == 0
+
+
 def test_main_labels_the_row_when_fallback_is_allowed(bench, monkeypatch, tmp_path, capsys) -> None:
     engine = FakeEngine()
     engine.fallback_from = "parakeet"
@@ -155,6 +162,31 @@ def test_full_coverage_exits_0_and_the_row_names_normaliser_and_process_peak(
     assert "norm: lower" in row
     assert "process peak" in row
     assert "PARTIAL" not in row and "FALLBACK" not in row
+
+
+def test_peak_rss_is_a_peak_not_psutils_current_rss(bench, monkeypatch) -> None:
+    """psutil's `memory_info().rss` is the CURRENT RSS; the row labels this a peak."""
+    resource = pytest.importorskip("resource")
+
+    class Usage:
+        ru_maxrss = 4096 * 1024 if sys.platform == "darwin" else 4096  # 4 MB
+
+    monkeypatch.setattr(resource, "getrusage", lambda who: Usage())
+
+    class Info:
+        rss = 1  # a current value far below the peak; must not be returned
+
+    class Proc:
+        def __init__(self, pid):
+            pass
+
+        def memory_info(self):
+            return Info()
+
+    fake_psutil = type(sys)("psutil")
+    fake_psutil.Process = Proc
+    monkeypatch.setitem(sys.modules, "psutil", fake_psutil)
+    assert bench.get_peak_rss_mb() == 4.0
 
 
 # --- JSON output ----------------------------------------------------------------------
