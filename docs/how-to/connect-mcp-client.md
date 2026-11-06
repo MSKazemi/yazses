@@ -47,6 +47,13 @@ permission stay with the install you already have.
    extension settings.
 3. Restart the client if it asks you to, then check that the YazSes tools appear.
 
+The bundle's `manifest.json` follows version 0.3 of the
+[MCP Bundle manifest spec](https://github.com/modelcontextprotocol/mcpb/blob/main/MANIFEST.md),
+and the test suite checks every build against the spec's published JSON schema. If
+`yazses` is not on the client's `PATH`, the bundle's launcher writes the address of the
+[install page](../get-started.md) to its error output and exits with status 127,
+instead of leaving only a bare "command not found".
+
 The bundle has not yet been tried in a real client, so if a step above does not match what
 your client shows, please [open an issue](https://github.com/MSKazemi/yazses/issues).
 

@@ -50,6 +50,13 @@ The manifest fields and the server type for a command-only bundle are checked ag
 spec's `MANIFEST.md` at implementation time [U]; third-party pages disagree on the current
 manifest version.
 
+*Implementation note (2026-11-06, #638):* the bundle declares `manifest_version` 0.3.
+At `modelcontextprotocol/mcpb` commit `70fe3b34`, `MANIFEST.md` names 0.3 as the current
+version and the published `mcpb-manifest-latest.schema.json` is identical to the v0.3
+schema [F]. A verbatim copy of that schema is vendored under `tests/fixtures/mcpb/`, and
+`tests/test_mcpb_manifest_schema.py` validates the manifest of every built bundle against
+it, offline [M]. Whether a real client installs the bundle is still a test-day check [U].
+
 The bundle is built in CI from a template, attached to each GitHub release beside the
 other assets, and covered by the release checksum file.
 
