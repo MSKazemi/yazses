@@ -45,6 +45,11 @@ ENTRY_MODULES = {
     # refuses to keep a second copy of. An entry in KNOWN_ORPHANS would be a false
     # line in that ledger — this is not debt, it is an evaluation entry point.
     "grounding.replay",
+    # The streaming-dictation replay oracle (Phase R0 of #796). Its caller is
+    # `tests/test_streaming_replay_oracle.py`; the daemon must not import it -- it is the
+    # policy the future StreamingEngine/StreamingInjector regression (Phase R1) will be
+    # held to, not a runtime path. An evaluation entry point, not debt.
+    "stt.streaming_replay",
     # The face-switch false-activation harness (EYE-BENCH-001, #409). Its caller is
     # `scripts/replay_face_switch_trace.py`; the daemon must not import it (it reaches
     # `facegesture`, never the reverse). An evaluation entry point, not debt.
