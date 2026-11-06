@@ -7,6 +7,14 @@ silence exceeds ``hangover_ms`` (and the utterance is at least ``min_utterance_m
 emit the buffered utterance. The silence decision is an injected predicate, so the core
 is pure and fully unit-testable with a fake VAD (the real one is ``vad_calibrated`` or
 Silero, chosen by config in the daemon).
+
+It also knows *where* each utterance began, in samples from the first chunk ever
+pushed (dropped leading silence included), and publishes that as ``last_start_s``.
+The live transcript used to stamp a line with the clock at the moment its decode
+*finished*, which is the utterance's end plus the hangover plus the decode time plus
+any queue backlog -- a 30 s monologue was stamped at least 30.7 s late, and lines kept
+drifting later on a machine whose decoder could not keep up. The sample position is
+the same timeline as ``audio.wav`` and the batch transcript's word timings.
 """
 from __future__ import annotations
 
@@ -36,6 +44,20 @@ class UtteranceSegmenter:
         self._buf_len = 0
         self._trailing_silence = 0
         self._voiced = False
+        # Samples pushed so far (all of them, silent or not) and the index at which
+        # the buffered utterance began. Both are audio-time, never wall-clock time.
+        self._pos = 0
+        self._start = 0
+        self._last_start = 0
+
+    @property
+    def last_start_s(self) -> float:
+        """Audio offset, in seconds, of the first sample of the last emitted utterance.
+
+        Read it right after :meth:`push` or :meth:`flush` returns an utterance. ``0.0``
+        before any utterance has been emitted.
+        """
+        return self._last_start / self._sr if self._sr else 0.0
 
     def push(self, chunk: np.ndarray) -> np.ndarray | None:
         """Feed one audio chunk; return a completed utterance ndarray, or ``None``.
@@ -46,11 +68,14 @@ class UtteranceSegmenter:
         """
         silent = bool(self._is_silent(chunk))
         n = int(np.asarray(chunk).shape[0])
+        at = self._pos
+        self._pos += n
 
         if not self._voiced:
             if silent:
                 return None  # drop leading silence
             self._voiced = True
+            self._start = at
 
         self._buf.append(np.asarray(chunk, dtype="float32"))
         self._buf_len += n
@@ -71,6 +96,7 @@ class UtteranceSegmenter:
 
     def _flush(self) -> np.ndarray:
         audio = np.concatenate(self._buf) if self._buf else np.array([], dtype="float32")
+        self._last_start = self._start
         self._reset()
         return audio
 

@@ -123,7 +123,7 @@ class MeetingSession:
         self._n_samples += int(np.asarray(chunk).shape[0])
         self._sink.write(chunk)
 
-    def add_live_line(self, text: str) -> None:
+    def add_live_line(self, text: str, t: float | None = None) -> None:
         """Append a finalized live-transcript line for the status view.
 
         Also streams the line to **two** files, so a crash mid-meeting leaves a partial
@@ -134,16 +134,21 @@ class MeetingSession:
 
         Both writes are best-effort inside ``store`` and cannot raise into the live
         worker — capture outranks either copy.
+
+        ``t`` is where the utterance began, in seconds of recorded audio. The
+        controller passes it from the segmenter; without it the line is stamped with
+        :meth:`elapsed_s` at the time of the call, which is when the decode finished,
+        not when the words were said.
         """
         text = (text or "").strip()
         if text:
             self.live_lines.append(text)
             from yazses.meeting import store
 
-            elapsed = self.elapsed_s()
-            store.append_live_line(self.dir, text, elapsed)
+            stamp = self.elapsed_s() if t is None else float(t)
+            store.append_live_line(self.dir, text, stamp)
             if self.live_markdown:
-                store.append_live_markdown(self.dir, text, elapsed, self.meeting_id)
+                store.append_live_markdown(self.dir, text, stamp, self.meeting_id)
 
     def duration_s(self) -> float:
         """Captured audio duration in seconds (from sample count, clock-independent)."""
