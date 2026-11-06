@@ -98,6 +98,15 @@ is refused rather than cut, and stays in the staged buffer. The log records whic
 how many characters, never the words. Details are in the
 [CLI reference](../cli-reference.md#yazses-send-to).
 
+"Never sent" is something YazSes checks against each real app, not something it takes
+from the apps' documentation. `yazses features info sendto` names the app versions it has
+been verified on; today it says it has not been verified against any. If you have the
+Claude or Codex app on Linux, you can help: the steps are in the validation record of
+[ADR-031](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-031-send-to-prefill-handoff.md#validation-record-5).
+Use a made-up prompt, never a real one, and post what you saw on
+[issue #637](https://github.com/MSKazemi/yazses/issues/637). An app that ever sends the
+prompt by itself is removed as a target in the next release.
+
 ## Technical vocabulary
 
 Agents need the names in your codebase spelled correctly. Add the project's identifiers,

@@ -27,7 +27,7 @@ from typer.testing import CliRunner
 
 import yazses.cli as cli
 from yazses.config import Config, load_config
-from yazses.sendto import handoff
+from yazses.sendto import handoff, validation
 from yazses.sendto.targets import CLAUDE_MAX_CHARS, parse_send_phrase, target_names
 from yazses.system.features import (
     _UNWIRED,
@@ -178,14 +178,22 @@ def test_the_example_s_cli_call_uses_a_real_target() -> None:
 @pytest.mark.parametrize(
     "promise",
     ["never sent", "press Enter", "no web fallback", f"{CLAUDE_MAX_CHARS:,} characters",
-     "never cut", "Not yet verified", "Off by default"],
+     "never cut", "Off by default"],
 )
 def test_the_description_makes_the_adr_s_promises(promise) -> None:
     assert promise in _feature().why, f"the sendto card no longer says {promise!r}"
 
 
 def test_the_description_does_not_claim_a_verified_client() -> None:
-    """ADR-031 §5: `features info` names verified client versions -- there are none yet."""
+    """ADR-031 §5: `features info` names verified client versions -- there are none yet.
+
+    The sentence is derived from `sendto/validation.py::ROWS`
+    (tests/test_sendto_validation_record.py); this pins what it says while that record
+    is empty.
+    """
+    if validation.ROWS:
+        pytest.skip("the validation record has rows; test_sendto_validation_record owns this")
+    assert "Not yet verified against any real Claude or Codex app." in _feature().why
     why = _feature().why.lower()
     assert "verified on" not in why
     assert "tested with" not in why

@@ -136,6 +136,17 @@ def _preset_requested(cfg) -> bool:
     return bool(handsfree_preset(cfg).enabled)
 
 
+def _sendto_verification() -> str:
+    """ADR-031 §5: the clients `sendto` was verified on, read from its validation record.
+
+    Read at call time, so a row added to ``sendto/validation.py::ROWS`` reaches
+    `features info` and the generated docs with no edit here.
+    """
+    from yazses.sendto import validation
+
+    return validation.verification_sentence(validation.ROWS)
+
+
 # One row per capability. `status` reads the live config; `*_writes` are
 # (section, key, value, quote) tuples handed to set_config_key.
 def _registry() -> list[_Def]:
@@ -1099,7 +1110,9 @@ def _registry() -> list[_Def]:
         # and EXPERIMENTAL would make `features enable sendto` demand --force. But nothing
         # is verified either -- §5 makes "never sent" something observed per client and OS,
         # and no hand-off has been tried against a real Claude or Codex install -- so the
-        # text says so, and there is no verified client version to name yet.
+        # text says so. The verification sentence is read from the validation record
+        # (`sendto/validation.py::ROWS`, empty until a person runs a real client), so the
+        # verified client versions §5 asks for appear here without a hand edit.
         _Def("sendto", "Send to Claude / Codex (pre-filled)",
              "[sendto] — open an AI app with your prompt filled in, never sent", OPTIONAL,
              "Say 'send to Claude', 'send to Claude Code' or 'send to Codex' as a whole "
@@ -1108,7 +1121,7 @@ def _registry() -> list[_Def]:
              "nothing. The text is the staged buffer when staged mode is on, else the last "
              "burst (already typed) or the TEXT you give. It is never sent: you press Enter "
              "there. Only those three apps' own links, no web fallback; over 14,000 characters "
-             "is refused, never cut. Not yet verified against any real Claude or Codex app. "
+             "is refused, never cut. " + _sendto_verification() + " "
              "Off by default.",
              lambda c: c.sendto.enabled, snd_on, snd_off),
         _Def("cocktail", "Cocktail Filter (voice focus)", "[cocktail] — experimental", EXPERIMENTAL,
