@@ -145,8 +145,16 @@ def test_x11_lists_both_close_this_cases_separately() -> None:
     assert rows["route_dictation"].can and rows["calibrate"].can and rows["gaze_commands"].can
 
 
+def test_x11_gaze_commands_name_the_deixis_key_they_depend_on() -> None:
+    """With ``[gaze] deixis = false`` the daemon never tries a gaze command; say so."""
+    rows = _by_key(glance_type_abilities(plan_gaze_target("x11", xdotool_available=True)))
+    assert "[gaze] deixis" in rows["gaze_commands"].outcome
+    assert "[gaze] deixis" in rows["close_gazed"].outcome
+    assert "[gaze] deixis" in rows["close_fallback"].outcome
+
+
 def test_an_unknown_flag_names_the_key_instead_of_guessing() -> None:
-    """`yazses status` reads the daemon's wire, which carries no config: say what decides."""
+    """A caller that does not know a flag (an older daemon's wire) is told what decides."""
     rows = _by_key(glance_type_abilities(plan_gaze_target("x11", xdotool_available=True)))
     assert "refuse_destructive_fallback" in rows["close_fallback"].outcome
     assert "confirm_destructive" in rows["close_gazed"].outcome
@@ -185,7 +193,10 @@ def test_the_x11_close_this_rows_agree_with_try_deixis(mocker, confirm, refuse, 
     assert d._try_deixis("close this", {})
 
     closed = d._gaze_targeter.actions == [("close", "w1")]
-    asked = notify.called and not closed
+    # A confirm toast carries actions (`_confirm_deixis`); a refusal (`_deixis_cannot_act`)
+    # does not, so the two cannot be mistaken for each other.
+    asked = notify.called and not closed and bool(notify.call_args.kwargs.get("actions"))
+    refused = notify.called and not closed and not notify.call_args.kwargs.get("actions")
 
     rows = _by_key(glance_type_abilities(
         plan_gaze_target("x11", xdotool_available=True),
@@ -198,7 +209,7 @@ def test_the_x11_close_this_rows_agree_with_try_deixis(mocker, confirm, refuse, 
     elif used_gaze:
         assert asked and row.can and row.outcome.startswith("asks first")
     else:
-        assert asked and not row.can and row.outcome.startswith("refused")
+        assert refused and not row.can and row.outcome.startswith("refused")
 
 
 # ---- the surfaces: doctor/status row, the wire, the merge, `gaze status` -------------
@@ -245,13 +256,101 @@ def test_an_older_daemon_without_the_key_reads_as_empty() -> None:
     assert rebuilt is not None and rebuilt.gaze_target_abilities == ""
 
 
-def test_the_merge_prefers_the_config_aware_static_answer() -> None:
-    """The daemon's wire has no config; `doctor` and the panel do, so their line wins."""
-    static = HandsFreeFacts(features_requested=("gaze",), gaze_target_abilities="static")
-    live = HandsFreeFacts(features_requested=("gaze",), gaze_target_abilities="live")
-    assert merge_facts(static, live).gaze_target_abilities == "static"
-    empty = HandsFreeFacts(features_requested=("gaze",))
-    assert merge_facts(empty, live).gaze_target_abilities == "live"
+# Where each process is: `doctor` over SSH (no DISPLAY, no XDG_SESSION_TYPE), a desktop
+# daemon, a GNOME Wayland panel, and a service daemon whose environment lacks DISPLAY.
+SESSIONS = {
+    "x11": {"XDG_SESSION_TYPE": "x11", "DISPLAY": ":0"},
+    "wayland_gnome": GNOME_WAYLAND,
+    "headless": {},
+}
+
+
+def _facts(env, **flags) -> HandsFreeFacts:
+    return gaze_target_facts(
+        HandsFreeFacts(features_requested=("gaze",)),
+        environ=env, fixed_session=lambda: None, xdotool_available=lambda: True, **flags,
+    )
+
+
+def _gaze_row(facts: HandsFreeFacts):
+    return {r.label: r for r in health_rows(facts)}["Gaze target"]
+
+
+@pytest.mark.parametrize("static_session", SESSIONS)
+@pytest.mark.parametrize("live_session", SESSIONS)
+@pytest.mark.parametrize("refuse", [True, False])
+def test_the_merged_row_never_pairs_one_sessions_reason_with_anothers_abilities(
+    static_session, live_session, refuse
+) -> None:
+    """`doctor`/the panel and the daemon can classify different sessions; the row must not mix them.
+
+    The static and live sides come from different processes and so from different
+    environments. Whatever the merge picks, the abilities it prints must be the ones of
+    the plan whose reason it prints -- the live daemon's, which is the process that acts.
+    """
+    static = _facts(SESSIONS[static_session], confirm_destructive=True,
+                    refuse_destructive_fallback=refuse)
+    # The daemon passes its own [gaze] flags (`Daemon._handsfree_payload`).
+    live = _facts(SESSIONS[live_session], confirm_destructive=True,
+                  refuse_destructive_fallback=refuse)
+    merged = merge_facts(static, live)
+    assert merged.gaze_target_reason == live.gaze_target_reason
+    assert merged.gaze_target_abilities == live.gaze_target_abilities
+
+
+def test_doctor_over_ssh_does_not_claim_a_refusal_the_x11_daemon_does_not_make() -> None:
+    """The reproduced case: headless `doctor`, X11 daemon with the default fallback."""
+    static = _facts({}, confirm_destructive=True, refuse_destructive_fallback=False)
+    live = _facts(SESSIONS["x11"], confirm_destructive=True, refuse_destructive_fallback=False)
+    row = _gaze_row(merge_facts(static, live))
+    assert row.reason.startswith("X11:")
+    assert "never sent to the focused window" not in row.reason
+    assert "no gaze pick: closes the focused window" in row.reason
+
+
+def test_an_x11_panel_does_not_promise_what_a_headless_service_daemon_refuses() -> None:
+    static = _facts(SESSIONS["x11"], confirm_destructive=True, refuse_destructive_fallback=False)
+    live = _facts({}, confirm_destructive=True, refuse_destructive_fallback=False)
+    row = _gaze_row(merge_facts(static, live))
+    assert "headless" in row.reason
+    assert "never sent to the focused window" in row.reason
+    assert "closes the focused window" not in row.reason
+
+
+def test_an_older_daemon_without_abilities_borrows_the_static_line_only_for_the_same_plan() -> None:
+    static = _facts(SESSIONS["x11"], confirm_destructive=True, refuse_destructive_fallback=True)
+    same = dataclasses.replace(
+        _facts(SESSIONS["x11"]), gaze_target_abilities="")  # an older daemon's reply
+    assert merge_facts(static, same).gaze_target_abilities == static.gaze_target_abilities
+    other = dataclasses.replace(_facts({}), gaze_target_abilities="")
+    assert merge_facts(static, other).gaze_target_abilities == ""
+    # No live answer about the target at all: the static line stands.
+    assert merge_facts(static, None).gaze_target_abilities == static.gaze_target_abilities
+    unknown = HandsFreeFacts(features_requested=("gaze",))
+    assert merge_facts(static, unknown).gaze_target_abilities == static.gaze_target_abilities
+
+
+def test_the_daemon_status_reports_its_own_gaze_flags(monkeypatch) -> None:
+    """The live line is config-aware: the daemon passes the flags it actually acts on."""
+    from yazses.handsfree import probe as probe_mod
+
+    seen: dict = {}
+    real = probe_mod.gaze_target_facts
+
+    def spy(facts, **kw):
+        seen.update(kw)
+        return real(facts, environ=SESSIONS["x11"], fixed_session=lambda: None,
+                    xdotool_available=lambda: True, **kw)
+
+    monkeypatch.setattr(probe_mod, "gaze_target_facts", spy)
+    d = _daemon(confirm_destructive=False, refuse_destructive_fallback=True)
+    payload = d._handsfree_payload()
+    assert seen == {"confirm_destructive": False, "refuse_destructive_fallback": True}
+    assert payload is not None
+    line = str(payload["gaze_target_abilities"])
+    assert "no gaze pick: refused" in line
+    assert "runs without asking" in line
+    assert "refuse_destructive_fallback" not in line
 
 
 def test_doctor_hands_its_gaze_flags_to_the_probe(monkeypatch) -> None:

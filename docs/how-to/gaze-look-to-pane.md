@@ -104,9 +104,9 @@ Glance-Type (look-to-pane) status:
     capabilities: screen position: yes; other windows' geometry: yes; focus another window: yes; pointer injection (separate, not a target): yes
   what Glance-Type does on this session (x11):
     ✓ dictation to the window you look at: yes, with [gaze] route_dictation on; an uncertain estimate stays in the focused window
-    ✓ "focus this" / "minimize this": yes, on the window gaze picked, or the focused window when gaze cannot pick one
-    ✓ "close this" on the window gaze picked: asks first, with a confirm notification
-    ✓ "close this" when gaze cannot pick a window: runs on the focused window without asking ([gaze] refuse_destructive_fallback = false)
+    ✓ "focus this" / "minimize this": yes, with [gaze] deixis on: on the window gaze picked, or the focused window when gaze cannot pick one
+    ✓ "close this" on the window gaze picked: asks first, with a confirm notification (with [gaze] deixis on)
+    ✓ "close this" when gaze cannot pick a window: runs on the focused window without asking ([gaze] refuse_destructive_fallback = false; with [gaze] deixis on)
     ✓ gaze calibration: yes
     ✓ moving the pointer (Head-Pointer, a separate feature): the desktop allows it; it does not make a gaze target
   ✓ calibration (/home/you/.local/share/yazses/gaze_calibration.json)
@@ -259,8 +259,9 @@ gaze target at all. On a Wayland session:
 - "focus this", "minimize this" and "close this" are refused with a notification;
   "close this" is never sent to the focused window instead;
 - `yazses gaze calibrate` refuses, because nothing could use the result;
-- Head-Pointer, if you use it, still works through the Remote Desktop permission. It
-  is a separate feature and does not give Glance-Type a target.
+- Head-Pointer, if you use it, can move the pointer through the Remote Desktop
+  permission where your desktop's portal offers it (not yet verified on real
+  hardware). It is a separate feature and does not give Glance-Type a target.
 
 `yazses gaze status` lists exactly this under *what Glance-Type does on this session*,
 and `yazses doctor` repeats it on the `Gaze target` row. The full table, with the

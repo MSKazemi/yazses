@@ -325,9 +325,9 @@ def glance_type_abilities(
     a window gaze picked asks first unless ``[gaze] confirm_destructive = false``; with
     no gaze pick, the target is only the focused window, which ``[gaze]
     refuse_destructive_fallback`` either refuses or (its default, ADR-v2-010's
-    frictionless fallback) closes without asking. A flag given as ``None`` is unknown --
-    the daemon's status wire carries no config -- and the row names the key instead of
-    guessing. ``tests/test_gaze_glance_abilities.py`` runs ``Daemon._try_deixis`` for
+    frictionless fallback) closes without asking. A flag given as ``None`` is unknown to
+    the caller, and the row names the key instead of guessing. Every X11 gaze command
+    row also names ``[gaze] deixis``: with it off the daemon never tries one. ``tests/test_gaze_glance_abilities.py`` runs ``Daemon._try_deixis`` for
     every combination and holds this list to what it does.
     """
     rows: list[GlanceAbility] = []
@@ -357,39 +357,42 @@ def glance_type_abilities(
         if confirm_destructive is None:
             gazed = GlanceAbility(
                 "close_gazed", "\"close this\" on the window gaze picked",
-                "asks first, unless [gaze] confirm_destructive = false", True,
+                "asks first, unless [gaze] confirm_destructive = false (with [gaze] deixis on)",
+                True,
                 "\"close this\": asks first (confirm_destructive)",
             )
         elif confirm_destructive:
             gazed = GlanceAbility(
                 "close_gazed", "\"close this\" on the window gaze picked",
-                "asks first, with a confirm notification", True,
+                "asks first, with a confirm notification (with [gaze] deixis on)", True,
                 "\"close this\": asks first",
             )
         else:
             gazed = GlanceAbility(
                 "close_gazed", "\"close this\" on the window gaze picked",
-                "runs without asking ([gaze] confirm_destructive = false)", True,
+                "runs without asking ([gaze] confirm_destructive = false; with [gaze] deixis on)",
+                True,
                 "\"close this\": runs without asking",
             )
         if refuse_destructive_fallback is None:
             fallback = GlanceAbility(
                 "close_fallback", "\"close this\" when gaze cannot pick a window",
                 "refused if [gaze] refuse_destructive_fallback = true; otherwise runs on "
-                "the focused window without asking", True,
+                "the focused window without asking (with [gaze] deixis on)", True,
                 "no gaze pick: see refuse_destructive_fallback",
             )
         elif refuse_destructive_fallback:
             fallback = GlanceAbility(
                 "close_fallback", "\"close this\" when gaze cannot pick a window",
-                "refused, with a notification; never sent to the focused window", False,
+                "refused, with a notification; never sent to the focused window "
+                "(with [gaze] deixis on)", False,
                 "no gaze pick: refused",
             )
         else:
             fallback = GlanceAbility(
                 "close_fallback", "\"close this\" when gaze cannot pick a window",
                 "runs on the focused window without asking "
-                "([gaze] refuse_destructive_fallback = false)", True,
+                "([gaze] refuse_destructive_fallback = false; with [gaze] deixis on)", True,
                 "no gaze pick: closes the focused window",
             )
         rows += [
@@ -400,8 +403,8 @@ def glance_type_abilities(
             ),
             GlanceAbility(
                 "gaze_commands", "\"focus this\" / \"minimize this\"",
-                "yes, on the window gaze picked, or the focused window when gaze cannot "
-                "pick one", True, "gaze commands: yes",
+                "yes, with [gaze] deixis on: on the window gaze picked, or the focused "
+                "window when gaze cannot pick one", True, "gaze commands: yes (deixis)",
             ),
             gazed,
             fallback,

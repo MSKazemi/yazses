@@ -9264,14 +9264,22 @@ class Daemon:
                 PERCEPTION_STOPPED,
                 as_payload,
             )
-            from yazses.handsfree.probe import facts_from_config, gaze_target_facts
+            from yazses.handsfree.probe import (
+                facts_from_config,
+                gaze_destructive_flags,
+                gaze_target_facts,
+            )
 
             facts = facts_from_config(self._config)
             if not facts.features_requested and not facts.safety_configured:
                 return None
             # What a gaze target can be on this session (#418): a pure environment
             # classification, so unlike the calibration verdict it is safe on a status poll.
-            facts = gaze_target_facts(facts)
+            # The flags are this daemon's own, so the "close this" rows say what it does.
+            confirm, refuse = gaze_destructive_flags(self._config)
+            facts = gaze_target_facts(
+                facts, confirm_destructive=confirm, refuse_destructive_fallback=refuse
+            )
             gaze_running = getattr(self, "_gaze_targeter", None) is not None
             # By module rather than by class name or `isinstance`: the name is a string
             # two files can agree on by accident, and importing the backend to compare

@@ -138,8 +138,9 @@ def gaze_target_facts(
     host leaves the fields at "not asked", which the row does not print as good news.
 
     The two ``[gaze]`` flags only shape the X11 "close this" rows of
-    ``gaze_target_abilities``; ``None`` (the daemon's status poll, which passes no
-    config) makes those rows name the key instead of guessing its value.
+    ``gaze_target_abilities``. `doctor`, the panel and the daemon's status poll each pass
+    the flags of the config they hold; ``None`` (a caller without one) makes those rows
+    name the key instead of guessing its value.
     """
     if "gaze" not in facts.features_requested:
         return facts

@@ -189,9 +189,17 @@ ADR-v2-148 kept for installs that did not opt into the hands-free floor). That i
 Wayland question, and this spec does not change it. It is now printed instead of being
 discoverable only in the code. Whether the default should change is an owner decision.
 
-`yazses status` reads the daemon's wire, which carries no config. There the X11 rows name
-the deciding key instead of guessing its value. `doctor` and the panel read the config, and
-the panel merge prefers their line.
+Each surface passes the `[gaze]` flags of the config it holds: `yazses gaze status`,
+`doctor` and the panel read the config file, and the daemon's status reply carries the
+flags the running daemon acts on. A caller without them gets rows that name the deciding
+key instead of guessing its value. Where the panel or `doctor` overlays the daemon's
+reply on the local probe, the `Gaze target` row takes its reason **and** its abilities line
+from the daemon. The two sides run in different processes and can classify different
+sessions (`doctor` over SSH sees no display while the daemon runs in X11; a service daemon
+can lack `DISPLAY`). Pairing one session's reason with the other's "close this" verdict
+would be a false safety claim, so a local line is borrowed only from a daemon too old to
+send one, and only when both describe the same plan. Every X11 gaze-command row also names
+`[gaze] deixis`, because with it off the daemon never tries a gaze command.
 
 ## Validation still owed
 
