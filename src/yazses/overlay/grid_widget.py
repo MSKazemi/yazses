@@ -16,6 +16,7 @@ from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import QWidget
 
+from yazses.overlay.a11y import GRID_NAME, grid_description
 from yazses.overlay.grid import GridSnapshot, grid_cells
 
 
@@ -40,6 +41,8 @@ class GridWidget(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
+        self.setWindowTitle(GRID_NAME)
+        self.setAccessibleName(GRID_NAME)
 
     def show_grid(self, snap: GridSnapshot) -> None:
         """Draw *snap*; hide the window when it is inactive. Repaints only on change."""
@@ -50,6 +53,9 @@ class GridWidget(QWidget):
             return
         if snap != self._snap:
             self._snap = snap
+            # Only on change, like the repaint: the description is what a screen reader
+            # reads, and re-setting an unchanged one each tick would be announced again.
+            self.setAccessibleDescription(grid_description(snap))
             x, y, w, h = snap.region
             self.setGeometry(int(x), int(y), max(1, int(round(w))), max(1, int(round(h))))
             self.update()

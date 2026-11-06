@@ -14,6 +14,7 @@ from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QPainter, QPen, QRadialGradient
 from PySide6.QtWidgets import QWidget
 
+from yazses.overlay.a11y import SONAR_DESCRIPTION, SONAR_NAME
 from yazses.overlay.animation import Ripple
 
 
@@ -51,6 +52,11 @@ class SonarWidget(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
+        # Click-through and focus-less must not mean anonymous: name the window for a
+        # screen reader and a window list (see overlay/a11y.py).
+        self.setWindowTitle(SONAR_NAME)
+        self.setAccessibleName(SONAR_NAME)
+        self.setAccessibleDescription(SONAR_DESCRIPTION)
 
     def set_ripples(self, ripples: list[Ripple], core_intensity: float) -> None:
         """Replace the rings to draw and the centre-dot brightness; schedule a repaint."""
