@@ -66,19 +66,40 @@ def load_audio(path, sample_rate: int = 16000):
         ) from exc
 
 
+def local_media_url(path) -> str:
+    """``path`` as an explicit libavformat ``file:`` URL, so it is only ever a local file.
+
+    Both decoders hand the name to libavformat (PyAV's ``av.open`` and the ``ffmpeg``
+    CLI alike), and libavformat does not take a bare string as a filename: a prefix
+    before the first ``:`` is looked up as a *protocol*. A relative name such as
+    ``concat:a.wav|b.wav`` or ``subfile,,start,0,end,0,,:x`` is therefore read as an
+    instruction -- it opens other files than the one named -- and a network protocol
+    prefix would make a decoder of a "local file" open a connection, which the offline
+    rule (AGENTS.md rule 1, ADR-019) forbids. An ordinary recording named
+    ``Interview:1.mp3`` fails outright ("Protocol not found") for the same reason.
+
+    ``load_audio`` has already checked that ``path`` exists on disk, so the bytes the
+    user meant are always a local file; this makes libavformat agree. The ``file:``
+    protocol strips exactly that prefix and treats the remainder literally. The path is
+    made absolute so a bare ``-`` is never mistaken for standard input.
+    Pure: no I/O.
+    """
+    return "file:" + os.path.abspath(os.fspath(path))
+
+
 def _decode_pyav(path, sample_rate):
     """Decode via faster-whisper's bundled PyAV helper (import-location tolerant)."""
     try:
         from faster_whisper import decode_audio
     except ImportError:
         from faster_whisper.audio import decode_audio
-    return decode_audio(path, sampling_rate=sample_rate)
+    return decode_audio(local_media_url(path), sampling_rate=sample_rate)
 
 
 def _decode_ffmpeg(path, sample_rate):
     """Decode via a system ffmpeg subprocess to raw f32le mono."""
     cmd = [
-        "ffmpeg", "-nostdin", "-threads", "0", "-i", path,
+        "ffmpeg", "-nostdin", "-threads", "0", "-i", local_media_url(path),
         "-f", "f32le", "-ac", "1", "-ar", str(sample_rate), "-",
     ]
     proc = subprocess.run(cmd, capture_output=True, check=True)
