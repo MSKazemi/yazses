@@ -207,6 +207,11 @@ For any other app-specific action, use a [macro](../how-to/macros-and-snippets.m
   which needs a local GGUF model and `llama-cpp-python`.
 - **Some capabilities in the table are `optional` rather than `recommended`**, and
   a few desktop-control ones need X11. `yazses features` always states the tier.
+- **The commands are English.** A smaller Mandarin set exists as an experimental
+  preview, selected by a Mandarin language profile or `[commands] language = "zh"`; no
+  native speaker has reviewed its phrases yet. The full list is on the
+  [Chinese voice typing](chinese-voice-typing.md#chinese-voice-commands-experimental-safe-core-only)
+  page. A phrase spoken in any other language is typed as text.
 
 ## Related
 

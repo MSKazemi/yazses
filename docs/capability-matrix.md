@@ -124,11 +124,18 @@ yazses doctor               # reports the same, plus the injector it will use
   `xdg-desktop-portal` RemoteDesktop API; the universal installer, APT and
   `pipx` remain the most-tested Wayland path.
 - **macOS** — Accessibility and Microphone permissions are per-binary. An update
-  that changes the app's identity re-prompts.
+  that changes the app's identity re-prompts. Input Monitoring is read when the daemon
+  starts, so a grant given while it runs needs a restart; `yazses doctor` says when the
+  running daemon started before the grant, and the
+  [macOS troubleshooting](macos-install.md#troubleshooting) section covers the menu-bar
+  icon restarting an idle daemon by itself (tested with simulated daemons only).
 - **Windows** — an app running **as administrator** does not receive input from a
   non-elevated process (User Interface Privilege Isolation). Dictation into Task
   Manager or an elevated PowerShell silently does nothing unless YazSes is
-  elevated too; `yazses doctor` reports which case you are in.
+  elevated too; `yazses doctor` reports which case you are in. The microphone switch
+  *"Let desktop apps access your microphone"* governs the `.exe`, pip, winget, Scoop and
+  Chocolatey installs but not the Store (MSIX) build, which has its own YazSes entry in the
+  same settings page ([microphone access](windows-install.md#microphone-access)).
 
 ## Camera permission and packaging
 

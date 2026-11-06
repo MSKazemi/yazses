@@ -102,6 +102,10 @@ before you turn anything on, and any value you write yourself wins.
    yazses gaze calibrate
    ```
 
+   `yazses gaze calibrate` runs on X11 only. On a Wayland session it refuses, because
+   gaze has no window to target there; `yazses gaze status` lists what Glance-Type does
+   on your session.
+
 6. **Arm it.** Hands-free starts **paused**, and the first arming needs a fresh signal from the camera,
    so nothing moves the instant the camera comes up. Re-arm from any terminal, or from Tray →
    **Settings…** → **Hands-free** page:

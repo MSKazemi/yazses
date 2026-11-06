@@ -113,6 +113,10 @@ Read this part before you install anything.
   large echoey room with six people talking over each other, a cloud service with per-channel
   audio will beat it. That is the trade you are making for privacy.
 - **English-tuned by default.** It ships `*.en` models; other languages need a different one.
+  For a Chinese meeting, the transcript formats, speaker names and `relabel` keep Han text
+  exact, and the minutes are drafted in smaller windows so the transcript fits the model's
+  context; see [Chinese voice typing](use-cases/chinese-voice-typing.md#meetings-and-file-transcripts).
+  That is checked with synthetic text only, not yet with real recordings.
 
 ## What actually happens to your audio
 

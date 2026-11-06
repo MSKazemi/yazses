@@ -116,7 +116,7 @@ doing nothing.
 | **Accessibility Continuum** | `continuum` | Whisper/Low-Effort Mode lowers the mic gate so quiet or effortful speech is still captured (no shouting). |
 | **Modality Role Router** | `modality` | Assigns each input its fastest role (gaze→point, EMG→command, voice→dictation). Needs EMG/gaze hardware. |
 | **Gaze-Routed Dictation** | `[gaze] route_dictation` | Sends the next dictation to the window you look at, with a focus fallback and a confirm for destructive actions. Confidence is measured per frame (left/right eye agreement), so poor frames fall back instead of misrouting. Needs a webcam + calibration (X11). |
-| **Gaze Deixis** | `[gaze] deixis` | In command mode, "close this" / "focus that window" / "minimize that" act on the window you are *looking at*, not the one with focus. Destructive actions confirm via a toast. On by default inside the opt-in gaze feature. |
+| **Gaze Deixis** | `[gaze] deixis` | In command mode, "close this" / "focus that window" / "minimize that" act on the window you are *looking at*, not the one with focus. "close this" on the window gaze picked asks first, via a toast. When gaze cannot pick a window, the command falls back to the focused window, and by default "close this" then closes it **without asking**; `[gaze] refuse_destructive_fallback = true` (set by the hands-free preset) refuses it instead. X11 only: on Wayland every gaze command is refused with a notification. `yazses gaze status` lists what applies to your session. On by default inside the opt-in gaze feature. |
 
 ## Wave D (v2.1) — new frontier features (all off by default)
 

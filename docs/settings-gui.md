@@ -172,6 +172,15 @@ distribution too old to load Qt.
 `yazses features enable` requires `--force`. That refusal is the point: it is the
 difference between "you can turn this on" and "we suggest you do".
 
+**A switch that would split your language profile is refused too**, with the same
+check `yazses doctor` runs, and nothing is written. *Chinese script* only pins the Han
+script, so it is refused unless your speech language is Chinese, and the refusal names
+`yazses language set zh-CN` (or `zh-TW`), which changes the language, model and script
+together. The *Parakeet* and *Moonshine* engines load English-only checkpoints, so they
+are refused while the language is set to anything other than English, and the refusal says to keep your
+current engine or switch the language first. Turning a capability off is never refused
+this way. (Not yet checked in a real Qt window.)
+
 ## Features that need extra packages
 
 About twenty capabilities need an optional Python package — gaze needs

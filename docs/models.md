@@ -153,7 +153,10 @@ mis-heard vocabulary after decoding, which is why it was built to be
 engine-agnostic.
 
 Enable either with `yazses features enable stt-parakeet` / `stt-moonshine`; that
-installs only that engine's dependencies. Disabling restores faster-whisper.
+installs only that engine's dependencies. Disabling restores faster-whisper. Both load
+English-only checkpoints, so enabling either is refused, with nothing written, while
+`[stt] language` names a language other than English; `yazses doctor` would otherwise report the
+pair as a failure and dictation would be refused at the next start.
 
 ## What this page does not claim
 

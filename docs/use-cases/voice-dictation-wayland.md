@@ -108,9 +108,13 @@ Being straight about the limits, because they are real:
 | Meeting Mode, file transcription | ✅ | No injection involved |
 | **Glance-Type (look-to-pane targeting)** | ❌ **X11 only** | Wayland gives no client the ability to focus another application's window |
 
-Glance-Type stays dormant on Wayland rather than half-working. If gaze-directed
-window targeting matters to you today, that specific feature needs an X11
-session.
+Glance-Type stays dormant on Wayland rather than half-working. Dictation goes to the
+window that already has focus, and gaze commands such as "close this" are refused with a
+notification instead of being sent to the focused window. `yazses gaze status` and
+`yazses doctor` list exactly what Glance-Type does on your session; the full table is in
+[What Glance-Type does on Wayland](../capability-matrix.md#what-glance-type-does-on-wayland).
+If gaze-directed window targeting matters to you today, that specific feature needs an
+X11 session.
 
 ## Text still is not appearing — what now?
 
