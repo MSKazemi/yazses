@@ -35,6 +35,7 @@ from yazses.sendto import validation
 from yazses.sendto.targets import TARGETS
 from yazses.sendto.validation import (
     OPENERS_BY_OS,
+    REMOVED_TARGETS,
     ROWS,
     Outcome,
     ValidationRow,
@@ -135,7 +136,11 @@ def test_a_complete_row_has_no_problems() -> None:
         ({"tester": ""}, "tester"),
         ({"evidence": ""}, "evidence"),
         ({"evidence": "see chat"}, "evidence"),
+        ({"evidence": "https://"}, "evidence"),
+        ({"evidence": "https:///issues/637"}, "evidence"),
         ({"client_version": "Claude 1.0 | 2.0"}, "|"),
+        ({"environment": "Ubuntu 24.04\nGNOME 46"}, "line break"),
+        ({"tester": "someone\r"}, "line break"),
     ],
 )
 def test_an_incomplete_row_is_a_problem(override, fragment) -> None:
@@ -145,10 +150,46 @@ def test_an_incomplete_row_is_a_problem(override, fragment) -> None:
 
 
 def test_a_removed_target_may_keep_its_submitted_row_as_history() -> None:
-    """Once a submitting target is removed, its row stays as the reason why."""
+    """Once a submitting target is removed, its row stays as the reason why -- but only
+    because the removal itself is written down in ``REMOVED_TARGETS``."""
     row = _row(target="claude", outcome=Outcome.SUBMITTED)
-    assert row_problems((row,), frozenset({"claude-code", "codex"})) == []
+    problems = row_problems(
+        (row,), frozenset({"claude-code", "codex"}), removed_targets=frozenset({"claude"})
+    )
+    assert problems == []
     assert submitted_targets((row,)) == frozenset({"claude"})
+
+
+@pytest.mark.parametrize("slug", ["claud", "Claude", "claude code", "CODEX", " codex"])
+def test_a_submitted_row_must_name_a_real_target(slug) -> None:
+    """A mistyped slug on a ``submitted`` row would switch off the removal rule.
+
+    ``submitted_targets`` compares slugs exactly, so a ``submitted`` row for ``claud``
+    leaves ``claude`` in ``TARGETS`` and the removal test green. The row is a defect
+    instead: it names a live target (and the removal test catches it) or a target that
+    was deliberately removed.
+    """
+    row = _row(target=slug, outcome=Outcome.SUBMITTED)
+    problems = row_problems((row,), frozenset(TARGETS))
+    assert any("unknown target" in p for p in problems), problems
+
+
+def test_a_submitted_row_for_a_live_target_fails_the_removal_rule() -> None:
+    """The case the removal test exists for: the slug is right, so it is caught there."""
+    row = _row(target="claude", outcome=Outcome.SUBMITTED)
+    assert row_problems((row,), frozenset(TARGETS)) == []
+    assert submitted_targets((row,)) & set(TARGETS) == {"claude"}
+
+
+def test_removed_targets_are_not_live_targets() -> None:
+    """A slug is either offered or removed, never both."""
+    assert not REMOVED_TARGETS & set(TARGETS)
+
+
+def test_every_removed_target_has_the_submitted_row_that_removed_it() -> None:
+    """§5 removes a target only for a run seen to submit; the record must show that run."""
+    missing = REMOVED_TARGETS - submitted_targets(ROWS)
+    assert not missing, f"{sorted(missing)} removed with no submitted row in ROWS"
 
 
 def test_a_removed_target_cannot_carry_a_verification() -> None:
@@ -219,3 +260,42 @@ def test_the_feature_card_follows_a_new_row(monkeypatch) -> None:
     assert "Verified pre-filled and not sent on " in why
     assert "Claude 0.0.0-synthetic" in why
     assert "Not yet verified against any real" not in why
+
+
+# --- prose that is true only while the record is empty -----------------------------------
+
+#: Hand-written sentences that say nothing has been tried. Each is true while ``ROWS`` is
+#: empty and false once a single run is recorded, so the first row must change every one
+#: (and, for the CLI docstring, regenerate the reference: ``scripts/gen-docs.py`` and
+#: ``scripts/gen-man.py``).
+_EMPTY_RECORD_CLAIMS: tuple[tuple[str, str], ...] = (
+    ("src/yazses/cli.py", "Not yet tried against the real desktop apps."),
+    ("docs/cli-reference.md", "not yet tried\nagainst the real desktop apps."),
+    ("src/yazses/sendto/validation.py", "**It is empty**"),
+    ("design/architecture.md", "**empty**, nothing has been tried against a real client"),
+    ("design/adr/adr-031-send-to-prefill-handoff.md",
+     "**Unverified:** no hand-off has yet been tried against a real Claude or Codex install"),
+)
+
+
+@pytest.mark.parametrize(("rel", "claim"), _EMPTY_RECORD_CLAIMS)
+def test_an_empty_record_claim_is_true_exactly_while_the_record_is_empty(rel, claim) -> None:
+    text = (ROOT / rel).read_text(encoding="utf-8")
+    if ROWS:
+        assert claim not in text, (
+            f"{rel} still says nothing has been tried, but ROWS has {len(ROWS)} row(s); "
+            "rewrite it from the record (and regenerate docs/man if it is the CLI help)"
+        )
+    else:
+        assert claim in text, (
+            f"{rel} no longer carries {claim!r}; update _EMPTY_RECORD_CLAIMS so the first "
+            "row still has to revisit that sentence"
+        )
+
+
+def test_the_procedure_names_the_regeneration_step() -> None:
+    """A new verified row changes generated docs; the ADR procedure must say to rebuild."""
+    text = ADR_031.read_text(encoding="utf-8")
+    procedure = text.split("**How a row is made", 1)[1].split(START, 1)[0]
+    assert "scripts/gen-docs.py" in procedure
+    assert "scripts/gen-man.py" in procedure

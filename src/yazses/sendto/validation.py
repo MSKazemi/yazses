@@ -16,6 +16,9 @@ tried. This module is that record and the rules it obeys:
   "Not yet verified ..." with no verifying row, otherwise the client versions that were.
 * :func:`submitted_targets` is §5's removal rule: a target seen to submit on open may not
   stay in :data:`yazses.sendto.targets.TARGETS` (the same test fails until it is removed).
+  A removed slug moves to :data:`REMOVED_TARGETS`, so its ``submitted`` row stays valid
+  as history -- and a row naming a slug in neither set (a typo such as ``claud``) is a
+  defect, never silent history that would switch the removal rule off.
 
 Pure: no I/O, no clock, no logging, no imports beyond the standard library and the pure
 target table.
@@ -23,6 +26,7 @@ target table.
 from __future__ import annotations
 
 import datetime as _dt
+import re
 from dataclasses import dataclass
 from enum import Enum
 
@@ -87,8 +91,15 @@ class ValidationRow:
 
 
 #: The record. Empty until a person runs a hand-off against a real client and the row is
-#: added here and in ADR-031's table in the same change.
+#: added here and in ADR-031's table in the same change, followed by
+#: ``uv run python scripts/gen-docs.py`` (a verified row changes ``docs/features.md``) and
+#: the "nothing tried yet" sentences ``tests/test_sendto_validation_record.py`` lists.
 ROWS: tuple[ValidationRow, ...] = ()
+
+#: Slugs taken out of ``TARGETS`` because a run saw them submit on open (ADR-031 §5). A
+#: ``submitted`` row for one of them stays in :data:`ROWS` as the reason; every row must
+#: name a live target or one of these, exactly as written.
+REMOVED_TARGETS: frozenset[str] = frozenset()
 
 
 def _real_iso_date(value: str) -> bool:
@@ -98,18 +109,38 @@ def _real_iso_date(value: str) -> bool:
         return False
 
 
-def row_problems(rows: tuple[ValidationRow, ...], known_targets: frozenset[str]) -> list[str]:
+def _evidence_link(value: str) -> bool:
+    """An ``https://`` link with a real host (``https://`` alone is not evidence)."""
+    if not value.startswith("https://"):
+        return False
+    # Parsed by hand: importing urllib, even its parser, trips the ADR-019 egress guard.
+    authority = re.split(r"[/?#]", value[len("https://"):], maxsplit=1)[0]
+    host = authority.rpartition("@")[2].partition(":")[0]
+    labels = host.split(".")
+    return len(labels) >= 2 and all(labels)
+
+
+def row_problems(
+    rows: tuple[ValidationRow, ...],
+    known_targets: frozenset[str],
+    removed_targets: frozenset[str] = REMOVED_TARGETS,
+) -> list[str]:
     """Every way *rows* falls short of a usable record; an empty list means none.
 
-    A row must name a target in *known_targets* -- except a ``submitted`` row, which stays
-    as the record of why a target was removed. It needs a known OS, an opener that OS can
-    take, a real ISO date, a link to the evidence, and every free-text field filled in
-    without a ``|`` (which would break the ADR's table).
+    A row must name, exactly, a target in *known_targets* or in *removed_targets* (a
+    target taken out after a ``submitted`` run; its rows stay as the reason). A
+    ``submitted`` row gets no exemption: a mistyped slug would otherwise leave the real
+    target in the table with the removal rule silently off. A row also needs a known OS,
+    an opener that OS can take, a real ISO date, an ``https://`` evidence link with a
+    host, and every free-text field filled in without a ``|`` or a line break (either
+    would break the ADR's table). The date is not compared with today: this module reads
+    no clock.
     """
+    allowed = known_targets | removed_targets
     problems: list[str] = []
     for i, row in enumerate(rows):
         where = f"row {i} ({row.target})"
-        if row.target not in known_targets and row.outcome is not Outcome.SUBMITTED:
+        if row.target not in allowed:
             problems.append(f"{where}: unknown target {row.target!r}")
         if row.os not in OPENERS_BY_OS:
             problems.append(f"{where}: unknown os {row.os!r}")
@@ -123,12 +154,13 @@ def row_problems(rows: tuple[ValidationRow, ...], known_targets: frozenset[str])
             value = getattr(row, name)
             if not value.strip():
                 problems.append(f"{where}: {name} is empty")
-        if row.evidence.strip() and not row.evidence.startswith("https://"):
+        if row.evidence.strip() and not _evidence_link(row.evidence):
             problems.append(f"{where}: evidence must be an https link to the record")
-        for cell in row.table_cells():
-            if "|" in cell:
-                problems.append(f"{where}: a field holds '|', which breaks the ADR table")
-                break
+        cells = row.table_cells()
+        if any("|" in cell for cell in cells):
+            problems.append(f"{where}: a field holds '|', which breaks the ADR table")
+        if any("\n" in cell or "\r" in cell for cell in cells):
+            problems.append(f"{where}: a field holds a line break, which breaks the ADR table")
     return problems
 
 

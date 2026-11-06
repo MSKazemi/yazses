@@ -232,7 +232,9 @@ the verified client versions, and the table below, for people.
 `tests/test_sendto_validation_record.py` fails when they differ, when a row is incomplete
 (target, OS, an opener that OS can take, a real date, client and YazSes versions, tester,
 an `https://` evidence link), and when a target with a `submitted` row is still in
-`TARGETS` — §5's removal rule as a failing test. Only `prefilled-not-submitted` verifies;
+`TARGETS` — §5's removal rule as a failing test. Every row, `submitted` ones included,
+must name a live target or one in `REMOVED_TARGETS` exactly as written, so a mistyped
+slug cannot turn the removal rule off; removing a target moves its slug there. Only `prefilled-not-submitted` verifies;
 `not-prefilled` and `did-not-open` are recorded results, not verifications. A row comes
 only from a real run against a real client — never from a test, a fake opener or a
 vendor's documentation.
@@ -247,6 +249,12 @@ portal" is `portal`, "opening the link with xdg-open" or "trying xdg-open once" 
 the input box, and whether anything was sent before Enter was pressed (the client's
 conversation history shows it). Take the client version from its About box and post the
 details where the evidence link points. Use synthetic text only, never a real prompt.
+Then, in one change: add the row to `ROWS` and to the table below; rewrite each "nothing
+tried yet" sentence `tests/test_sendto_validation_record.py` lists (the `send-to` CLI
+help among them); run `uv run python scripts/gen-docs.py` and
+`uv run python scripts/gen-man.py` (a verified row changes `docs/features.md`, the CLI
+help changes the reference and the man page); and, if the outcome is `submitted`, move
+the slug from `TARGETS` to `REMOVED_TARGETS` and say why in the release notes.
 
 <!-- sendto-validation:start -->
 | Target | OS | Environment | Client version | YazSes version | Opener | Date | Outcome | Tester | Evidence |
