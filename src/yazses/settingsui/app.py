@@ -249,6 +249,8 @@ def _unframe(box):
 #: and the frame, with a little slack so a measured line is never wider than a drawn one.
 _CATEGORY_TEXT_WIDTH = 214
 
+_MIC_REFRESH_FAILED = "Could not list microphones; the previous list is kept."
+
 _ROW_STYLE = "#featureRow { border: 0; border-bottom: 1px solid palette(midlight); }"
 _ROW_STYLE_STAGED = (
     "#featureRow { border: 0; border-bottom: 1px solid palette(midlight);"
@@ -895,7 +897,9 @@ class SettingsWindow:
         from PySide6.QtWidgets import (
             QFormLayout,
             QGroupBox,
+            QHBoxLayout,
             QLabel,
+            QPushButton,
             QSlider,
             QVBoxLayout,
         )
@@ -934,7 +938,19 @@ class SettingsWindow:
         )
         self._mic_box = mic
         self._mic_baseline = model.microphone
-        form.addRow(QLabel("Microphone:"), mic)
+        self._mic_device_count = len(devices)
+        refresh = QPushButton("Refresh")
+        refresh.setAccessibleName("Refresh microphones")
+        refresh.setToolTip(
+            "Look for microphones plugged in since this window opened. "
+            "Your selection is kept and nothing is saved."
+        )
+        refresh.clicked.connect(self._refresh_microphones)
+        mic_row = QHBoxLayout()
+        mic_row.setContentsMargins(0, 0, 0, 0)
+        mic_row.addWidget(mic, 1)
+        mic_row.addWidget(refresh)
+        form.addRow(QLabel("Microphone:"), mic_row)
 
         slider = QSlider(Qt.Orientation.Horizontal)
         slider.setRange(0, VAD_SLIDER_STEPS)
@@ -1064,6 +1080,58 @@ class SettingsWindow:
             if above
             else "Below the line — audio this quiet is discarded as silence."
         )
+
+    def _refresh_microphones(self) -> None:
+        """Re-list the microphones, keeping whatever is selected and staging nothing.
+
+        Runs on the GUI thread, like the probe that builds the page; it is a click the
+        user asked for. The real enumerator reports a PortAudio failure by returning an
+        empty list rather than raising, so an empty result while the list already held
+        devices is treated as a failed refresh, like an exception: the list and the
+        selection stay as they were and the footer hint says so. (A genuine "every
+        microphone was unplugged" looks the same and is kept the same way.) Signals are
+        blocked while the items are rebuilt so the page is not marked dirty, and the
+        selection is restored by value, not by label. The star follows the saved pin,
+        not the staged choice.
+        """
+        mic = getattr(self, "_mic_box", None)
+        if mic is None:
+            return
+        try:
+            from yazses.audio.devices import current_default_input_name, list_input_devices
+
+            devices, default_name = list_input_devices(), current_default_input_name()
+        except Exception:  # noqa: BLE001 - keep the existing list
+            log.debug("could not re-enumerate input devices", exc_info=True)
+            self._hint.setText(_MIC_REFRESH_FAILED)
+            return
+        if not devices and getattr(self, "_mic_device_count", 0) > 0:
+            self._hint.setText(_MIC_REFRESH_FAILED)
+            return
+        if self._hint.text() == _MIC_REFRESH_FAILED:
+            self._hint.setText("")
+        from yazses.bidi import wrap_user_text
+        from yazses.settingsui.controls import mic_choices
+
+        selected = mic.currentData()
+        selected = self._mic_baseline if selected is None else selected
+        choices = mic_choices(devices, default_name=default_name, pinned=self._mic_baseline)
+        entries = [(choice.label, choice.value) for choice in choices]
+        if not any(value == selected for _label, value in entries):
+            # A staged (unsaved) choice whose device is gone: keep it selected and say why.
+            entries.append((f"{wrap_user_text(selected)} (not connected)", selected))
+        blocked = mic.blockSignals(True)
+        try:
+            mic.clear()
+            for label, value in entries:
+                mic.addItem(label, value)
+            for index, (_label, value) in enumerate(entries):
+                if value == selected:
+                    mic.setCurrentIndex(index)
+                    break
+        finally:
+            mic.blockSignals(blocked)
+        self._mic_device_count = len(devices)
 
     def _probe_devices(self):
         """(devices, default_name), or ([], None) when audio cannot be opened."""
