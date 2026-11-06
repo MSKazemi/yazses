@@ -78,6 +78,34 @@ defaults were re-checked against v2.49.0; a tenth carousel is held back because 
 CLI lists nine. A test refuses an approved row without a licence, an incomplete or out-of-order carousel, and any editable source file, PDF,
 video or large binary in the folder.
 
+### Fixed — the daemon's own shutdown now stops the push-to-talk recorder
+
+An input stream left open by a hold in progress is released by the daemon's teardown, and its audio is dropped rather than typed, instead of waiting for process exit. This matters for in-process embedding and tests; no user-visible microphone-indicator fix is claimed. Covered by a fake-recorder test on Linux only.
+
+### Fixed — audio: a failing `on_chunk` consumer no longer aborts the microphone stream
+
+An exception raised by the recorder's `on_chunk` consumer escaped the PortAudio callback, which stops the stream and was then reported as a lost input device. It is now logged once per recording and the take continues.
+
+### Fixed — IPC client: a malformed daemon reply is one typed error
+
+An empty, non-UTF-8 or non-JSON reply, or an `error` member that is not an object or has a non-numeric or infinite `code`, now raises one `IpcCallError` (-32603) instead of leaking `JSONDecodeError`, `AttributeError`, `ValueError` or `OverflowError` to callers. The Windows named-pipe client is not yet covered.
+
+### Fixed — X11: the xdotool backspace injection clears held modifiers
+
+It now passes `--clearmodifiers`, as the type and key-sequence paths already did, so a still-held hold-to-talk modifier cannot turn the leaked-character cleanup at hold start into a modifier chord. Covered by a synthetic fake-runner test only; not verified on a real X11 session.
+
+### Fixed — security: the IPC socket is created owner-only atomically
+
+The Unix socket is bound under a `0o177` umask, so it is born `0600` instead of existing with umask-derived permissions until the `chmod` that followed. The umask is held for the bind alone and always restored. Linux only.
+
+### Fixed — security: SLM model downloads are atomic and verified
+
+Downloads write to a `.part` file with a 30 s timeout, verify length (and an optional SHA-256) before renaming into place, and remove the partial on failure; a truncated cached model is no longer trusted and is re-downloaded.
+
+### Added — tests and research that change no behaviour
+
+A pure, dependency-free streaming replay oracle (`yazses.stt.streaming_replay`) that runs all 16 `streaming-replay-v1.jsonl` fixtures (spec Phase R0, #796; synthetic traces only, no evidence about any editor, injector or ASR model). Synthetic Persian+English and Han+ASCII mixed-script vectors pinning that the default pipeline loses no characters (not evidence of code-switch support). A test that "send to" only pre-fills and never emits a submit; real-client behaviour (Claude, Claude Code, Codex, per OS) remains unverified. An automated static audit for the #701 Hugging Face privacy preflight (the publication gate stays BLOCKED and the CSP row OPEN). A test requiring every `src/yazses` package to be named in the architecture reference, and a Meeting Mode section in `design/architecture.md`. Two dated research notes: the Android ADR traceability matrix (#812; proposed wording only, no ADR edited, the "visible IME window needs no foreground service" premise unverified pending a device test) and a comparison of multimodal arbitration policies against the one-camera rule (#815).
+
 ## [2.49.0] - 2026-11-05
 
 ### Fixed — `ask_human` can no longer exceed its hourly budget when several agents ask at once
