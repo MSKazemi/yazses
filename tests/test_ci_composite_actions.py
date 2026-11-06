@@ -13,6 +13,12 @@ therefore has to stay boring in three ways, and each is checked here from the fi
 3. **Wired.** Every action is referenced by a workflow job, so it cannot silently rot,
    and every `uses: ./.github/actions/...` in a workflow resolves to a real action.
 
+4. **Called correctly.** Every caller passes only declared inputs, supplies every
+   required one and reads only declared outputs, because GitHub enforces none of the
+   three for a composite.
+5. **Kept current.** Dependabot's github-actions entry names every composite directory,
+   so a pin inside a composite is bumped like a pin in a workflow.
+
 It also keeps the reuse rule honest: a job that still calls `astral-sh/setup-uv` directly
 must be a listed, justified exception (`DIRECT_SETUP_UV`).
 
@@ -208,4 +214,146 @@ def test_setup_uv_python_leaves_the_uv_cache_key_at_its_default() -> None:
     assert set(setup["with"]) == {"version", "python-version"}, (
         f"setup-uv now receives {sorted(setup['with'])}; update CI_POLICY.md §8 'Caches' "
         "with what the uv cache key contains, then this set"
+    )
+
+
+# --- the caller contract ---------------------------------------------------------------
+#
+# GitHub does not reject a `with:` key that a composite does not declare. It logs a
+# warning in the run and drops the value, so a caller that misspells `sync-args` installs
+# without its extra and goes green on a narrower environment than it names. GitHub does
+# not enforce `required:` on a composite's inputs either; a missing one reads as an empty
+# string. Both are checked here from the files, for every action and every caller.
+
+_OUTPUT_REF = re.compile(r"steps\.(?P<id>[A-Za-z0-9_-]+)\.outputs\.(?P<name>[A-Za-z0-9_-]+)")
+
+
+def _action_spec(name: str) -> dict:
+    for suffix in ("action.yml", "action.yaml"):
+        path = ACTIONS / name / suffix
+        if path.is_file():
+            return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    raise AssertionError(f"no action.yml for {name}")
+
+
+def _local_calls() -> list[tuple[str, str, dict, dict]]:
+    """(workflow:job, action name, the step, the job) for every local-action call."""
+    calls: list[tuple[str, str, dict, dict]] = []
+    for label, job in _workflow_jobs():
+        for step in job.get("steps") or []:
+            uses = str(step.get("uses", ""))
+            if uses.startswith(_LOCAL_PREFIX):
+                name = uses[len(_LOCAL_PREFIX):].split("@", 1)[0].strip("/")
+                calls.append((label, name, step, job))
+    return calls
+
+
+LOCAL_CALLS = _local_calls()
+CALL_IDS = [f"{label}->{name}" for label, name, _, _ in LOCAL_CALLS]
+
+
+def test_the_caller_scan_sees_every_composite_caller() -> None:
+    assert len(LOCAL_CALLS) >= 5, f"only {len(LOCAL_CALLS)} composite calls found; the scan is broken"
+
+
+@pytest.mark.parametrize("call", LOCAL_CALLS, ids=CALL_IDS)
+def test_every_caller_passes_only_declared_inputs(call: tuple[str, str, dict, dict]) -> None:
+    label, name, step, _ = call
+    declared = set((_action_spec(name).get("inputs") or {}).keys())
+    passed = set((step.get("with") or {}).keys())
+    unknown = sorted(passed - declared)
+    assert not unknown, (
+        f"{label} passes {unknown} to {name}, which declares only {sorted(declared)}. "
+        "GitHub drops an undeclared input with a warning, so the job would run without it."
+    )
+
+
+@pytest.mark.parametrize("call", LOCAL_CALLS, ids=CALL_IDS)
+def test_every_caller_supplies_every_required_input(call: tuple[str, str, dict, dict]) -> None:
+    label, name, step, _ = call
+    inputs = _action_spec(name).get("inputs") or {}
+    passed = step.get("with") or {}
+    for key, spec in inputs.items():
+        if not (spec or {}).get("required"):
+            continue
+        value = passed.get(key)
+        assert value is not None and str(value).strip(), (
+            f"{label} calls {name} without its required input {key!r}. GitHub does not "
+            "enforce `required:` for a composite; the action would see an empty string."
+        )
+
+
+@pytest.mark.parametrize("call", LOCAL_CALLS, ids=CALL_IDS)
+def test_every_caller_reads_only_declared_outputs(call: tuple[str, str, dict, dict]) -> None:
+    label, name, step, job = call
+    step_id = step.get("id")
+    if not step_id:
+        return  # nothing can read an output of a step that has no id
+    declared = set((_action_spec(name).get("outputs") or {}).keys())
+    read = {m["name"] for m in _OUTPUT_REF.finditer(yaml.safe_dump(job)) if m["id"] == step_id}
+    unknown = sorted(read - declared)
+    assert not unknown, (
+        f"{label} reads outputs {unknown} of {name} (step id {step_id!r}), which declares "
+        f"only {sorted(declared)}. An undeclared output reads as an empty string."
+    )
+
+
+@pytest.mark.parametrize("action", ACTION_FILES, ids=ACTION_IDS)
+def test_every_declared_input_is_read_by_the_action(action: Path) -> None:
+    """An input the body never reads is a promise the action does not keep: a caller
+    that sets it changes nothing."""
+    data = yaml.safe_load(action.read_text(encoding="utf-8")) or {}
+    body = yaml.safe_dump(data.get("runs") or {})
+    for key in data.get("inputs") or {}:
+        assert f"inputs.{key}" in body, (
+            f"{action.relative_to(REPO)} declares input {key!r} but never reads `inputs.{key}`"
+        )
+
+
+@pytest.mark.parametrize("action", ACTION_FILES, ids=ACTION_IDS)
+def test_every_declared_output_names_a_value(action: Path) -> None:
+    data = yaml.safe_load(action.read_text(encoding="utf-8")) or {}
+    for key, spec in (data.get("outputs") or {}).items():
+        assert str((spec or {}).get("value", "")).strip(), (
+            f"{action.relative_to(REPO)} declares output {key!r} with no `value:`; a "
+            "composite output must name the step output it forwards"
+        )
+
+
+# --- the pins inside a composite get updates too -----------------------------------------
+#
+# With `directory: "/"`, Dependabot's github-actions updater reads `.github/workflows/` and
+# an `action.yml` in the repository root, and nothing else (GitHub Docs, "Dependabot
+# options reference", `directory`). A composite under `.github/actions/<name>/` is outside
+# that, so its pin is never bumped. On 2026-11-06 the composite still pinned setup-uv
+# v10.2.0 while all seven direct calls in the workflows had been bumped to v10.3.3. Every
+# composite directory must be named in the github-actions entry's `directories`.
+
+DEPENDABOT = REPO / ".github" / "dependabot.yml"
+
+
+def _dependabot_action_directories() -> set[str]:
+    config = yaml.safe_load(DEPENDABOT.read_text(encoding="utf-8"))
+    entries = [u for u in config["updates"] if u["package-ecosystem"] == "github-actions"]
+    assert len(entries) == 1, "expected exactly one github-actions entry in dependabot.yml"
+    entry = entries[0]
+    dirs = list(entry.get("directories") or [])
+    if "directory" in entry:
+        dirs.append(entry["directory"])
+    return {d.rstrip("/") or "/" for d in dirs}
+
+
+def test_dependabot_still_watches_the_workflows() -> None:
+    assert "/" in _dependabot_action_directories(), (
+        "the github-actions Dependabot entry no longer covers `/`, so workflow pins stop updating"
+    )
+
+
+@pytest.mark.parametrize("action", ACTION_FILES, ids=ACTION_IDS)
+def test_dependabot_watches_every_composite(action: Path) -> None:
+    wanted = "/" + action.parent.relative_to(REPO).as_posix()
+    watched = _dependabot_action_directories()
+    assert wanted in watched, (
+        f"Dependabot's github-actions entry watches {sorted(watched)} but not {wanted}, so "
+        f"the pins in {action.relative_to(REPO)} are never bumped. Add it to `directories`."
     )

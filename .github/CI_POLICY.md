@@ -365,6 +365,14 @@ Rules:
 
 A faster workflow is not an improvement if it broadens the token or secret boundary.
 
+**The write ceiling.** `tests/test_workflow_yaml_is_valid.py` keeps every top-level block
+read-only, so a write scope can only come from a job. `tests/test_ci_permission_ceiling.py`
+pins which jobs hold which write scopes (`WRITE_GRANTS`, read 2026-11-06) and compares the
+workflows with it both ways. A job that gains a write scope fails until the scope is added
+there, in the same diff a reviewer reads. A job that drops one fails until its entry
+shrinks. `permissions: write-all` is refused outright. Reusing `.github/actions/*` cannot
+widen a token, because a composite declares no `permissions:` and runs with its caller's.
+
 ---
 
 ## 8. Timeouts, caches, and repeated setup
@@ -425,21 +433,35 @@ defaults to `auto`, which is on for GitHub-hosted runners. Read from setup-uv's 
 the pinned commit (`c18668ad`, v10.2.0, `src/cache/restore-cache.ts`), the key is
 `setup-uv-2-<arch>-<platform>-<OS image>-<interpreter>-<hash of pyproject.toml, uv.lock
 and requirements files>`, and it is restored by exact match only. There is no restore-key
-prefix, so no entry can cross an architecture, OS image or interpreter. The uv version is
+prefix, so no entry can cross an architecture, OS image or interpreter. The workflows'
+direct calls pin `68559e99` (v10.3.3). Read on 2026-11-06, its `computeKeys` differs from
+v10.2.0 in one place: an optional `-python-<arch>` segment, added only when the
+`python-arch` input is set. No caller sets it, and the restore is still exact. The uv version is
 not in the key. This repository accepts that because uv keeps one versioned bucket per
 cache format, and a different uv reads only its own buckets. A local cache read on
 2026-10-30 held `wheels-v6` and `wheels-v7` side by side. Two jobs that sync different
 extras share a key when they share an OS image and an interpreter. The first to save wins,
 and a job that hits does not save, so the other job downloads its extra wheels again. That
 costs time, not correctness. `tests/test_ci_composite_actions.py` fails if the composite
-passes setup-uv any input besides `version` and `python-version`. Whoever changes that
-also updates this paragraph and the test together.
+passes setup-uv any input besides `version` and `python-version`, and
+`tests/test_ci_cache_policy.py` fails if a direct call does. Whoever changes that
+also updates this paragraph and the tests together.
 
-**`actions/cache` steps** (1 on 2026-11-01, counted with `git grep`): the docs' mirrored
+**`actions/cache` steps** (1 on 2026-11-06, counted with `git grep`): the docs' mirrored
 web fonts in `docs.yml`. It holds data, not built code. The font mirror runs on Linux
 only, and its restore-key prefix can only match that one family. The LibriSpeech corpus
 and Whisper checkpoint caches that `benchmark.yml` held (3 steps on 2026-10-30) left with
 that workflow in 2.47.0.
+
+**How the cache rule is enforced.** `tests/test_ci_cache_policy.py` finds every step that
+can read or write a cache by derivation, not from a list, and checks:
+
+| Cache | Rule |
+|---|---|
+| `actions/cache`, `actions/cache/restore`, `actions/cache/save` | The key hashes its inputs with `hashFiles(...)` (the lockfile for built dependencies) and names `runner.os` and `runner.arch`. Every restore key is a prefix of the key and keeps each of `runner.os`, `runner.arch`, `python-version`, `matrix.os` and `matrix.arch` that the key has. A cache whose content is the same bytes on every platform may leave out OS and arch only as an entry in `PLATFORM_INDEPENDENT`, with the reason, on a job with one literal `runs-on` label. Today that is the font mirror alone. |
+| setup-uv, direct or through the composite | No input beyond `version` and `python-version` (the composite's callers: `python-version`, `uv-version`, `sync-args`), so the key stays the one described above. |
+| An action whose own cache is on by default, or any step with a truthy `with:` key containing `cache` | Listed in `ACTION_MANAGED` with the reason the action's key cannot cross an OS, architecture or interpreter, compared both ways. Today: `setup-gradle` in `android-test.yml` and BuildKit's `type=gha` cache in `docker.yml`. `flatpak.yml` turns its builder's cache off. |
+| Any job in a `pull_request_target` or `workflow_run` workflow | No cache step at all. Those triggers run in the default branch's context, and a cache saved there is restored by `main` and by tag runs, release jobs included. |
 
 ### Artifact retention
 
@@ -480,6 +502,20 @@ its own caches. setup-uv's built-in uv cache does apply ("Caches" above). A job 
 cannot use the composite is listed, with the reason, in `DIRECT_SETUP_UV` in
 `tests/test_ci_composite_actions.py`. A new direct call fails the suite until it is listed.
 
+**The composite's contract with its callers.** GitHub drops a `with:` key that a composite
+does not declare, with only a warning in the log, and does not enforce `required:` on a
+composite's inputs. `tests/test_ci_composite_actions.py` therefore checks every caller from
+the files: it passes only declared inputs, it supplies every required input with a
+non-empty value, and it reads only declared outputs. It also checks that every declared
+input is read by the action, and that every declared output names a value.
+
+**Its pins get updates too.** Dependabot's github-actions entry with `directory: "/"`
+reads `.github/workflows/` and a root `action.yml` only. Each composite directory is
+therefore listed in `directories` in `.github/dependabot.yml`, and the composite test
+fails for one that is not. Until 2026-11-06 it was not listed, and the composite stayed on
+setup-uv v10.2.0 while the seven direct calls moved to v10.3.3. The next Dependabot sweep
+is expected to propose that bump for the composite as an ordinary reviewed PR.
+
 **The rule for caches, timeouts and retention.** A cache decision has one rule: the key
 includes every property listed under "Caches" above, and it lives in the job that uses it.
 A timeout decision has one rule: the numbered rule under "Timeouts" above. An artifact's
@@ -503,21 +539,42 @@ git grep -hE '^\s*(- )?(run: )?uv sync' -- .github/workflows | wc -l   # command
 | Setup step | Before (4fda3403) | After | Status |
 |---|---:|---:|---|
 | `uses: ./.github/actions/setup-uv-python` | 3 lines, 2 files | 9 lines, 3 files | `test-linux`, `test`, the `docs` build, and now `repo-hygiene`, `gui`, `extras`, `windows-update-handoff` and `heavy-extras`. |
-| `uses: astral-sh/setup-uv@` | 16 lines, 9 files | 10 lines, 7 files | `test.yml` has none left. Each remaining job is listed with its reason in `DIRECT_SETUP_UV` in `tests/test_ci_composite_actions.py`: release and build lanes, `macos-smoke.yml` (no sync step of its own), and `eye-eval-ci.yml` (its own test pins the setup step's shape; next to migrate; migrated 2026-11-05, see the note under this table). |
-| `uv sync` as a command | 12 lines, 6 files | 6 lines, 4 files | The rest are in `eye-eval-ci.yml`, `packs-spike.yml` and `release.yml` (before the 2026-11-05 note). |
+| `uses: astral-sh/setup-uv@` | 16 lines, 9 files | 10 lines, 7 files | `test.yml` has none left. Each remaining job is listed with its reason in `DIRECT_SETUP_UV` in `tests/test_ci_composite_actions.py`. |
+| `uv sync` as a command | 12 lines, 6 files | 6 lines, 4 files | The rest were in `eye-eval-ci.yml`, `packs-spike.yml` and `release.yml`. |
 | `uses: actions/checkout@` | 49 lines, 33 files | unchanged | Not extracted. `fetch-depth` and `filter` differ per job, and the comments beside them explain why. |
 | `sudo apt-get update` | 8 lines, 5 files | unchanged | Not extracted. Each job's package list differs. |
 | `sudo apt-get install` | 10 lines, 6 files | unchanged | Not extracted, for the same reason. |
-
-**Update, 2026-11-05 (branch `ci/eye-eval-shared-setup-uv`, base `origin/main` c9921314).** Both `eye-eval-ci.yml` jobs (`evaluate`, `matrix`) now use the composite, with job names, permissions and `timeout-minutes` unchanged. Re-measured with the commands above on that tree: `uses: ./.github/actions/setup-uv-python` 12 lines in 5 files, `uses: astral-sh/setup-uv@` 7 lines in 5 files, `uv sync` as a command 3 lines in 2 files (`packs-spike.yml`, `release.yml`). The change is checked by the static tests only; no workflow run has exercised it. One side effect: the composite pins setup-uv v10.2.0 while the two migrated jobs had called v10.3.3, so those two jobs now run the older action release, the same one the other composite callers run.
 | `uses: actions/setup-python@` | 4 lines, 4 files | unchanged | Not extracted. These jobs (`fuzz`, `link-check`, `traceability`, `dependabot-sbom`) use pip or only the standard library, not uv. Moving them to uv would change behaviour, so it is not a setup extraction. |
 | `uses: actions/cache@` | 3 lines, 2 files | unchanged | Not extracted. Keys are job-specific and stay beside the job that uses them ("Caches" above). |
 
 The counts in this table are the 2026-10-30 measurement. `benchmark.yml` and the
-`benchmark-harness` job left the repository in 2.47.0 and are no longer named in the
-status column, so the "After" counts no longer hold. Run on 2026-11-01, the commands above give 10 lines in 4 files for the
-composite, 9 lines in 6 files for direct `astral-sh/setup-uv@`, 5 lines in 3 files for
-`uv sync` as a command, and 1 line in 1 file for `actions/cache@`.
+`benchmark-harness` job left the repository in 2.47.0, so the "After" counts no longer
+hold. Later measurements, with the same commands:
+
+| Setup step | 2026-11-01 | 2026-11-06 (main 6cd4a27f) |
+|---|---:|---:|
+| `uses: ./.github/actions/setup-uv-python` | 10 lines, 4 files | 12 lines, 5 files |
+| `uses: astral-sh/setup-uv@` | 9 lines, 6 files | 7 lines, 5 files |
+| `uv sync` as a command | 5 lines, 3 files | 3 lines, 2 files |
+| `uses: actions/checkout@` | not measured | 50 lines, 33 files |
+| `sudo apt-get update` | not measured | 7 lines, 4 files |
+| `sudo apt-get install` | not measured | 9 lines, 5 files |
+| `uses: actions/setup-python@` | not measured | 4 lines, 4 files |
+| `uses: actions/cache@` | 1 line, 1 file | 1 line, 1 file |
+
+Between the two, both `eye-eval-ci.yml` jobs (`evaluate`, `matrix`) moved to the composite
+(2026-11-05, base c9921314), with job names, permissions and `timeout-minutes` unchanged.
+Static tests checked that change; no workflow run had exercised it when it landed. It had
+one side effect: the two jobs had called setup-uv v10.3.3, and the composite pins v10.2.0,
+so they now run the older release (see "Its pins get updates too" above).
+
+**What stays direct on 2026-11-06, and why.** The seven remaining direct setup-uv calls
+are `build-macos.yml:build`, `build-windows.yml:build`, `release.yml` (`test`,
+`publish-pypi`, `build-deb`), `packs-spike.yml:spike` and `macos-smoke.yml:smoke`. The
+first five are build and release lanes, which this section keeps explicit. `packs-spike`
+freezes a `--no-dev` environment that must match `build-windows.ps1`'s. `macos-smoke` has
+no `uv sync` of its own, so the composite would add one, which changes behaviour.
+Each is listed in `DIRECT_SETUP_UV`. No further extraction is pending.
 
 **Why the second batch is the same uv and the same interpreter.** Those six jobs passed no
 `version` to setup-uv, and five of them passed no `python-version` either. The composite

@@ -104,8 +104,16 @@ updates:
 
   # GitHub Actions — pinned action versions go stale silently and are a real
   # supply-chain surface for a project that publishes signed artifacts.
+  #
+  # `/` covers `.github/workflows/` and a root `action.yml`, nothing else (GitHub Docs,
+  # "Dependabot options reference"). A repository-owned composite under
+  # `.github/actions/<name>/` has to be named here, or its pins are never bumped: the
+  # setup-uv pin in `setup-uv-python` stayed at v10.2.0 while every workflow moved to
+  # v10.3.3. `tests/test_ci_composite_actions.py` fails for a composite missing here.
   - package-ecosystem: "github-actions"
-    directory: "/"
+    directories:
+      - "/"
+      - "/.github/actions/setup-uv-python"
     schedule:
       interval: "monthly"
     open-pull-requests-limit: 5
