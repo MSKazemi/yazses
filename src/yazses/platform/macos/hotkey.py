@@ -6,8 +6,9 @@ For non-character modifier keys (Right Option, Right Ctrl) the leaked-character
 backspace workaround is unnecessary and is suppressed at this layer.
 
 Threading: ``run()`` is intended to be called on the daemon's main thread; it
-installs a runloop source and calls ``CFRunLoopRun()`` which blocks. Other
-threads can call ``stop()`` to break out via ``CFRunLoopStop``.
+installs a runloop source and runs the thread's run loop, which blocks. Other
+threads can call ``stop()`` to break out via ``CFRunLoopStop``. A ``stop()`` that
+lands before the loop is running is remembered (see :func:`run_loop_until_stopped`).
 """
 
 from __future__ import annotations
@@ -68,6 +69,39 @@ def resolve_key_id(key_id: str, default: str = "right_option") -> tuple[str, str
         )
     kind, value = _KEY_MAP[name]
     return name, kind, value
+
+
+#: Seconds one pass of the run loop may block before the stop flag is read again.
+#: Bounds how long a stop that the run loop itself missed can go unnoticed; the
+#: loop still wakes at once for key events and for a ``CFRunLoopStop`` it does see.
+_STOP_POLL_S = 0.5
+
+
+def run_loop_until_stopped(
+    run_once: Callable[[], int],
+    should_stop: Callable[[], bool],
+    *,
+    exit_codes: frozenset[int],
+) -> None:
+    """Run the run loop in bounded passes until asked to stop. Pure.
+
+    ``CFRunLoopRun()`` returns only for a ``CFRunLoopStop`` that arrives while it
+    is running: CoreFoundation keeps the stop request in per-run state that a new
+    run starts fresh (CFRunLoop.c, ``__CFRunLoopPushPerRunData``; read from the
+    open-source CF, UNVERIFIED on a Mac). So a ``stop()`` that landed during
+    start-up -- after the daemon's last ``_stop_event`` check, while the Input
+    Monitoring request or the tap creation was still in progress -- was lost, and
+    the daemon blocked in the run loop for good with the permission it had read at
+    start (#578: a daemon from an earlier session outlived Quit).
+
+    *run_once* runs one bounded pass (``CFRunLoopRunInMode`` with a timeout) and
+    returns its result code; *exit_codes* are the codes that end the loop the way
+    ``CFRunLoopRun`` would end (stopped, or no sources left). *should_stop* is read
+    before every pass, so a lost stop costs at most one pass.
+    """
+    while not should_stop():
+        if run_once() in exit_codes:
+            return
 
 
 def _request_input_monitoring() -> bool:
@@ -176,12 +210,15 @@ class MacosHotkey:
             CFMachPortCreateRunLoopSource,
             CFRunLoopAddSource,
             CFRunLoopGetCurrent,
-            CFRunLoopRun,
+            CFRunLoopRunInMode,
             CFRunLoopStop,  # noqa: F401  (used by stop())
             CGEventMaskBit,
             CGEventTapCreate,
             CGEventTapEnable,
             kCFRunLoopCommonModes,
+            kCFRunLoopDefaultMode,
+            kCFRunLoopRunFinished,
+            kCFRunLoopRunStopped,
             kCGEventFlagsChanged,
             kCGEventKeyDown,
             kCGEventKeyUp,
@@ -189,6 +226,12 @@ class MacosHotkey:
             kCGHeadInsertEventTap,
             kCGSessionEventTap,
         )
+
+        # A stop that arrived before run() was called: do not ask for a permission
+        # or create a tap for a daemon that is already shutting down.
+        if self._stop_event.is_set():
+            log.info("Hotkey stop requested before the listener started; not starting it.")
+            return
 
         if self._kind == "modifier":
             event_mask = CGEventMaskBit(kCGEventFlagsChanged)
@@ -224,7 +267,14 @@ class MacosHotkey:
         )
         log.log(level, "%s", message)
         try:
-            CFRunLoopRun()
+            # Not CFRunLoopRun(): it would never see a stop() that landed between the
+            # daemon's last check and this line (#578). The tap source is in the
+            # common modes, which include the default mode.
+            run_loop_until_stopped(
+                lambda: CFRunLoopRunInMode(kCFRunLoopDefaultMode, _STOP_POLL_S, False),
+                self._stop_event.is_set,
+                exit_codes=frozenset({kCFRunLoopRunFinished, kCFRunLoopRunStopped}),
+            )
         finally:
             self._teardown()
 
