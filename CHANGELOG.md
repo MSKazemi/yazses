@@ -6,6 +6,42 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — `gaze status`, `doctor` and `status` say what Glance-Type can and cannot do on your session ([#418](https://github.com/MSKazemi/yazses/issues/418))
+
+The gaze-target plan is now a list of what a user would try: dictation to the window you look at, "focus this" / "minimize this", "close this", gaze calibration, and pointer movement. Pointer movement is labelled as a separate feature that never creates a gaze target. `yazses gaze status` prints the list. A one-line summary goes on the `Gaze target` row in `doctor`, `status` and the hands-free panel, and on the daemon wire as `gaze_target_abilities`. On every Wayland session nothing is routed: gaze commands are refused with a notification, and "close this" is never sent to the focused window. On X11, "close this" on a window you are not looking at still closes the focused window without asking under the default `refuse_destructive_fallback = false`. That behaviour is unchanged; it is now printed instead of being visible only in the code. The `Gaze target` row takes its reason and its abilities from the daemon, so `doctor` run over SSH no longer mixes its own session's verdict with an X11 daemon's. GNOME and KDE findings come from documentation and toolkit source and are unverified on real hardware.
+
+### Added — Send to: a "never sent" validation record (ADR-031 §5, [#637](https://github.com/MSKazemi/yazses/issues/637))
+
+`src/yazses/sendto/validation.py` holds the per-client, per-OS rows ADR-031 section 5 asks for. It is empty, because no hand-off has yet been tried against a real Claude or Codex app. `yazses features info sendto` builds its "Not yet verified" sentence from that record. A `submitted` row must name a target exactly as in `TARGETS` or the new `REMOVED_TARGETS`, so a mistyped slug cannot switch off the removal rule. Tests fail while any target seen to submit a prompt on its own is still offered.
+
+### Fixed — `yazses doctor` and `yazses gaze status` say when the click observer failed to start ([#607](https://github.com/MSKazemi/yazses/issues/607))
+
+With `[gaze_refine] enabled = true` (off by default), both commands used to report only that the platform registers a click observer. A refused Windows hook, a macOS event tap blocked by missing Input Monitoring or Accessibility, or a lost X11 display still showed as "registered". The daemon's `status` reply now carries a `gaze_refine` block: whether refinement runs, the reason when it does not, and two counts. It never holds a coordinate, a timestamp or a window. Tested with simulated observers. Only the Windows observer has run on real hardware (synthetic presses), and none has been used in a real calibration session.
+
+### Fixed — a feature toggle can no longer half-apply a language profile ([#497](https://github.com/MSKazemi/yazses/issues/497))
+
+`yazses features enable chinese-script` on the default `base.en` + `en` install, or `stt-parakeet` / `stt-moonshine` under Mandarin speech, wrote an incoherent config that left `doctor` at FAIL and refused dictation at the next daemon start. `features enable` and the Settings window now run the same check as `doctor`, refuse, write nothing, and point to `yazses language set zh-CN` / `zh-TW`. The check fires only when a toggle would add a problem; disabling is never refused. A clean-interpreter test shows the default English path imports neither OpenCC nor the Mandarin grammar. Not verified in a real Qt window.
+
+### Fixed — meeting minutes no longer overflow the summariser's context on Chinese meetings ([#501](https://github.com/MSKazemi/yazses/issues/501))
+
+The minutes window converted its token budget to characters at an English rate of 3 characters per token, which let 8,616 Han characters into room for 2,872 tokens. Each CJK character is now charged its UTF-8 length in tokens. English windows are unchanged. A failed reduce step no longer puts a space between two Chinese summaries. New model-free vectors pin that the opt-in text transforms leave Han text unchanged and that Markdown, TXT, SRT, VTT, JSON and `meeting relabel` keep Traditional Han text, Han speaker names and timestamps exact.
+
+### Fixed — Windows Store (MSIX) build: `doctor` advice no longer describes the `.exe` ([#653](https://github.com/MSKazemi/yazses/issues/653))
+
+The camera advice no longer tells a Store user to turn on the desktop-apps camera switch. The MSIX declares no `webcam` capability, so the advice now points to a PyPI install for the camera features. The microphone advice no longer says unsigned apps get a new identity when their hash changes, which is true only of the `.exe`. Unpackaged installs see the same advice as before. The Store build is not published, and this has not run on a real MSIX install.
+
+### Fixed — reopening YazSes after an upgrade or a permission grant left the old daemon running ([#578](https://github.com/MSKazemi/yazses/issues/578))
+
+Double-clicking the app starts the menu-bar icon, which used any daemon it found running, so a daemon older than the app, or one started before Input Monitoring was granted, was never replaced. The icon now reads the daemon's `status` (`version`, `stale_permissions`) and hands off to `yazses restart`. This happens only while the daemon is idle or in error, never during a dictation or a meeting, and at most once an hour per reason (recorded in `daemon_replacements.json` under the data dir). A duplicate icon that exits asks once on its way out. Tested with simulated daemons only; unverified on a Mac.
+
+### Tests — English command parity is pinned to an independent oracle; the Mandarin phrase table is published as unreviewed ([#499](https://github.com/MSKazemi/yazses/issues/499))
+
+`tests/fixtures/commands/en_grammar_parity.json` records the pre-extraction English grammar (commit bbd285a5): its 39-rule table and its answer for 395 inputs. The current grammar must match it on every English path, so English behaviour is pinned as unchanged. Every Mandarin action now has Simplified and Traditional positive vectors and negative sentences. The negative corpus grew from 84 to 125 lines with 0 false triggers. The Chinese voice typing page lists every Mandarin command, marked *unreviewed* and experimental. No native speaker has reviewed the phrases yet (#505).
+
+### Tests — the `.mcpb` bundle manifest is validated against the MCP Bundle spec schema ([#638](https://github.com/MSKazemi/yazses/issues/638))
+
+Every built bundle's `manifest.json` is checked offline against the spec's own JSON schema (manifest version 0.3, vendored from modelcontextprotocol/mcpb at commit 70fe3b34), with deliberately broken manifests to show the check catches errors. The draft-07 validator for the MCP registry's `server.json` moved to `tests/json_schema_subset.py` so both checks share it.
+
 ## [2.50.0] - 2026-11-06
 
 ### Fixed — `ask_human` and `yazses send-to` no longer report a slow daemon as "not running"
