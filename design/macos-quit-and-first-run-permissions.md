@@ -97,6 +97,38 @@ every 30 s, and reports `stale_permissions: ["input_monitoring"]` in `status`. `
 Daemon row turns WARN with the restart command. Healthy installs never probe. Daemons built
 before this change cannot report it; for them `doctor`'s existing version-skew WARN applies.
 
+### 5a. Who acts on it: the tray (READ for the code, UNVERIFIED on a Mac)
+
+Reporting `stale_permissions` and the v2.43.1 version takeover left one path open. The
+takeover (`core/takeover.is_older`) is asked by a *starting daemon*, and the tray starts a
+daemon only when `lifecycle.is_running()` is false. Double-clicking the `.app` starts a
+tray, so after an upgrade, or after a grant, reopening the app produced a new tray talking
+to the old daemon and no takeover ever ran.
+
+The tray now acts on the `status` reply it already polls (`tray/app.py::StaleDaemonReplacer`,
+rule in `core/takeover.replacement_reason`). It hands off to `yazses restart` (the menu's
+Restart command, which already stops and starts a daemon on every OS, systemd included)
+when the daemon reports a version strictly older than the tray's, or a non-empty
+`stale_permissions`. Constraints, each with a test in
+`tests/test_tray_replaces_a_stale_daemon.py`:
+
+* only while the daemon's state is `idle` or `error`, and no meeting is active or
+  finalizing — never mid-dictation;
+* at most once per tray process;
+* not again for the same reason within an hour, recorded in
+  `data_dir/daemon_replacements.json`. This is the loop guard: a daemon terminates the tray
+  it launched when it shuts down, so a tray that restarts its own parent is replaced by a
+  fresh tray, and only a record on disk stops a permission probe that flaps from becoming
+  a restart loop;
+* the restart is launched in its own session (`start_new_session`) so it survives that
+  tray being terminated.
+
+Not changed: the daemon-side takeover still ignores `stale_permissions` (an equal-version
+daemon starting next to a stale one still exits as a duplicate); the tray is the process
+that the user reopens, so it is where the check was added, and `core/daemon.py` was left
+alone. UNVERIFIED: that the restarted daemon's tap actually receives events after the
+grant (§7 item 5).
+
 ## 6. Findings not acted on
 
 1. `_last_tray_error` can attach another launch's stderr to a later death (section 2).

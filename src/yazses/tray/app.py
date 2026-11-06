@@ -6,6 +6,8 @@ It does NOT drive the dictation pipeline itself — the daemon does. On launch:
 1. If the daemon isn't reachable, spawn it via :meth:`Lifecycle.start_daemon_detached`.
 2. Poll the daemon's ``status`` RPC every second; map state → tray glyph.
 3. On quit, send ``shutdown`` over IPC.
+4. If the daemon that answers is older than this tray, or started before a permission it
+   now has was granted, hand it to ``yazses restart`` once (:class:`StaleDaemonReplacer`).
 
 The tray's ``run()`` blocks the main thread (it owns the OS runloop on macOS,
 the message pump on Windows). Polling happens on a worker thread.
@@ -223,6 +225,155 @@ class UpdateHandoffWatch:
             return False
 
 
+#: Where the tray records when it last handed a stale daemon to `yazses restart`, per
+#: reason. Its own file: `shown_notices.json` belongs to the daemon, which saves its whole
+#: dict and would erase a key it did not load.
+_REPLACEMENT_RECORD = "daemon_replacements.json"
+
+
+def _tray_version() -> str:
+    """This tray's version, read once at start. Never raises; ``""`` when unknown."""
+    try:
+        from yazses.branding import version
+
+        return version()
+    except Exception:
+        return ""
+
+
+def _restart_command() -> list[str]:
+    """``yazses restart`` on this install -- the same command as the menu's Restart."""
+    from yazses.system.service_escape import detached_argv
+    from yazses.tray.launch import settings_command
+
+    # Outside the daemon's unit: the restart stops that unit and must survive it.
+    return detached_argv(settings_command("restart"))
+
+
+def _launch_restart(argv: list[str]) -> None:
+    """Start the restart in its own session, so it outlives this tray.
+
+    A daemon terminates the tray it launched when it shuts down, and the restart is what
+    shuts it down -- a child left in this tray's session could go with it.
+    """
+    import subprocess
+
+    subprocess.Popen(
+        argv,
+        start_new_session=True,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+class StaleDaemonReplacer:
+    """Restart a running daemon that is older than this tray, or predates a grant (#578).
+
+    The daemon reads its permissions and its code once, at start, and a tray never starts
+    a second daemon while one is running -- so neither reopening the upgraded app nor
+    reopening it after granting Input Monitoring replaced the daemon that needed it. The
+    running daemon already reports both facts on the ``status`` reply this tray polls
+    (``version``, ``stale_permissions``); :func:`yazses.core.takeover.replacement_reason`
+    decides, and this hands off to ``yazses restart``, which already knows how to stop and
+    start a daemon on every OS (systemd included).
+
+    Fires at most once per tray, only while the daemon is idle or in error, and not again
+    for the same reason within :data:`~yazses.core.takeover.REPLACE_SILENCE_S` across
+    trays (a record under ``data_dir``). ``check`` never raises: a failure here must not
+    stop the poll loop.
+    """
+
+    def __init__(
+        self,
+        data_dir,  # noqa: ANN001 - a Path, or None for a platform with no data dir
+        *,
+        mine: str,
+        launcher=None,  # noqa: ANN001 - Callable[[list[str]], object]; tests inject it
+        command=None,  # noqa: ANN001 - Callable[[], list[str]]
+        notify=None,  # noqa: ANN001 - Callable[[str, str], object]
+        wall=time.time,  # noqa: ANN001
+    ) -> None:
+        self._data_dir = data_dir
+        self._mine = mine
+        self._launcher = launcher
+        self._command = command
+        self._notify = notify
+        self._wall = wall
+        self._done = False
+        self._quiet_until: dict[str, float] = {}
+
+    def check(self, status: object) -> str | None:
+        """Hand the daemon to ``yazses restart`` if it should be replaced; the reason, or None."""
+        if self._done or self._data_dir is None:
+            return None
+        try:
+            return self._check(status)
+        except Exception:
+            self._done = True
+            log.warning("Could not restart the out-of-date daemon", exc_info=True)
+            return None
+
+    def _check(self, status: object) -> str | None:
+        from pathlib import Path
+
+        from yazses.core.takeover import (
+            REPLACE_SILENCE_S,
+            may_replace_again,
+            replacement_reason,
+        )
+        from yazses.system import toast_memory
+
+        reason = replacement_reason(status, self._mine)
+        if reason is None:
+            return None
+        now = self._wall()
+        if now < self._quiet_until.get(reason, float("-inf")):
+            return None
+        path = Path(self._data_dir) / _REPLACEMENT_RECORD
+        record = toast_memory.load(path)
+        last = record.get(reason)
+        if not may_replace_again(last, now):
+            # Read once per silence, not once per poll, while the reason persists.
+            self._quiet_until[reason] = (last or now) + REPLACE_SILENCE_S
+            log.info(
+                "The daemon still reports %s; it was restarted for that less than an "
+                "hour ago, so not again. Run: yazses restart", reason,
+            )
+            return None
+        # Once per tray, whatever happens next: a launch that fails must not be retried
+        # at the poll rate.
+        self._done = True
+        theirs = status.get("version") if isinstance(status, dict) else None
+        if reason == "older":
+            log.warning(
+                "The running daemon is YazSes %s, older than this tray (%s); "
+                "restarting it.", theirs, self._mine,
+            )
+        else:
+            log.warning(
+                "The running daemon started before a permission was granted (%s); "
+                "restarting it so its keyboard hook sees the grant.",
+                ", ".join(str(g) for g in status.get("stale_permissions") or [])
+                if isinstance(status, dict) else "",
+            )
+        argv = (self._command or _restart_command)()
+        (self._launcher or _launch_restart)(argv)
+        record[reason] = now
+        toast_memory.save(path, record, now=now)
+        if self._notify is not None:
+            body = (
+                "Restarting YazSes so it uses the permission you granted."
+                if reason == "permissions"
+                else "Restarting YazSes so the updated version takes over."
+            )
+            try:
+                self._notify("YazSes", body)
+            except Exception:
+                log.debug("could not show the restart notice", exc_info=True)
+        return reason
+
+
 def run() -> None:
     """Entry point — the `yazses-tray` GUI script."""
     # A GUI script has no console on Windows, so sys.stderr is None and
@@ -261,6 +412,13 @@ def run() -> None:
 
     stop_event = threading.Event()
     update_watch = UpdateHandoffWatch(getattr(platform, "update_launcher", None))
+    # A daemon from before an upgrade, or from before a permission grant, is the one
+    # this tray just found running and did not replace (#578).
+    replacer = StaleDaemonReplacer(
+        getattr(getattr(platform, "paths", None), "data_dir", None),
+        mine=_tray_version(),
+        notify=getattr(tray, "notify", None),
+    )
 
     def _poller() -> None:
         started = time.monotonic()
@@ -349,6 +507,7 @@ def run() -> None:
                 # a transient status message, and far better than the log-only silence
                 # it replaces.
                 _show_notifications(tray, info.get("notifications"))
+                replacer.check(info)
                 if str(info.get("state") or "") in _RECORDING_STATES:
                     interval = _FAST_POLL_INTERVAL_S  # keep the icon live during a burst
                 crashes = 0  # a whole pass worked: the next fault starts a fresh backoff

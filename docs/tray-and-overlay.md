@@ -136,6 +136,14 @@ that most often go wrong — the wrong microphone, and a daemon that needs a res
   leaves dictation running. These three are the Linux menu; on macOS and Windows the menu
   has a single **Quit** instead, and it stops the daemon too.
 
+The icon also restarts the daemon **by itself** in two cases, both reported by the daemon
+over its `status` reply rather than guessed: the daemon is an older version than the icon
+(you upgraded while the old one kept running), or it started before a permission it needs
+was granted (macOS Input Monitoring — the same fact `yazses doctor` shows). It hands off to
+`yazses restart` once, only while the daemon is idle or in error (never during a dictation
+or a meeting), and not again for the same reason within an hour. Tested with simulated
+daemons; not yet confirmed on a Mac ([#578](https://github.com/MSKazemi/yazses/issues/578)).
+
 The **Settings…**, **Help**, **About** and **Check for updates…** entries are in the menu on
 **Linux, macOS and Windows** — the menu means the same thing wherever you run it. (macOS and
 Windows show About as an alert/notification rather than a dialog, since their menu toolkits

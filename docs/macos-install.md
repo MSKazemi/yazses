@@ -375,6 +375,19 @@ asks the old daemon to stop and takes its place, instead of exiting as a duplica
 old daemon has to be a release that reports its version over `status`; if the log says
 *"Another YazSes daemon is already running"* anyway, use `yazses restart` once.
 
+That takeover runs only when a second *daemon* starts, and double-clicking the app
+starts the menu-bar icon, which uses a daemon it finds running rather than starting
+another. Newer builds close that gap (the
+[changelog](https://github.com/MSKazemi/yazses/blob/main/CHANGELOG.md) entry for
+[#578](https://github.com/MSKazemi/yazses/issues/578) names the release): the **menu-bar
+icon also restarts the daemon** when the daemon itself reports either of two things: it is an
+older version than the icon, or it started before Input Monitoring was granted (the
+same fact `doctor` shows). It does so once, only while the daemon is idle (never during
+a dictation or a meeting), shows *"Restarting YazSes…"*, and does not do it again for the
+same reason within an hour. If the hotkey is still dead after that,
+`yazses restart` is still the manual route. **Unverified on a Mac:** this is tested with
+simulated daemons only.
+
 **Which YazSes is being asked about?** The Accessibility answer is about the
 program that is running, not about every copy on the disk — so a grant given to
 `/Applications/YazSes.app` is not automatically the thing being checked when you
