@@ -1379,9 +1379,9 @@
     {
       "type": "library",
       "name": "mediapipe",
-      "version": "1.2.0",
-      "purl": "pkg:pypi/mediapipe@1.2.0",
-      "bom-ref": "pkg:pypi/mediapipe@1.2.0",
+      "version": "1.2.2",
+      "purl": "pkg:pypi/mediapipe@1.2.2",
+      "bom-ref": "pkg:pypi/mediapipe@1.2.2",
       "scope": "optional"
     },
     {
@@ -1429,14 +1429,14 @@
     {
       "type": "library",
       "name": "mkdocs-git-revision-date-localized-plugin",
-      "version": "1.5.4",
-      "purl": "pkg:pypi/mkdocs-git-revision-date-localized-plugin@1.5.4",
-      "bom-ref": "pkg:pypi/mkdocs-git-revision-date-localized-plugin@1.5.4",
+      "version": "1.6.3",
+      "purl": "pkg:pypi/mkdocs-git-revision-date-localized-plugin@1.6.3",
+      "bom-ref": "pkg:pypi/mkdocs-git-revision-date-localized-plugin@1.6.3",
       "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "07a785522008e881ff4c307e3259ad3ce00931b2d2147a22cdfbb532ff25e4ab"
+          "content": "72b7f27d780af4d9efc2eb70197404e4510ce5664de6a96e092a6050e35eab46"
         }
       ]
     },
@@ -1499,14 +1499,14 @@
     {
       "type": "library",
       "name": "mkdocs-rss-plugin",
-      "version": "1.19.0",
-      "purl": "pkg:pypi/mkdocs-rss-plugin@1.19.0",
-      "bom-ref": "pkg:pypi/mkdocs-rss-plugin@1.19.0",
+      "version": "1.20.0",
+      "purl": "pkg:pypi/mkdocs-rss-plugin@1.20.0",
+      "bom-ref": "pkg:pypi/mkdocs-rss-plugin@1.20.0",
       "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "0b9b7f14688393e5bd7d26a6dc14dfd2b228a8cdfe5b598a6677589b2159d957"
+          "content": "9e98d4213d7e5d2ae445bed6c95aaf888950f0dd3f268f6ece2ffd49f0ac3ace"
         }
       ]
     },
@@ -2041,20 +2041,6 @@
         {
           "alg": "SHA-256",
           "content": "01c4fc7480cd0598bb4b57022df55b9ca296da7fc5a8760bd8451a7e63a7d427"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "properdocs",
-      "version": "1.6.7",
-      "purl": "pkg:pypi/properdocs@1.6.7",
-      "bom-ref": "pkg:pypi/properdocs@1.6.7",
-      "scope": "excluded",
-      "hashes": [
-        {
-          "alg": "SHA-256",
-          "content": "adc7b16e562890af0e098a7e5b02e3a81c20894a87d6a28d345c9300de73c26e"
         }
       ]
     },
