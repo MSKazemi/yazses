@@ -5,7 +5,7 @@ import time
 
 import numpy as np
 
-from yazses.stt.streaming import StreamingEngine, _common_prefix
+from yazses.stt.streaming import PartialHypothesis, StreamingEngine, _common_prefix
 
 
 class MockSttEngine:
@@ -35,30 +35,45 @@ def test_common_prefix():
     assert _common_prefix("abc", "abc") == "abc"
 
 
+class ScriptedStopToken:
+    """Stands in for the decode loop's stop ``Event``: lets exactly ``cycles`` decodes run.
+
+    Driving ``_decode_loop`` on the test thread with this token makes the loop
+    deterministic -- no background thread, no sleeps, no timing window in which a
+    partial may or may not have been produced yet.
+    """
+
+    def __init__(self, cycles: int) -> None:
+        self._left = cycles
+        self._stopped = False
+
+    def is_set(self) -> bool:
+        return self._stopped
+
+    def wait(self, timeout: float | None = None) -> bool:
+        if self._left <= 0:
+            self._stopped = True
+        self._left -= 1
+        return self._stopped
+
+
+def run_decode_cycles(engine: StreamingEngine, cycles: int) -> None:
+    engine._decode_loop(ScriptedStopToken(cycles))  # noqa: SLF001
+
+
 def test_streaming_engine_emits_partial(sine_audio_3s):
-    """Engine should emit a partial hypothesis after receiving enough audio."""
-    engine_backend = MockSttEngine(["hello wor", "hello world"])
-    engine = StreamingEngine(engine_backend, partial_interval_ms=100)
-    engine.start()
+    """Two agreeing decodes confirm their common prefix and emit it as one partial."""
+    engine = StreamingEngine(MockSttEngine(["hello wor", "hello world"]), partial_interval_ms=100)
+    engine.push(sine_audio_3s)
 
-    # Push audio in chunks
-    chunk_size = 1600  # 0.1 s
-    for i in range(0, len(sine_audio_3s), chunk_size):
-        engine.push(sine_audio_3s[i:i + chunk_size])
-        time.sleep(0.01)
+    run_decode_cycles(engine, 1)
+    assert engine.get_partial() is None  # one decode alone confirms nothing
 
-    # Wait for at least one partial
-    t0 = time.perf_counter()
-    partial = None
-    while (time.perf_counter() - t0) < 1.0:
-        partial = engine.get_partial()
-        if partial is not None:
-            break
-        time.sleep(0.05)
-
-    engine.stop()
-    # Should have received at least one partial
-    assert partial is not None or True  # Lenient: mock may or may not emit depending on timing
+    run_decode_cycles(engine, 1)
+    assert engine.get_partial() == PartialHypothesis(
+        text="hello wor", is_stable=True, char_count=len("hello wor")
+    )
+    assert engine.get_partial() is None  # the slot is consumed by reading it
 
 
 def test_streaming_engine_commit_returns_text(sine_audio_3s):
