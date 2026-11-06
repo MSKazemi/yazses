@@ -3,20 +3,118 @@
 from __future__ import annotations
 
 import os
+import struct
 from pathlib import Path
 
 from yazses.cameraperm.contract import CameraPermission
 from yazses.platform.base import PermissionState
+
+#: Where evdev nodes live, and where the kernel describes each one. Module-level
+#: so a test can point both at a temporary tree.
+_DEV_INPUT = Path("/dev/input")
+_SYS_INPUT = Path("/sys/class/input")
+
+# linux/input-event-codes.h. The same "full keyboard" definition the evdev
+# listener uses (`hotkeys/evdev_hold.py::_looks_like_keyboard`): the whole letter
+# row plus Enter. Spelled as numbers so this module needs no `evdev` import.
+_KEY_ENTER = 28
+_KEY_LETTERS = frozenset({
+    16, 17, 18, 19, 20, 21, 22, 23, 24, 25,  # Q W E R T Y U I O P
+    30, 31, 32, 33, 34, 35, 36, 37, 38,  # A S D F G H J K L
+    44, 45, 46, 47, 48, 49, 50,  # Z X C V B N M
+})
+
+
+def parse_key_bitmap(text: str, word_bits: int | None = None) -> frozenset[int] | None:
+    """The key codes set in a sysfs ``capabilities/key`` bitmap, or None.
+
+    The kernel prints the bitmap as space-separated hex words, most significant
+    first, each one the kernel's ``unsigned long`` wide and printed *unpadded*
+    (``%lx``: a zero word is ``0``), so the text does not carry the width. It is
+    taken from this process's C ``long``, raised to 64 when any word is too long
+    to fit 32 bits -- which covers a 32-bit userland on a 64-bit kernel whenever
+    the bitmap has a busy word, as every full keyboard's low word is.
+    ``word_bits`` overrides the native width (tests). Anything unparsable
+    answers None ("unknown"), never an empty set.
+    """
+    words = text.split()
+    if not words:
+        return None
+    try:
+        values = [int(w, 16) for w in words]
+    except ValueError:
+        return None
+    width = word_bits or 8 * struct.calcsize("l")
+    if any(len(w) > 8 for w in words):
+        width = 64
+    if any(len(w) > width // 4 for w in words):
+        return None
+    codes: set[int] = set()
+    for index, value in enumerate(reversed(values)):
+        base = index * width
+        bit = 0
+        while value:
+            if value & 1:
+                codes.add(base + bit)
+            value >>= 1
+            bit += 1
+    return frozenset(codes)
+
+
+def is_full_keyboard(codes: frozenset[int]) -> bool:
+    """True when ``codes`` carries the letter row and Enter."""
+    return _KEY_ENTER in codes and _KEY_LETTERS <= codes
+
+
+def _node_keys(node: Path) -> frozenset[int] | None:
+    """The key capability of one ``/dev/input/eventN`` node, or None if unknown."""
+    try:
+        text = (_SYS_INPUT / node.name / "device" / "capabilities" / "key").read_text(
+            encoding="ascii"
+        )
+    except (OSError, UnicodeDecodeError):
+        return None
+    return parse_key_bitmap(text)
+
+
+def _readable(node: Path) -> bool:
+    return os.access(str(node), os.R_OK)
 
 
 class LinuxPermissions:
     """PermissionsBackend implementation for Linux."""
 
     def check_keyboard_capture(self) -> PermissionState:
-        input_devs = list(Path("/dev/input").glob("event*"))
+        """Can this user read a *keyboard* -- not merely some input node?
+
+        "Any ``event*`` is readable" is not the same question. systemd's stock
+        ``70-uaccess.rules`` gives the active seat user an ACL on every joystick
+        node (``ENV{ID_INPUT_JOYSTICK}=="?*", TAG+="uaccess"``), so a user who is
+        *not* in the ``input`` group but has a gamepad plugged in can read that
+        one node -- and the old check answered OK while the listener, which wants
+        a keyboard exposing the hotkey (``hotkeys/evdev_hold.py``), found none.
+
+        DENIED is answered only on a specific, checkable signal (ADR-021): the
+        kernel names at least one full keyboard, and none of the full keyboards
+        is readable. A readable node whose kind cannot be read from sysfs still
+        counts, and a machine with no full keyboard at all keeps the old
+        any-readable-node answer -- so a missing ``/sys``, a container, or a
+        keypad-only setup is never turned into a false DENIED.
+        """
+        input_devs = sorted(_DEV_INPUT.glob("event*"))
         if not input_devs:
             return PermissionState.UNKNOWN
-        if any(os.access(str(d), os.R_OK) for d in input_devs):
+        readable = [d for d in input_devs if _readable(d)]
+        if not readable:
+            return PermissionState.DENIED
+        kinds = {d: _node_keys(d) for d in input_devs}
+        keyboards = [d for d, keys in kinds.items() if keys is not None and is_full_keyboard(keys)]
+        if not keyboards:
+            return PermissionState.OK
+        if any(d in readable for d in keyboards):
+            return PermissionState.OK
+        if any(kinds[d] is None for d in readable):
+            # A readable node we could not classify might be the keyboard.
             return PermissionState.OK
         return PermissionState.DENIED
 
