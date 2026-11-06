@@ -68,14 +68,49 @@ def fit_calibration(
 
     ``samples`` is ``[((yaw, pitch), (x, y)), ...]``; needs >= 3 non-degenerate
     points (the affine map has 3 coefficients per axis).
+
+    "Non-degenerate" is enforced, not just documented. ``np.linalg.lstsq`` does not
+    refuse a rank-deficient system: given gaze angles that are all identical (a frozen
+    or constant estimator) or all on one line, it silently returns the minimum-norm
+    solution, which collapses every future gaze onto a single point or line -- and the
+    caller would save that as a valid calibration. A non-finite sample likewise yields
+    a NaN map (or a LAPACK error that does not say why). Both raise ``ValueError``
+    with the reason, so nothing degenerate is ever saved.
     """
     if len(samples) < 3:
         raise ValueError("calibration needs at least 3 points")
     M = np.array([[yaw, pitch, 1.0] for (yaw, pitch), _ in samples], dtype="float64")
     targets = np.array([[x, y] for _, (x, y) in samples], dtype="float64")
+    if not (np.all(np.isfinite(M)) and np.all(np.isfinite(targets))):
+        raise ValueError("calibration samples must be finite numbers (got NaN or infinity)")
+    if not _angles_span_a_plane(M[:, :2]):
+        raise ValueError(
+            "calibration gaze angles are degenerate (all identical or on one line), "
+            "so no gaze-to-screen map can be fitted; the eye tracker did not follow "
+            "the targets"
+        )
     # Solve M @ coeffs = targets for coeffs (3x2); A is its transpose (2x3).
     coeffs, *_ = np.linalg.lstsq(M, targets, rcond=None)
     return CalibrationMap(A=coeffs.T)
+
+
+#: Relative floor for the smaller spread of the centred gaze angles. Far below any
+#: real sensor noise, so it fires only on exact (or float-rounding) degeneracy -- a
+#: specific, checkable signal, not a quality heuristic (ADR-021).
+_DEGENERATE_RATIO = 1e-9
+
+
+def _angles_span_a_plane(angles: np.ndarray) -> bool:
+    """True when the ``(n, 2)`` gaze angles span two dimensions. Pure.
+
+    The affine design matrix ``[yaw, pitch, 1]`` has full rank 3 exactly when the
+    centred angles have two non-zero singular values.
+    """
+    centred = angles - angles.mean(axis=0)
+    s = np.linalg.svd(centred, compute_uv=False)
+    if s.size < 2 or s[0] == 0.0:
+        return False
+    return bool(s[1] > s[0] * _DEGENERATE_RATIO)
 
 
 # ---- interactive calibration (I/O-agnostic, so it is unit-testable) --------
