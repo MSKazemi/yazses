@@ -468,6 +468,10 @@ class Daemon:
     #: Returns the focused application's identifier (an X11 class / AT-SPI name, a macOS
     #: bundle id, a Windows image name) for the profile lookup, or None when nothing can. Injected, so a test hands in a lambda instead of a desktop.
     _focused_app_class: Callable[[], str] | None = None
+    #: True once `_announce_model_download` has told the user a first-run download is
+    #: under way. The one signal `_announce_ready_after_download` fires on. Class-level
+    #: so a daemon whose announcement is stubbed (most of the suite) stays silent.
+    _model_download_announced = False
     #: A detector built only for the profile lookup (when `[injection] target_guard`
     #: is "off" and the guard built none), so `_shutdown` can stop its AT-SPI thread.
     _profile_detector: TargetDetector | None = None
@@ -930,6 +934,7 @@ class Daemon:
                 log.info("Watching for audio-input device changes.")
             self._start_update_watcher()
             self._load_shown_notices()
+            self._announce_ready_after_download()
             self._announce_permissions()
             self._announce_dormant_features()
             self._warm_portal_session()
@@ -1151,13 +1156,49 @@ class Daemon:
             from yazses.system import notify as notify_mod
 
             log.info("Speech model %r is not cached; downloading it now.", model)
+            # Set before the toast, so a notifier that raises still gets the ready
+            # notice tried: the download is under way either way.
+            self._model_download_announced = True
+            # No size here: one figure cannot fit every model (base.en is ~150 MB on
+            # disk, the large models are gigabytes).
             notify_mod.notify(
                 "YazSes is downloading its speech model",
-                f"First run only: fetching {model}, a few hundred MB. Dictation "
-                "starts working as soon as it finishes — you can leave this alone.",
+                f"First run only: fetching {model}. Dictation starts working as "
+                "soon as it finishes — you will be told when it is ready.",
             )
         except Exception:  # noqa: BLE001 — never let an announcement block the load
             log.debug("could not announce the model download", exc_info=True)
+
+    def _announce_ready_after_download(self) -> None:
+        """Close the first-run wait `_announce_model_download` opened. Never raises.
+
+        That notice tells the user dictation will work once the download finishes,
+        and the end of the wait was only a log line -- invisible to anyone who
+        started YazSes from an app grid or a `.dmg`. Fires on one checkable signal,
+        a download announced *this run*, so a cached or offline start never sees it;
+        and through the persisted shown-notices record, so a crash loop that
+        re-enters the download cannot repeat it.
+        """
+        try:
+            if not self._model_download_announced:
+                return
+            from yazses.system import notify as notify_mod
+            from yazses.system.diagnosis import should_notify
+
+            with self._lock:
+                fresh = should_notify("first-run-ready", time.time(), self._diagnosed_at)
+            if not fresh:
+                return
+            self._persist_shown_notices()
+            key = self._resolved_hotkey()
+            urgency, expire_ms = notify_mod.toast_policy(False)
+            notify_mod.notify(
+                f"YazSes is ready — hold {key} to dictate",
+                "The speech model has finished downloading.",
+                urgency=urgency, expire_ms=expire_ms,
+            )
+        except Exception:  # noqa: BLE001 — startup must survive its own notices
+            log.debug("could not announce that YazSes is ready", exc_info=True)
 
     def _announce_permissions(self) -> None:
         """Say which OS permissions are missing, on the desktop. Never raises.
