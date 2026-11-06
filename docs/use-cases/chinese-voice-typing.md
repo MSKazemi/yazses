@@ -134,6 +134,25 @@ set — 一千, the elided 一百一, 两十 — is typed as text, not guessed. 
 the explicit "删除最后 … 词/行" form. Every Mandarin command phrase is **provisional**
 until a native Mandarin speaker has reviewed it; until then, treat the set as a preview.
 
+## Meetings and file transcripts
+
+`yazses transcribe` and Meeting Mode keep Chinese text as written in every output format —
+Markdown, plain text, SRT, WebVTT and JSON. No space is inserted between characters, a
+speaker can have a Chinese display name, and renaming or merging speakers afterwards with
+`yazses meeting relabel` re-renders the transcript without adding spaces. Subtitle lines are
+measured in display columns (a Chinese character counts as two) and broken between
+characters. Meeting Mode's "this transcript looks too thin" check counts Chinese characters,
+not space-separated words.
+
+If you turn on meeting notes (`[meeting] notes`, off by default), the local summariser reads
+the transcript in windows sized for its context. A Chinese character is budgeted as several
+tokens, a deliberately cautious upper bound, so a Chinese meeting is summarised in more,
+smaller windows than an English one of the same length. That costs time, not content. The
+token rate of a real summarisation model on Chinese text has not been measured.
+
+All of this is checked with synthetic text in the test suite. It has not yet been checked
+with real recordings by a native speaker.
+
 ## How accurate is it really?
 
 Those figures come from ASCEND, which is **spontaneous conversation** by Hong Kong

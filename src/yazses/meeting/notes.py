@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 from dataclasses import dataclass, field, replace
 
 log = logging.getLogger(__name__)
@@ -58,7 +59,7 @@ def line_overhead_chars(speaker_names=None) -> int:
     labels = [str(v) for v in (speaker_names or {}).values() if str(v)]
     if not labels:
         return _LINE_OVERHEAD_CHARS
-    return max(_LINE_OVERHEAD_CHARS, max(len(label) for label in labels) + 3)
+    return max(_LINE_OVERHEAD_CHARS, max(budget_len(label) for label in labels) + 3)
 
 
 #: Conservative characters-per-token for a llama.cpp BPE on meeting prose.
@@ -72,6 +73,34 @@ CHARS_PER_TOKEN = 3.0
 
 #: Prompt boilerplate plus the ``Name: `` prefixes, in tokens. Rounded up.
 _PROMPT_OVERHEAD_TOKENS = 200
+
+
+def budget_len(text: str) -> int:
+    """Length of *text* in the unit :func:`window_budget_chars` returns. Pure.
+
+    For text holding no CJK this **is** ``len(text)``, so the English path is
+    unchanged. ``CHARS_PER_TOKEN`` is an English ratio, though, and a Han character
+    is not a third of a token: with the shipped 4096/1024 context the budget is
+    8,616 characters, and 8,616 Han characters fit the 2,872 tokens left for
+    transcript only if a tokenizer packs three of them into one token (#501).
+
+    So each CJK character (``cjk.is_cjk``: Han, the other unspaced scripts, and
+    full-width punctuation) is charged its UTF-8 length in tokens -- 3 for the BMP,
+    4 for the astral extensions. That is an upper bound for any tokenizer in which
+    every token covers at least one byte of input (byte-level BPE, SentencePiece
+    with byte fallback), chosen because erring small only costs an extra window
+    (see ``CHARS_PER_TOKEN``). It is a bound, not a measurement: no real model's
+    Mandarin token rate was measured, and a vocabulary rich in Han merges will use
+    fewer tokens than this charges.
+    """
+    from yazses.postprocess.cjk import contains_cjk, is_cjk
+
+    if not contains_cjk(text):
+        return len(text)
+    cost = 0.0
+    for ch in text:
+        cost += len(ch.encode("utf-8")) * CHARS_PER_TOKEN if is_cjk(ch) else 1.0
+    return math.ceil(cost)
 
 
 def window_budget_chars(ctx_tokens: int, max_output_tokens: int) -> int:
@@ -112,7 +141,7 @@ def _split_long_text(text: str, budget: int) -> list:
         pieces: list[str] = []
         cur: list[tuple[str, str]] = []
         for unit in break_units(text):
-            if cur and len(render_units([*cur, unit])) > budget:
+            if cur and budget_len(render_units([*cur, unit])) > budget:
                 pieces.append(render_units(cur))
                 cur = [unit]
             else:
@@ -160,7 +189,7 @@ def window_turns(utterances, size: int, max_chars: int | None = None,
         # `"Name: "` label in front of every line, so a chunk of exactly `max_chars`
         # renders longer than `max_chars`.
         text_budget = max(1, max_chars - line_overhead)
-        rendered = len(getattr(utterance, "text", "") or "")
+        rendered = budget_len(getattr(utterance, "text", "") or "")
         if rendered > text_budget:
             try:
                 pieces = [
@@ -173,7 +202,7 @@ def window_turns(utterances, size: int, max_chars: int | None = None,
                 # to itself rather than refusing to window at all.
                 pieces = [utterance]
         for piece in pieces:
-            cost = len(getattr(piece, "text", "") or "") + line_overhead
+            cost = budget_len(getattr(piece, "text", "") or "") + line_overhead
             if current and (len(current) >= size or used + cost > max_chars):
                 windows.append(current)
                 current, used = [], 0
@@ -230,7 +259,7 @@ def batch_partials(rendered: list, budget: int) -> list:
     current: list = []
     used = 0
     for index, text in enumerate(rendered):
-        cost = len(text) + 2  # the blank line the join puts between them
+        cost = budget_len(text) + 2  # the blank line the join puts between them
         if current and used + cost > budget:
             batches.append(current)
             current, used = [], 0
@@ -476,7 +505,11 @@ def _minutes_to_json(m: Minutes) -> str:
 
 
 def _merge_partials(partials) -> Minutes:
-    summary = " ".join(p.summary for p in partials if p.summary).strip()
+    # Script-aware: `" ".join` put a space between two Mandarin sentences (#501). For
+    # text without CJK, `join_pieces` *is* `" ".join`.
+    from yazses.postprocess.cjk import join_pieces
+
+    summary = join_pieces([p.summary for p in partials if p.summary]).strip()
     decisions, actions = [], []
     for p in partials:
         decisions += p.decisions
