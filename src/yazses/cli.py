@@ -2505,6 +2505,15 @@ def features_enable(
         typer.echo("Enable anyway with: yazses features enable "
                    f"{feat.slug} --force", err=True)
         raise typer.Exit(1)
+    # #497: a toggle that writes [stt] keys must not half-apply a language profile
+    # (Han script on English speech, an English-only engine under Mandarin). Asked
+    # before the pack path and the dependency install, so a refusal costs nothing.
+    from yazses.language.status import feature_toggle_refusal
+
+    refusal = feature_toggle_refusal(cfg, feat.on_writes)
+    if refusal:
+        typer.echo(f"{feat.name} not enabled: {refusal}", err=True)
+        raise typer.Exit(1)
     if _enable_via_pack(feat, platform.paths.config_file, cfg, yes=yes, no_install=no_install):
         return
     blocked = _feature_deps_blocked(feat)

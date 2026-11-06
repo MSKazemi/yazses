@@ -1,6 +1,7 @@
 """Derive language/profile coherence from canonical YazSes config."""
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass
 
 from yazses.language.capability import check
@@ -154,4 +155,74 @@ def derive_status(current) -> LanguageStatus:
         language_support=support.verdict,
         support_source=support.source_url,
         support_reason=support.reason,
+    )
+
+
+# The `[stt]` keys `derive_status` judges. A feature toggle that writes none of them
+# cannot change the language verdict, so it is never inspected.
+_LANGUAGE_KEYS = ("engine", "model", "language", "chinese_script")
+
+
+def feature_toggle_refusal(current, writes) -> str:
+    """Why applying a feature toggle's *writes* to *current* must be refused, or ``""``.
+
+    #497: `yazses language set` and the Settings language row switch a profile as one
+    unit, but `features enable chinese-script` wrote ``chinese_script`` onto the
+    default ``base.en`` + ``en`` install, and `features enable stt-parakeet`/`stt-moonshine`
+    wrote an English-only engine under Mandarin speech -- each a single command that
+    left `yazses doctor` at FAIL. The CLI and the settings window both ask here, so
+    they refuse the same toggles with the same words.
+
+    Pure: *writes* are the registry's ``(section, key, value, quote)`` tuples and are
+    applied to a copy. Refuses only when the toggle *adds* a problem that
+    :func:`derive_status` reports -- the same check doctor and `language status` run --
+    so a config that is already incoherent is not blamed on the toggle, and a toggle
+    that repairs one (turning a stray script off) is never refused.
+    """
+
+    changes = {
+        key: str(value)
+        for section, key, value, *_quote in writes or ()
+        if section == "stt" and key in _LANGUAGE_KEYS
+    }
+    stt = _stt(current)
+    if not changes or stt is None:
+        return ""
+
+    candidate_stt = copy.copy(stt)
+    for key, value in changes.items():
+        setattr(candidate_stt, key, value)
+    if hasattr(current, "stt"):
+        candidate = copy.copy(current)
+        candidate.stt = candidate_stt
+    else:
+        candidate = candidate_stt
+
+    before = set(derive_status(current).problems)
+    after = derive_status(candidate)
+    added = [problem for problem in after.problems if problem not in before]
+    if not added:
+        return ""
+
+    if after.output_script and after.speech_language != "zh":
+        remedy = (
+            "Han-script output is part of a Mandarin profile: run "
+            "`yazses language set zh-CN` (Simplified) or `yazses language set zh-TW` "
+            "(Traditional), which set the speech language, a multilingual model and "
+            "the script together."
+        )
+    elif "engine" in changes:
+        engine = str(getattr(stt, "engine", "") or "faster-whisper")
+        remedy = (
+            f"Keep [stt] engine = \"{engine}\" for "
+            f"{after.speech_language or 'auto-detected'!r} speech, or switch the "
+            "language first (`yazses language set en`)."
+        )
+    else:
+        remedy = "`yazses language status` shows the current settings."
+    return (
+        "it would leave the language settings inconsistent — "
+        + "; ".join(problem.rstrip(". ") for problem in added)
+        + ". Nothing was written. "
+        + remedy
     )

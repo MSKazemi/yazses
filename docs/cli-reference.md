@@ -1102,6 +1102,15 @@ information for scripts and dashboards.
 default. Drop to `--dry-run` first if you want to see the plan and unmet requirements
 (a missing model download, a missing optional dependency) before committing to anything.
 
+The single-key toggles cannot split a profile either. `yazses features enable
+chinese-script` only pins the Han script, so it refuses, and writes nothing, when
+`[stt] language` is not `zh`: the script on English or auto-detected speech is the
+combination `doctor` reports as a FAIL. It names `yazses language set zh-CN` /
+`zh-TW` instead. `features enable stt-parakeet` and `stt-moonshine` are refused on a
+non-English language for the same reason: both load an English-only checkpoint, so
+dictation would be refused at the next start. The settings window runs the same
+check. Turning a capability **off** is never refused this way.
+
 ### `yazses gaze` — Glance-Type (webcam gaze targeting)
 
 | Command | Description |
