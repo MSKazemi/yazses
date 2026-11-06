@@ -2312,16 +2312,28 @@ class SettingsWindow:
         Shelling out rather than importing the CLI keeps the window out of the
         daemon's lifecycle: `restart` stops every daemon including detached ones,
         and doing that in-process from a GUI is how you end up killing yourself.
+
+        The child's output is decoded as UTF-8 with ``errors="replace"``, never with the
+        locale encoding that ``text=True`` alone picks. The CLI child switches a piped
+        stdout/stderr to UTF-8 (`system/streams.py::ensure_printable_streams`), so on a
+        Windows cp1252 host the locale decode turned its em dashes into mojibake, and a
+        byte cp1252 leaves undefined (0x81, 0x8D, 0x8F, 0x90, 0x9D — the second byte of
+        Cyrillic "с", of "●") raised UnicodeDecodeError out of ``subprocess.run``. That
+        exception was then reported as "Restart failed — 'charmap' codec can't decode…"
+        even when the restart had exited 0, hiding both the success and the real reason.
         """
         import subprocess
 
         try:
             result = subprocess.run(
                 command_for(Mode.CLI, "restart"),
-                capture_output=True, text=True, timeout=90,
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+                timeout=90,
             )
         except Exception as exc:  # noqa: BLE001 - reported to the user
-            return False, str(exc)
+            # An exception with an empty message (a bare TimeoutError(), an OSError with
+            # no strerror) must still name something, not "Restart failed — ".
+            return False, str(exc) or type(exc).__name__
         if result.returncode != 0:
             return False, (result.stderr or result.stdout or "").strip()[:200]
         return True, ""
