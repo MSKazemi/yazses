@@ -914,3 +914,29 @@ def test_701_showcase_audit_fails_on_an_injected_external_script(tmp_path: Path)
     root = _copy_tree(SHOWCASE, tmp_path / "showcase")
     _append(root / "index.html", '<script src="//evil.example/t.js"></script>')
     assert any("external <script>" in f for f in audit_static_tree(root, allow_outbound_anchors=True))
+
+
+# --------------------------------------------------------------------------------------
+# #700 criterion 6: the replay harness adds no daemon feature, OS injection, cloud endpoint,
+# hosted input or model weights. The per-file checks above cover what the eval files call;
+# these cover what the lab CONTAINS and whether the product reaches into it.
+# --------------------------------------------------------------------------------------
+
+LAB_ALLOWED_SUFFIXES = {".js", ".json", ".md", ".html", ".css", ".svg"}
+
+
+def test_700_the_lab_ships_only_static_web_files_and_no_weights() -> None:
+    suffixes = {p.suffix for p in LAB.rglob("*") if p.is_file()}
+    unexpected = sorted(suffixes - LAB_ALLOWED_SUFFIXES)
+    assert not unexpected, f"examples/hci-hf-lab gained file types beyond static web + JSON: {unexpected}"
+
+
+def test_700_the_product_does_not_import_or_reference_the_lab() -> None:
+    needles = ("hci-hf-lab", "hci_hf_lab", "HciResolver", "HCI_FIXTURES")
+    hits = [
+        f"{p.relative_to(ROOT)}: {n}"
+        for p in (ROOT / "src" / "yazses").rglob("*.py")
+        for n in needles
+        if n in p.read_text(encoding="utf-8")
+    ]
+    assert not hits, f"the daemon must not depend on the synthetic replay lab: {hits}"

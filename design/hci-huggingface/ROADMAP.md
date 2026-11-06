@@ -21,6 +21,20 @@ Maintain an **offline product / optional public research surface** boundary. The
 | B | [#695 — HCI-HF-003](https://github.com/MSKazemi/yazses/issues/695) | Camera/gaze evaluation protocol on shared source; existing eye-control gates #414–#420 | #10 |
 | C | [#696 — HCI-HF-004](https://github.com/MSKazemi/yazses/issues/696) | EEG/EOG synthetic-board feasibility; hardware/ethics gated | #10 |
 
+**#700 acceptance audit (2026-11-06, synthetic fixtures only, Linux + Node 24).** Each criterion in the issue maps to a named passing test. `replay.test.js` runs under `node --test` and is wrapped by `tests/test_hci_hf_lab.py::test_replay_eval_tests_and_cli_pass_under_node`. These tests regression-check a pure resolver. They measure no device and no person.
+
+| #700 criterion | Test(s) |
+|---|---|
+| No action on stale / low-confidence / contradictory signals | `eval/replay.test.js` "#700 C1"; rule-level: `resolver.test.js` "stale or low-confidence activation abstains", "conflicting gaze and voice targets abstain", "low voice confidence abstains" |
+| High-risk action never accepted without confirmation | `eval/replay.test.js` "#700 C2" (every shipped scenario × every destructive intent); `resolver.test.js` "destructive intents always ask for confirmation" |
+| Emergency stop always wins | `eval/replay.test.js` "#700 C3" (emergency stop and voice "stop" over every shipped scenario); `resolver.test.js` "stop wins over a fully valid accept" |
+| Missing EEG/EMG/camera adapters do not interrupt the voice path | `eval/replay.test.js` "#700 C4" |
+| Deterministic JSON/Markdown metrics, synthetic warning | `eval/replay.test.js` "the report is deterministic", "the synthetic-data warning is in both outputs…", "#700 C5/C7"; `test_replay_eval_tests_and_cli_pass_under_node` (two CLI runs byte-identical) |
+| No daemon feature, OS injection, cloud endpoint or weights | `test_eval_files_are_offline_and_deterministic`, `test_700_the_lab_ships_only_static_web_files_and_no_weights`, `test_700_the_product_does_not_import_or_reference_the_lab` |
+| Separation from participant validation (#419) | `eval/replay.test.js` "#700 C5/C7" |
+
+Each new test was checked against a mutation of a scratch copy of the code, and each one fails on its own mutation. For three criteria, no earlier test failed: the stop check made conditional on a valid activation (C3), the voice path made to require a gaze stream (C4), and the #419 sentence removed from the notice (C5/C7). Those three criteria were therefore untested before this audit. Earlier tests already failed on the C1 mutation (gaze staleness ignored) and the C2 mutation (destructive intents accepted). **Open limit:** the lab models no keyboard or hotkey activation. With camera, EMG and EEG *all* absent, the activation is `none`, and a voice command therefore abstains. C4 holds only while at least one activation source remains. In the product, the hold-to-talk hotkey sits outside this lab. Closing the gap would change `resolver.js` and the fixture schema, so it needs its own issue. The native sub-issue link to #692 and the #693 UI integration are still open.
+
 **Ready-to-scope sequence:** #698/#694/#699 can proceed independently; #693 then #701 for a publication-ready *synthetic* demo; #700 after #699; #695 and #696 remain evidence-gated. Completing this research programme does **not** require approving live EEG or camera changes.
 
 ## Dependencies and phases

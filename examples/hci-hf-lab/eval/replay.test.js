@@ -91,6 +91,123 @@ test("a missed accept is counted when an expected accept does not happen", () =>
   assert.equal(r.mismatches[0].id, "forced_missed_accept");
 });
 
+// ---------------------------------------------------------------------------------------
+// #700 acceptance criteria, one sweep each, judged on the REPORT (what the harness exports)
+// rather than on single resolver calls. resolver.test.js covers the rules one at a time.
+// ---------------------------------------------------------------------------------------
+
+function only(...scenarios) {
+  const fx = clone(FX);
+  fx.scenarios = scenarios;
+  return fx;
+}
+
+const DESTRUCTIVE = FX.intents.filter((i) => i.destructive).map((i) => i.id);
+
+test("#700 C1: no simulated action is emitted on stale, low-confidence or contradictory signals", () => {
+  // Each variant degrades the one signal the base decision depends on. The base scenario
+  // (gaze-targeted, blink-activated, no named target) is accepted when nothing is degraded.
+  const degrade = {
+    gaze_stale: (s) => { s.inputs.gaze.age_ms = FX.thresholds.max_age_ms + 1; },
+    gaze_low_confidence: (s) => { s.inputs.gaze.confidence = FX.thresholds.gaze_min_confidence - 0.01; },
+    gaze_unknown_confidence: (s) => { s.inputs.gaze.confidence = null; },
+    activation_stale: (s) => { s.inputs.activation.age_ms = FX.thresholds.max_age_ms + 1; },
+    activation_low_confidence: (s) => { s.inputs.activation.confidence = 0.01; },
+    activation_unknown_confidence: (s) => { s.inputs.activation.confidence = null; },
+    voice_low_confidence: (s) => { s.inputs.voice.confidence = FX.thresholds.voice_min_confidence - 0.01; },
+    contradictory_targets: (s) => { s.inputs.voice.target_ref = "mail"; }, // gaze is on notes
+  };
+  for (const intent of ["open", ...DESTRUCTIVE]) {
+    const variants = Object.entries(degrade).map(([name, apply]) => {
+      const s = scenario("correct_target");
+      s.id = `${name}_${intent}`;
+      s.inputs.voice.intent = intent;
+      s.expected = { decision: "abstain" };
+      apply(s);
+      return s;
+    });
+    const r = buildReport(only(...variants));
+    assert.deepEqual(r.mismatches, [], intent);
+    assert.equal(r.decisions.accept, 0, intent);
+    assert.equal(r.decisions.ask_confirmation, 0, intent); // not even a proposal awaiting confirmation
+    assert.equal(r.decisions.abstain, variants.length, intent);
+  }
+});
+
+test("#700 C2: a destructive intent is never accepted, whatever the other inputs", () => {
+  assert.ok(DESTRUCTIVE.length > 0, "the fixtures must define at least one destructive intent");
+  for (const intent of DESTRUCTIVE) {
+    const swept = FX.scenarios.map((sc) => {
+      const s = clone(sc);
+      s.inputs.voice.intent = intent;
+      return s;
+    });
+    const r = buildReport(only(...swept));
+    assert.equal(r.decisions.accept, 0, intent);
+    // Every scenario that was accepted with a harmless intent now waits for confirmation.
+    const acceptedBefore = buildReport(FX).decisions.accept;
+    assert.ok(r.decisions.ask_confirmation >= acceptedBefore, intent);
+  }
+});
+
+test("#700 C3: emergency stop wins over every competing modality in every shipped scenario", () => {
+  for (const how of ["emergency_stop", "voice_stop"]) {
+    const swept = FX.scenarios.map((sc) => {
+      const s = clone(sc);
+      if (how === "emergency_stop") s.inputs.emergency_stop = true;
+      else s.inputs.voice.intent = "stop";
+      return s;
+    });
+    const r = buildReport(only(...swept));
+    assert.equal(r.decisions.stop, swept.length, how);
+    assert.equal(r.decisions.accept + r.decisions.ask_confirmation + r.decisions.abstain, 0, how);
+    assert.equal(r.confirmation_burden.denominator, 0, how);
+    assert.equal(r.confirmation_burden.value, null, how);
+  }
+});
+
+test("#700 C4: a missing camera, EMG or EEG adapter does not block a voice-named action", () => {
+  const base = scenario("voice_only"); // gaze disconnected, EMG hold, voice names the terminal
+  assert.equal(base.inputs.voice.target_ref, "terminal");
+
+  const noCameraAtAll = clone(base); // the gaze stream is absent, not merely disconnected
+  noCameraAtAll.id = "no_camera_adapter";
+  delete noCameraAtAll.inputs.gaze;
+
+  const noEmg = clone(base); // EMG absent: a camera blink is the activation, gaze still absent
+  noEmg.id = "no_emg_adapter";
+  delete noEmg.inputs.gaze;
+  noEmg.inputs.activation = scenario("correct_target").inputs.activation;
+
+  const noEeg = clone(base); // EEG is never required: no accepting path reads it
+  noEeg.id = "no_eeg_adapter";
+  noEeg.inputs.eeg = undefined;
+
+  const r = buildReport(only(base, noCameraAtAll, noEmg, noEeg));
+  assert.deepEqual(r.mismatches, []);
+  assert.equal(r.decisions.accept, 4);
+
+  // No shipped scenario needs an EEG/EOG activation to be accepted.
+  for (const sc of FX.scenarios.filter((s) => s.expected.decision === "accept")) {
+    assert.notEqual(sc.inputs.activation.kind, "eeg_eog", sc.id);
+  }
+
+  // An absent gaze stream with no spoken target abstains with a reason; it does not throw.
+  const unnamed = clone(noCameraAtAll);
+  unnamed.id = "no_camera_no_named_target";
+  unnamed.inputs.voice.target_ref = null;
+  unnamed.expected = { decision: "abstain" };
+  assert.deepEqual(buildReport(only(unnamed)).mismatches, []);
+});
+
+test("#700 C5/C7: the notice separates this benchmark from participant validation (#419)", () => {
+  const r = buildReport(FX);
+  assert.match(r.notice, /^SYNTHETIC DATA\./);
+  assert.match(r.notice, /#419/);
+  assert.match(r.notice, /no rate here is an accuracy figure/);
+  assert.ok(JSON.stringify(r).includes(NOTICE));
+});
+
 test("emergency stop is never counted as a confirmation or an accept", () => {
   const r = buildReport(FX);
   const stops = FX.scenarios.filter((s) => s.expected.decision === "stop").length;
