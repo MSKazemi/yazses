@@ -11,9 +11,12 @@ Mandarin count precedent `src/yazses/commands/grammars/zh.py`
 **[Assumption]** reasoning with no measurement · **[Unknown]** not established.
 No external source was used. No audio or transcript was used.
 
-> **Coordination note.** Another unmerged branch already changes
-> `src/yazses/commands/edit_ops.py`. Line numbers below are at `8a72bbc6`. Any
-> implementation must start after that branch lands, or rebase onto it.
+> **Coordination note.** The unmerged branch `r1107-commands` (commit `3f4f0ea8`, also
+> carried by `release/v2.50.0-rc2`) already changes `src/yazses/commands/edit_ops.py`:
+> it adds a `_WORD` regex (shifting every line after 15 down by one) and rewrites
+> `delete_last_words` to slice the original text instead of re-joining words. It does not
+> touch `_NUMBER_WORDS`, `_n` or `_RE_DEL_WORDS`. Line numbers below are at `8a72bbc6`.
+> Any implementation must start after that branch lands, or rebase onto it.
 
 ## 1. The defect, in one line
 
@@ -38,7 +41,7 @@ What the parser does with some inputs, read from the code above [Code]:
 | Utterance (after outer-punctuation strip, `edit_ops.py:122`) | Parsed today | Correct? |
 |---|---|---|
 | `delete the last three words` | `n=3` | yes (`tests/test_edit_ops.py:67-70`) |
-| `delete last 2 words` | `n=2` | yes |
+| `delete last 2 words` | `n=2` | yes (but see the note below the table) |
 | `delete the last twenty words` | `n=1` | **no: silent under-count** |
 | `delete the last eleven words` | `n=1` | **no** |
 | `delete the last few words` / `several` / `couple` | `n=1` | it guesses. The request is vague. |
@@ -46,8 +49,14 @@ What the parser does with some inputs, read from the code above [Code]:
 | `delete the last for words` (ASR homophone of "four") | `n=1` | **no** |
 | `delete the last twenty one words` | `None` (two tokens) | not recognised. In command mode it is discarded, not typed. |
 | `delete the last twenty-one words` | `None` (`\w` excludes `-`) | as above |
-| `delete the last 500 words` | `n=500` | no cap. In practice it is clamped by the ledger (see 2.2). |
+| `delete the last 500 words` | `n=500` | no cap; clamped by the ledger (see 2.2) when it reaches this path at all |
 | `delete the last passwords` | `None` | yes, regression-pinned by `tests/test_spoken_edit_does_not_match_a_word_ending_in_words.py` |
+
+**Digits rarely reach this parser.** `classify` uses the Tier 1 grammar of one command
+language only (`src/yazses/commands/grammar.py:77-90`). With the English grammar, any
+digit count is caught first by `en.py:58` (section 2.3), so the digit rows above reach
+`parse_edit` only when the command language is not English (for example `zh`, where an
+English phrase falls through to `DICTATE`). Word counts ("twenty", "few") always reach it.
 
 ### 2.2 Who reaches it (daemon)
 
@@ -104,7 +113,7 @@ as `zh.py`.
 - **Does not fix on its own:** "few", "bad" and "for". These still fall back to 1 unless
   B is also adopted.
 - **Cost:** a pure helper (about 25 lines) plus a regex built from the vocabulary. Do not
-  reuse `itn/normalize.py:12-17` (`_NUM`). Its `"oh": 0` belongs to version strings, and
+  reuse `itn/normalize.py:12-18` (`_NUM`). Its `"oh": 0` belongs to version strings, and
   an import would couple two features that are both off by default.
 
 ### B. Refuse an unknown count, with a notice
@@ -133,7 +142,7 @@ The daemon returns `True`, so nothing is typed and the event is filed as
 Accept counts only up to a ceiling, and refuse anything above it, by the same route as B.
 
 - **Spoken Edit path:** this matters little here, because the ledger already bounds the
-  harm (2.2). Its value is consistency, so that "delete the last 5000 words" gets the same
+  harm (2.2), and with the English grammar a digit count never reaches this path (2.1). Its value is consistency, so that "delete the last 5000 words" gets the same
   refusal everywhere.
 - **Recommended ceiling:** 99, the same as `zh.py:39` (`MAX_COUNT`). One number across
   languages is easier to document and test.
@@ -158,7 +167,7 @@ delete.
 | A, single-token words | none | `eleven`…`ninety`: from 1 word to the stated count (clamped to the last dictation) |
 | A, compounds (`twenty one`, `twenty-one`) | **yes**: today these return `None` and are discarded in command mode | they newly delete 21…99 words, clamped |
 | B | none newly *applied* | `few`, `several`, `bad`, `for` …: from "delete 1 word" to "delete nothing, show one notice" |
-| C (99) | none | digits ≥ 100 and their word forms: from "clear the last dictation" to a refusal notice |
+| C (99) | none | digits ≥ 100 (only when the command language is not English, see 2.1): from "clear the last dictation" to a refusal notice |
 
 To keep A narrow, build the compound alternative **from the vocabulary itself**, as in
 `(twenty|thirty|…|ninety)[\s-](one|…|nine)`. Do not widen the slot to `\w+\s+\w+`. A
