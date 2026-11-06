@@ -12,7 +12,8 @@ It also knows *where* each utterance began, in samples from the first chunk ever
 pushed (dropped leading silence included), and publishes that as ``last_start_s``.
 The live transcript used to stamp a line with the clock at the moment its decode
 *finished*, which is the utterance's end plus the hangover plus the decode time plus
-any queue backlog -- a 30 s monologue was stamped at least 30.7 s late, and lines kept
+any queue backlog (a hard cut at ``max_utterance_ms`` skips the hangover) -- so a line
+was stamped at least its own utterance's length late, and lines kept
 drifting later on a machine whose decoder could not keep up. The sample position is
 the same timeline as ``audio.wav`` and the batch transcript's word timings.
 """
