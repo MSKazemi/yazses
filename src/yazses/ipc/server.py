@@ -156,7 +156,14 @@ class JsonRpcServer:
             conn.settimeout(2.0)
             buf = bytearray()
             while b"\n" not in buf:
-                chunk = conn.recv(4096)
+                try:
+                    chunk = conn.recv(4096)
+                except OSError as exc:
+                    # A client that stalls before finishing its line (TimeoutError)
+                    # or resets the connection. Uncaught, this escaped the thread and
+                    # printed a traceback into the daemon log that reads like a crash.
+                    log.info("IPC client gave up before sending a full request: %r", exc)
+                    return
                 if not chunk:
                     break
                 buf.extend(chunk)
