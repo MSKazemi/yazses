@@ -8,6 +8,8 @@ It does NOT drive the dictation pipeline itself — the daemon does. On launch:
 3. On quit, send ``shutdown`` over IPC.
 4. If the daemon that answers is older than this tray, or started before a permission it
    now has was granted, hand it to ``yazses restart`` once (:class:`StaleDaemonReplacer`).
+   A tray that exits because another tray holds the lock asks that once on its way out,
+   since the tray holding the lock may be from before this check.
 
 The tray's ``run()`` blocks the main thread (it owns the OS runloop on macOS,
 the message pump on Windows). Polling happens on a worker thread.
@@ -258,12 +260,16 @@ def _launch_restart(argv: list[str]) -> None:
     """
     import subprocess
 
+    # Unlike the menu's Restart, nobody clicked anything: a console must not flash up on
+    # its own where the OS would open one for a console program (Windows). Elsewhere the
+    # attribute is absent and 0 is the only value Popen accepts.
     subprocess.Popen(
         argv,
         start_new_session=True,
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
     )
 
 
@@ -357,10 +363,13 @@ class StaleDaemonReplacer:
                 ", ".join(str(g) for g in status.get("stale_permissions") or [])
                 if isinstance(status, dict) else "",
             )
-        argv = (self._command or _restart_command)()
-        (self._launcher or _launch_restart)(argv)
+        # Recorded *before* the launch: the restart closes the tray that launched it, and
+        # the next tray must find the record whatever the race. A launch that then fails
+        # stays silent for the hour too -- the log line above says what happened.
         record[reason] = now
         toast_memory.save(path, record, now=now)
+        argv = (self._command or _restart_command)()
+        (self._launcher or _launch_restart)(argv)
         if self._notify is not None:
             body = (
                 "Restarting YazSes so it uses the permission you granted."
@@ -372,6 +381,27 @@ class StaleDaemonReplacer:
             except Exception:
                 log.debug("could not show the restart notice", exc_info=True)
         return reason
+
+
+def _replace_a_stale_daemon_once(platform) -> str | None:  # noqa: ANN001
+    """One ``status`` call from a tray that is exiting as a duplicate; never raises.
+
+    The reopened app's tray exits when another tray holds ``tray.lock``. If that tray is
+    from before the stale-daemon check, nothing else ever acts on the old daemon, so this
+    one asks once and hands off to :class:`StaleDaemonReplacer` -- the same rule, the same
+    once-per-hour record. No icon is built and no notice is shown: this process is about
+    to exit, and the daemon that comes back launches its own tray.
+    """
+    try:
+        client = platform.ipc_client_factory(platform.paths.ipc_socket)
+        info = client.call("status")
+    except Exception:
+        log.debug("no daemon answered the duplicate tray's status check", exc_info=True)
+        return None
+    replacer = StaleDaemonReplacer(
+        getattr(getattr(platform, "paths", None), "data_dir", None), mine=_tray_version()
+    )
+    return replacer.check(info)
 
 
 def run() -> None:
@@ -396,6 +426,10 @@ def run() -> None:
     lock = SingleInstanceLock(platform.paths.data_dir / "tray.lock")
     if not lock.acquire():
         log.info("A YazSes tray is already running; exiting.")
+        # The tray holding the lock may predate the stale-daemon check (#578: the old
+        # daemon's own tray). Reopening the app is then the only moment this install
+        # runs, so ask the daemon once on the way out.
+        _replace_a_stale_daemon_once(platform)
         return
 
     tray = platform.tray_factory()

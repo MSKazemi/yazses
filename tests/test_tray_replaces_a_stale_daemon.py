@@ -26,7 +26,7 @@ from pathlib import Path
 import pytest
 
 import yazses.tray.app as app
-from yazses.core.takeover import REPLACE_SILENCE_S, replacement_reason
+from yazses.core.takeover import REPLACE_SILENCE_S, may_replace_again, replacement_reason
 from yazses.platform import TrayModel
 from yazses.tray.app import StaleDaemonReplacer
 
@@ -87,6 +87,21 @@ def test_an_unreadable_own_version_still_acts_on_a_stale_grant():
     stale = {**_IDLE, "stale_permissions": ["input_monitoring"]}
     assert replacement_reason({"state": "idle", "version": "2.43.1"}, "dev") is None
     assert replacement_reason(stale, "dev") == "permissions"
+
+
+def test_the_silence_rule():
+    now = 1_000_000.0
+    assert may_replace_again(None, now)
+    assert not may_replace_again(now, now)
+    assert not may_replace_again(now - REPLACE_SILENCE_S + 1, now)
+    assert may_replace_again(now - REPLACE_SILENCE_S, now)
+
+
+def test_a_record_from_the_future_does_not_block():
+    """A clock set back must not silence the rule for as long as the clock is wrong."""
+    now = 1_000_000.0
+    assert may_replace_again(now + 1.0, now)
+    assert may_replace_again(now + REPLACE_SILENCE_S * 10, now)
 
 
 # ---- the tray's hand-off ---------------------------------------------------------------
@@ -201,6 +216,45 @@ def test_an_unwritable_record_still_restarts_once_per_tray(tmp_path):
     assert len(launched) == 1
 
 
+def test_the_record_is_written_before_the_restart_is_launched(tmp_path):
+    """The loop guard must not race the restart, which closes the tray that launched it."""
+    from yazses.system import toast_memory
+
+    seen: list[dict[str, float]] = []
+
+    def launcher(_argv):
+        seen.append(toast_memory.load(tmp_path / "daemon_replacements.json"))
+
+    r = StaleDaemonReplacer(
+        tmp_path, mine=_MINE, launcher=launcher, command=lambda: ["yazses", "restart"],
+        wall=_Clock(),
+    )
+    assert r.check({**_IDLE, "stale_permissions": ["input_monitoring"]}) == "permissions"
+    assert seen and "permissions" in seen[0]
+
+
+def test_the_restart_is_launched_without_a_console_window(monkeypatch):
+    """No user clicked anything, so a Windows console must not flash up on its own."""
+    import subprocess
+
+    calls: list[dict] = []
+    monkeypatch.setattr(subprocess, "CREATE_NO_WINDOW", 0x08000000, raising=False)
+    monkeypatch.setattr(subprocess, "Popen", lambda argv, **kw: calls.append(kw))
+    app._launch_restart(["yazses", "restart"])
+    assert calls[0]["creationflags"] == 0x08000000
+    assert calls[0]["start_new_session"] is True
+
+
+def test_no_creationflags_where_the_os_has_none(monkeypatch):
+    import subprocess
+
+    calls: list[dict] = []
+    monkeypatch.delattr(subprocess, "CREATE_NO_WINDOW", raising=False)
+    monkeypatch.setattr(subprocess, "Popen", lambda argv, **kw: calls.append(kw))
+    app._launch_restart(["yazses", "restart"])
+    assert calls[0]["creationflags"] == 0  # the only value POSIX Popen accepts
+
+
 def test_a_replacer_with_no_data_dir_is_inert(tmp_path):
     launched: list[list[str]] = []
     r = StaleDaemonReplacer(
@@ -252,13 +306,24 @@ class _Client:
         return {"ok": True}
 
 
-def _run_tray(monkeypatch, tmp_path, reply: dict) -> tuple[list[list[str]], _Client]:
+class _Unreachable:
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+        self.polls = 0
+
+    def call(self, method: str, **_kwargs):  # noqa: ANN201
+        self.calls.append(method)
+        raise ConnectionRefusedError("no daemon")
+
+
+def _run_tray(monkeypatch, tmp_path, reply: dict, *, client=None,
+              tray_factory=None) -> tuple[list[list[str]], _Client]:
     done = threading.Event()
     tray = _Tray(done)
-    client = _Client(reply, done)
+    client = client if client is not None else _Client(reply, done)
     plat = types.SimpleNamespace(
         name="fake",
-        tray_factory=lambda: tray,
+        tray_factory=tray_factory or (lambda: tray),
         ipc_client_factory=lambda _path: client,
         paths=types.SimpleNamespace(data_dir=tmp_path, ipc_socket=tmp_path / "s"),
         lifecycle=types.SimpleNamespace(
@@ -286,7 +351,7 @@ def test_the_running_tray_restarts_a_daemon_that_predates_the_grant(monkeypatch,
 
 
 def test_the_running_tray_restarts_an_older_daemon_it_found_at_launch(monkeypatch, tmp_path):
-    """The reporter's flow: reopen the upgraded app while the old daemon still runs."""
+    """A tray that holds the lock and finds an older daemon running (no older tray around)."""
     launched, _ = _run_tray(monkeypatch, tmp_path, {"state": "idle", "version": "2.43.1"})
     assert launched == [["yazses", "restart"]]
 
@@ -294,3 +359,63 @@ def test_the_running_tray_restarts_an_older_daemon_it_found_at_launch(monkeypatc
 def test_the_running_tray_leaves_a_current_daemon_alone(monkeypatch, tmp_path):
     launched, _ = _run_tray(monkeypatch, tmp_path, dict(_IDLE))
     assert launched == []
+
+
+# ---- the reporter's flow: an older tray still holds the lock ---------------------------
+#
+# In #578's log the reopened tray exited at once ("A YazSes tray is already running"),
+# because the old daemon's old tray held `tray.lock`. That tray predates this check, so a
+# reopened tray that only exits never replaces anything. It asks once on its way out.
+
+
+@pytest.fixture
+def held_tray_lock(tmp_path):
+    from yazses.system.single_instance import SingleInstanceLock
+
+    other = SingleInstanceLock(tmp_path / "tray.lock")
+    assert other.acquire()
+    yield other
+    other.release()
+
+
+def _no_tray():
+    raise AssertionError("a duplicate tray must not build a tray icon")
+
+
+def test_a_duplicate_tray_restarts_a_daemon_that_predates_the_grant(
+        monkeypatch, tmp_path, held_tray_lock):
+    client = _Client({**_IDLE, "stale_permissions": ["input_monitoring"]}, threading.Event())
+    launched, _ = _run_tray(monkeypatch, tmp_path, {}, client=client, tray_factory=_no_tray)
+    assert launched == [["yazses", "restart"]]
+    assert client.calls == ["status"]
+
+
+def test_a_duplicate_tray_restarts_an_older_daemon(monkeypatch, tmp_path, held_tray_lock):
+    client = _Client({"state": "idle", "version": "2.43.1"}, threading.Event())
+    launched, _ = _run_tray(monkeypatch, tmp_path, {}, client=client, tray_factory=_no_tray)
+    assert launched == [["yazses", "restart"]]
+
+
+def test_a_duplicate_tray_leaves_a_current_daemon_alone(monkeypatch, tmp_path, held_tray_lock):
+    client = _Client(dict(_IDLE), threading.Event())
+    launched, _ = _run_tray(monkeypatch, tmp_path, {}, client=client, tray_factory=_no_tray)
+    assert launched == []
+    assert client.calls == ["status"]
+
+
+def test_a_duplicate_tray_with_no_daemon_just_exits(monkeypatch, tmp_path, held_tray_lock):
+    client = _Unreachable()
+    launched, _ = _run_tray(monkeypatch, tmp_path, {}, client=client, tray_factory=_no_tray)
+    assert launched == []
+    assert client.calls == ["status"]
+
+
+def test_a_duplicate_tray_honours_the_silence(monkeypatch, tmp_path, held_tray_lock):
+    """The running tray (or an earlier reopen) already restarted it within the hour."""
+    stale = {**_IDLE, "stale_permissions": ["input_monitoring"]}
+    first, _ = _run_tray(monkeypatch, tmp_path, {},
+                         client=_Client(stale, threading.Event()), tray_factory=_no_tray)
+    again, _ = _run_tray(monkeypatch, tmp_path, {},
+                         client=_Client(stale, threading.Event()), tray_factory=_no_tray)
+    assert first == [["yazses", "restart"]]
+    assert again == []

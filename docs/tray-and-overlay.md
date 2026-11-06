@@ -139,10 +139,16 @@ that most often go wrong — the wrong microphone, and a daemon that needs a res
 The icon also restarts the daemon **by itself** in two cases, both reported by the daemon
 over its `status` reply rather than guessed: the daemon is an older version than the icon
 (you upgraded while the old one kept running), or it started before a permission it needs
-was granted (macOS Input Monitoring — the same fact `yazses doctor` shows). It hands off to
-`yazses restart` once, only while the daemon is idle or in error (never during a dictation
-or a meeting), and not again for the same reason within an hour. Tested with simulated
-daemons; not yet confirmed on a Mac ([#578](https://github.com/MSKazemi/yazses/issues/578)).
+was granted (macOS Input Monitoring — the same fact `yazses doctor` shows). The running
+icon checks this on every poll. An icon you open while another icon is already running
+exits as a duplicate, as it always has, but first asks the daemon once — so this works
+even when the icon already in the menu bar is from an older release that never checks.
+Either way it hands off to `yazses restart`, only while the daemon is idle or in error
+(never during a dictation or a meeting), and not again for the same reason within an
+hour. If a restart does not clear the reason (a service unit that starts an older
+install, say), it repeats about once an hour while idle; `yazses doctor` shows which
+version is running. Tested with simulated daemons; not yet confirmed on a Mac
+([#578](https://github.com/MSKazemi/yazses/issues/578)).
 
 The **Settings…**, **Help**, **About** and **Check for updates…** entries are in the menu on
 **Linux, macOS and Windows** — the menu means the same thing wherever you run it. (macOS and

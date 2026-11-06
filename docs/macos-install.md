@@ -370,23 +370,36 @@ stops the daemon. On 2.43.0 or older, do not rely on Quit plus reopening to pick
 up a permission you have just fixed; use `yazses restart` as above. This was found by
 reading the library and the log, not by reproducing it on a Mac.
 
-Since 2.43.1, opening a newer YazSes while an **older** one is still running
-asks the old daemon to stop and takes its place, instead of exiting as a duplicate. The
-old daemon has to be a release that reports its version over `status`; if the log says
-*"Another YazSes daemon is already running"* anyway, use `yazses restart` once.
+Since 2.43.1, a newer YazSes **daemon** that starts while an older one is still
+running asks the old one to stop and takes its place, instead of exiting as a duplicate.
+The old daemon has to be a release that reports its version over `status`; if the log
+says *"Another YazSes daemon is already running"* anyway, use `yazses restart` once.
+Double-clicking the app does not start a daemon, though: it starts the menu-bar icon, and
+the icon uses a daemon it finds running rather than starting another, so that takeover
+alone never replaced the daemon you reopened the app to fix.
 
-That takeover runs only when a second *daemon* starts, and double-clicking the app
-starts the menu-bar icon, which uses a daemon it finds running rather than starting
-another. Newer builds close that gap (the
-[changelog](https://github.com/MSKazemi/yazses/blob/main/CHANGELOG.md) entry for
-[#578](https://github.com/MSKazemi/yazses/issues/578) names the release): the **menu-bar
-icon also restarts the daemon** when the daemon itself reports either of two things: it is an
-older version than the icon, or it started before Input Monitoring was granted (the
-same fact `doctor` shows). It does so once, only while the daemon is idle (never during
-a dictation or a meeting), shows *"Restarting YazSes…"*, and does not do it again for the
-same reason within an hour. If the hotkey is still dead after that,
-`yazses restart` is still the manual route. **Unverified on a Mac:** this is tested with
-simulated daemons only.
+The release that carries the [changelog](https://github.com/MSKazemi/yazses/blob/main/CHANGELOG.md)
+entry for [#578](https://github.com/MSKazemi/yazses/issues/578) adds a second route: the
+**menu-bar icon restarts the daemon** (it runs `yazses restart`) when the daemon itself
+reports either of two things: it is an older version than the icon, or it started before
+Input Monitoring was granted (the same fact `doctor` shows). Both routes into it work:
+
+* **The icon is already running** (it is at least that release): it checks every poll,
+  and restarts the daemon with the notice *"Restarting YazSes so the updated version takes
+  over."* or *"Restarting YazSes so it uses the permission you granted."*
+* **An older icon is still in the menu bar** (the daemon's own icon, as in #578): the
+  icon you just opened finds it, exits as a duplicate as before, and on its way out asks
+  the daemon once and restarts it if needed. No notice is shown in this case; the
+  restart is in the log.
+
+Either way it happens only while the daemon is idle (never during a dictation or a
+meeting), and not again for the same reason within an hour. If the reason survives a
+restart — for example a login item (`launchctl`) that still starts an older install —
+the icon restarts the daemon again about once an hour while it is idle; `yazses doctor`
+names the version that is running. After a restart the older icon may stay in the menu
+bar talking to the new daemon; Quit it and open the app again if you want the new one.
+If the hotkey is still dead, `yazses restart` is still the manual route.
+**Unverified on a Mac:** this is tested with simulated daemons only.
 
 **Which YazSes is being asked about?** The Accessibility answer is about the
 program that is running, not about every copy on the disk — so a grant given to

@@ -80,6 +80,8 @@ def replacement_reason(status: object, mine: object) -> str | None:
     state = status.get("state")
     if not isinstance(state, str) or state not in REPLACEABLE_STATES:
         return None
+    # Both flags reach `status` from v2.25.0; `version` from v2.24.0. A v2.24.x daemon
+    # finalizing a meeting reports `transcribing`, which the state rule above refuses.
     if status.get("meeting_active") or status.get("meeting_finalizing"):
         return None
     if is_older(status.get("version"), mine):
