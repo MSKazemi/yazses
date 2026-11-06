@@ -94,6 +94,9 @@ def test_negative_corpus_false_trigger_count_is_zero():
 def test_every_negative_line_contains_a_command_like_word():
     """An inert corpus (prose with no command words) would pass vacuously."""
     every = {lex for lexes in ACTION_LEXEMES.values() for lex in lexes}
+    every.update(
+        lex for table in SCRIPT_LEXEMES.values() for lexes in table.values() for lex in lexes
+    )
     every.update(UNREGISTERED_LEXEMES)
     inert = [line for line in _negative_corpus() if not any(lex in line for lex in every)]
     assert inert == []
@@ -180,6 +183,104 @@ def test_destructive_and_send_near_misses_stay_dictation(text):
     got = classify(text, language="zh")
     assert got.intent is IntentType.DICTATE
     assert got.action == "inject"
+
+
+# --- per-script negatives (CMD-06/CMD-07) ----------------------------------------
+
+#: Command lexemes that are written differently in each script, per shipped action.
+#: A Traditional sentence must exercise the Traditional spelling: the corpus showing
+#: 删除 is safe says nothing about 刪除, which is a different string to the regex.
+#: press_tab and press_escape have no script-specific form (Tab, Escape, esc).
+SCRIPT_LEXEMES: dict[str, dict[str, tuple[str, ...]]] = {
+    "simplified": {
+        "undo": ("撤销",),
+        "undo_n": ("撤销",),
+        "save": ("保存",),
+        "copy": ("复制",),
+        "cut": ("剪切",),
+        "paste": ("粘贴", "贴上"),
+        "delete_words": ("删除",),
+        "delete_lines": ("删除",),
+        "comment": ("注释",),
+        "select_lines": ("选择", "选取"),
+        "select_to_end": ("结尾",),
+        "select_all": ("全选",),
+        "press_enter": ("回车", "换行"),
+        "press_backspace": ("退格键",),
+        "go_to_line": ("转到",),
+        "page_up": ("上一页", "向上翻页"),
+        "page_down": ("下一页", "向下翻页"),
+        "line_home": ("这一行开头",),
+        "line_end": ("这一行结尾",),
+        "arrow_up": ("光标向上", "光标上移"),
+        "arrow_down": ("光标向下", "光标下移"),
+        "arrow_left": ("光标向左", "光标左移"),
+        "arrow_right": ("光标向右", "光标右移"),
+        "go_to_function": ("函数",),
+        "go_to_class": ("类 ",),
+        "go_to_file": ("打开文件", "开启文件"),
+    },
+    "traditional": {
+        "undo": ("撤銷", "復原"),
+        "undo_n": ("撤銷", "復原"),
+        "save": ("儲存", "存檔"),
+        "copy": ("複製",),
+        "cut": ("剪下",),
+        "paste": ("黏貼", "貼上"),
+        "delete_words": ("刪除",),
+        "delete_lines": ("刪除",),
+        "comment": ("註釋", "註解"),
+        "select_lines": ("選擇", "選取"),
+        "select_to_end": ("結尾",),
+        "select_all": ("全選",),
+        "press_enter": ("回車", "換行"),
+        "press_backspace": ("退格鍵",),
+        "go_to_line": ("轉到",),
+        "page_up": ("上一頁", "向上翻頁"),
+        "page_down": ("下一頁", "向下翻頁"),
+        "line_home": ("這一行開頭",),
+        "line_end": ("這一行結尾",),
+        "arrow_up": ("游標向上", "游標上移"),
+        "arrow_down": ("游標向下", "游標下移"),
+        "arrow_left": ("游標向左", "游標左移"),
+        "arrow_right": ("游標向右", "游標右移"),
+        "go_to_function": ("函數", "函式"),
+        "go_to_class": ("類 ", "類別"),
+        "go_to_file": ("開啟檔案", "打開檔案"),
+    },
+}
+SCRIPT_NEUTRAL_ACTIONS = frozenset({"press_tab", "press_escape"})
+
+
+@pytest.mark.parametrize("script", sorted(SCRIPT_LEXEMES))
+def test_every_shipped_action_has_a_negative_in_each_script(script):
+    """CMD-06/07: Simplified *and* Traditional prose with each action's own spelling."""
+    lexemes = SCRIPT_LEXEMES[script]
+    assert set(lexemes) | SCRIPT_NEUTRAL_ACTIONS == set(zh.SAFE_CORE_ACTIONS)
+    lines = _negative_corpus()
+    missing = [
+        action
+        for action, lexes in lexemes.items()
+        if not any(lex in line for line in lines for lex in lexes)
+    ]
+    assert missing == []
+
+
+@pytest.mark.parametrize("script", sorted(SCRIPT_LEXEMES))
+def test_every_script_lexeme_has_a_positive_vector_of_its_action(script):
+    """The table must not drift from the grammar: each lexeme fires in a fixture phrase.
+
+    This also makes every alternative spelling the grammar accepts (復原, 存檔, 黏貼,
+    光标上移 …) carry a positive vector in the script it belongs to.
+    """
+    positives = [c for c in _positive_cases() if script in c["scripts"]]
+    missing = [
+        (action, lex)
+        for action, lexes in SCRIPT_LEXEMES[script].items()
+        for lex in lexes
+        if not any(c["action"] == action and lex.strip() in c["text"] for c in positives)
+    ]
+    assert missing == []
 
 
 # --- positive coverage, parity and opt-in ----------------------------------------
