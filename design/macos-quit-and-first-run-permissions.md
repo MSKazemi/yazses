@@ -60,9 +60,15 @@ second mechanism (`quit_button=None` plus an explicit "Quit YazSes" entry that s
 work landed, so that one fix exists, not two. Contract either way: *Quit stops the daemon,
 then the icon.* (Linux differs on purpose: its "Quit tray" leaves the daemon running.)
 
-Not changed: `MacosHotkey.stop` calls `CFRunLoopStop` from the IPC thread. I believe
-`CFRunLoopStop` wakes the loop itself (DOC) and did not add a blind `CFRunLoopWakeUp`;
-if a daemon survives an IPC `shutdown` that did arrive (the log would then contain
+`MacosHotkey.stop` calls `CFRunLoopStop` from the IPC thread. I believe `CFRunLoopStop`
+wakes a loop that is running (DOC), but CoreFoundation keeps the stop request in per-run
+state that a new run starts fresh (open-source CFRunLoop.c, READ; not observed on a Mac).
+So a `shutdown` that arrived while `run()` was still asking for Input Monitoring or
+creating the tap was dropped, and `CFRunLoopRun()` then blocked for good. Since the
+follow-up to #578, `run()` returns at once if `stop()` already happened, and drives the loop
+in bounded `CFRunLoopRunInMode` passes (0.5 s) that re-read the stop flag
+(`run_loop_until_stopped`, `tests/test_w2_w01_macos_hotkey_stop_before_run.py`). If a daemon
+still survives an IPC `shutdown` that did arrive (the log would then contain
 `Shutting down.`), that is the next suspect. `yazses restart` is unaffected: it escalates to
 SIGKILL.
 
