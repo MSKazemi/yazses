@@ -7,7 +7,7 @@
 | XR-01 | XR Voice Bridge | “Open the inventory” | P0 foundation | Local event contract, consent |
 | XR-02 | VRChat text composition | “Type hello to everyone” | P0 demonstrator | Host prefill + explicit send |
 | XR-03 | Look & Speak object actions | “Make this cube blue” | P1 research | Scene object IDs, target confidence |
-| XR-04 | Hands-free accessibility | Look + deliberate switch + speak | P1 research | Proven stop/re-arm + switch safety |
+| XR-04 | Hands-free accessibility | Look + deliberate switch + speak | P1 research | Proven stop/re-arm + switch safety. Also blocked by ADR-030 section 3: the hands-free stack gets no new capabilities until one real hands-free user is observed |
 | XR-05 | Bounded voice navigation | “Go to the meeting room” | P2 | App-provided safe destinations |
 | XR-06 | Avatar expression mapping | “Wave hello” | P1 experiment | Allowlisted avatar OSC parameters |
 | XR-07 | Voice-based world editing | “Add three chairs” | P3 | Scene editor adapter + undo |
@@ -58,6 +58,8 @@ See [VRChat OSC overview](https://docs.vrchat.com/docs/osc-overview) and the [hi
 ## XR-04 — Hands-free accessibility
 
 **Need:** participate in virtual environments without controllers or a physical keyboard.
+
+**Dependency on the existing hands-free stack.** This idea would add a capability to YazSes's hands-free stack (head pointer, face gestures, switches). [ADR-030](../adr/adr-030-agent-era-direction.md) section 3 keeps that stack opt-in and maintained but gives it **no new capabilities until one real hands-free user is observed** ([ADR-021](../adr/adr-021-invest-in-error-cost.md)). XR-04 therefore has a second gate on top of the XR entry gate in [ROADMAP.md](ROADMAP.md); the 2026-11-01 biosignal amendment does not extend to it.
 
 **Proposed experience:** speech for text, head/gaze for target, deliberate face gesture or other accessible switch for commit, with predictable pause/fallback.
 
