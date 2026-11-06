@@ -8,6 +8,7 @@ here; ``next_interval`` and ``parse_status`` are pure and tested directly.
 
 from __future__ import annotations
 
+import math
 import threading
 from dataclasses import dataclass
 
@@ -118,9 +119,14 @@ def parse_status(info: dict) -> StatusSnapshot:
     """Convert a ``status`` reply dict into a :class:`StatusSnapshot` (defensive)."""
     def _f(key: str, default: float) -> float:
         try:
-            return float(info.get(key, default))
+            value = float(info.get(key, default))
         except (TypeError, ValueError):
             return default
+        # The daemon's JSON encoder writes a non-finite float as `Infinity`/`NaN` and the
+        # client parses it back. One `Infinity` audio level latched the envelope's adaptive
+        # peak at inf, and every later reading then divided to 0: no sonar for the rest of
+        # the session. Read it as missing, as `_dwell_progress` already does for NaN.
+        return value if math.isfinite(value) else default
 
     state = info.get("state")
     scan_items, scan_index = _scan(info)

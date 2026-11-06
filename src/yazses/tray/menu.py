@@ -631,6 +631,10 @@ def level_ring(status: dict) -> LevelRing:
         threshold = float(status.get("vad_threshold") or 0.0)
     except (TypeError, ValueError):
         return LevelRing(0.0, False, False)
+    # Non-finite too: the status JSON carries `NaN`/`Infinity` through, and a NaN level
+    # drew a *full* ring flagged below the gate -- a reading that contradicts itself.
+    if not (math.isfinite(level) and math.isfinite(threshold)):
+        return LevelRing(0.0, False, False)
     if threshold <= 0 or level < 0:
         return LevelRing(0.0, False, False)
 
