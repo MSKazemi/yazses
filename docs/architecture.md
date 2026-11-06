@@ -183,7 +183,12 @@ clicks, which is why it is testable without a desktop.
 which is the shape of hold-to-talk, and needs `onnxruntime` + `tokenizers` plus
 `librosa`, `numba` and `huggingface-hub`, but no torch). `stt/factory.py` selects on `[stt] engine` and
 falls back to faster-whisper with a warning whenever an engine's optional
-dependency is absent or its model fails to load — dictation always comes up.
+dependency is absent, its model fails to load, or the engine name is unknown, so a
+bad engine choice never stops dictation. The one exception is language: a
+`[stt] language` the resolved engine and model cannot transcribe is *refused* before
+any model loads (`LanguageUnsupportedError`), because every fallback ends on an
+English-only checkpoint and would type English for non-English speech. The daemon
+then holds in the **ERROR** state, with IPC alive, and says what to change.
 
 That fallback is deliberately quiet at the decode layer (a log line, never a
 crash), which on a real machine meant it was quiet everywhere: `[stt] engine =
@@ -454,10 +459,13 @@ the middle; everything else is a mode you enter deliberately and return from.
 
 <figure class="yz-figbox">
 --8<-- "assets/arch/states.svg"
-<figcaption>The dictation loop is the spine; everything below it is a mode you enter deliberately over IPC. The two states at the bottom are in the type but are not states the daemon enters.</figcaption>
+<figcaption>The dictation loop is the spine; everything below it is a mode you enter deliberately over IPC. The two states at the bottom sit outside the loop: ERROR is entered only when start-up fails or when the tray loses the daemon, and PAUSED is never set (see below).</figcaption>
 </figure>
 
-- **LOADING** — the daemon is up but the speech model is still loading.
+- **LOADING** — the daemon is up but the speech model is still loading. With the
+  opt-in `[stt] idle_unload_s` (off at `0`), a model released while idle is reloaded
+  on the next hold, and the daemon shows LOADING between recording and decoding
+  while that reload finishes.
 - **IDLE** — ready and waiting for the hotkey.
 - **RECORDING** — the key is held; audio is being captured.
 - **TRANSCRIBING** — the key was released; the engine is decoding.
@@ -469,9 +477,13 @@ the middle; everything else is a mode you enter deliberately and return from.
 - **READBACK** — speaking a transcript back via offline TTS.
 
 Two more states exist in the type and are worth being precise about, because a
-tidier diagram would misrepresent them. **ERROR** is not a daemon state at all —
-the *tray* synthesises it when the daemon stops answering IPC, which is why the
-icon can go red while the daemon itself has simply died. **PAUSED** is defined,
+tidier diagram would misrepresent them. **ERROR** has two sources. The daemon
+enters it only when start-up fails in a way the user can fix — the model cannot be
+downloaded or loaded, the CPU refuses the compute type, or the configured language
+is one the engine cannot transcribe. It then stays up with no model loaded and no
+hotkey hooked, so the tray, `yazses status` and the log can all say why. The
+*tray* also shows ERROR on its own when the daemon stops answering IPC, which is why
+the icon can go red while the daemon itself has simply died. **PAUSED** is defined,
 and Meeting Mode and enrollment both accept it as a legal starting point, but
 nothing in the daemon currently sets it.
 
@@ -489,7 +501,8 @@ mic level) back to callers.
 daemon's PID. Only the Windows backend asks the daemon over IPC first (the `shutdown`
 method), waits for the process to exit, and terminates it if it did not acknowledge or
 is still alive. The tray's Quit
-and the in-app update hand-off also send `shutdown` over IPC.
+and the in-app update hand-off also send `shutdown` over IPC, and so does a newly
+started daemon that finds an older version still running after an upgrade.
 
 ## Platform abstraction
 
@@ -505,10 +518,16 @@ are written once against the interfaces and never branch on the operating system
 |---|---|---|---|---|
 | `HotkeyBackend` | Detect the hold-to-talk key, emit start/end callbacks | evdev | Quartz event tap | keyboard hook |
 | `InjectorBackend` | Type text / send key sequences into the focused app | ydotool / xdotool / wtype | Quartz | SendInput |
-| `LifecycleBackend` | Start/stop the daemon, manage the PID file, register autostart | systemd user unit | launchd | Service Control Manager |
+| `LifecycleBackend` | Start/stop the daemon, manage the PID file, register autostart | detached process; systemd user unit for autostart | detached process; launchd agent for autostart | detached process; `HKCU\Run` entry for autostart (not a Windows service) |
 | `IpcServer` / `IpcClient` | JSON-RPC transport for CLI ↔ daemon | Unix socket | Unix socket | named pipe |
-| `PermissionsBackend` | Probe keyboard/microphone permissions, explain how to grant them | input group | TCC prompts | (n/a) |
+| `PermissionsBackend` | Probe keyboard/microphone permissions, explain how to grant them | input group | TCC prompts | microphone privacy switch; elevation check |
 | `TrayBackend` | Tray / menu-bar UI | PySide6 `QSystemTrayIcon` | rumps | pystray |
+
+These are the core seven. `platform/base.py` defines seven more, most of them
+optional, so a bundle may set them to `None` where an OS has no implementation yet:
+`HostBackend`, `FileOpener`, `UrlOpener` (the "send to" hand-off),
+`FocusedAppProvider` (macOS and Windows only), `UpdateLauncher` (Windows only),
+`PackRuntime`, and `AccessibilityBackend` (Linux only).
 
 The **EMG hotkey backend** (`platform/emg/backend.py`) is a
 platform-independent `HotkeyBackend` implementation — it reads squeeze events
