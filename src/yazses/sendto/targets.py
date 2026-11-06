@@ -87,10 +87,16 @@ _UNRESERVED = frozenset(
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
 )
 
-#: C0 controls (bar tab, newline and carriage return) and DEL. Dictation never produces
-#: them; text passed on the command line can. A NUL in particular is where a client that
-#: decodes the query into a C string would silently stop — a truncation by another name.
-_CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+#: Every Unicode control character (general category ``Cc``) bar tab, newline and
+#: carriage return: the C0 set, DEL, and the C1 set U+0080..U+009F. Dictation never
+#: produces them; text passed on the command line can. A NUL in particular is where a
+#: client that decodes the query into a C string would silently stop — a truncation by
+#: another name. The C1 set is included because ADR-031 refuses "control characters
+#: other than tab, newline and carriage return", not only the C0 ones: U+009B is the
+#: 8-bit CSI that starts a terminal escape sequence, and U+0085 (NEL) is a line break
+#: to some renderers and invisible to others, so the prompt box the user reviews and the
+#: prompt the agent reads could disagree.
+_CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
 
 #: The spoken trigger. Whole utterance, anchored at both ends, with an optional final
 #: full stop or exclamation mark (Whisper punctuates). "Claude Code" is tried before
