@@ -156,8 +156,9 @@ modifier you rarely use, so it does not interfere with normal typing. You can al
     and dictation starts working as soon as it does. No second notification says it is
     done. To check, run `yazses status`: it shows `state:    loading` while the model is
     fetched and `state:    idle` once you can dictate. If the tray is on and not already
-    running, the daemon starts its icon at that same moment. After that, dictation never uses the network. To set up a machine that is never online,
-    see [running fully air-gapped](how-to/air-gapped.md).
+    running, the daemon starts its icon at that same moment. After that, dictation never
+    uses the network. To set up a machine that is never online, see
+    [running fully air-gapped](how-to/air-gapped.md).
 
 ## What to try next
 
@@ -190,8 +191,10 @@ The common ones:
   relaunch.
 - **It types into the wrong window, or nowhere.** See
   [dictation types into the wrong window](how-to/wrong-window.md).
-- **Nothing happens for minutes after the first launch.** The speech model is still
-  downloading. See
+- **Nothing happens for minutes after the first launch.** If you ran `yazses start`, or
+  opened the macOS app or the Windows *YazSes* shortcut, the speech model is still
+  downloading. The Linux app-grid entry opens only Settings, which does not start
+  dictation: run `yazses start`. See
   [the app opened and nothing happened](troubleshooting.md#the-app-opened-and-nothing-happened-for-minutes).
 - **"Silent audio -- discarding".** The voice gate is set above your voice. Run
   `yazses mic-level --set` again, then `yazses restart` so the running daemon picks up the new

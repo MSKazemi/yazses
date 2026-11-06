@@ -53,8 +53,20 @@ Two details worth knowing:
 
 ## The app opened and nothing happened for minutes
 
-**Symptom.** You started YazSes for the first time, from the app grid, the `.dmg` or
-`yazses start`, and nothing seems to happen. Holding the hotkey does nothing either.
+**Symptom.** You started YazSes for the first time and holding the hotkey does nothing.
+Either nothing seems to happen at all, or the tray icon is there but only shows that it
+is loading.
+
+**First, check what you started.** Not every launcher starts dictation:
+
+- **`yazses start`** (any platform) starts the daemon, and the daemon downloads the model.
+- **The macOS app** (installed from the `.dmg`) and the **Windows *YazSes* shortcut**
+  (Start menu, desktop, or the installer's *Launch YazSes now*) open the tray, and the
+  tray starts the daemon. The tray icon appears at once and shows the loading state
+  while the model downloads.
+- **The Linux app-grid entry** and the **Windows *YazSes Settings* shortcut** open only
+  the Settings window. Settings does not start the daemon, so no download begins and
+  waiting will not help. Run `yazses start` (or `yazses tray`) to start dictation.
 
 **Why.** The first start downloads the speech model (`base.en` unless you chose another).
 The daemon fetches it before it starts listening for the hotkey, so the key does nothing
@@ -76,8 +88,8 @@ until the download is done. This is the one step that needs the network.
 If the download fails (a firewall, a proxy, no network), the wait ends in an error
 instead. A notification titled *YazSes cannot start dictation* says *The speech model
 '…' is missing and could not be downloaded*, `yazses status` shows `state:    error`, and
-a tray that is already running turns red. The message names the two commands that fix
-it:
+a tray that is already running turns red (⚠️ in the macOS menu bar). The message names
+the two commands that fix it:
 
 ```sh
 yazses model download base.en   # or the model you configured
