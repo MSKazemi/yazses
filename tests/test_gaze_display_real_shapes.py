@@ -505,6 +505,25 @@ def test_the_wizard_asks_for_targets_on_the_real_displays(monkeypatch, tmp_path)
     assert all(layout.topology.display_at(x, y) is not None for _l, (x, y) in captured["targets"])
 
 
+def test_a_frozen_gaze_estimator_is_refused_with_a_message_not_a_traceback(
+    monkeypatch, tmp_path
+) -> None:
+    """Identical gaze angles at every target cannot be fitted; nothing is saved."""
+    captured: dict = {}
+    layout = ctx_from(LAPTOP_ONLY)
+    _wire_wizard(monkeypatch, tmp_path, [layout, layout], captured)
+    monkeypatch.setattr(
+        "yazses.gaze.calibrate.collect_samples",
+        lambda _b, targets, _before: [((0.1, -0.05), (float(x), float(y))) for _l, (x, y) in targets],
+    )
+    result = runner.invoke(cli.app, ["gaze", "calibrate", "--no-install"])
+    assert result.exit_code == 1, result.output
+    assert not isinstance(result.exception, ValueError), result.exception
+    assert "nothing was saved" in result.output
+    assert "degenerate" in result.output
+    assert not calibration_path(tmp_path).exists()
+
+
 # --------------------------------------------------------------------------- #
 # `yazses gaze rollback` tells the user what the restored map will do
 # --------------------------------------------------------------------------- #
