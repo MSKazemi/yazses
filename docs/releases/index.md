@@ -23,9 +23,9 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.50.0](v2.50.0.md)** — Settings asks before it drops unapplied changes and gains a Refresh button for
-microphones, the first run says when the speech model is ready, the meeting recording and the IPC socket are
-owner-only, and erasing on X11 no longer deletes whole words.
+**[YazSes 2.51.0](v2.51.0.md)** — Glance-Type lists what it can and cannot do on your session, `doctor` says
+when the click observer failed to start, a feature toggle can no longer half-apply a language profile, Chinese
+meeting minutes fit the summariser's context, and reopening the macOS app replaces a stale daemon.
 
 Install it with:
 
@@ -36,6 +36,7 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.50.0](v2.50.0.md) — Settings asks before it drops unapplied changes and gains a Refresh button for microphones, the first run says when the speech model is ready, the meeting recording and the IPC socket are owner-only, and erasing on X11 no longer deletes whole words.
 - [v2.49.0](v2.49.0.md) — owner-only private files that no longer follow symlinks, a Hands-free page and a Persian-normalisation checkbox in Settings, and a long list of silent failures that now say so.
 - [v2.48.1](v2.48.1.md) — a fixes-only release: the tray's Stop daemon stays stopped, Apply no longer erases a pinned microphone, Persian dictation loses fewer words, and several commands fail with one clear message.
 - [v2.48.0](v2.48.0.md) — biosignal switches (off by default, not yet tried on real hardware), an opt-in idle release of the latency model's memory, and fixes that stop Persian and other non-Latin text from being damaged.

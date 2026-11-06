@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.51.0] - 2026-11-06
+
 ### Added — `gaze status`, `doctor` and `status` say what Glance-Type can and cannot do on your session ([#418](https://github.com/MSKazemi/yazses/issues/418))
 
 The gaze-target plan is now a list of what a user would try: dictation to the window you look at, "focus this" / "minimize this", "close this", gaze calibration, and pointer movement. Pointer movement is labelled as a separate feature that never creates a gaze target. `yazses gaze status` prints the list. A one-line summary goes on the `Gaze target` row in `doctor`, `status` and the hands-free panel, and on the daemon wire as `gaze_target_abilities`. On every Wayland session nothing is routed: gaze commands are refused with a notification, and "close this" is never sent to the focused window. On X11, "close this" on a window you are not looking at still closes the focused window without asking under the default `refuse_destructive_fallback = false`. That behaviour is unchanged; it is now printed instead of being visible only in the code. The `Gaze target` row takes its reason and its abilities from the daemon, so `doctor` run over SSH no longer mixes its own session's verdict with an X11 daemon's. GNOME and KDE findings come from documentation and toolkit source and are unverified on real hardware.
