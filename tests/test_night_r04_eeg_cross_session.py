@@ -173,8 +173,14 @@ def test_disjoint_schemes_report_zero_overlap_and_leaky_reports_some(report: dic
 
 
 def test_leaky_negative_control_inflates_nearest_neighbour_accuracy(report: dict[str, Any]) -> None:
-    """HYPOTHESIS pinned on seed 0: overlapping windows let 1-NN find a near copy."""
-    assert report["leak_inflation_vs_session_disjoint"]["nearest_neighbour"] >= 0.05
+    """Observed on seed 0: the leaky split raises 1-NN balanced accuracy.
+
+    The original hypothesis H2 (inflation >= 0.05 at seed 0) was REFUTED on the
+    first run (observed 0.024217; see EEG_CROSS_SESSION_SYNTHETIC.md). Only the
+    direction is pinned here; the generator was deliberately not tuned to make
+    the refuted threshold pass.
+    """
+    assert report["leak_inflation_vs_session_disjoint"]["nearest_neighbour"] > 0.0
 
 
 def test_authored_non_responder_is_reported_as_failed(report: dict[str, Any]) -> None:

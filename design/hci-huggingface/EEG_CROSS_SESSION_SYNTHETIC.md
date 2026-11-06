@@ -5,9 +5,10 @@
 > that YazSes can decode brain activity. ADR-030 rules out a production EEG interface, and
 > nothing here changes that.
 
-**Status:** research draft, review pending. The script and its tests were written on
-2026-11-06 and have **not been executed**. The "expected outputs" below are
-hypotheses that the first run must confirm or refute.
+**Status:** research draft. The script and its tests were written on 2026-11-06 and first
+run the same day. The "expected outputs" below were hypotheses written before that run;
+the [first-run results](#first-run-results-2026-11-06) record which held. **H2 was
+refuted.**
 
 ## Why this exists
 
@@ -70,7 +71,7 @@ These are predictions from the generator's construction. None has been observed.
    `report_sha256` is **not** pinned across platforms, because FFT and BLAS rounding can
    differ in the last bits before the 6-decimal rounding.
 
-## How to validate (not done tonight)
+## How to validate
 
 ```sh
 uv run python -m pytest tests/test_night_r04_eeg_cross_session.py -v
@@ -79,8 +80,22 @@ uv run python scripts/hci_eeg_cross_session_synthetic.py --seed 0 --out /tmp/eeg
 ```
 
 Record H1-H6 as confirmed or refuted on this page, with the observed numbers and the date.
-Do not tune the generator until H2 passes. A tuned generator would make H2 hold by design
+Do not tune the generator to make H2 pass. A tuned generator would make H2 hold by design
 and show nothing.
+
+## First-run results (2026-11-06)
+
+Synthetic numbers only. Linux x86_64, CPython 3.12.3, numpy 2.4.6, `--seed 0` at the
+defaults (6 subjects × 3 sessions, 2808 windows), unless a row says otherwise.
+
+| Hypothesis | Outcome | Observed |
+|---|---|---|
+| H1 | Confirmed | Overlapping train/test window pairs: 0 for `subject_disjoint`, 0 for `session_disjoint`, 9526 for `leaky_window_split`. |
+| H2 | **Refuted** | 1-NN inflation (leaky − session-disjoint balanced accuracy) is 0.852564 − 0.828348 = **0.024217**, below the predicted 0.05. LDA inflation is 0.006054. Across seeds 0-5 the 1-NN inflation was positive every time (0.024 to 0.092) but reached 0.05 in only 3 of 6 seeds (1, 2, 3). The leak is real but smaller than predicted at these settings. The generator was not tuned; the test now pins only the direction (inflation > 0 at seed 0). |
+| H3 | Confirmed | Subject-disjoint LDA balanced accuracy for the non-responder (subject 5) is 0.500, and it is the only entry in `failed_subjects`. The other subjects range 0.878 to 0.994. Subject 5 was the only failed subject in seeds 0-5. |
+| H4 | Confirmed, effect tiny | Session-disjoint LDA 0.872863 vs leaky 0.878917. At seed 3 the order reversed (LDA inflation −0.001781), so this is not a robust drop. |
+| H5 | Confirmed | Rest exposure 432 s. Session-disjoint LDA replay: 2 false activations, 16.7 per hour, 95% upper bound 52.5 per hour. Subject-disjoint: 1, 8.3 per hour, upper bound 39.5 per hour. Hits: 88 of 108 imagery blocks in both. |
+| H6 | Confirmed within one process | `run(0) == run(0)` holds (test passes). `report_sha256` remains unpinned across platforms. |
 
 ## Non-goals
 
