@@ -87,7 +87,9 @@ def _finite_float(token: str) -> float:
     """``json.loads`` hook: an overflowing literal such as 1e400 would parse to inf."""
     value = float(token)
     if not math.isfinite(value):
-        raise ValueError(f"Number {token} is out of range")
+        # The message is echoed to the caller; a literal can be ~1 MB of digits.
+        shown = token if len(token) <= 32 else token[:32] + "..."
+        raise ValueError(f"Number {shown} is out of range")
     return value
 
 

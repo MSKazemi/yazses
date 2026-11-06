@@ -78,6 +78,13 @@ def test_valid_ids_still_parse(raw_id: str, expected: object) -> None:
     assert req.params == {"v": 2.5}
 
 
+def test_an_overflowing_literal_is_not_echoed_whole() -> None:
+    huge = "9" * 500_000 + ".0"
+    with pytest.raises(ValueError) as info:
+        Request.from_json('{"jsonrpc":"2.0","method":"ping","params":{"x":' + huge + '},"id":1}')
+    assert len(str(info.value)) < 200
+
+
 def test_a_missing_id_is_still_none() -> None:
     assert Request.from_json('{"jsonrpc":"2.0","method":"ping"}').id is None
 
