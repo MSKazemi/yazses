@@ -118,6 +118,11 @@ class AudioRecorder:
         # caller tells a dead stream from a quiet microphone (both hand back little or
         # no audio). Reset by ``start()``.
         self.stream_interrupted = False
+        # True once ``max_seconds`` has started dropping audio in the current recording:
+        # everything said past the cap is missing from the clip. Set by the first
+        # callback that would exceed the cap (which logs one warning per recording),
+        # read after ``stop()`` like ``stream_interrupted``, and reset by ``start()``.
+        self.truncated = False
         self._chunks: list[np.ndarray] = []
         self._n_samples = 0
         self._stream: sd.InputStream | None = None
@@ -158,6 +163,7 @@ class AudioRecorder:
         self._chunks = []
         self._n_samples = 0
         self._on_chunk_failed = False
+        self.truncated = False
         with self._lock:
             generation = self._stop_generation
             # A stream still held here would be orphaned by the new one (a second
@@ -235,6 +241,17 @@ class AudioRecorder:
         if status:
             log.warning("Audio callback status: %s", status)
         if self._max_seconds and (self._n_samples + frames) > self._max_seconds * self._sample_rate:
+            if not self.truncated:
+                # The cap used to drop audio with no trace at all: the take simply
+                # stopped growing while the user kept talking. Say so once per
+                # recording, naming the cap and what was kept.
+                self.truncated = True
+                log.warning(
+                    "Recording reached the %d s cap (max_seconds); %.2f s were captured "
+                    "and anything said after that is not recorded.",
+                    self._max_seconds,
+                    self._n_samples / self._sample_rate,
+                )
             return
         self._n_samples += frames
         chunk = indata.copy().flatten()
