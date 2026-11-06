@@ -13,9 +13,11 @@ import os
 import subprocess
 import sys
 import types
+import wave
 
 import pytest
 
+from tests.decoder_stack import needs_faster_whisper
 from yazses.recimport import audio_io
 
 
@@ -64,3 +66,27 @@ def test_the_pyav_path_passes_a_file_url_to_decode_audio(monkeypatch):
 
     audio_io._decode_pyav("Interview:1.mp3", 16000)
     assert seen == ["file:" + os.path.abspath("Interview:1.mp3")]
+
+
+@needs_faster_whisper
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows forbids ':' in a filename")
+def test_a_relative_name_with_a_colon_really_decodes(tmp_path, monkeypatch):
+    """The tests above check the argument; this one runs the real PyAV decode.
+
+    On 8a72bbc6 ``load_audio("Interview:1.wav")`` raised "Protocol not found" from
+    libavformat, so the only thing that proves the ``file:`` URL is accepted end to
+    end is decoding an actual file with that name. The ffmpeg fallback is removed so
+    PyAV alone has to succeed.
+    """
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(audio_io.shutil, "which", lambda _name: None)
+    name = "Interview:1.wav"
+    with wave.open(name, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(16000)
+        w.writeframes(b"\x00\x10" * 1600)
+
+    audio, sr = audio_io.load_audio(name)
+    assert sr == 16000
+    assert len(audio) == 1600
