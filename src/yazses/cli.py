@@ -6783,6 +6783,38 @@ def gaze_calibrate(
     )
 
 
+def _gaze_refine_live_line(platform) -> str:
+    """What the running daemon's implicit refinement is doing, as one status line (#607).
+
+    One read-only `status` call (``consume_notifications=False``, so no toast is taken off
+    the tray's queue). ``""`` when the daemon did not answer or is too old to carry the
+    ``gaze_refine`` block: "registered" above is then all that can honestly be said.
+    """
+    from yazses.gaze.refine_runtime import live_status_from_payload
+
+    lifecycle = getattr(platform, "lifecycle", None)
+    try:
+        running = bool(lifecycle is not None and lifecycle.is_running())
+    except Exception:  # noqa: BLE001 - a lifecycle that cannot answer is "not running"
+        running = False
+    if not running:
+        return ("  - implicit refinement: the daemon is not running, so whether the observer "
+                "starts is not known yet")
+    try:
+        client = platform.ipc_client_factory(platform.paths.ipc_socket)
+        reply = client.call("status", consume_notifications=False)
+    except Exception:  # noqa: BLE001 - no answer is "not determined", never a failure
+        return ""
+    status = live_status_from_payload(reply.get("gaze_refine") if isinstance(reply, dict) else None)
+    if status is None:
+        return ""
+    if status.active:
+        return (f"  ✓ implicit refinement: running in the daemon ({status.clicks} clicks seen, "
+                f"{status.paired} paired with gaze)")
+    return ("  ✗ implicit refinement: dormant in the running daemon -- "
+            f"{status.reason or 'no reason was recorded'}")
+
+
 @gaze_app.command(
     "status",
     epilog=_examples("yazses gaze status    show gaze deps, X11/xdotool, and calibration state"),
@@ -6870,6 +6902,11 @@ def gaze_status() -> None:
             # one -- the same two attributes `yazses doctor` reads; nothing is opened.
             if getattr(platform, "click_observer_factory", None) is not None:
                 typer.echo("  ✓ click observer: registered for this session")
+                # Registered is not running: a refused hook or a denied permission is
+                # known only to the daemon that tried, so ask it (read-only).
+                live_line = _gaze_refine_live_line(platform)
+                if live_line:
+                    typer.echo(live_line)
             else:
                 reason = (getattr(platform, "click_observer_unavailable_reason", None)
                           or "this platform has no click observer yet")

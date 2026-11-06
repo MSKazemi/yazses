@@ -609,6 +609,9 @@ class Daemon:
         # Implicit gaze calibration (#398): None unless [gaze_refine] is on and every
         # precondition held. `shutdown` stops it before the camera is released.
         self._gaze_refinement: RefinementRuntime | None = None
+        # Why it is None while [gaze_refine] is on, for `status` (#607): the same sentence
+        # the start-up warning logs, so `doctor` and `gaze status` can name a refused hook.
+        self._gaze_refinement_reason = ""
         # Ghost Ahead endpoint anticipator (None when [endpoint] disabled — dormant).
         self._endpoint: EndpointAnticipator | None = (
             EndpointAnticipator(
@@ -3328,14 +3331,32 @@ class Daemon:
                 clock=time.monotonic,  # the clock the shared source stamps samples with
                 fingerprint=getattr(self, "_gaze_context_fingerprint", None),
             )
-        except Exception:
+        except Exception as exc:
             log.debug("Implicit gaze calibration init failed; skipping", exc_info=True)
+            self._gaze_refinement_reason = (
+                f"refinement could not be set up ({type(exc).__name__}; see the daemon log)"
+            )
             return None
+        self._gaze_refinement_reason = reason
         if runtime is None:
             log.warning("Implicit gaze calibration is enabled but dormant: %s.", reason)
         else:
             log.info("Implicit gaze calibration active (opt-in; clicks refine the map).")
         return runtime
+
+    def _gaze_refine_payload(self) -> dict[str, object] | None:
+        """The ``gaze_refine`` block of `status` (#607), or None while the feature is off."""
+        try:
+            from yazses.gaze.refine_runtime import refinement_status_payload
+
+            return refinement_status_payload(
+                enabled=bool(self._config.gaze_refine.enabled),
+                runtime=self._gaze_refinement,
+                reason=self._gaze_refinement_reason,
+            )
+        except Exception:  # noqa: BLE001 - a status field must never fail `status`
+            log.debug("gaze_refine status payload failed", exc_info=True)
+            return None
 
     def _build_perception_source(self, cfg):
         """The daemon's single shared camera owner, or None when it is dormant.
@@ -9128,6 +9149,10 @@ class Daemon:
                 # counts. None while the feature is off. Never a sample, threshold or
                 # amplitude (`_biosignal_payload` whitelists what may pass).
                 "biosignal": self._biosignal_payload(),
+                # Implicit gaze refinement (#607): running or dormant, the reason, and two
+                # counts (clicks seen, clicks paired with gaze). None while `[gaze_refine]` is
+                # off. Never a coordinate, a timestamp or a window.
+                "gaze_refine": self._gaze_refine_payload(),
                 # Grants given after this daemon started, e.g. ["input_monitoring"]: the
                 # hotkey tap was built without them and needs a restart (#578). A list of
                 # fixed names, [] on every install where nothing was missing at start.

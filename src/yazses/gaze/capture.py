@@ -364,6 +364,22 @@ class ImplicitCaptureService:
     def interval_s(self) -> float:
         return self._interval_s
 
+    def observer_running(self) -> bool | None:
+        """``False`` once a started observer reports it stopped; ``None`` if it cannot say.
+
+        Reads an optional ``is_running`` on the observer (#607): the X11 backend's loop
+        exits on a lost display connection and otherwise says so only in the log.
+        """
+        if not self._running:
+            return False
+        probe = getattr(self._observer, "is_running", None)
+        if callable(probe):
+            try:
+                probe = probe()
+            except Exception:
+                return None
+        return probe if isinstance(probe, bool) else None
+
     def start(self) -> None:
         """Take the lease and install the click hook. Raises ``ClickObserverError``.
 

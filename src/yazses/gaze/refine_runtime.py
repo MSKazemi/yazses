@@ -23,6 +23,15 @@ symptomless failure this project keeps paying for. The checks, in order:
    through — a map that cannot be checked is not a baseline to improve on.
 
 Nothing is opened or started until every check passes.
+
+## Saying it where the user looks (#607)
+
+The daemon log is not where anyone looks. :func:`refinement_status_payload` turns the
+builder's verdict -- and, once running, whether the observer is still alive -- into the
+``gaze_refine`` block of the daemon's ``status`` reply: a flag, the reason sentence and two
+counts, never a coordinate, a timestamp or a window. `yazses doctor` and `yazses gaze
+status` read it back with :func:`live_status_from_payload`, so a refused hook or a denied
+permission is named where the user asks, not only in a log line.
 """
 from __future__ import annotations
 
@@ -42,10 +51,13 @@ from yazses.perception.signals import FacePerceptionSource
 
 __all__ = [
     "GuardedContext",
+    "RefinementLiveStatus",
     "RefinementRuntime",
     "build_refinement_runtime",
     "context_fingerprint",
+    "live_status_from_payload",
     "policies_from_config",
+    "refinement_status_payload",
 ]
 
 log = logging.getLogger(__name__)
@@ -66,6 +78,14 @@ class RefinementRuntime:
     capture: ClickGazeCapture
     stop_event: threading.Event
     worker: object | None = None
+
+    def observer_running(self) -> bool | None:
+        """Whether the click observer says it is still delivering; ``None`` = it cannot say.
+
+        A backend may expose ``is_running`` (the X11 observer does: its loop exits when the
+        display connection is lost). One that does not is taken at its successful start.
+        """
+        return self.service.observer_running()
 
     def stop(self) -> None:
         """Stop polling, remove the click hook, give the camera back. Idempotent."""
@@ -286,3 +306,72 @@ def _spawn_thread(body: Callable[[], None]) -> threading.Thread:
     thread = threading.Thread(target=body, name="yazses-gaze-refine", daemon=True)
     thread.start()
     return thread
+
+
+_NO_REASON = "implicit refinement is not running, and the daemon did not record why"
+_OBSERVER_STOPPED = (
+    "the click observer stopped after it started (see the daemon log for why); "
+    "restart the daemon to try again"
+)
+
+
+@dataclass(frozen=True)
+class RefinementLiveStatus:
+    """The running daemon's answer about implicit refinement, as `status` carries it."""
+
+    active: bool
+    reason: str = ""
+    clicks: int = 0
+    paired: int = 0
+
+
+def refinement_status_payload(
+    *, enabled: bool, runtime: RefinementRuntime | None, reason: str
+) -> dict[str, object] | None:
+    """The ``gaze_refine`` block of the daemon's ``status`` reply (#607).
+
+    ``None`` while ``[gaze_refine]`` is off -- the shipped default, and every reader treats
+    it as "nothing to report". Otherwise a flag, one sentence and two counts: *clicks* the
+    observer delivered and *paired* clicks the association accepted. Nothing in it can
+    identify a click, a place or a window (``CaptureStats`` holds counts only).
+    """
+    if not enabled:
+        return None
+    if runtime is None:
+        return {"active": False, "reason": reason or _NO_REASON, "clicks": 0, "paired": 0}
+    stats = runtime.capture.stats()
+    active = runtime.observer_running() is not False
+    return {
+        "active": active,
+        "reason": "" if active else _OBSERVER_STOPPED,
+        "clicks": int(stats.clicks),
+        "paired": int(stats.accepted),
+    }
+
+
+def live_status_from_payload(payload: object) -> RefinementLiveStatus | None:
+    """Read a ``gaze_refine`` block back, or ``None`` when it is not one.
+
+    It crossed a process boundary, possibly from an older or newer daemon, so nothing is
+    trusted: a block without a boolean ``active`` is no block, and a count that is not a
+    non-negative integer reads as 0 rather than as a number nobody measured.
+    """
+    if not isinstance(payload, dict):
+        return None
+    active = payload.get("active")
+    if not isinstance(active, bool):
+        return None
+    reason = payload.get("reason")
+
+    def count(key: str) -> int:
+        value = payload.get(key)
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            return 0
+        return value
+
+    return RefinementLiveStatus(
+        active=active,
+        reason=reason if isinstance(reason, str) else "",
+        clicks=count("clicks"),
+        paired=count("paired"),
+    )

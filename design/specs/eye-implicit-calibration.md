@@ -143,6 +143,16 @@ the daemon log, `yazses doctor` and `yazses gaze status` repeat. Every backend e
 factory but opens nothing until `start`, which only the refinement runtime calls, only when
 `[gaze_refine] enabled = true`. Each OS has its own subsection below.
 
+**Registered is not running.** A refused hook, a denied permission or a lost display connection is
+known only to the daemon that tried, so the daemon's `status` reply carries a `gaze_refine` block
+(`refine_runtime.refinement_status_payload`): `active`, the same reason sentence the start-up
+warning logs, and two counts (`clicks` delivered, `paired` with gaze) — never a coordinate, a
+timestamp or a window. An observer that exposes `is_running` (the X11 one) and reports `False`
+after a successful start reads as dormant. `yazses doctor` turns the block into its
+`Click observer [gaze_refine]` row (OK with the counts, WARN with the reason) and `yazses gaze
+status` adds an `implicit refinement:` line; with no daemon, or an older one without the block,
+both fall back to "registered". Hermetic tests: `tests/test_gaze_refine_live_status.py`.
+
 ### Linux
 
 - **X11** — `platform/linux/click_observer_x11.py` (#607). XInput2 `XI_RawButtonPress` selected on
@@ -173,9 +183,12 @@ the DPI factor belongs to the still-missing Windows topology provider, see the m
 docstring). The hook procedure only enqueues and returns `CallNextHookEx` — never `1` — because
 `LowLevelHooksTimeout` (300 ms default) silently removes a slow hook; the callback runs on a
 second thread. `start()` raises `ClickObserverError` naming `GetLastError` when the hook is
-refused. Hermetic tests: `tests/test_click_observer_windows.py`. **No real-Windows evidence
-yet**: a hook has not been installed on a Windows desktop by this code; that smoke report is
-still owed before the refiner is described as working there.
+refused. Hermetic tests: `tests/test_click_observer_windows.py`. **Producer smoke-tested on one
+Windows 11 22H2 desktop** (2026-10-22, recorded on #607 and in the module docstring): the hook was
+granted, left/right/middle presses each gave one `(time, x, y)` event at the cursor, releases and
+moves gave none, no click was swallowed, and a 1.5 s callback did not delay input. That covers the
+producer only: real clicks paired with gaze in a camera session, a second monitor, a non-100 %
+scale and remote desktop are unmeasured, so the refiner is not described as working there yet.
 
 ### macOS
 
