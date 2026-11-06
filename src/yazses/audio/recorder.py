@@ -110,6 +110,8 @@ class AudioRecorder:
         # Name of the device actually opened by the last ``start()`` — the daemon
         # records this as "last-good" when the clip yields usable audio.
         self.current_device_name: str | None = None
+        # Set after the first ``on_chunk`` exception of a recording so it logs once.
+        self._on_chunk_failed = False
         # True when the last ``stop()`` found the stream had already ended on its own --
         # the device was unplugged or switched mid-recording, so everything said after
         # that point is missing from the clip. Read it after ``stop()``; it is how a
@@ -155,6 +157,7 @@ class AudioRecorder:
     def start(self) -> None:
         self._chunks = []
         self._n_samples = 0
+        self._on_chunk_failed = False
         with self._lock:
             generation = self._stop_generation
             # A stream still held here would be orphaned by the new one (a second
@@ -238,7 +241,20 @@ class AudioRecorder:
         if self._accumulate:
             self._chunks.append(chunk)
         if self._on_chunk is not None:
-            self._on_chunk(chunk)
+            try:
+                self._on_chunk(chunk)
+            except Exception:
+                # PortAudio's callback is registered with ``error=paAbort``: an exception
+                # escaping here aborts the stream and the take dies mid-recording, which
+                # ``stop()`` would then report as a lost input device. The chunk is already
+                # retained above, so a consumer bug costs only its own processing.
+                if not self._on_chunk_failed:
+                    self._on_chunk_failed = True  # once per recording, not per chunk
+                    log.warning(
+                        "on_chunk consumer raised; recording continues "
+                        "(further errors this take are not logged)",
+                        exc_info=True,
+                    )
 
     @property
     def has_clip(self) -> bool:
