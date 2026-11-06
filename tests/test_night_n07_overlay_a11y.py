@@ -109,6 +109,8 @@ def test_the_grid_window_is_named_and_describes_the_open_grid(qapp):
     w.show_grid(snap)
     try:
         assert w.accessibleDescription() == grid_description(snap)
+        w.show_grid(GridSnapshot())
+        assert w.accessibleDescription() == ""
     finally:
         w.hide()
 

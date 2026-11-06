@@ -48,6 +48,7 @@ class GridWidget(QWidget):
         """Draw *snap*; hide the window when it is inactive. Repaints only on change."""
         if not snap.active or snap.region is None:
             self._snap = GridSnapshot()
+            self.setAccessibleDescription("")
             if self.isVisible():
                 self.hide()
             return
