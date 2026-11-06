@@ -106,9 +106,66 @@ def test_a_pinned_device_that_is_now_absent_stays_visible_and_selected(qapp, mon
     assert "not connected" in win._mic_box.currentText()
 
 
-def test_failure_to_enumerate_leaves_the_list_unchanged(qapp, monkeypatch):
+def test_an_exception_while_enumerating_leaves_the_list_unchanged(qapp, monkeypatch):
     enum = _Enumerator([_dev("Built-in"), _dev("USB Mic")], OSError("no sound card"))
     win = _window(qapp, monkeypatch, enum)
     before = _values(win)
     _refresh_button(win).click()
     assert _values(win) == before
+    assert "previous list is kept" in win._hint.text()
+
+
+def test_an_empty_result_is_a_failed_refresh_not_a_wipe(qapp, monkeypatch):
+    # The real list_input_devices returns [] when PortAudio's query fails; it never raises.
+    enum = _Enumerator([_dev("Built-in"), _dev("USB Mic")], [])
+    win = _window(qapp, monkeypatch, enum, pinned="USB Mic")
+    before_values = _values(win)
+    before_labels = [win._mic_box.itemText(i) for i in range(win._mic_box.count())]
+    assert win._mic_box.currentData() == "USB Mic"
+    _refresh_button(win).click()
+    assert _values(win) == before_values
+    assert [win._mic_box.itemText(i) for i in range(win._mic_box.count())] == before_labels
+    assert win._mic_box.currentData() == "USB Mic"
+    assert "previous list is kept" in win._hint.text()
+
+
+def test_a_later_good_refresh_clears_the_failure_hint(qapp, monkeypatch):
+    enum = _Enumerator([_dev("Built-in")], [], [_dev("Built-in"), _dev("USB Mic")])
+    win = _window(qapp, monkeypatch, enum)
+    _refresh_button(win).click()
+    assert win._hint.text()
+    _refresh_button(win).click()
+    assert win._hint.text() == ""
+    assert "USB Mic" in _values(win)
+
+
+def test_a_changed_non_empty_list_replaces_the_old_one(qapp, monkeypatch):
+    enum = _Enumerator([_dev("Built-in"), _dev("Old Mic")], [_dev("Built-in"), _dev("New Mic")])
+    win = _window(qapp, monkeypatch, enum)
+    _refresh_button(win).click()
+    values = _values(win)
+    assert "New Mic" in values
+    assert "Old Mic" not in values
+
+
+def test_the_star_follows_the_saved_pin_not_the_staged_choice(qapp, monkeypatch):
+    enum = _Enumerator([_dev("Built-in"), _dev("USB Mic"), _dev("Other")])
+    win = _window(qapp, monkeypatch, enum, pinned="USB Mic")
+    win._mic_box.setCurrentIndex(_values(win).index("Other"))  # staged, unsaved
+    _refresh_button(win).click()
+    box = win._mic_box
+    assert box.currentData() == "Other"
+    assert win._mic_baseline == "USB Mic"
+    text = {box.itemData(i): box.itemText(i) for i in range(box.count())}
+    assert "\u2605" in text["USB Mic"]
+    assert "\u2605" not in text["Other"]
+
+
+def test_a_staged_choice_whose_device_vanished_stays_selected(qapp, monkeypatch):
+    enum = _Enumerator([_dev("Built-in"), _dev("USB Mic")], [_dev("Built-in")])
+    win = _window(qapp, monkeypatch, enum)
+    win._mic_box.setCurrentIndex(_values(win).index("USB Mic"))
+    _refresh_button(win).click()
+    assert win._mic_box.currentData() == "USB Mic"
+    assert "not connected" in win._mic_box.currentText()
+    assert win._mic_baseline == ""
