@@ -278,3 +278,40 @@ def test_cli_requires_an_output_directory(tmp_path: Path) -> None:
     with pytest.raises(SystemExit) as info:
         F.main([str(tmp_path / "report.json")])
     assert info.value.code == 2
+
+
+# --- QA follow-ups ------------------------------------------------------------------------
+
+
+def test_long_run_unit_labels_are_not_clipped_off_the_left_edge() -> None:
+    # `--unit run` names each row "<file>@<hash> / <category>" (~55 characters); with a fixed
+    # 260 px label column the right-anchored labels started off-canvas and were cut off.
+    import re
+
+    rep, raw = _fixture_report()
+    files = F.build_outputs(rep, raw)
+    (sid,) = [s["stratum_id"] for s in rep["strata"]]
+    svg = files[f"figures/outcomes_{sid}.svg"].decode("utf-8")
+    width = float(re.search(r'<svg [^>]*width="([0-9.]+)"', svg).group(1))  # type: ignore[union-attr]
+    labels = re.findall(r'<text x="([0-9.]+)" y="[0-9.]+" text-anchor="end">([^<]+)</text>', svg)
+    assert labels and all(len(t) > 40 for _, t in labels)
+    for x, text in labels:
+        assert float(x) - F._CHAR * len(text) >= 0, text
+    title = re.search(r'<text x="12" y="22" font-size="14" font-weight="bold">([^<]+)</text>', svg)
+    subtitle = re.search(r'<text x="12" y="42" fill="#333333">([^<]+)</text>', svg)
+    assert title and subtitle
+    assert 12 + F._TITLE_CHAR * len(title.group(1)) <= width
+    assert 12 + F._CHAR * len(subtitle.group(1)) <= width
+
+
+def test_whole_number_latency_and_exposure_keep_the_fixed_number_format() -> None:
+    # analysis `_tidy()` writes 900.0 as the int 900; the column must still read 900.0000.
+    rep = report()
+    rep["strata"][0]["latency"]["per_run_p50"] = [900, 650.5]
+    rep["strata"][0]["units"][0]["false_activations"] = {
+        "events": 2, "exposure_s": 3600, "per_hour": 2.0, "provisional": True}
+    files = build(rep)
+    assert sorted(r["p50_ms"] for r in rows(files, "tables/latency.csv") if r["stratum_id"] == "bbbb") == [
+        "650.5000", "900.0000"]
+    (fa,) = rows(files, "tables/false_activations.csv")
+    assert fa["exposure_s"] == "3600.0000" and fa["per_hour"] == "2.0000" and fa["events"] == "2"

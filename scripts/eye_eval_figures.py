@@ -169,6 +169,11 @@ def _fmt(value: Any) -> str:
     return str(value)
 
 
+def _num(value: Any) -> Any:
+    """A JSON number as a float (so it gets the fixed format); anything else unchanged."""
+    return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else value
+
+
 def _stratum_cols(s: dict[str, Any]) -> list[Any]:
     st = s["stratum"]
     return [s["stratum_id"], st.get("task"), st.get("host"), st.get("config_hash")]
@@ -214,7 +219,7 @@ def build_tables(report: dict[str, Any]) -> dict[str, bytes]:
                 continue
             ok = fa.get("per_hour") != INSUFFICIENT
             fa_rows.append([*_stratum_cols(s), unit["unit"], fa.get("events") if ok else None,
-                            fa.get("exposure_s"), fa.get("per_hour") if ok else None,
+                            _num(fa.get("exposure_s")), _num(fa.get("per_hour")) if ok else None,
                             "ok" if ok else f"{INSUFFICIENT} (minimum exposure {fa.get('minimum_exposure_s')} s)"])
     out["tables/false_activations.csv"] = _csv(
         [*head, "unit", "events", "exposure_s", "per_hour", "status"], fa_rows)
@@ -223,7 +228,8 @@ def build_tables(report: dict[str, Any]) -> dict[str, bytes]:
     for s in strata:
         lat = s.get("latency") or {}
         for i, value in enumerate(lat.get("per_run_p50") or []):
-            lat_rows.append([*_stratum_cols(s), lat.get("metric"), i, value])
+            # analysis `_tidy()` writes a whole number as an int; keep the column's format fixed
+            lat_rows.append([*_stratum_cols(s), lat.get("metric"), i, float(value)])
     out["tables/latency.csv"] = _csv([*head, "metric", "run_index", "p50_ms"], lat_rows)
 
     retest_rows = []
@@ -250,28 +256,41 @@ def build_tables(report: dict[str, Any]) -> dict[str, bytes]:
 
 # --- figures -----------------------------------------------------------------------------
 
-_W = 720
-_LEFT = 260
+_W = 720  # minimum canvas width; it grows to fit the text
+_LEFT = 260  # minimum label column; it grows to fit the longest row label
 _RIGHT = 40
+_PLOT = 420  # minimum width of the plotting area
 _ROW = 22
 _TOP = 64
+#: Generous per-character widths (px) for the 12 px body and 14 px bold title. No font metrics
+#: are read, so the layout stays byte-identical everywhere; over-estimating only adds margin.
+_CHAR = 7.0
+_TITLE_CHAR = 8.5
 
 
-def _x(value: float, lo: float, hi: float) -> float:
+def _frame(labels: Sequence[str], title: str, subtitle: str) -> tuple[float, float]:
+    """(label column, canvas width) wide enough that no label, title or subtitle is clipped."""
+    left = max(float(_LEFT), 20 + _CHAR * max((len(t) for t in labels), default=0))
+    width = max(float(_W), left + _PLOT + _RIGHT, 24 + _TITLE_CHAR * len(title), 24 + _CHAR * len(subtitle))
+    return left, width
+
+
+def _x(value: float, lo: float, hi: float, left: float, width: float) -> float:
     span = (hi - lo) or 1.0
-    return _LEFT + (value - lo) / span * (_W - _LEFT - _RIGHT)
+    return left + (value - lo) / span * (width - left - _RIGHT)
 
 
 def _n(value: float) -> str:
     return f"{value:.2f}"
 
 
-def _svg(height: float, body: list[str], title: str, subtitle: str) -> bytes:
+def _svg(height: float, width: float, body: list[str], title: str, subtitle: str) -> bytes:
+    w = _n(width)
     lines = [
         '<?xml version="1.0" encoding="UTF-8"?>',
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{_W}" height="{_n(height)}" '
-        f'viewBox="0 0 {_W} {_n(height)}" font-family="sans-serif" font-size="12">',
-        f'<rect x="0" y="0" width="{_W}" height="{_n(height)}" fill="#ffffff"/>',
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{_n(height)}" '
+        f'viewBox="0 0 {w} {_n(height)}" font-family="sans-serif" font-size="12">',
+        f'<rect x="0" y="0" width="{w}" height="{_n(height)}" fill="#ffffff"/>',
         f'<text x="12" y="22" font-size="14" font-weight="bold">{escape(title)}</text>',
         f'<text x="12" y="42" fill="#333333">{escape(subtitle)}</text>',
         *body,
@@ -280,10 +299,11 @@ def _svg(height: float, body: list[str], title: str, subtitle: str) -> bytes:
     return ("\n".join(lines) + "\n").encode("utf-8")
 
 
-def _axis(y: float, lo: float, hi: float, ticks: list[float], fmt: str) -> list[str]:
-    out = [f'<line x1="{_n(_x(lo, lo, hi))}" y1="{_n(y)}" x2="{_n(_x(hi, lo, hi))}" y2="{_n(y)}" stroke="#000000"/>']
+def _axis(y: float, lo: float, hi: float, ticks: list[float], fmt: str, left: float, width: float) -> list[str]:
+    x1, x2 = _n(_x(lo, lo, hi, left, width)), _n(_x(hi, lo, hi, left, width))
+    out = [f'<line x1="{x1}" y1="{_n(y)}" x2="{x2}" y2="{_n(y)}" stroke="#000000"/>']
     for t in ticks:
-        x = _n(_x(t, lo, hi))
+        x = _n(_x(t, lo, hi, left, width))
         out.append(f'<line x1="{x}" y1="{_n(y)}" x2="{x}" y2="{_n(y + 4)}" stroke="#000000"/>')
         out.append(f'<text x="{x}" y="{_n(y + 16)}" text-anchor="middle">{escape(format(t, fmt))}</text>')
     return out
@@ -294,34 +314,37 @@ def outcomes_svg(report: dict[str, Any], s: dict[str, Any]) -> bytes:
     body: list[str] = []
     y = float(_TOP)
     units = s.get("units") or []
+    st = s["stratum"]
+    title = f"PROVISIONAL -- {st.get('task')} outcome shares, stratum {s['stratum_id']}"
+    subtitle = (f"unit={report['aggregation_unit']}, units={len(units)}, mode={report['study_mode']}; "
+                "dot = share, whisker = 95% Wilson interval of that unit's own trials")
+    labels = [f"{unit['unit']} / {cat}" for unit in units for cat in sorted(unit.get("outcomes") or {})]
+    left, width = _frame(labels, title, subtitle)
     for unit in units:
         for cat, e in sorted((unit.get("outcomes") or {}).items()):
             cy = y + _ROW / 2
             label = f"{unit['unit']} / {cat}"
-            body.append(f'<text x="{_LEFT - 8}" y="{_n(cy + 4)}" text-anchor="end">{escape(label)}</text>')
+            body.append(f'<text x="{_n(left - 8)}" y="{_n(cy + 4)}" text-anchor="end">{escape(label)}</text>')
             if e["rate"] == INSUFFICIENT:
                 words = f"{INSUFFICIENT} (n={e['n']}, minimum {e.get('minimum_n')})"
-                body.append(f'<text x="{_LEFT}" y="{_n(cy + 4)}" fill="{_GREY}" font-style="italic">'
+                body.append(f'<text x="{_n(left)}" y="{_n(cy + 4)}" fill="{_GREY}" font-style="italic">'
                             f"{escape(words)}</text>")
             else:
                 colour = _COLOURS.get(cat, _GREY)
                 lo, hi = e["ci95_wilson"]
-                body.append(f'<line x1="{_n(_x(lo, 0, 1))}" y1="{_n(cy)}" x2="{_n(_x(hi, 0, 1))}" '
+                body.append(f'<line x1="{_n(_x(lo, 0, 1, left, width))}" y1="{_n(cy)}" '
+                            f'x2="{_n(_x(hi, 0, 1, left, width))}" '
                             f'y2="{_n(cy)}" stroke="{colour}" stroke-width="2"/>')
                 rate = float(e["rate"])
                 tip = f"{label}: {rate:.4f} [{lo:.4f}, {hi:.4f}] n={e['n']}"
-                body.append(f'<circle cx="{_n(_x(rate, 0, 1))}" cy="{_n(cy)}" r="4" fill="{colour}">'
+                body.append(f'<circle cx="{_n(_x(rate, 0, 1, left, width))}" cy="{_n(cy)}" r="4" fill="{colour}">'
                             f"<title>{escape(tip)}</title></circle>")
             y += _ROW
     if not body:
         body.append(f'<text x="12" y="{_n(y + 14)}">no unit in this stratum has outcome counts</text>')
         y += _ROW
-    body += _axis(y + 6, 0.0, 1.0, [0.0, 0.25, 0.5, 0.75, 1.0], ".2f")
-    st = s["stratum"]
-    title = f"PROVISIONAL -- {st.get('task')} outcome shares, stratum {s['stratum_id']}"
-    subtitle = (f"unit={report['aggregation_unit']}, units={len(units)}, mode={report['study_mode']}; "
-                "dot = share, whisker = 95% Wilson interval of that unit's own trials")
-    return _svg(y + 40, body, title, subtitle)
+    body += _axis(y + 6, 0.0, 1.0, [0.0, 0.25, 0.5, 0.75, 1.0], ".2f", left, width)
+    return _svg(y + 40, width, body, title, subtitle)
 
 
 def latency_svg(report: dict[str, Any], s: dict[str, Any]) -> bytes:
@@ -330,30 +353,32 @@ def latency_svg(report: dict[str, Any], s: dict[str, Any]) -> bytes:
     values = [float(v) for v in lat.get("per_run_p50") or []]
     body: list[str] = []
     y = float(_TOP)
-    if values:
-        hi = max(values) * 1.1 or 1.0
-        cy = y + _ROW / 2
-        body.append(f'<text x="{_LEFT - 8}" y="{_n(cy + 4)}" text-anchor="end">'
-                    f'{escape(str(lat.get("metric")))} (per run)</text>')
-        for i, v in enumerate(values):
-            body.append(f'<circle cx="{_n(_x(v, 0, hi))}" cy="{_n(cy)}" r="4" fill="#0072B2" fill-opacity="0.6">'
-                        f"<title>run {i}: {escape(_fmt(v))} ms</title></circle>")
-        y += _ROW
-        body += _axis(y + 6, 0.0, hi, [0.0, hi / 2, hi], ".0f")
-        y += 24
-    else:
-        body.append(f'<text x="12" y="{_n(y + 14)}">no run in this stratum has a latency value</text>')
-        y += _ROW
-    reasons = lat.get("missing_by_reason") or {}
-    if reasons:
-        listing = ", ".join(f"{k}={v}" for k, v in sorted(reasons.items()))
-        body.append(f'<text x="12" y="{_n(y + 20)}" fill="{_GREY}">missing (kept, never zero): {escape(listing)}</text>')
-        y += _ROW
     st = s["stratum"]
     title = f"PROVISIONAL -- {st.get('task')} latency, stratum {s['stratum_id']}"
     subtitle = (f"host={st.get('host')}, config={st.get('config_hash')}, runs with a value={len(values)}; "
                 "one host and config only, never pooled")
-    return _svg(y + 40, body, title, subtitle)
+    row_label = f"{lat.get('metric')} (per run)"
+    reasons = lat.get("missing_by_reason") or {}
+    listing = ", ".join(f"{k}={v}" for k, v in sorted(reasons.items()))
+    missing_line = f"missing (kept, never zero): {listing}"
+    left, width = _frame([row_label] if values else [], title, max(subtitle, missing_line, key=len))
+    if values:
+        hi = max(values) * 1.1 or 1.0
+        cy = y + _ROW / 2
+        body.append(f'<text x="{_n(left - 8)}" y="{_n(cy + 4)}" text-anchor="end">{escape(row_label)}</text>')
+        for i, v in enumerate(values):
+            body.append(f'<circle cx="{_n(_x(v, 0, hi, left, width))}" cy="{_n(cy)}" r="4" fill="#0072B2" '
+                        f'fill-opacity="0.6"><title>run {i}: {escape(_fmt(v))} ms</title></circle>')
+        y += _ROW
+        body += _axis(y + 6, 0.0, hi, [0.0, hi / 2, hi], ".0f", left, width)
+        y += 24
+    else:
+        body.append(f'<text x="12" y="{_n(y + 14)}">no run in this stratum has a latency value</text>')
+        y += _ROW
+    if reasons:
+        body.append(f'<text x="12" y="{_n(y + 20)}" fill="{_GREY}">{escape(missing_line)}</text>')
+        y += _ROW
+    return _svg(y + 40, width, body, title, subtitle)
 
 
 # --- manifest + entry point --------------------------------------------------------------
@@ -394,7 +419,7 @@ def build_outputs(report: dict[str, Any], report_bytes: bytes) -> dict[str, byte
             picked = []
         return [{"claim_id": c["claim_id"], "source_runs": sorted(c.get("source_runs") or [])} for c in picked]
 
-    entries = [{"path": p, "sha256": hashlib.sha256(files[p]).hexdigest(), "claims": carried(p)}
+    entries: list[dict[str, Any]] = [{"path": p, "sha256": hashlib.sha256(files[p]).hexdigest(), "claims": carried(p)}
                for p in sorted(files)]
     placed = {c["claim_id"] for e in entries for c in e["claims"]}
     manifest = {
