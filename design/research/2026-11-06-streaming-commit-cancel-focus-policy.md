@@ -13,7 +13,7 @@ labelled *hypothesis*.
 
 ## 1. The question for the maintainer
 
-`[streaming] enabled = true` (off by default, `src/yazses/config.py:331`) types live
+`[streaming] enabled = true` (off by default: `enabled: bool = False` at `src/yazses/config.py:350`, in `StreamingConfig` at `:331`) types live
 partials into the focused application and, at hold release, replaces them blind:
 `StreamingInjector.commit()` sends `shift+Left × chars_injected` then types the final text,
 and `cancel()` sends `BackSpace × chars_injected` (`src/yazses/inject/streaming.py:68-91`).
@@ -187,8 +187,8 @@ class StreamingInjector:
 
 Daemon touch points: construction at `daemon.py:4034`, the commit at `daemon.py:5390`
 (the only caller that must act on the outcome — an `ABANDONED_*` result must not fall
-through to "injected"), and the poll loop at `daemon.py:6678-6685`. The ~25 `cancel()`
-calls between `daemon.py:4262` and `:4814` can keep ignoring the return value.
+through to "injected"), and the poll loop at `daemon.py:6678-6685`. The 34 `cancel()`
+calls on the streaming injector (`daemon.py:4262` through `:6538`) can keep ignoring the return value.
 
 Privacy and the offline rule: tokens are opaque ids held in process memory, never titles
 or text, never logged above DEBUG, and add no outbound primitive (no change to the
