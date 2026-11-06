@@ -9,7 +9,7 @@ Enable **local, consent-first, multimodal access to supported virtual worlds** w
 ## Entry gate: do not start a new capability wave by default
 
 Research or docs may proceed now. **Implementation only proceeds after:**
-1. Documented demand from at least one substantive non-contributor issue/discussion, or a separately documented maintainer-approved change to the evidence condition.
+1. Documented demand from at least one substantive non-contributor issue/discussion. ADR-030 has no separate mechanism for waiving this: its section 3 ties lifting the freeze to that first substantive non-contributor issue, and any change to the condition is itself an amendment to ADR-030 (gate 2), as the 2026-11-01 biosignal exception was.
 2. An explicit amendment/decision under [ADR-030](../adr/adr-030-agent-era-direction.md) that lifts or scopes the breadth freeze for this experiment.
 3. Decision on the optional transport, egress, consent and safety boundaries ([DECISIONS.md](DECISIONS.md)); evaluate how proposed [ADR-025](../adr/adr-025-grounded-interaction-kernel.md) applies.
 4. A small, bounded GitHub delivery milestone and issue set following [milestone policy](../milestone-policy.md) *after* permission to implement, not before.
