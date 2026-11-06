@@ -198,7 +198,11 @@ class MoonshineEngine:
                         cut = probe
                         break
                 end = cut
-            text = self._decode_one(audio[start:end], sample_rate)
+            # Through `_decode`, not `_decode_one`: the last piece is whatever is left
+            # over and can be under upstream's 0.1 s floor (a 120.05 s burst leaves
+            # 0.05 s), which would assert and lose the whole burst. Every piece is
+            # < 64 s by construction, so this never recurses into `_decode_long`.
+            text = self._decode(audio[start:end], sample_rate)
             if text:
                 pieces.append(text)
             start = end
