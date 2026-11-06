@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.50.0] - 2026-11-06
+
 ### Fixed — `ask_human` and `yazses send-to` no longer report a slow daemon as "not running"
 
 The IPC client waited 2 seconds and turned any slower reply into "YazSes is not running" (for `send-to`, "starting up"), after the daemon had already asked the question and charged the budget, or opened the app and discarded the staged text. An agent then retried and interrupted the person again. The client now takes a per-call wait (the time to speak the question, plus the listen time, plus 20 s for `ask_human`; 12 s for `send-to`), and a daemon that is up but slow is reported as slow. A daemon that is truly unreachable keeps the old messages.

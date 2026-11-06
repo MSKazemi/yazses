@@ -8,7 +8,7 @@ description: Evidence-gated priorities for reliable offline dictation, agent-era
 YazSes is an Apache-2.0, privacy-first voice dictation and local interaction
 project for Linux, macOS and Windows. It runs speech recognition on your own
 hardware, without an account or cloud transcription service.
-**The current stable release is v2.49.0**, with installers and package channels
+**The current stable release is v2.50.0**, with installers and package channels
 described in [platform support](platform-support.md). A published installer
 does **not** by itself prove that every input method works on that operating
 system or on every physical device.
