@@ -316,20 +316,30 @@ class WindowsPermissions:
         so the message names both rather than asserting one of them.
         """
         # The Store build is a packaged app: it has its own toggle in the list, and
-        # the desktop-apps switch does not govern it (#653).
+        # the desktop-apps switch does not govern it (#653). Nor does the closing
+        # "unsigned" line describe it: a packaged app's identity is its package
+        # Name and Publisher, fixed in Partner Center, not a hash of its files, so
+        # that line is .exe advice and stays with the .exe. (That an update keeps
+        # the per-app decision is inferred from this; no real MSIX update has run.)
+        packaged = _packaged()
         which = (
             "and make sure YazSes is switched on in the list of apps there.\n"
-            if _packaged()
+            if packaged
             else "and make sure 'Let desktop apps access your microphone' is on too.\n"
         )
-        return (
+        text = (
             "Allow microphone access in:\n"
             "  Settings → Privacy & Security → Microphone\n"
             f"{which}"
             "Or open the pane directly:\n"
             "  start ms-settings:privacy-microphone\n"
             "Already allowed? Then Windows sees no input device — check it is\n"
-            "plugged in and enabled in Sound settings, then run: yazses audio devices\n"
+            "plugged in and enabled in Sound settings, then run: yazses audio devices"
+        )
+        if packaged:
+            return text
+        return (
+            f"{text}\n"
             "After an update you may have to allow it again: unsigned apps get a new\n"
             "identity when their hash changes."
         )
@@ -364,7 +374,21 @@ class WindowsPermissions:
         off, and YazSes installed from the .exe is a desktop app. That is the
         same shape as the microphone advice above, which exists because the same
         pair caught someone there.
+
+        Not on the Store (MSIX) build (#653). A packaged app is not governed by the
+        desktop-apps switch, and this one declares no ``webcam`` capability
+        (``packaging/windows/msix/AppxManifest.xml``), so it never appears in the
+        camera app list either. No Settings switch can turn the camera features on
+        there, and naming one would send the user looking for a toggle that does
+        not exist; the advice names the install that works instead.
         """
+        if _packaged():
+            return (
+                "The Microsoft Store (MSIX) build of YazSes declares no camera\n"
+                "capability and ships no camera runtime, so it is not in the camera\n"
+                "app list and no Settings switch can enable the camera features in it.\n"
+                "Install from PyPI for those features: pipx install 'yazses[gaze]'"
+            )
         return (
             "Allow camera access in:\n"
             "  Settings -> Privacy & Security -> Camera\n"

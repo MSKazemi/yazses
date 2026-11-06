@@ -315,3 +315,61 @@ def test_the_microphone_remedy_names_the_switch_that_governs_this_build(monkeypa
     _packaged(monkeypatch, False)
     unpackaged = WindowsPermissions().how_to_grant_microphone()
     assert "Let desktop apps access your microphone" in unpackaged
+
+
+def test_the_packaged_microphone_remedy_drops_the_unsigned_identity_line(monkeypatch) -> None:
+    """A packaged app's identity is its package Name and Publisher, not a hash of its
+    files, so "unsigned apps get a new identity when their hash changes" is advice
+    about the .exe and does not describe the Store build."""
+    _packaged(monkeypatch, True)
+    assert "unsigned" not in WindowsPermissions().how_to_grant_microphone()
+
+    _packaged(monkeypatch, False)
+    assert "unsigned apps get a new" in WindowsPermissions().how_to_grant_microphone()
+
+
+def test_the_camera_remedy_names_what_governs_this_build(monkeypatch) -> None:
+    """The camera half of #653's wording. The Store build declares no ``webcam``
+    capability (packaging/windows/msix/AppxManifest.xml), so it never appears in the
+    camera app list, and the desktop-apps switch does not govern a packaged app. No
+    Settings switch can help there, so the advice must not send the user to one."""
+    _packaged(monkeypatch, True)
+    packaged = WindowsPermissions().how_to_grant_camera()
+    assert "Let desktop apps" not in packaged
+    assert "Store" in packaged and "MSIX" in packaged
+    assert "pipx install 'yazses[gaze]'" in packaged
+    assert "ms-settings:privacy-webcam" not in packaged, "there is no switch to send them to"
+
+    _packaged(monkeypatch, False)
+    unpackaged = WindowsPermissions().how_to_grant_camera()
+    assert "Let desktop apps access your camera" in unpackaged
+    assert "ms-settings:privacy-webcam" in unpackaged
+
+
+def test_a_detector_that_raises_keeps_the_unpackaged_wording(monkeypatch) -> None:
+    def boom() -> bool:
+        raise RuntimeError("no host")
+
+    monkeypatch.setattr(winhost, "_msix_packaged", boom)
+    perms = WindowsPermissions()
+    assert "Let desktop apps access your microphone" in perms.how_to_grant_microphone()
+    assert "Let desktop apps access your camera" in perms.how_to_grant_camera()
+
+
+@pytest.mark.parametrize("packaged", [True, False])
+def test_the_doctor_microphone_row_wording_matches_the_build(monkeypatch, packaged) -> None:
+    """What `yazses doctor` prints beside a refused Microphone row, per build."""
+    from yazses.system.doctor import microphone_detail
+
+    _packaged(monkeypatch, packaged)
+    detail = microphone_detail(
+        "denied",
+        snap_pending=False,
+        no_portaudio=False,
+        platform_name="windows",
+        advice=WindowsPermissions().how_to_grant_microphone(),
+    )
+    assert detail.startswith("denied — ")
+    assert ("Let desktop apps access your microphone" in detail) is not packaged
+    assert ("YazSes is switched on in the list of apps" in detail) is packaged
+    assert ("unsigned" in detail) is not packaged
