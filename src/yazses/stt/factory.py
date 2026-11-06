@@ -122,7 +122,12 @@ def _build_raw_engine(stt: "SttConfig") -> "SttEngine":
             "(valid engines: faster-whisper, parakeet, moonshine)",
             name, DEFAULT_ENGINE,
         )
-        return _mark_fallback(_build_faster_whisper(stt), name,
+        # `fallback_from` so a `[stt] model` naming another engine's checkpoint is
+        # swapped for the Whisper default here too: `engine = "parakeett"` beside
+        # `model = "nemo-parakeet-tdt-0.6b-v2"` used to hand Whisper the Parakeet
+        # name and end in "speech model missing - run: yazses model download
+        # nemo-parakeet-...", a fix that cannot work for a cause that was the typo.
+        return _mark_fallback(_build_faster_whisper(stt, fallback_from=name), name,
                               "it is not an engine YazSes knows")
     return _build_faster_whisper(stt)
 
@@ -260,18 +265,35 @@ def render_engine_status_lines(status: dict) -> list[str]:
     return lines
 
 
+#: Substrings that mark a `[stt] model` value as another engine's checkpoint, in the
+#: same terms those engines use to accept it: `stt/parakeet.py` honours a model only
+#: when "parakeet" is in its name, `stt/moonshine.py` only when it starts with
+#: "moonshine/".
+_FOREIGN_MODEL_MARKERS = ("parakeet", "moonshine")
+
+
+def _foreign_engine_of(model: str) -> str:
+    """The non-Whisper engine whose checkpoint *model* names, or ``""``."""
+    lowered = model.lower()
+    return next((m for m in _FOREIGN_MODEL_MARKERS if m in lowered), "")
+
+
 def _build_faster_whisper(stt: "SttConfig", fallback_from: str = "") -> "SttEngine":
     from yazses.stt.faster_whisper import FasterWhisperEngine
 
     model = (getattr(stt, "model", "") or "base.en").strip() or "base.en"
-    # When falling back from another engine, `[stt] model` may name that
-    # engine's model (e.g. "nemo-parakeet-tdt-0.6b-v2"), which Whisper cannot
-    # load — the fallback would crash the daemon it exists to protect. Use the
-    # Whisper default instead, and say so.
-    if fallback_from and fallback_from in model.lower():
+    # When falling back from another engine, `[stt] model` may name a non-Whisper
+    # checkpoint (e.g. "nemo-parakeet-tdt-0.6b-v2"), which Whisper cannot load —
+    # the fallback would crash the daemon it exists to protect, with a "model
+    # missing" message that blames the download. Use the Whisper default instead,
+    # and say so. Matched on the model's own name, not on the requested engine's:
+    # the requested name may be a typo (`parakeett`) or a different engine than the
+    # one the model belongs to.
+    owner = _foreign_engine_of(model) if fallback_from else ""
+    if owner:
         log.warning(
             "[stt] model %r belongs to the %s engine — the faster-whisper "
-            "fallback uses 'base.en' instead", model, fallback_from,
+            "fallback uses 'base.en' instead", model, owner,
         )
         model = "base.en"
     language = (getattr(stt, "language", "en") or "").strip()
