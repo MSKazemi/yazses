@@ -183,7 +183,7 @@ Official references:
 
 - [Using Codex with your ChatGPT plan](https://help.openai.com/en/articles/11369540)
 - [Codex CLI](https://developers.openai.com/codex/cli)
-- [AGENTS.md project instructions](https://developers.openai.com/codex/agents-md)
+- [AGENTS.md project instructions](https://developers.openai.com/codex/guides/agents-md)
 - [Managing API projects and spend limits](https://help.openai.com/en/articles/9186755)
 - [Troubleshooting API usage and spend limits](https://help.openai.com/en/articles/6614457)
 
