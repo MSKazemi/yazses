@@ -6,7 +6,7 @@ description: Hear how accurate on-device transcription is before you install any
 # Try it without installing it
 
 The honest objection to any offline speech-to-text tool is **"but is it actually
-accurate?"** — and no amount of prose answers that. So here are four ways to find out
+accurate?"** — and no amount of prose answers that. So here are five ways to find out
 that cost you nothing and leave nothing behind.
 
 !!! info "What you can and cannot try this way"
@@ -19,6 +19,24 @@ that cost you nothing and leave nothing behind.
     input device for the hotkey, and the ability to type into whatever window you have
     focused — three things a container does not have. For dictation,
     [install it properly](install-linux.md).
+
+---
+
+## Fastest, if you already have `uv`: one command, no install step
+
+```sh
+uvx yazses transcribe <your-file>
+```
+
+[`uvx`](https://docs.astral.sh/uv/guides/tools/) runs the published PyPI package in a
+throwaway environment, so there is no `pipx install`, no `sudo` and nothing to put on your
+`PATH`. The first run downloads the Python packages and, once, the speech model; later runs
+reuse both. Check what you have got with `uvx yazses --version`.
+
+It is not "leave no trace": `uv` keeps its package cache and the model sits in your Hugging
+Face cache. `uv cache clean` clears the first; deleting the model folder clears the second.
+Like the Docker trial below, this covers file → text only. For hold-to-talk dictation,
+[install it properly](install-linux.md).
 
 ---
 

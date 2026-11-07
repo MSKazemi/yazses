@@ -65,6 +65,11 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Topic :: Multimedia :: Sound/Audio :: Speech",
+    # Found by people browsing PyPI's Topic filters: assistive hands-free input is a stated
+    # use case (docs/use-cases/accessibility-rsi-hands-free.md), and the meeting/transcribe
+    # commands record audio.
+    "Topic :: Adaptive Technologies",
+    "Topic :: Multimedia :: Sound/Audio :: Capture/Recording",
 ]
 dependencies = [
     "faster-whisper>=1.2.1",
@@ -137,6 +142,11 @@ Homepage = "https://github.com/MSKazemi/yazses"
 Documentation = "https://mskazemi.com/yazses/"
 Repository = "https://github.com/MSKazemi/yazses"
 "Bug Tracker" = "https://github.com/MSKazemi/yazses/issues"
+Changelog = "https://github.com/MSKazemi/yazses/blob/main/CHANGELOG.md"
+Releases = "https://github.com/MSKazemi/yazses/releases"
+Discussions = "https://github.com/MSKazemi/yazses/discussions"
+"Install guide" = "https://mskazemi.com/yazses/get-started.html"
+"Try without installing" = "https://mskazemi.com/yazses/try-without-installing.html"
 
 [project.scripts]
 yazses = "yazses.cli:main"

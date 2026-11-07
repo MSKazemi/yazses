@@ -64,6 +64,9 @@ winget install MSKazemi.YazSes
 # Any OS with Python >= 3.11
 pipx install yazses
 
+# Try without installing (needs uv): transcribe one file, no install step
+uvx yazses transcribe recording.m4a
+
 # Linux (Debian/Ubuntu)
 bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)
 

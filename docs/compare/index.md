@@ -19,6 +19,7 @@ If you want everything in a single table instead, see
 |---|---|
 | **[Dragon NaturallySpeaking](dragon-naturallyspeaking-linux-alternative.md)** | You want Dragon on Linux. It has never existed, and this explains what does. |
 | **[Wispr Flow](wispr-flow-linux-alternative.md)** | You like Wispr Flow but need Linux, or need dictation that works with no network. |
+| **[SuperWhisper](superwhisper-alternative.md)** | You are weighing a paid, closed-source dictation app that can run offline against a free, open-source one. |
 | **[Handy](yazses-vs-handy.md)** | You are choosing between the two most direct cross-platform open-source options. |
 | **[Vocalinux](yazses-vs-vocalinux.md)** | You are on Linux, weighing GPU acceleration and engine choice against cross-platform support. |
 | **[Speech Note (dsnote)](yazses-vs-speech-note.md)** | You want to know whether you need an app you open or a daemon that is always there. |

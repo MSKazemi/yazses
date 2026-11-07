@@ -6,6 +6,22 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — docs: `uvx yazses transcribe` as a no-install way to try YazSes
+
+`README.md`, `docs/try-without-installing.md` and `docs/llms.txt` now show `uvx yazses transcribe <file>`. Checked on 2026-11-07: `uvx yazses --version` printed 2.51.0, and `uvx yazses transcribe jfk.wav` returned the correct sentence. It is not "leave no trace": uv's cache and the Hugging Face model cache stay until cleared, and the page says so.
+
+### Added — docs: YazSes vs SuperWhisper
+
+`docs/compare/superwhisper-alternative.md` compares the two, with a "where SuperWhisper is better" section. Every SuperWhisper claim is dated and linked to the page it came from. What the site does not state is listed as unverified rather than guessed.
+
+### Changed — PyPI metadata
+
+Two classifiers (`Topic :: Adaptive Technologies`, `Topic :: Multimedia :: Sound/Audio :: Capture/Recording`) and five project URLs (Changelog, Releases, Discussions, Install guide, Try without installing).
+
+### Fixed — docs site: translated pages declared `<html lang="en">`
+
+All 27 locale landing pages and the Hindi and Chinese pages said `lang="en"` while their own hreflang and canonical named another language. `hooks/hreflang.py` now writes the page's own language. English pages are unchanged.
+
 ## [2.51.0] - 2026-11-06
 
 ### Added — `gaze status`, `doctor` and `status` say what Glance-Type can and cannot do on your session ([#418](https://github.com/MSKazemi/yazses/issues/418))

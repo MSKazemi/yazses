@@ -117,3 +117,34 @@ def test_unrelated_translation_sets_are_not_merged() -> None:
     groups = hreflang._collect_pairs(_FakeConfig(pages))
     assert groups["index.md"] == {"en": "index.md", "hi": "hi/index.md"}
     assert groups[EN] == {"en": EN, "hi": HI}
+
+
+def test_translated_page_declares_its_own_html_lang() -> None:
+    page = '<!doctype html><html lang="en" class="no-js"><head></head></html>'
+    assert '<html lang="de" ' in hreflang.with_html_lang(page, "de/index.md")
+    assert '<html lang="pt-BR" ' in hreflang.with_html_lang(page, "pt-BR/index.md")
+    assert '<html lang="hi" ' in hreflang.with_html_lang(page, HI)
+
+    minified = "<!DOCTYPE html><html lang=en class=no-js><head>"
+    assert hreflang.with_html_lang(minified, "ja/index.md") == (
+        '<!DOCTYPE html><html lang="ja" class=no-js><head>'
+    )
+
+
+def test_default_language_page_keeps_its_html_lang_untouched() -> None:
+    page = '<!doctype html><html lang="en" class="no-js"><head></head></html>'
+    assert hreflang.with_html_lang(page, "use-cases/voice-coding.md") == page
+    assert hreflang.with_html_lang(page, "index.md") == page
+
+
+def test_html_lang_is_rewritten_once_and_keeps_other_attributes() -> None:
+    page = '<html lang="en" class="no-js"><body><html lang="en"></body>'
+    out = hreflang.with_html_lang(page, "fr/index.md")
+    assert out.startswith('<html lang="fr" class="no-js">')
+    assert out.count('lang="fr"') == 1
+
+
+def test_html_lang_is_rewritten_after_minification_removed_the_quotes() -> None:
+    page = "<!DOCTYPE html><html lang=en class=no-js><head></head>"
+    out = hreflang.with_html_lang(page, "ja/index.md")
+    assert out.startswith('<!DOCTYPE html><html lang="ja" class=no-js>')

@@ -34,6 +34,7 @@ Registered via `hooks:` in mkdocs.yml. Tested in tests/test_hreflang_hook.py.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 # Top-level docs directories that denote a translation rather than a section.
@@ -66,6 +67,24 @@ def page_language(src_uri: str) -> str:
     if rest and head in LANGUAGE_DIRS:
         return head
     return DEFAULT_LANGUAGE
+
+
+# Tolerates the unquoted `lang=en` the minify plugin has already produced by the time
+# this hook runs, as well as the quoted form Material emits.
+_HTML_LANG = re.compile(r'<html lang=(?:"[^"]*"|[^\s>"]*)')
+
+
+def with_html_lang(output: str, src_uri: str) -> str:
+    """Make ``<html lang>`` agree with the page's own language.
+
+    Material hard-codes the site language in ``base.html``, so every translated page
+    would otherwise declare ``lang="en"`` while its hreflang and canonical say
+    otherwise. Default-language pages are returned untouched. Pure.
+    """
+    lang = page_language(src_uri)
+    if lang == DEFAULT_LANGUAGE:
+        return output
+    return _HTML_LANG.sub(f'<html lang="{lang}"', output, count=1)
 
 
 def _page_url(site_url: str, src_uri: str) -> str:
@@ -138,6 +157,8 @@ def on_post_page(output: str, page: Any = None, config: Any = None, **_: Any) ->
     """Inject the reciprocal hreflang set into this page's head, if it has one."""
     if page is None or config is None or "</head>" not in output:
         return output
+
+    output = with_html_lang(output, getattr(getattr(page, "file", None), "src_uri", ""))
 
     groups = getattr(config, "_hreflang_groups", None)
     if groups is None:

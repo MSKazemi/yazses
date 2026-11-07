@@ -110,7 +110,8 @@ your microphone, hotkey and typing, and tells you what to fix.
 > shows exactly what has and has not been confirmed on real hardware. If you try one, a short
 > report is one of the most useful contributions you can make.
 
-**Not ready to install?** [Try it without installing](https://mskazemi.com/yazses/try-without-installing.html)
+**Not ready to install?** With [`uv`](https://docs.astral.sh/uv/), `uvx yazses transcribe <file>` runs
+it once with no install step. Or [try it without installing](https://mskazemi.com/yazses/try-without-installing.html)
 in Docker or your browser, or read [what installing actually costs](https://mskazemi.com/yazses/install-cost.html)
 first. APT, Snap, pipx, `.dmg` and `.exe` are covered under
 [all install options](#all-install-options).
