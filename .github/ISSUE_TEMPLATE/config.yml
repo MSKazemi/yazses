@@ -6,3 +6,6 @@ contact_links:
   - name: 📦 Install & troubleshooting docs
     url: https://mskazemi.com/yazses/
     about: Install options, the doctor self-check, and troubleshooting for each platform.
+  - name: 🤝 Want to help build YazSes?
+    url: https://mskazemi.com/yazses/contribute/start.html
+    about: Pick one bounded task (20-45 minutes; translations, OS test reports, mic entries, code). Nothing to sign.
