@@ -25,6 +25,22 @@ Still undecided? Take the second row. **Nobody can test YazSes on your machine b
 that is the single most useful thing the project is missing — 301 environments are listed and
 almost none are covered.
 
+## Merged one already? Take the next step
+
+Most people who send one change never send a second, and a second one is worth more than the
+first: you already know the repository, the review is faster, and you can now help the next
+newcomer. Pick the step that matches what you just did.
+
+| You just… | Your next step | Why it is the natural one |
+|---|---|---|
+| Reviewed a README translation | Review the **docs pages** in that language that are still drafts, or another language you read — the [matrix](../localization/STATUS.md) shows which | Same skill, bigger reach |
+| Reported a test on one OS | Test a **second desktop or session type** (X11 vs Wayland, a different distro) — [open reports](https://github.com/MSKazemi/yazses/issues?q=is%3Aopen+%22Test+YazSes+on%22+in%3Atitle) | Each new combination is evidence nobody else has |
+| Added a microphone, showcase or app config | Take a `WIRE-*` or `QA-*` task from the [task list](tasks.md) | First real code, small and scoped |
+| Merged a code or test change | **Review someone else's pull request** — read [`REVIEWING.md`](https://github.com/MSKazemi/yazses/blob/main/REVIEWING.md), leave one comment | Review is the step toward being a module steward ([how that works](https://github.com/MSKazemi/yazses/blob/main/.github/GOVERNANCE.md)) |
+
+Nobody has to ask you to do any of this, and you can stop after any row. If you want a
+specific task suggested, say so on your merged pull request and the maintainer will name one.
+
 ## The two rules
 
 1. **Stay inside the task's files.** Each task lists what it may touch. If your change needs

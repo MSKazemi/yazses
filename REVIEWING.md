@@ -71,6 +71,16 @@ Adapt these; do not paste them verbatim into a first-time contributor's PR.
 > This satisfies the task and the evidence is clear. Thank you — your \[specific thing]
 > fills \[specific gap]. Approving.
 
+**After merging a first contribution**
+
+> Merged — thank you, your \[specific thing] is in `main` with your authorship intact.
+> If you want another one, \[a named task that fits what they just did: next language, a
+> second desktop to test, a `WIRE-*` task]. No obligation either way.
+
+Name one concrete next task of the same size as what they just did, so a second contribution
+is a small step rather than a decision. (In the 30 days to 2026-11-06, 15 different external
+people had work merged and almost none sent a second change.)
+
 **One thing missing**
 
 > This is in scope and close. One acceptance criterion is still open: \[criterion].
