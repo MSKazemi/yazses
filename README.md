@@ -18,6 +18,7 @@ account, no subscription and no API key. YazSes is free and open source under Ap
 [![Hosted demo on Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-hosted%20demo-yellow)](https://huggingface.co/spaces/mskazemi/yazses-offline-transcription-demo)
 [![Open Source Helpers](https://www.codetriage.com/mskazemi/yazses/badges/users.svg)](https://www.codetriage.com/mskazemi/yazses)
 [![Good first issues](https://img.shields.io/github/issues/MSKazemi/yazses/good%20first%20issue?label=good%20first%20issues&color=7057ff)](https://github.com/MSKazemi/yazses/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+[![Listed on mcpservers.org](https://mcpservers.org/badge.svg)](https://mcpservers.org/servers/mskazemi/yazses)
 [![All Contributors](https://img.shields.io/badge/all_contributors-48-orange.svg?style=flat-square)](#contributors)
 
 ![YazSes — hold a key, speak, release; the text is typed into the focused app](docs/screenshots/yazses-reel.gif)

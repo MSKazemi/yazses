@@ -90,6 +90,10 @@ publishing it is switched off until the maintainer turns it on. Once it is liste
 `io.github.MSKazemi/yazses`, pointing at the `yazses` package on PyPI with the argument
 `mcp-server`.
 
+YazSes is also listed in [mcpservers.org](https://mcpservers.org/servers/mskazemi/yazses), a
+separate third-party directory. That is not the official registry, and a listing there is not a
+security review or an endorsement of the code.
+
 A client that installs from the registry may fetch its own copy of the `yazses` package,
 for example with `uvx`, rather than use the one you installed. That copy reads the same
 `config.toml`, but it can be a different version, and it has none of the optional
