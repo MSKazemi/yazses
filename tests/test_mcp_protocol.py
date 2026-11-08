@@ -49,6 +49,23 @@ def test_initialize_reports_the_protocol_and_the_server() -> None:
     assert reply["result"]["capabilities"]["tools"] == {}
 
 
+def test_initialize_server_info_carries_a_version_string() -> None:
+    """MCP 2025-06-18 `Implementation` requires `version` beside `name`.
+
+    Claude Code 2.1.319 validates the initialize result against that schema and
+    refuses to connect when `serverInfo.version` is missing (`claude mcp list`:
+    "Failed to connect - INVALID_RESULT ... serverInfo.version expected string"), so
+    the server was unusable from it. Every requested protocol revision gets the field.
+    """
+    import yazses
+
+    for proto in ("2025-06-18", "2025-03-26", "2024-11-05"):
+        info = handle(_req("initialize", {"protocolVersion": proto}), TOOLS)["result"]["serverInfo"]
+        assert isinstance(info.get("version"), str) and info["version"], info
+        assert info["version"] == yazses.__version__
+        assert info["name"] == "yazses"
+
+
 def test_initialize_echoes_the_clients_protocol_version() -> None:
     """A client that speaks an older revision must not be told a newer one — it
     has no way to downgrade after the handshake."""

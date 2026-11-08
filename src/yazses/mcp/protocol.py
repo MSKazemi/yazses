@@ -50,6 +50,19 @@ log = logging.getLogger(__name__)
 
 SERVER_INFO = {"name": "yazses", "title": "YazSes"}
 
+
+def _server_info() -> dict[str, str]:
+    """`serverInfo` for the initialize result.
+
+    MCP's `Implementation` requires `version` next to `name`; Claude Code validates it
+    and refuses to connect without one. Read from the installed package metadata on
+    each initialize (once per session), so the number cannot drift from the release.
+    """
+    from yazses import __version__
+
+    return {**SERVER_INFO, "version": __version__}
+
+
 #: Fixed text: a client's malformed value is never reflected back in the error.
 _INVALID_PARAMS_MESSAGE = "Invalid params: params must be an object."
 
@@ -289,7 +302,7 @@ def handle(request: dict[str, Any], tools: tuple[ToolSpec, ...]) -> dict[str, An
                 else PROTOCOL_VERSION
             ),
             "capabilities": {"tools": {}},
-            "serverInfo": SERVER_INFO,
+            "serverInfo": _server_info(),
         })
 
     if method == "tools/list":
