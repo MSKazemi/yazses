@@ -2013,7 +2013,7 @@ Point an MCP client at it:
 
 | Tool | What it does | Offered when |
 |---|---|---|
-| `transcribe(path, diarize=false)` | Turn an audio or video file into text, entirely on this machine. Nothing is uploaded. | always |
+| `transcribe(path, diarize)` | Turn an audio or video file into text, entirely on this machine. Nothing is uploaded. Leave `diarize` out to follow your `[recimport] diarize` setting (off by default). | always |
 | `ask_human(question, timeout_s)` | Ask **you** a question out loud and return your spoken answer. | `[mcp] ask_human = true` |
 
 `ask_human` is the reason this exists. An agent stuck on a decision only a person
