@@ -20,6 +20,14 @@ The MCP `initialize` reply carried `serverInfo.name` and `title` but no `version
 
 A mis-heard "delete the last 1000000 words" made dispatch send a million Ctrl+BackSpace, which deleted the document and blocked the daemon while it typed. `delete_words`, `delete_lines`, `undo_n` and `select_lines` now resolve their count before the first key and refuse anything above 99 (`CommandRefused`: nothing sent, nothing typed), the same ceiling the Mandarin grammar already enforced at parse time. Every producer of a command intent is covered, including the SLM router and the activation pipeline.
 
+### Fixed — CI: dispatch inputs no longer expand into shell source
+
+`apt-repo.yml`, `channel-drift.yml`, `publish-channels.yml` and `snap.yml` interpolated `workflow_dispatch` inputs (`run_id`, `workflow`, `tag`, `grace_hours`, `version`) straight into `run:` scripts, against CI_POLICY section 7 rule 4. They now arrive through `env:` and are quoted. Only someone with write access could dispatch these, so this closes a policy gap rather than an open hole. `tests/test_workflow_run_blocks_take_no_inputs_by_expression.py` scans every workflow and composite action and was red on exactly those four files before the change.
+
+### Fixed — NOTICE names Qt (PySide6), which the Windows and macOS bundles ship
+
+`NOTICE` listed `pystray` (LGPL-3.0) but not PySide6, although both build scripts install the `desktop` extra. It now has a row and an LGPL note for Qt for Python (`LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only`, used under the LGPL). `tests/test_notice_names_the_copyleft_libraries_the_bundles_ship.py` keeps it that way while a build script bundles the extra. The installers still do not carry the licence texts themselves; that is a separate change that needs a build to verify.
+
 ### Added — docs: `uvx yazses transcribe` as a no-install way to try YazSes
 
 `README.md`, `docs/try-without-installing.md` and `docs/llms.txt` now show `uvx yazses transcribe <file>`. Checked on 2026-11-07: `uvx yazses --version` printed 2.51.0, and `uvx yazses transcribe jfk.wav` returned the correct sentence. It is not "leave no trace": uv's cache and the Hugging Face model cache stay until cleared, and the page says so.
