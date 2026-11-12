@@ -18,7 +18,7 @@ entire problem disappears.
 | `com.mskazemi.YazSes.metainfo.xml` | The store listing — description, categories, limitations |
 | `com.mskazemi.YazSes.desktop` | The launcher the metainfo's `<launchable>` names. Without it the app has no app-grid entry and Flathub's linter rejects the listing |
 | `com.mskazemi.YazSes.svg` | The app icon, installed as `hicolor/scalable/apps/<app-id>.svg`. A byte copy of `contrib/icons/yazses.svg` — a Flathub repository is flat and cannot reach into `contrib/`; guarded against drift by `tests/test_icon_assets.py` |
-| `python3-yazses.json` | Generated dependency modules — 45 pinned wheels with hashes. Committed; regenerate via the Flatpak workflow, never by hand |
+| `python3-yazses.json` | Generated dependency modules — every wheel, including `yazses` itself, pinned by URL and SHA-256. Committed; regenerate via the Flatpak workflow, never by hand |
 | `SUBMISSION.md` | The resubmission pack: why flathub#9765 closed, the filled-in PR body, and the demo-video shot list |
 
 ## The app ID is permanent

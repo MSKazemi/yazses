@@ -1,15 +1,19 @@
 ---
 title: Multilingual offline dictation — non-English speech to text and code-switching
-description: YazSes is English-tuned and ships an English-only model. Whisper itself is multilingual, so you can point YazSes at a multilingual checkpoint yourself — this page shows how, including translation, transliteration and code-switching. No accuracy data is published for any non-English language.
+description: YazSes is English-tuned and ships an English-only model. Whisper itself is multilingual, so you can point YazSes at a multilingual checkpoint yourself — this page shows how, including translation, transliteration and code-switching. The only non-English accuracy data published is one Persian benchmark on one machine.
 ---
 
 # Dictating in more than one language
 
 !!! warning "Bottom line first: YazSes is an English dictation tool"
 
-    YazSes ships `base.en` and is tuned for English, and **every accuracy benchmark this
-    project publishes is English** ([LibriSpeech](../benchmarks.md)). **We do not claim
-    support for any other language.** What follows is a how-to, not a support claim.
+    YazSes ships `base.en` and is tuned for English, and **the accuracy benchmarks this
+    project publishes are English** ([LibriSpeech](../benchmarks.md)) **except one
+    Persian run** on a single 4-vCPU machine, in which no model measured was both
+    accurate enough for dictation and faster than real time
+    ([Persian numbers](../benchmarks.md#persian-fa-first-measured-numbers)).
+    **We do not claim support for any other language.** What follows is a how-to, not a
+    support claim.
 
 **Short answer:** the *underlying Whisper model* is multilingual, so if you supply a
 multilingual checkpoint yourself, YazSes will pass your chosen language through to it.
@@ -17,8 +21,8 @@ On top of that YazSes adds some conveniences bilingual speakers ask for — tran
 as you speak and transliterating Persian into its script. Switching language per
 application and routing sentences that mix two languages mid-thought are designed but
 do not work yet; the sections below say exactly how far each one goes. **The
-recognition quality in any of those languages is Whisper's, and we have not measured
-it.**
+recognition quality in any of those languages is Whisper's, and apart from the one
+Persian benchmark above we have not measured it.**
 
 All of it runs on your machine. This matters for languages where the cloud
 alternatives are weakest or absent entirely.
@@ -237,7 +241,7 @@ yazses features enable pronunciation
 
 ## Smoke-testing your language, offline
 
-Nothing above is a measurement. The presets are derived from model size and
+Nothing above is a measurement of your language. The presets are derived from model size and
 Whisper's published behaviour, **not** from anyone testing your language — and
 per-language quality varies far more than size alone predicts. There is no
 substitute for hearing your own voice come back.

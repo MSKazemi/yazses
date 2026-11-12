@@ -64,6 +64,10 @@ All 27 locale landing pages and the Hindi and Chinese pages said `lang="en"` whi
 
 When a channel did not answer, `scripts/check-release-channels.py` threw the exception away and wrote "HTTP 0", so the daily issue gave no way to tell a timeout from a DNS or TLS failure. `_get` now keeps the last attempt's exception type and message, and one shared helper, `_http_detail`, words every channel's failure: `<label> unreachable (<ExceptionType>: <message>)` when nothing answered, `<label> HTTP <n>` when something did. That covers PyPI, Snap, APT, Homebrew, Scoop, winget, Chocolatey, AUR, Flathub, nixpkgs, Docker (token and manifest) and the GitHub release assets. The reason is trimmed to 160 characters on one line and free of table-breaking `|`. The verdict stays "could not check", never "absent", a real 404 stays "absent", and the wording cannot be mistaken for a served version by `serving()`: a test feeds every channel messages containing `=` and checks it. This records the reason; the cause of the Snap failure is not yet known.
 
+### Fixed — docs: four claims that no longer matched the repository
+
+`docs/use-cases/multilingual-dictation.md` said every published accuracy benchmark was English and that no non-English accuracy data existed; `docs/benchmarks.md` has published a Persian FLEURS run since #513, so the page now names it and still makes no support claim. `README.md` and `docs/get-started.md` described the benchmarked decode time (1.6 s `base.en`, 0.9 s `tiny.en`, one laptop) as the wait from releasing the key to seeing text; they now say it is decode only. `packaging/flatpak/README.md` stated "45 pinned wheels" for a file that pins 46 sources; the count is removed. `docs/contribute/ai-agents.md` linked a Codex AGENTS.md page that returns 404; it now links the page that answers 200 (checked 2026-11-12 with `scripts/check-outbound-links.py`).
+
 ## [2.51.0] - 2026-11-06
 
 ### Added — `gaze status`, `doctor` and `status` say what Glance-Type can and cannot do on your session ([#418](https://github.com/MSKazemi/yazses/issues/418))

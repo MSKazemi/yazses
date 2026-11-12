@@ -269,9 +269,10 @@ Hold the hotkey, speak and release. The text is typed into the focused app.
 | Windows | `Right Ctrl` |
 
 Try *"the quick brown fox"* (typed as text), then *"undo that"*, *"go to line 42"* or
-*"run the tests"* (carried out as commands). On a modern laptop CPU, the time from releasing
-the key to seeing text is a median of **1.6 s** with the default `base.en` model, or
-**0.9 s** with `tiny.en` ([measured](docs/benchmarks.md)).
+*"run the tests"* (carried out as commands). On the one laptop CPU we measured, the speech
+model takes a median of **1.6 s** to decode an utterance with the default `base.en` model, or
+**0.9 s** with `tiny.en` ([measured](docs/benchmarks.md#speed-how-long-until-the-text-appears);
+decode time only, so the wait after you release the key is a little longer).
 
 **Shell completion:** `yazses --install-completion`, or `yazses --show-completion` to print
 the script. See the [CLI reference](docs/cli-reference.md).
