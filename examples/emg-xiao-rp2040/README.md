@@ -39,6 +39,21 @@ Full instructions, tuning, how the detector decides, and the safety notes are in
 [the how-to page](../../docs/how-to/emg-xiao-rp2040.md). The serial protocol is in
 [`design/emg-protocol.md`](../../design/emg-protocol.md).
 
+## Bench check for anyone who has the parts
+
+A serial terminal is enough; YazSes is not needed for this.
+
+1. Wire the sensor as above, copy both files to the board, and set `DEBUG = True` in `main.py`.
+2. Stay relaxed for about 10 seconds. Note the largest `level` the board prints: that is the noise.
+3. Squeeze the way you would use it, about 10 times. Note the typical `level`, and whether exactly one `HOLD_START` and
+   one `HOLD_END` line appear per squeeze.
+4. Leave the sensor attached and idle for about a minute. Note any `HOLD_START` that appears without a squeeze.
+5. Report back: which sensor and board, the numbers from steps 2 to 4, and anything about the wiring that was wrong or
+   unclear. A few lines are enough. Open an issue on the [YazSes repository](https://github.com/MSKazemi/yazses/issues),
+   or reply by email.
+
+These steps are a proposed checklist, not results.
+
 ## Safety and independence
 
 Not a medical device: Seeed says the sensor cannot be used for medical purposes. Electrodes on a person while the board is
