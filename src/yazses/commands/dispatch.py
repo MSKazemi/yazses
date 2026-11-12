@@ -133,10 +133,48 @@ def primary_combo(combo: str, primary_modifier: str = PRIMARY_MODIFIER_CTRL) -> 
 
 
 class CommandRefused(Exception):
-    """The active editor profile has no safe binding for this action.
+    """The active editor profile has no safe binding for this action, or its repeat
+    count exceeds `MAX_REPEAT`.
 
     Raised before any key is sent, so a refused command leaves the window untouched.
     """
+
+
+#: The most times one spoken command may repeat a destructive key (delete N words,
+#: delete N lines, undo N times) or extend a selection. The English grammar captures
+#: ``\d+`` with no ceiling, so a mis-heard "delete the last 1000000 words" used to send a
+#: million Ctrl+BackSpace -- the whole document, and the daemon blocked while it typed.
+#: 99 is the ceiling the Mandarin grammar already enforces at parse time
+#: (`grammars/zh.py` ``MAX_COUNT``), applied here to every language at the one place
+#: that repeats keys.
+MAX_REPEAT = 99
+
+#: Actions whose ``n`` is a repeat count bounded by `MAX_REPEAT`.
+_REPEATED = frozenset({"delete_words", "delete_lines", "undo_n", "select_lines"})
+
+
+def _count(action: str, args: Mapping[str, str]) -> int:
+    """The repeat count of ``action``, refused (`CommandRefused`) above `MAX_REPEAT`.
+
+    ``int`` accepts any Unicode decimal digit (``\\d`` in the grammar does too), which is
+    fine for a count. Resolved before any key is sent, so a refused count types nothing.
+    """
+    n = int(args.get("n", "1"))
+    if not 0 <= n <= MAX_REPEAT:
+        raise CommandRefused(action)
+    return n
+
+
+def _ascii_number(value: str) -> str:
+    """``value`` as ASCII digits ("١٢" -> "12"); unchanged if it is not a number.
+
+    Go-to-line types the number into the editor's dialog, which expects ASCII digits;
+    the grammar's ``\\d`` also captures Arabic-Indic and other Unicode digits.
+    """
+    try:
+        return str(int(value))
+    except ValueError:
+        return value
 
 
 def _keys(action: str, keymap: Mapping[str, Sequence[str] | None] | None,
@@ -196,8 +234,10 @@ def dispatch(intent: CommandIntent, injector: InjectorBackend, notify_fn=None,
         # Deliberately NOT the raw-text fallback below: the phrase was understood as a
         # command, and typing "rename this to user_id" into the editor is no better
         # than the keys the profile just refused to send.
-        log.info("The focused editor's command profile has no binding for %r; "
-                 "nothing was sent.", intent.action)
+        # The same holds for a repeat count above MAX_REPEAT: typing "delete the last
+        # 500 words" as text is not what was asked for either.
+        log.info("Command %r refused (no binding in the focused editor's profile, or a "
+                 "count above %d); nothing was sent.", intent.action, MAX_REPEAT)
     except Exception as exc:
         log.error("dispatch failed for action %r: %s", intent.action, exc)
         # Fall back to raw text injection on error
@@ -222,16 +262,16 @@ def _execute(intent: CommandIntent, injector: InjectorBackend,
     # never leave half an action behind -- rename's selection step included.
     keys = _keys(action, keymap, defaults)
     select = _keys("rename_select", keymap, defaults) if action == "rename_symbol" else None
+    # Likewise the repeat count: an out-of-range count refuses before the first key.
+    n = _count(action, args) if action in _REPEATED else 0
 
     if action == "delete_words":
-        n = int(args.get("n", "1"))
         # ctrl+BackSpace (Option+Delete on a Mac) deletes one word at a time
         for _ in range(n):
             _send(injector, keys)
         return
 
     if action == "delete_lines":
-        n = int(args.get("n", "1"))
         for _ in range(n):
             # ctrl+shift+k by default (VS Code, Sublime). An editor that binds
             # "delete line" elsewhere overrides it in commands/profiles.py.
@@ -239,14 +279,13 @@ def _execute(intent: CommandIntent, injector: InjectorBackend,
         return
 
     if action == "undo_n":
-        n = int(args.get("n", "1"))
         for _ in range(n):
             _send(injector, keys)
         return
 
     if action == "go_to_line":
         _send(injector, keys)
-        injector.inject(args.get("n", ""))
+        injector.inject(_ascii_number(args.get("n", "")))
         injector.inject_key_sequence(["Return"])
         return
 
@@ -274,7 +313,6 @@ def _execute(intent: CommandIntent, injector: InjectorBackend,
         return
 
     if action == "select_lines":
-        n = int(args.get("n", "1"))
         _send(injector, keys)
         for _ in range(n - 1):
             injector.inject_key_sequence(["shift+Down"])
