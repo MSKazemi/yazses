@@ -22,6 +22,7 @@ self-contained — pick the one that matches what you want to do.
 | [Stop hands-free input by voice](hands-free-voice-stop.md) | Say a short phrase and the pointer, chords and face switch pause, with no key and no pointer. |
 | [Use a muscle, blink or jaw-clench switch](biosignal-switch.md) | Squeeze a muscle to hold-to-talk, or double-blink for a command: configure it, calibrate it to you, and keep its false-positive budget in check (experimental). |
 | [Hardware for the biosignal switch](biosignal-hardware.md) | A DIY serial muscle sensor or a BrainFlow board, which channels are read, the mains setting, and the safety rules. |
+| [Muscle switch on a XIAO RP2040](emg-xiao-rp2040.md) | Example MicroPython firmware for a Seeed Grove EMG Detector: wiring, thresholds, the YazSes config, and what is and is not tested (simulated only, never on hardware). |
 | [Click anywhere by voice](voice-mouse-grid.md) | Say "mouse grid", cell numbers, then "click" — pointer control on any pixels (experimental; X11 or macOS). |
 | [Transcribe recordings to text](../tutorials/transcribe-recordings.md) | Turn an existing audio/video file into text — offline, with speaker labels. |
 | [Tune for speed and accuracy](performance-tuning.md) | Choose the STT model, set the VAD threshold, and manage CPU load. |

@@ -47,6 +47,9 @@ Connect the sensor to a microcontroller that speaks YESP, plug it in over USB, a
 device_port = "/dev/ttyUSB0"   # empty means disabled; a Windows port looks like COM3
 ```
 
+There is a worked example for one sensor and board, with simulated tests only and no hardware test:
+[a XIAO RP2040 with a Grove EMG Detector](emg-xiao-rp2040.md).
+
 An empty `device_port` means the serial switch is off. Run `yazses restart` after you set it. On Windows a
 COM port such as `COM3` is not a file, so `yazses doctor` cannot check that it exists: its row shows SKIP
 and says the port will be tried when YazSes starts. A POSIX path such as `/dev/ttyUSB0` is checked for

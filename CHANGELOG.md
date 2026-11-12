@@ -6,6 +6,12 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — example firmware: a muscle switch on a Seeed XIAO RP2040 + Grove EMG Detector (simulated tests only)
+
+`examples/emg-xiao-rp2040/` holds MicroPython for the existing `[emg] device_port` serial path (`design/emg-protocol.md`, wired to the daemon through `EMGBackend`): `emg_detector.py` is a dependency-free squeeze detector (baseline tracking, hysteresis, debounce, the protocol's 100 ms to 30 s hold limits) and `main.py` reads A0 and writes `HOLD_START`, `HOLD_END` and a one-second `HEARTBEAT`. `docs/how-to/emg-xiao-rp2040.md` covers wiring, tuning, the config (`mode = "full_text"` for hold-to-talk) and a general safety note.
+
+**Not tested on hardware.** `tests/test_emg_xiao_firmware_example.py` drives the detector, imported as the firmware imports it, with simulated ADC signals, and feeds the glue's output to the real `EMGBackend`. The sensor, the board, the wiring and the default thresholds have never been run together. The EMG switch still has no row in `docs/validation-matrix.md`. Not affiliated with or endorsed by Seeed Studio.
+
 ### Added — docs: `uvx yazses transcribe` as a no-install way to try YazSes
 
 `README.md`, `docs/try-without-installing.md` and `docs/llms.txt` now show `uvx yazses transcribe <file>`. Checked on 2026-11-07: `uvx yazses --version` printed 2.51.0, and `uvx yazses transcribe jfk.wav` returned the correct sentence. It is not "leave no trace": uv's cache and the Hugging Face model cache stay until cleared, and the page says so.
