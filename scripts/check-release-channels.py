@@ -109,6 +109,9 @@ def _get(url: str, headers: dict[str, str] | None = None) -> tuple[int, bytes]:
     absent, and three retries a moment later all returned 200.
 
     Transient failures are retried before giving up, because most of them are.
+    When it does give up, the body is `<ExceptionType>: <message>` of the last
+    attempt: the type is what tells a timeout from a DNS or TLS failure, and a bare
+    `TimeoutError()` has no message at all (issue #872 read "HTTP 0" for weeks).
     """
     req = urllib.request.Request(url, headers=headers or {})
     last = b""
@@ -119,20 +122,41 @@ def _get(url: str, headers: dict[str, str] | None = None) -> tuple[int, bytes]:
         except urllib.error.HTTPError as e:
             return e.code, e.read() if e.fp else b""
         except Exception as e:  # network/DNS/TLS
-            last = str(e).encode()
+            last = f"{type(e).__name__}: {e}".encode(errors="replace")
             if attempt + 1 < RETRIES:
                 time.sleep(RETRY_BACKOFF_S * (attempt + 1))
     return 0, last
 
 
 def _json(url: str, headers: dict[str, str] | None = None):
+    status, data, _ = _json_body(url, headers)
+    return status, data
+
+
+def _json_body(url: str, headers: dict[str, str] | None = None):
+    """Like `_json`, but also returns the raw body, which carries the reason on status 0."""
     status, body = _get(url, headers)
     if status != 200:
-        return status, None
+        return status, None, body
     try:
-        return status, json.loads(body)
+        return status, json.loads(body), body
     except ValueError:
-        return status, None
+        return status, None, body
+
+
+_WHY_LIMIT = 160
+
+
+def _why(body: bytes) -> str:
+    """The failure reason from a status-0 `_get` body, safe for a one-line table cell.
+
+    Collapses whitespace (a newline or `|` would break the markdown table the detail
+    lands in) and caps the length so a verbose exception cannot flood the issue.
+    """
+    text = " ".join(body.decode(errors="replace").replace("|", "/").split())
+    if len(text) > _WHY_LIMIT:
+        text = text[: _WHY_LIMIT - 3] + "..."
+    return text or "no error text"
 
 
 # --------------------------------------------------------------------------
@@ -186,11 +210,14 @@ def check_pypi(version: str) -> tuple[bool | None, str]:
 
 
 def check_snap(version: str) -> tuple[bool | None, str]:
-    status, data = _json(
+    status, data, body = _json_body(
         "https://api.snapcraft.io/v2/snaps/info/yazses?fields=version",
         {"Snap-Device-Series": "16"},
     )
     if status != 200 or not data:
+        if status == 0:
+            # Never `<label>=<version>`: `_SERVING_RE` would read that as "serving".
+            return UNKNOWN, f"snapcraft API unreachable ({_why(body)})"
         return _verdict(status, False), f"snapcraft API HTTP {status}"
     stable = [
         c.get("version")

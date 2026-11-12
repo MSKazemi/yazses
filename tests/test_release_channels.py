@@ -586,6 +586,73 @@ def test_retries_give_up_and_report_zero(crc, monkeypatch):
     assert b"no route" in body
 
 
+def test_get_keeps_the_exception_type_and_message_when_it_gives_up(crc, monkeypatch):
+    """Status 0 carried only `str(e)`: a bare `TimeoutError()` has an empty message.
+
+    Issue #872: the Snap row read "HTTP 0" every day and nothing said why, because the
+    exception was thrown away. The type is what tells a timeout from a TLS or DNS failure.
+    """
+    import urllib.error
+
+    def always_fail(req, timeout=None):
+        raise urllib.error.URLError(TimeoutError("timed out"))
+
+    monkeypatch.setattr(crc.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(crc.urllib.request, "urlopen", always_fail)
+    status, body = crc._get("https://example.invalid/x")
+    assert status == 0
+    assert b"URLError" in body and b"timed out" in body
+
+    def silent(req, timeout=None):
+        raise TimeoutError()  # str(e) == ""
+
+    monkeypatch.setattr(crc.urllib.request, "urlopen", silent)
+    status, body = crc._get("https://example.invalid/x")
+    assert status == 0 and b"TimeoutError" in body
+
+
+def test_snap_unreachable_detail_names_the_failure_and_stays_unknown(crc, responses):
+    responses({"api.snapcraft.io": (0, b"URLError: <urlopen error [Errno 101] Network is unreachable>")})
+    ok, detail = crc.check_snap("2.51.0")
+    assert ok is crc.UNKNOWN, "an unreachable store must not become 'absent'"
+    assert "URLError" in detail and "Network is unreachable" in detail
+    assert "HTTP 0" not in detail, "'HTTP 0' is the uninformative text this replaces"
+
+
+def test_snap_unreachable_detail_is_not_read_as_a_served_version(crc, responses):
+    """`serving()` matches `_SERVING_RE`, i.e. `label=version` at the start. A detail that
+    did would claim the channel serves a version, and `regressions` would act on it.
+    Messages that contain `=` are the dangerous ones."""
+    for body in (
+        b"URLError: <urlopen error stable=2.51.0>",
+        b"SSLError: certificate verify failed: version=3",
+        b"OSError: no route",
+    ):
+        responses({"api.snapcraft.io": (0, body)})
+        ok, detail = crc.check_snap("2.51.0")
+        assert ok is crc.UNKNOWN
+        assert crc._SERVING_RE.match(detail) is None, detail
+        assert crc.serving(crc.Result("snap", "Snap Store (stable)", ok, detail)) is None
+
+
+def test_snap_unreachable_detail_is_one_short_markdown_safe_line(crc, responses):
+    """The detail is written into a markdown table cell in a GitHub issue."""
+    nasty = b"URLError: first line\nsecond | line " + b"x" * 5000
+    responses({"api.snapcraft.io": (0, nasty)})
+    _, detail = crc.check_snap("2.51.0")
+    assert "\n" not in detail and "|" not in detail
+    assert len(detail) <= 300
+    assert "first line" in detail
+
+
+def test_snap_http_error_still_reports_the_status(crc, responses):
+    """A store that answered keeps its HTTP code; only status 0 gets the new wording."""
+    responses({"api.snapcraft.io": (503, b"busy")})
+    ok, detail = crc.check_snap("2.51.0")
+    assert ok is False
+    assert "HTTP 503" in detail
+
+
 def test_unknown_is_reported_separately_from_missing(crc, responses, capsys, monkeypatch):
     """The summary must not lump 'unreachable' in with 'not published'."""
     responses(

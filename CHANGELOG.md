@@ -40,6 +40,10 @@ Two classifiers (`Topic :: Adaptive Technologies`, `Topic :: Multimedia :: Sound
 
 All 27 locale landing pages and the Hindi and Chinese pages said `lang="en"` while their own hreflang and canonical named another language. `hooks/hreflang.py` now writes the page's own language. English pages are unchanged.
 
+### Fixed — the channel-drift report says why a channel was unreachable ([#872](https://github.com/MSKazemi/yazses/issues/872))
+
+When a channel did not answer, `scripts/check-release-channels.py` threw the exception away and wrote "snapcraft API HTTP 0", so the daily issue gave no way to tell a timeout from a DNS or TLS failure. `_get` now keeps the last attempt's exception type and message. The Snap row reads `snapcraft API unreachable (<ExceptionType>: <message>)`, trimmed to 160 characters on one line and free of table-breaking `|`. The verdict stays "could not check", never "absent", and the wording cannot be mistaken for a served version by `serving()`. The other channels still print their `HTTP 0` text. This records the reason; the cause of the Snap failure is not yet known.
+
 ## [2.51.0] - 2026-11-06
 
 ### Added — `gaze status`, `doctor` and `status` say what Glance-Type can and cannot do on your session ([#418](https://github.com/MSKazemi/yazses/issues/418))
