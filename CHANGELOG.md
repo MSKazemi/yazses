@@ -36,6 +36,10 @@ A packaged build is replaced by the Store, and the install folder under `Windows
 
 A static read of the manifest and build script against Microsoft Learn: what matches, what is doubtful (autostart, the `yazses` command on PATH, `MaxVersionTested`, XML escaping in the build script), and that nothing about real MSIX behaviour has run on Windows.
 
+### Changed — docs: `design/architecture.md` brought up to date with the code on `main`
+
+Checked against the source tree on 2026-11-12. Added: what ADR-029 residency has and has not shown (the RSS a release or eviction returns is unmeasured, the budget gate has no nightly feed, `ResidencyBudget` has no caller); that the biosignal pipeline and its device parsers have not been run on real hardware, with the status of ADR-v2-152 to 155; the missing `recimport/` modules (`pyannote_backend.py`, `factory.py`, `plausibility.py`, `subtitles.py`) and the diarization-threshold evidence; a table for ADR-022 to ADR-034; and a "Release and distribution" section that points at the workflows and the channel checker instead of recording channel versions. The ADR-019 row no longer states a hand-written count of fetch paths. No code or ADR status changed.
+
 ### Added — docs: `uvx yazses transcribe` as a no-install way to try YazSes
 
 `README.md`, `docs/try-without-installing.md` and `docs/llms.txt` now show `uvx yazses transcribe <file>`. Checked on 2026-11-07: `uvx yazses --version` printed 2.51.0, and `uvx yazses transcribe jfk.wav` returned the correct sentence. It is not "leave no trace": uv's cache and the Hugging Face model cache stay until cleared, and the page says so.
