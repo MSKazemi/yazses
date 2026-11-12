@@ -383,7 +383,8 @@ def test_ghcr_outage_on_the_manifest_is_unknown_not_missing(crc, monkeypatch, st
     _ghcr_paged_registry(crc, monkeypatch, manifests={"2.48.1": status}, pages=_many_tags())
     ok, detail = crc.check_docker("2.48.1")
     assert ok is crc.UNKNOWN, (ok, detail)
-    assert str(status) in detail
+    # A status that never arrived has no number to show; it says "unreachable" instead.
+    assert ("unreachable" if status == 0 else str(status)) in detail
 
 
 @pytest.mark.parametrize("status", [0, 429, 500, 503])
@@ -651,6 +652,78 @@ def test_snap_http_error_still_reports_the_status(crc, responses):
     ok, detail = crc.check_snap("2.51.0")
     assert ok is False
     assert "HTTP 503" in detail
+
+def _every_check(crc):
+    """Every check as `(name, call)`, `call(version) -> [(ok, detail), ...]`.
+
+    The three release-asset rows come from one function, so they are one entry.
+    `CHECKS` is read live: a channel added tomorrow is covered without editing a list.
+    """
+    entries = [("assets", lambda v: list(crc.check_release_assets(v).values()))]
+    entries += [(key, lambda v, fn=fn: [fn(v)]) for key, _label, fn in crc.CHECKS]
+    return entries
+
+
+def _unreachable_at_every_stage(crc, responses, body):
+    """Never-answered for every request, plus the docker case where only the
+    second request (the manifest, after a good token) fails."""
+    token = _body({"token": "t"})
+    return [
+        lambda: responses({}, default=(0, body)),
+        lambda: responses({"ghcr.io/token": (200, token)}, default=(0, body)),
+    ]
+
+
+_HOSTILE_BODIES = [
+    pytest.param(b"URLError: <urlopen error timed out>", id="plain"),
+    pytest.param(b"TimeoutError: ", id="no-message"),
+    pytest.param(b"URLError: <urlopen error stable=2.51.0>", id="label=version"),
+    pytest.param(b"SSLError: certificate verify failed: version=3", id="eq-mid-text"),
+    pytest.param(b"URLError: first\nsecond | line " + b"x" * 5000, id="multiline-pipe-huge"),
+]
+
+
+@pytest.mark.parametrize("body", _HOSTILE_BODIES)
+def test_every_channel_says_why_it_was_unreachable(crc, responses, body):
+    """Issue #872 only fixed Snap; every other channel still wrote "HTTP 0".
+
+    For each channel, at each stage a request can fail: the verdict stays UNKNOWN,
+    the detail carries the failure type instead of "HTTP 0", and the detail is a
+    safe one-line table cell that `serving()` cannot read as "serving a version"
+    (messages containing `=` are the dangerous ones: `regressions` acts on those).
+    """
+    for arm in _unreachable_at_every_stage(crc, responses, body):
+        for name, call in _every_check(crc):
+            arm()
+            for ok, detail in call("2.51.0"):
+                where = f"{name}: {detail!r}"
+                assert ok is crc.UNKNOWN, where
+                assert "HTTP 0" not in detail, where
+                assert "unreachable" in detail, where
+                assert "\n" not in detail and "|" not in detail, where
+                assert len(detail) <= 300, where
+                assert crc._SERVING_RE.match(detail) is None, where
+                result = crc.Result(name, name, ok, detail)
+                assert crc.serving(result) is None, where
+
+
+def test_every_channel_keeps_the_exception_type_in_its_detail(crc, responses):
+    """Stronger than the loop above: EVERY channel, at EVERY stage, names the type."""
+    for arm in _unreachable_at_every_stage(crc, responses, b"URLError: <urlopen error timed out>"):
+        for name, call in _every_check(crc):
+            arm()
+            for _ok, detail in call("2.51.0"):
+                assert "URLError" in detail and "timed out" in detail, f"{name}: {detail!r}"
+
+
+def test_a_real_http_error_is_still_absent_and_still_names_its_status(crc, responses):
+    """Only status 0 gets the new wording; a store that answered keeps its code."""
+    for name, call in _every_check(crc):
+        responses({}, default=(404, b"not here"))
+        for ok, detail in call("2.51.0"):
+            assert ok is False, f"{name}: {ok!r}"
+            assert "HTTP 404" in detail, f"{name}: {detail!r}"
+            assert "unreachable" not in detail, f"{name}: {detail!r}"
 
 
 def test_unknown_is_reported_separately_from_missing(crc, responses, capsys, monkeypatch):
