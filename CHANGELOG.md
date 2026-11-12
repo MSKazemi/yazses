@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses mcp-server` could not connect to Claude Code: `serverInfo.version` was missing
+
+The MCP `initialize` reply carried `serverInfo.name` and `title` but no `version`, which the MCP schema requires. Claude Code 2.1.319 validates the reply and refused the server (`claude mcp list`: "Failed to connect — INVALID_RESULT … serverInfo.version expected string"). The reply now includes the installed YazSes version. Checked by running the documented `claude mcp add yazses -- yazses mcp-server` in a throwaway Claude Code config: it failed before this change and printed "Connected" after. Not checked: calling the tools from inside a Claude Code session, other MCP clients, or the `.mcpb` bundle in Claude Desktop.
+
 ### Added — docs: `uvx yazses transcribe` as a no-install way to try YazSes
 
 `README.md`, `docs/try-without-installing.md` and `docs/llms.txt` now show `uvx yazses transcribe <file>`. Checked on 2026-11-07: `uvx yazses --version` printed 2.51.0, and `uvx yazses transcribe jfk.wav` returned the correct sentence. It is not "leave no trace": uv's cache and the Hugging Face model cache stay until cleared, and the page says so.
