@@ -160,6 +160,14 @@ def _steps_block(status) -> str:
 
 def update_message(status) -> tuple[str, str]:
     """``(title, body)`` describing an ``UpdateStatus``, for a dialog or a toast."""
+    if getattr(status, "managed_by", ""):
+        # Packaged build: the Store updates it. Not "could not check" -- nothing was tried.
+        return (
+            branding.APP_NAME,
+            f"Updates for {branding.APP_NAME} {status.current} are managed by "
+            f"{status.managed_by}; {branding.APP_NAME} does not check for them itself."
+            + _steps_block(status),
+        )
     if status.latest is None:
         note = status.note or "no network?"
         return (

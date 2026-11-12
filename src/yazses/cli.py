@@ -4985,6 +4985,14 @@ def update(
     status = check_update(current)
     typer.echo(f"Installed:  yazses {current}  (via {status.method})")
 
+    if getattr(status, "managed_by", ""):
+        # A packaged (Microsoft Store) build: not a failed check and not an update to
+        # run. Nothing was asked of the network, and nothing here replaces the package.
+        typer.echo(f"Updates for this build are managed by {status.managed_by}.")
+        typer.echo("YazSes does not check for or install them itself.")
+        _echo_steps(status.steps)
+        return
+
     if status.latest is None:
         # The check needs the network; dictation does not. A blocked check is not
         # a broken YazSes, so say what still works and hand over the manual steps

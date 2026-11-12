@@ -28,6 +28,14 @@ A mis-heard "delete the last 1000000 words" made dispatch send a million Ctrl+Ba
 
 `NOTICE` listed `pystray` (LGPL-3.0) but not PySide6, although both build scripts install the `desktop` extra. It now has a row and an LGPL note for Qt for Python (`LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only`, used under the LGPL). `tests/test_notice_names_the_copyleft_libraries_the_bundles_ship.py` keeps it that way while a build script bundles the extra. The installers still do not carry the licence texts themselves; that is a separate change that needs a build to verify.
 
+### Changed — Windows Store (MSIX) build: the update check does nothing and says who updates it
+
+A packaged build is replaced by the Store, and the install folder under `WindowsApps` is read-only to the app, so YazSes cannot update it itself. It was already classified as its own install method (`msix`, no one-click, Store steps). It still asked github.com for the latest release and then answered "could not check" when offline. It now makes no network call at all. `yazses update`, the tray and Settings messages, and a new `doctor` "Update check" row say "managed by the Microsoft Store" (or App Installer when sideloaded). `UpdateStatus` gains `managed_by`, which callers read before `latest is None`. Every other install method behaves as before. The packaged-build test now also asks Windows for the process's package identity (`GetCurrentPackageFullName`, imported lazily through the platform seam), in addition to the `AppxManifest.xml` beside the executable; it applies only to a frozen executable, so a pip install run by the Store's Python is not mistaken for the Store build. Untested on a real MSIX install: the logic is covered with fakes on Linux only.
+
+### Changed — docs: `docs/store-submission.md` lists what a review of the MSIX files found, and what is unverified
+
+A static read of the manifest and build script against Microsoft Learn: what matches, what is doubtful (autostart, the `yazses` command on PATH, `MaxVersionTested`, XML escaping in the build script), and that nothing about real MSIX behaviour has run on Windows.
+
 ### Added — docs: `uvx yazses transcribe` as a no-install way to try YazSes
 
 `README.md`, `docs/try-without-installing.md` and `docs/llms.txt` now show `uvx yazses transcribe <file>`. Checked on 2026-11-07: `uvx yazses --version` printed 2.51.0, and `uvx yazses transcribe jfk.wav` returned the correct sentence. It is not "leave no trace": uv's cache and the Hugging Face model cache stay until cleared, and the page says so.
@@ -423,6 +431,7 @@ Six converted tests (streaming `request_stop`, earcon play, portal fail-fast, `o
 The default-on 2-gram de-duplication collapsed repeated pairs, so `my pin is 4 7 4 7` became `my pin is 4 7` and `9 9 9 9 9 9 9 9` became `9 9`, silently, for any script. A pair containing a decimal digit (any script) or an English digit word (zero to ten) is now left alone. Other repeated phrases behave as before, including "New York New York", and the Persian emphatic-repeat case is still an expected failure (a maintainer decision). Digit words in other languages are not protected.
 
 What was checked: 38 tests including a seeded property loop that the digit tokens survive (14 fail on the old code) and a golden table of 22 non-digit repeats. What was not checked: real speech.
+
 ### Fixed — the learning corpus, voiceprints and few-shot examples are created owner-only
 
 The corpus database and its clips, the voiceprint and the participant voiceprints, and `few_shots.toml` were created with the process umask, which is `0644` in `0755` folders under the usual umask 022. On Linux and macOS they are now created `0600` in `0700` folders with no readable window, and an existing looser file or folder is tightened on its next write; a stricter mode is never widened. The bytes written are unchanged, and Windows behaviour is unchanged (no ACLs are applied). The file-permission sentence in the docs now covers these files.
@@ -434,41 +443,49 @@ What was not checked: Windows ACLs, network or FAT/NTFS mounts, and the daemon's
 Under the usual umask 022 these stores were world-readable (files `0644` in `0755` folders). On Linux and macOS they are now created `0600` in `0700` folders with no readable window, and an existing looser file or folder is tightened on its next write. The clipboard history lives in the config folder, which therefore also becomes `0700`. Windows behaviour is unchanged (no ACLs are applied).
 
 What was checked: 19 tests under umask 022 and 000 (17 fail on the old code), content bytes unchanged. What was not checked: Windows ACLs, network or FAT/NTFS mounts (only a mocked `chmod` failure).
+
 ### Fixed — `yazses start`/`restart` stop only your own real YazSes daemons, and never delete a lock a live daemon holds
 
 The restart path found daemons with `pgrep -f` across all users, so an unrelated process with `yazses.main` anywhere in its arguments could be sent SIGTERM, and another user's matching process crashed the restart with `PermissionError`. It also deleted `daemon.lock` even when the old daemon survived, which allowed a second daemon (double typing). It now reads `/proc`, signals only same-uid processes with a real daemon command line that are not the caller or its ancestors, skips what it may not signal, and stops with an error instead of starting a second daemon while the lock is held.
 
 What was checked: 27 tests with a fake process table and a real lock-holding helper process. What was not checked: a multi-user machine, Windows, macOS, Flatpak. Not changed: `system/pid.py` still ignores `XDG_DATA_HOME`.
+
 ### Fixed — streaming partials are taken back when a held or staged burst is consumed without typing ([#796](https://github.com/MSKazemi/yazses/issues/796))
 
 With `[streaming]` on, live partials are typed at hold start. A command-safety or check-digit hold, a re-ask, a spoken microphone answer, or a staged stage/undo/discard/empty-commit/full-buffer action then returned without cancelling them, so the partials stayed in the editor and a later commit typed the staged buffer on top, duplicating text. All five paths now cancel the partials first. Streaming and staged mode are not made mutually exclusive: that is still a maintainer decision on #796.
 
 What was checked: 12 tests with injected fakes (8 fail on the old code), a mutation check on one path, and a real `StreamingInjector` on the `device_lost` path. What was not checked: any real editor, X11, Wayland or Windows.
+
 ### Fixed — ydotool 1.x injection releases all keys even when typing fails or times out
 
 The release-all that clears any held key was sent only after typing succeeded, so a failed or timed-out `type` skipped it. It now runs in a `finally` for the v1 dialect (v0 sends nothing) and never replaces the original error.
 
 What was checked: nine tests with a fake runner (six fail on the old code). What was not checked: a real Wayland machine or `ydotoold`; a key actually staying stuck after a failed `type` is unconfirmed.
+
 ### Fixed — `ask_human`: the `[mcp] ask_human_per_hour` limit is now enforced across calls
 
 The daemon built a new budget for every request, so the hourly limit never took effect (audit item AGT-01). One budget now lives for the daemon's lifetime; a limit changed in the config is applied in place, so lowering it does not forgive questions already asked. Questions that are never answered are still not counted (AGT-02): that is a maintainer decision and is unchanged.
 
 What was checked: unit tests and two daemon-level tests with fake speaker and listener (4 of 5 fail on the old code), plus a mutation check. What was not checked: a real speaker, microphone or MCP client.
+
 ### Fixed — `yazses mcp-server` no longer exits when a client sends a non-object `params`
 
 A `params` of `"x"` or `[1]` on `initialize` or `tools/call` raised `AttributeError`, printed a traceback and ended the session with status 1. The server now answers JSON-RPC `-32602` with the request id and keeps serving, and any unexpected handler error is answered with `-32603` instead of ending the loop. Falsy non-objects (`0`, `""`, `[]`, `false`) used to be treated silently as `{}` and now get `-32602`. Notifications still get no reply.
 
 What was checked: pure `handle()` and `serve()` tests and the real `mcp-server` command against a scripted client (stdout stays protocol-only, stderr empty). What was not checked: a real MCP client (Claude Desktop, Claude Code, Codex).
+
 ### Fixed — IPC: a very deeply nested request, or a handler result JSON cannot carry, no longer kills the connection thread
 
 A request nested a hundred thousand levels deep raised `RecursionError` in the parse step, and a handler result that was a set or bytes raised `TypeError` while building the reply; either ended the connection thread with a traceback and an empty reply. The caller now gets the existing `PARSE_ERROR` or `HANDLER_FAILED` reply and the next connection works. The Windows pipe server has the same two changes. No error codes, methods or fields were added.
 
 What was checked: 14 tests over real sockets (6 fail on the old code). What was not checked: the Windows named pipe at runtime (only a source-level check), and real multi-client load.
+
 ### Fixed — the tray no longer shows "idle" when the daemon never started or its poller died
 
 When the daemon never booted, or the status poller crashed, the tray returned without changing its icon, so it stayed idle blue. It now turns red with a fixed reason. A starting, restarting or stopping daemon is reported as "loading" (the tooltip says so; the colour is unchanged), and an error tooltip shows the daemon's own error text on one line, at most 60 characters.
 
 What was checked: 19 tests with a fake platform, no Qt (eight fail on the old code). What was not checked: a real tray or desktop, or a real daemon crash.
+
 ### Fixed — a meeting whose input device vanished now ends at its length cap and says so
 
 When the input device disappeared during a meeting, the capture callback stopped, so the maximum-length cap (which only ran when a chunk arrived) never fired and nothing told the user. The cap now also counts wall-clock time once it disagrees with the number of captured samples by a real gap, a small watchdog in the daemon re-checks it without needing a chunk, and one fixed notification is sent per stall of more than 30 seconds. `yazses meeting recover` keeps `capture_gap_s` when it rewrites the metadata. A healthy meeting behaves as before.
@@ -480,69 +497,89 @@ What was not checked: a real unplugged device or a live meeting; the watchdog wa
 A meeting whose input device vanished kept "recording" with no signal anywhere: the status showed elapsed time but not that no audio was arriving, and the maximum-length cap never fired. `status()` now reports `stalled_s`, and a meeting whose captured audio is much shorter than its wall-clock length (more than 10 s and 2 %) records `capture_gap_s`, adds one line to `summary.md`, and keeps the recording. A healthy meeting's metadata and summary are unchanged.
 
 Not done: showing `stalled_s` in `yazses meeting status`. What was not checked: a real unplugged device or a live meeting.
+
 ### Fixed — a failed Parakeet load now names its real cause when the fallback cannot take over
 
 With `engine = "parakeet"`, a language Parakeet supports (for example `de`) and the `stt-parakeet` extra missing, the fallback model `base.en` is English-only, so the error told the user to change a model they never chose and never said the extra was missing. The error (same type, so the daemon's error hold is unchanged) now opens with the requested engine's failure and its fix (`yazses features enable stt-parakeet`). English and auto-detect configs still fall back to `base.en` as before.
 
 What was checked: six tests with a fake engine loader. What was not checked: a real model load.
+
 ### Fixed — a speech device that will not start names the device and the cause, not a missing model
 
 When a non-CPU `[stt] device` failed to load (no usable CUDA or cuDNN, a missing shared library, a driver error), YazSes reported that the model was not on the machine and could not be downloaded, with three download remedies. It now says which device failed, a short cause without file paths, and the supported action: set `[stt] device = "cpu"` in `config.toml` and run `yazses restart`. Only the message changed: same exception, same retries, same device. CPU failures, blocked downloads and compute-type errors keep their wording.
 
 What was not checked: a real GPU. The CUDA error strings the classifier recognises come from library documentation, not from a failing machine.
+
 ### Fixed — an unreadable `config.toml` no longer prints an empty `[]:` section
 
 A config file that could not be read as a whole (bad TOML, a NUL byte, a decode or permission error) produced `config.toml: []: could not be read (...); using defaults throughout`. A problem with the whole file belongs to no section, so the `[]:` prefix is gone. Every other warning format is unchanged.
+
 ### Fixed — `flake.nix` matches the project again (version and dependencies)
 
 The Nix flake was pinned at 2.18.2 and listed the optional `onnx-asr` while omitting `av` and `jeepney`. It now matches `pyproject.toml`, and `tests/test_flake_matches_project.py` keeps the version and the Linux base dependencies from drifting. The flake builds from the local tree, so no source hash changes. Not checked: Nix is not installed here, so the flake was not evaluated or built, and the nixpkgs attribute names for `av` and `jeepney` are unconfirmed.
+
 ### Fixed — the homepage architecture pipeline can be paused, and no longer announces itself to screen readers
 
 The "Architecture at a glance" pipeline rewrote an `aria-live` panel every 1.6–3.2 s and had no way to stop (WCAG 2.2.2), and keyboard focus paused it for good while the mouse resumed it. It now has a Pause/Play button, announces only after you interact with it, and uses one pause rule for hover and focus. Reduced-motion behaviour is unchanged: the loop does not start.
 
 What was checked: nine static tests, and a local render in a browser (0 text changes inside a live region over 9 s; keyboard pause and resume). What was not checked: a screen reader, a touch device, the deployed site.
+
 ### Fixed — docs: architecture pages match the code for `yazses stop`, MCP and the speech-engine modules
 
 `docs/architecture.md` said `yazses stop` goes over IPC; it sends SIGTERM on Linux and macOS, and only Windows tries the IPC `shutdown` first. `design/architecture.md` gains the missing `mcp/` section and the `parakeet`, `moonshine`, `latency` and `errors` rows of the `stt/` table. Each statement was checked against the code; no guard test covers these two additions.
+
 ### Fixed — docs: latency figures are marked as single-run, decode-only, ranking-only
 
 The models, benchmarks and low-RAM pages gave same-laptop latency figures that disagree by 4–7× without saying so, and one sentence ("most people… go back to base.en") had no data behind it. The sentence is removed, the tables now say they are decode-only and good for ranking, and the pages note that the model revision and the machine load were not recorded. No number changed. Re-measuring needs the hardware and the private harness.
+
 ### Fixed — docs: the speech model downloads the first time the daemon starts, not on first dictation
 
 `yazses doctor` and the get-started guide said the model is fetched on first dictation. In the code it is downloaded when the daemon starts, and the hotkey is not created until that finishes, so a key held during the first start does nothing. Both now say so. `docs/models.md`, `docs/windows-install.md` and `docs/cli-reference.md` still say "first use" and are listed for a follow-up. What was not checked: a fresh install on any OS.
+
 ### Fixed — docs: the packaging channel table is re-verified against v2.48.1, and gaze is no longer described as shipped
 
 `packaging/README.md` was audited against 2.40.0. Its Snap, winget, Homebrew, Scoop, Chocolatey and GHCR rows now match the live registries as read on 2026-11-05, and the closed issues it cited are annotated. Cells that were not re-checked say so. `docs/comparison.md` and `docs/roadmap.md` said gaze targeting "works on" or "ships on" X11; it is experimental, off by default and not hardware-validated, as the rest of the roadmap already said.
+
 ### Added — research: a dated evidence log for XR (VRChat OSC, WebXR, OpenXR)
 
 `design/xr/EVIDENCE.md` records what the primary sources say and do not say, the constraints they imply for any future adapter (never send without confirmation, 144-character limit, no delivery acknowledgement, a likely third send path under ADR-019), and an experiment described but not built. Research only: nothing was tested on a headset or VRChat client and the ADR-030 freeze is unchanged. WebXR and the OpenXR specification were read only in part.
+
 ### Added — research: how the proposed interaction kernel (ADR-025) fits the grounding code that already exists
 
 `design/research/kernel-contract-fit.md` compares ADR-025's six types with `grounding/`, `activation/` and `cmdsafety/`, lists the gaps (action proposal, authority, undo, outcome verification), and notes two naming clashes. It recommends nothing and accepts nothing: ADR-025 stays Proposed. No hardware or user testing.
+
 ### Changed — research: the synthetic motor-imagery EEG replay reports its drift tolerance, and says what it does not test
 
 `scripts/hci_eeg_mi_synthetic.py` gains `--drift-amplitude` and `--sweep-drift` (the default output is unchanged and pinned by a hash). Across seeds 0–19 the false candidate on a drifting rest block fires 20/20 up to amplitude 0.72 and 0/20 from 0.78, which follows from the authored thresholds, not from physiology. The results page now also states the dependence on a clean EOG/EMG reference channel, the abstention fraction, and that head motion and quiet reading are not tested. Synthetic data only; nothing about real EEG.
+
 ### Added — research: small and quantized speech models and runtimes ([#794](https://github.com/MSKazemi/yazses/issues/794))
 
 `design/research/2026-11-05-small-quantized-asr-models-and-gguf-runtimes.md` lists candidates not already in the runtime-provenance note, the gaps that stop a fair comparison under the proposed ADR-033, and options for the owner. No measurements and no default changes. Every upstream page was read as a text summary; some were not read at all.
+
 ### Added — research: local accelerator backends for offline speech recognition ([#795](https://github.com/MSKazemi/yazses/issues/795))
 
 `design/research/2026-11-05-local-accelerator-backends-for-offline-asr.md` gives a cited backend × OS × runtime support matrix (51 of 72 cells cite a source), the offline and driver constraints, and what `yazses status` does not report today. It recommends deferring all accelerators. No speed or power claim was tested.
+
 ### Added — research: multilingual, accent and code-switch evaluation design ([#797](https://github.com/MSKazemi/yazses/issues/797))
 
 `design/research/2026-11-05-multilingual-accent-and-code-switch-evaluation-design.md` audits public evaluation sets and their licences, records the training-data leakage risk per engine family, the per-language normalisation traps and the failure accounting for unsupported languages. No results; no public Tamil or Persian-English code-switch set was found.
+
 ### Added — research: code-aware correction and spoken technical vocabulary ([#804](https://github.com/MSKazemi/yazses/issues/804))
 
 `design/research/2026-11-05-code-aware-correction-and-spoken-technical-vocabulary.md` compares prompt biasing, post-recognition correction, spoken-symbol grammars, editor context and local rewriting against what the code does today, with a synthetic evaluation plan. No behaviour change and nothing was measured.
+
 ### Added — research: Android API levels and OEM input-method and microphone restrictions ([#807](https://github.com/MSKazemi/yazses/issues/807))
 
 `design/research/2026-11-05-android-api-levels-and-oem-ime-microphone-restrictions.md` records the platform rules for an offline dictation input method (Android 8–16) with 26 cited sources and a device-test checklist. One premise of the existing plan, that an input method may record while its window is shown, is not stated by any source read. No code or ADR changed; nothing was run on a device.
+
 ### Added — research: hands-free task inventory and evidence gaps ([#813](https://github.com/MSKazemi/yazses/issues/813))
 
 `design/research/2026-11-05-handsfree-task-inventory-and-evidence-gaps.md` lists 15 complete hands-free tasks against the capability that implements each and the evidence that exists (none has hardware or user evidence), and ranks the points where a user could be stranded. Research note, not a decision; ADR-030 unchanged.
+
 ### Added — research: emergency stop and unintended activation threat model for hands-free input ([#816](https://github.com/MSKazemi/yazses/issues/816))
 
 `design/research/2026-11-05-emergency-stop-and-unintended-activation-threat-model.md` ranks the gaps in the stop and recovery paths (an untimed voice stop, no spoken resume, a hold that can outlive its cause, placeholder thresholds) against the code and tests that exist, and proposes synthetic tests. Research only: no hardware or user evidence, and the named tests were not re-run for the note.
+
 ### Added — research: GNOME and KDE Wayland assistive-technology limits ([#818](https://github.com/MSKazemi/yazses/issues/818))
 
 `design/research/2026-11-05-gnome-kde-wayland-assistive-tech-limits.md` maps what injection, focus read-back and semantic targeting can and cannot do on each compositor to the existing backends and validation records, with a hardware checklist. Nothing was tested on any compositor; some sources were not readable.
@@ -568,6 +605,7 @@ What was checked: unit tests for the control's group, help text, key, default an
 advice (controller and the real window's Apply, offscreen) and for the language-chosen-in-the-same-Apply
 case. What was not checked: the checkbox was not seen in a real Settings window, so its placement and
 wording have not been seen on screen, and no Persian speaker has read the label.
+
 ### Changed — the hands-free controls are the Hands-free page of the settings window, in two columns when there is room
 
 They used to open in a second window from a button on a nearly empty page. They are now the page
@@ -601,6 +639,7 @@ The pointers to "Settings → Hands-free controls" now say "Settings → Hands-f
 
 Not measured: a real screen, and fonts wider than the installed ones the tests use; when even one column
 is wider than the window (an extreme font) the page scrolls sideways by only what one column needs.
+
 ### Fixed — a microphone that disappears mid-hold is no longer filed as a silent room
 
 Was: when the input device was unplugged or switched while the dictation key was held, the
@@ -614,6 +653,7 @@ the silent streak, is listed in `CAPTURE_DOUBTING_DISCARDS`, and shows a toast n
 that stopped delivering audio (it does not say silence). Real unplug behaviour depends on the
 PortAudio host API and is tested here only with injected fakes. Tests:
 `tests/test_recorder_device_change_mid_recording.py` (the former strict xfail now passes).
+
 ### Fixed — the phonetic corrector no longer rewrites paths, URLs, e-mail addresses, file names or versions
 
 Was: with `[phonetic] enabled` and "Sara" in the vocabulary, `/home/user/notes.txt` came out as
@@ -626,6 +666,7 @@ corrected. The shapes come from `postprocess/persian_text.py` (`structured_spans
 defined them for the Persian normaliser, rather than a second pattern set. Tests:
 `tests/test_phonetic_skips_identifiers.py`; the strict xfail in
 `tests/test_persian_pipeline_preservation.py` is now an ordinary passing test.
+
 ### Fixed — the `.mcpb` bundle tells you how to install YazSes when `yazses` is not on PATH
 
 Was: the bundle's manifest ran `yazses` directly, so on a machine without it a client showed a bare
@@ -647,6 +688,7 @@ rest-calibrated detector and reports where it fires wrongly (a drifted rest bloc
 candidate on all of seeds 0 to 7). Standard library only, no network, no devices, no human data; it
 cannot drive YazSes and says it is not evidence of brain decoding (#696). Tests:
 `tests/test_hci_eeg_mi_synthetic.py`; write-up: `design/hci-huggingface/EEG_MI_SYNTHETIC_STRESS_RESULTS.md`.
+
 ### Fixed — the channel checker no longer reports a published Docker image as missing
 
 Was: `scripts/check-release-channels.py` decided whether GHCR had a release by reading the first
@@ -663,6 +705,7 @@ pagination (at most 10 pages), leaves out the `sha256-…` tags and orders versi
 newest lead. The Chocolatey check had the same single-page flaw (its feed pages at 15 entries and
 links the rest) and now asks for the exact version. A regression test puts the version on page two
 of a 106-tag registry. `packaging/README.md` no longer recommends searching `tags/list`.
+
 ### Fixed — the homepage roadmap preview no longer contradicts the canonical roadmap
 
 Was: the `roadmap-at-a-glance` section of the home page still showed "Four eras. Each is a promise
@@ -682,6 +725,7 @@ rail, the `--progress` variable, the era animations and the colour-only legend a
 `overrides/home.html`, `docs/assets/landing.css` and `docs/assets/landing.js`, and two milestone
 labels (Android, Install anywhere) no longer promise more than exists. `tests/test_homepage_roadmap_status_cards.py`
 pins the retired copy out and checks every link target against a real heading. No runtime change.
+
 ### Changed — docs: EMG is no longer sold as a working accessibility feature, and "the release after 2.43.2" now names the release
 
 Was: the README, the home page (including its search-engine description), the FAQ, the comparison pages, `llms.txt` and four
@@ -695,16 +739,19 @@ Now: every such sentence says the EMG trigger is experimental and off by default
 roadmap's known limits; the version pointers name v2.44.0 and v2.45.0; the campaign page says the Accepted ADR-031 and ADR-032 work
 has shipped but has not been tried in the real Claude or Codex apps; and the registry page says publishing is switched off. No code
 and no generated page changed.
+
 ### Fixed — the Updates page says what checking does, in words the button uses
 
 Was: the line under "About and updates" read "Checking asks the place YazSes was installed from (PyPI, GitHub or the snap store) for its newest version." The subject was "Checking", which is not the button's name, and "asks the place" is hard to parse.
 
 Now: "Installed: YazSes 2.48.1. Check for updates asks where it was installed from (PyPI, GitHub or Snap) for the newest version." The same facts, and the line names the button it describes. The text is pinned by a test.
+
 ### Fixed — the Speech page says why its Language box is greyed
 
 Was: while a language profile was selected, the Language box was disabled with no reason given, so it looked broken.
 
 Now: the box shows "Set by the language profile above. Choose Custom / advanced to pick the language yourself." while it is disabled, and the line is hidden under Custom / advanced. The wording is checked in tests against each profile's own speech language, on the real preview path.
+
 ### Fixed — the Features search hint explains its filters in words
 
 Was: the hint under the Features search box read "Narrow it down: tier:rec tier:exp on: off: — or just type a word.", a string of tokens with no explanation of what each does.
@@ -725,6 +772,7 @@ moving to the next paragraph. Measured on a strict build of the same tree before
 quote-broken tags 68 → 0, fragment endings 60 → 0, descriptions under 45 characters 19 → 4 (each
 a complete short sentence). A test now renders every published page's description as the theme
 does and parses it back.
+
 ### Tests — the brain's runner: dead time after a backlog discard and same-block release+blink, pinned
 
 Was: two soft spots of the opt-in biosignal runner were described in prose but not measured.
@@ -737,6 +785,7 @@ changed: keeping detector state across a gap, or dispatching the blink first (th
 intents while recording), are design decisions.
 
 Not checked: real hardware or a real EMG signal; the probe used seeded noise.
+
 ### Fixed — a Butterworth design at an impossible corner-to-rate ratio is refused where it is made
 
 Was: with the corner frequency far below float64 resolution of the sampling rate, the biosignal
@@ -752,6 +801,7 @@ Known and left open as a strict xfail: one NaN in a 4 s window at 500 Hz still g
 recordings, which is a threshold decision.
 
 Not checked: real recordings; Windows and FreeBSD.
+
 ### Fixed — the biosignal false-activation upper bound is the exact Poisson limit
 
 Was: the one-sided 95% upper bound on a false-activation rate used a cube-root approximation. With
@@ -770,6 +820,7 @@ activations but no active time, and `check_source` prints PASS for a 0.2 s run i
 checks were skipped. `fieldtest.py` and `fprate.py` keep the older approximation.
 
 Not checked: real recordings.
+
 ### Tests — which synthetic shapes the EMG onset detector fires on, measured
 
 Was: the known limit (a smooth 50-120 ms unipolar bump still reads as a squeeze) was a prose
@@ -784,6 +835,7 @@ offset (true bursts 107/120 down to 0/120), and removing the pre-crossing mean c
 bursts and needs a new constant. The false squeeze stays open.
 
 Not checked: real hardware or recordings.
+
 ### Fixed — hostile or corrupt biosignal recordings fail with a clear error, not a crash or a huge allocation
 
 Was: an empty `.npz` raised `EOFError`; a truncated zip raised `BadZipFile`; a `.npz` whose header
@@ -3589,6 +3641,7 @@ tokenizer, so faster-whisper does not even warn.
 
 English stays the default. A shipped or existing English config loads, builds and
 reports exactly as before, and tests pin this. The *recommended Persian preset* from
+
 #515 is **not** part of this change. It waits for the FA-05 benchmark evidence.
 
 ### Fixed — Persian and Arabic names keep their punctuation in the tray, Settings and notifications ([#516](https://github.com/MSKazemi/yazses/issues/516))
@@ -4009,6 +4062,7 @@ to reject the rule, where before the raw text was passed to dispatch. English cl
 Deletion is declared in `zh.DESTRUCTIVE_ACTIONS`. A test checks that it is reachable only through the literal
 删除最后 / 刪除最後 prefix with a capped count. Every phrase family carries an explicit native-review state in
 `zh.PHRASE_REVIEW`, and the fixtures carry a matching marker. All are `provisional` until the native review in
+
 #505. New tests: `tests/test_mandarin_command_numerals.py` checks the regex/parser agreement on all 813,615
 strings of up to five numeral characters; `tests/test_mandarin_command_safety.py` covers the negative corpus,
 destructive triggers, punctuation variants, English parity and review state. The targeted pytest/ruff/mypy gates
@@ -6393,6 +6447,7 @@ the standard library and `yazses`, and names the four platform bindings that mus
 behind the Protocol. The clock is read twice on purpose — once to date the sample, once to
 judge it — so a source slower than the freshness budget makes its own answer stale instead
 of grounding against a screen that has had time to scroll. (#443)
+
 ### Added — one MediaPipe result now answers gaze, head pose and the face switch
 
 The shared camera source (ADR-v2-145) has its first real backend. `perception/derive.py`
@@ -6428,6 +6483,7 @@ switch intact, an unreadable blendshape score costs that one category, and a 468
 model with no irises costs gaze alone. Every one of those cases is a separate test against a
 faked MediaPipe result, next to the counts that hold "one FaceLandmarker, one camera open" to
 a number rather than to a promise. (#395)
+
 ### Added — a wrong-target, ambiguity and abstention harness for grounded targets
 
 Phase P4 of `design/specs/eye-grounded-targets.md` (ADR-v2-151): `src/yazses/grounding/trace.py`
@@ -6467,6 +6523,7 @@ report: every string in it is an enum member, a synthetic id or one of two fixed
 test asserts that closure. **No product threshold, default or acceptance criterion follows from
 any of these numbers** — the fixtures are invented, the report says so in a field, and RQ-G4
 measures the real curve on real desktops. (#445)
+
 ### Added — `yazses eye-eval`: one local command that turns an eye-control test into a shareable number
 
 A contributor can now run a scripted eye-control evaluation task and get back a validated,
@@ -6561,6 +6618,7 @@ the number of events it *inserted into the input stream*, which UIPI can silentl
 afterwards — so a full return count is treated as "Windows accepted this", never as "the
 pointer moved". Both module docstrings say so, and the live-smoke evidence
 `design/specs/eye-pointer-output.md` asks for is still outstanding for both. (#402)
+
 ### Added — the Wayland pointer rides the RemoteDesktop session that already types
 
 `PortalPointerSink` in `src/yazses/inject/portal.py` is the `PointerSink` (ADR-v2-146)
@@ -6602,6 +6660,7 @@ the same failure shape as the `ydotool 0.1.8` dialect that printed an error and 
 0. A negotiation that does not finish now leaves nothing behind: the handle is cleared
 and the connection closed, so the next attempt really negotiates. Found while adding
 the pointer capability; it affected the keyboard path.
+
 ### Added — one camera owner, so two accessibility features can be on at once
 
 Glance-Type gaze and the Face-Gesture Switch each open their own webcam and their own
@@ -6638,6 +6697,7 @@ no consumer that forgot to release can leave the webcam on. Enabling the section
 opens nothing, because the lifecycle is driven by consumers and there are none yet: the
 MediaPipe adapter that fills these samples is the next step, and until then every camera
 feature keeps exactly the path it has today. An existing install is unchanged.
+
 ### Added — three eye-control task fixtures a second machine can replay exactly
 
 The eye-control result envelope says what a number *is*. It could not say what was
@@ -6677,6 +6737,7 @@ so no screenshot, window title or private text can enter a task, and no recorded
 could hold one.
 
 Developer-facing only. Nothing in the daemon imports it and no install changes.
+
 ### Added — a generated eye-validation coverage page, so nobody reads 16 issues to find the gaps
 
 `design/eye-control/VALIDATION_OPERATIONS.md` asks the project to be able to say which
@@ -6711,6 +6772,7 @@ unreadable or unparseable input exits 2 and writes no file, a registry with zero
 error rather than a blank page, and — because a regenerate-and-compare test can only prove the
 file matches its generator — completeness is asserted against the registry by cell id and by row
 count, with the dropped-cell case simulated so the assertion is known to fire.
+
 ### Added — a grounded-target resolver that would rather say "several" than guess
 
 `src/yazses/grounding/resolver.py` is phase P1 of ADR-v2-151, and it is the layer that
@@ -6848,6 +6910,7 @@ and treats an empty registry as an error, because a check that returns nothing o
 it could not parse reads exactly like a check that passed.
 
 This is developer-facing only; nothing about running YazSes changes.
+
 ### Added — one pointer-output boundary, before any backend exists
 
 Head-Pointer maps head pose to a cursor delta, the voice mouse grid resolves a click
@@ -6874,6 +6937,7 @@ real backend will inherit rather than re-describe. It is run here against a full
 fake and two deliberately partial ones, because half its assertions are about what a
 backend that *cannot* do something must do, and a suite exercised only against a complete
 backend would pass those branches by never reaching them.
+
 ### Added — a gaze calibration now knows which screens it was made on
 
 Glance-Type's calibration is an affine map from where your eyes point to a desktop
@@ -6904,6 +6968,7 @@ logical pixels in the virtual-desktop system, origin at the primary display's to
 and physical/logical conversion happens in exactly one place, so a HiDPI mix-up has one
 site to check instead of being smeared across the routing code. Implements ADR-v2-149;
 no new configuration, nothing to turn on, and no biometric or frame data is persisted.
+
 ### Added — one stop for every camera-driven input, and a watchdog for a signal that dies
 
 Continuous head, face and gaze control has a failure mode ordinary dictation does not: the
@@ -6931,6 +6996,7 @@ work, and `doctor`/status will report the state the module already exposes. `sta
 defaults to 500 ms, which is a deliberately generous placeholder and **not a measured value** —
 no frame-interval or tracking-loss distribution exists for this programme yet, and a guard is
 judged on how rarely it fires.
+
 ### Added — one camera permission contract, and a packaging matrix that is checked
 
 Three camera features exist — Glance-Type gaze routing, the Face-Gesture Switch and the
@@ -6970,6 +7036,7 @@ refuses without ever prompting.
 
 Nothing about this changes an existing install: every camera feature still ships off, no
 manifest changed, and ordinary dictation is never in the camera path.
+
 ### Added — the vocabulary for grounding a coarse target onto an exact UI element
 
 `src/yazses/grounding/contracts.py` is the first phase of ADR-v2-151. Webcam gaze can
@@ -6988,6 +7055,7 @@ cannot read an answer off a resolution that refused to choose one. The layer imp
 stdlib modules and nothing else: no accessibility library, no screen capture, no camera
 frame, no network, not even a clock. Tests enforce that by scanning the module's imports
 and every field annotation.
+
 ### Added — one shared vocabulary for what the webcam can tell us
 
 Glance-Type gaze, the Head-Pointer and the Face-Gesture Switch all want the same
@@ -7199,6 +7267,7 @@ Both now use the absolute repository URL that the same file already uses two
 paragraphs further down, and that `docs/contribute/ai-agents.md` uses throughout, so
 a root document is linked one way across the site. `mkdocs build --strict` was
 aborting on exactly these two warnings and now completes.
+
 ### Fixed — the support page denied two installers that had shipped for 23 releases
 
 `docs/platform-support.md` told Intel Mac users and Windows-on-ARM users that their
@@ -18249,6 +18318,7 @@ harness until you have looked at the screen.**
 text that never arrives is usually a dialog in front of the window, or the wrong
 text field having focus — neither of which the "no text target" guard can catch,
 because in both cases a real text target does have focus.
+
 ### Added — a VS Code app profile, and a check on every app profile
 
 `examples/config.vscode.toml`, contributed by
@@ -18553,6 +18623,7 @@ One finding worth recording: the Gradle paths `:native:whispercpp` and
 segment. (#84)
 
 ### Fixed — the mid-sentence half of the correction-trigger bug
+
 ### Added — 25 README translations, shipped as reviewable drafts
 
 The README existed in three languages and 26 issues asked for more. It is now in
@@ -19053,6 +19124,7 @@ Verified by driving the real dispatch and by asserting the installer's flag
 against what the bundle accepts — the two are written in different files and had
 no reason to stay in step. Clicking it on a Mac or a Windows box still needs
 someone on that OS. (#63)
+
 ### Fixed — the Hindi and Russian READMEs told Intel Mac users to download the `.dmg`
 
 `README.md` was corrected when the `.dmg` turned out to be Apple-silicon-only, but its
@@ -19193,6 +19265,7 @@ every documented key exists on the class it is documented under.
   top use case had no page. Exact commands for `yazses vocab`, the new
   `vocab_correction`, spoken punctuation and `initial_prompt`, and why a bigger
   model is usually the wrong fix for a word it has never heard. (#250)
+
 ### Added — a native Windows arm64 installer, and translated READMEs that lead with installation
 
 Windows on ARM is a real desktop target and the only `.exe` was x64, so an ARM user could
@@ -19579,6 +19652,7 @@ fallback backend is an HTTP POST to Ollama — local by default, but a socket no
 The section now says which backend does what, names the one call that carries text, and
 documents the loopback guard and its opt-out. "What leaves your device" now names both
 paths that can, rather than only `yazses remote`.
+
 ### Fixed — Windows: hold-to-talk, command keys, and the liveness probe that killed the daemon
 
 Eleven defects in `platform/windows/`, found by audit and each pinned by a regression test.
@@ -20521,6 +20595,7 @@ major bumps under `contract/README.md`. Four vector cases that existed to prove 
 using one of these five words would have become vacuous, so each keeps its input as a
 record of the new behaviour and gains a sibling case proving the same rule with a word
 that is still a default filler (76 → 80 disfluency cases).
+
 ### Added — CI enforces the dependency budget (#141)
 
 "18 base dependencies against 140+ features" was true only for as long as reviewers
@@ -20615,6 +20690,7 @@ its undo, and — only with `--run` — executes it. A destructive command (forc
 The grammar also gained "discard changes in `<path>`" → `git checkout -- <path>`, filling
 a gap from the spoken-phrase list in the issue. `gitvoice` moves from "planned" to
 "optional" in `yazses features` now that a real entry point reads it.
+
 ### Added — Diagrams-as-Code by voice now parses a whole graph, not just one edge
 
 `parse_graph_utterance` used to accept exactly one `A goes to B` per clause; dictating

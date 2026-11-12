@@ -47,7 +47,12 @@ reason and the manual steps, and the tray opens the releases page:
   package is its own method (`msix`), detected from the platform seam's
   `HostInfo.msix_packaged`, the same fact `cameraperm/matrix.py` uses. It gets Store /
   App Installer steps and no one-click. The `.exe` would install a second copy beside the
-  package rather than update it.
+  package rather than update it. Since 2026-11-12 `check_update` does not even ask the
+  network for an `msix` install: it returns `UpdateStatus(managed_by="the Microsoft Store")`
+  and every surface (`yazses update`, tray, Settings, `doctor`) says so. The packaged test is
+  the `AppxManifest.xml` beside the executable **or** the OS's package identity
+  (`GetCurrentPackageFullName`), and only for a frozen executable. Not yet run on a real
+  MSIX install.
 - **An install the uninstall key can place** for `windows-installer`.
   `WindowsUpdateLauncher.install_scope` matches the running directory against the Inno
   uninstall key (`{AppId}_is1`, `Inno Setup: App Path`) under HKCU and HKLM. A match under
@@ -503,8 +508,9 @@ The next run of that job is the evidence that either path installs.
     offered.
     Scoop: the `scoop info` output format matches the parser, and YazSes relaunches from
     `apps\yazses\current\`. winget: confirm it is still detected as `windows-installer`.
-12. MSIX package: `yazses update --check` reports `via msix` with Store steps; the tray
-    does not open the `.exe` page.
+12. MSIX package: `yazses update --check` reports `via msix`, says updates are managed by
+    the Microsoft Store and shows Store steps, with no network call; the tray does not open
+    the `.exe` page; `yazses doctor` shows "Update check ... managed by the Microsoft Store".
 13. SmartScreen: note whether the unsigned installer is blocked when it runs silently.
     For the all-users path, the elevated copy runs with `UseShellExecute = $false`, so note
     whether SmartScreen intervenes at all there.
