@@ -278,9 +278,19 @@ def check_chocolatey(version: str) -> tuple[bool | None, str]:
     if status != 200:
         return _verdict(status, False), f"HTTP {status}"
     text = body.decode("utf-8", "replace")
-    return f"<d:Version>{version}</d:Version>" in text, (
-        "listed" if "<entry>" in text else "not listed"
-    )
+    if f"<d:Version>{version}</d:Version>" not in text:
+        return False, "not listed"
+    # The feed also serves versions that are merely *submitted*: moderation has not
+    # approved them, `choco install` cannot fetch them, and the entry still carries
+    # the exact version. v2.51.0 sat like that from 2026-11-07 while this check said
+    # "published". Only an explicit IsApproved=true counts.
+    approved = re.search(r"<d:IsApproved[^>]*>\s*(true|false)\s*</d:IsApproved>", text)
+    if approved is None:
+        return UNKNOWN, "feed does not say whether this version is approved"
+    if approved.group(1) == "true":
+        return True, "listed"
+    status = re.search(r"<d:PackageStatus>([^<]*)</d:PackageStatus>", text)
+    return False, f"not approved (status {status.group(1) if status else 'unknown'})"
 
 
 def check_aur(version: str) -> tuple[bool | None, str]:

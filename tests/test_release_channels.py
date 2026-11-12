@@ -181,8 +181,28 @@ def test_aur_absent(crc, responses):
     assert ok is False and "not in AUR" in detail
 
 
+def _choco_entry(version: str, *, approved: bool | None = True, status: str = "Approved") -> bytes:
+    """One OData entry shaped like the real feed (captured 2026-11-12).
+
+    The feed also serves versions that are only *submitted*: `IsApproved` is false,
+    `Published` is the 1900-01-01 sentinel and `PackageStatus` says where moderation
+    stands. `approved=None` omits the field, as a renamed feed would.
+    """
+    flag = (
+        ""
+        if approved is None
+        else f'<d:IsApproved m:type="Edm.Boolean">{str(approved).lower()}</d:IsApproved>'
+    )
+    return (
+        "<feed><entry>"
+        f"<d:Version>{version}</d:Version>{flag}"
+        f"<d:PackageStatus>{status}</d:PackageStatus>"
+        "</entry></feed>"
+    ).encode()
+
+
 def test_chocolatey_needs_this_exact_version(crc, responses):
-    feed = b"<feed><entry><d:Version>2.17.0</d:Version></entry></feed>"
+    feed = _choco_entry("2.17.0")
     responses({"chocolatey.org": (200, feed)})
     assert crc.check_chocolatey("2.18.2")[0] is False
     assert crc.check_chocolatey("2.17.0")[0] is True
@@ -398,6 +418,32 @@ def test_ghcr_tags_are_ordered_by_version_not_lexically(crc):
     assert tags == ["latest", "2.9.0", "2.10.0", "2.48.1"]
 
 
+def test_chocolatey_a_submitted_version_is_not_published(crc, responses):
+    """v2.51.0 sat on the feed as `Submitted` / `IsApproved=false` after the verifier
+    hit a 503 (2026-11-07). `choco install` cannot get such a version, yet the entry
+    exists, so "the entry is there" reported the channel as caught up for days.
+    """
+    feed = _choco_entry("2.51.0", approved=False, status="Submitted")
+    responses({"chocolatey.org": (200, feed)})
+    ok, detail = crc.check_chocolatey("2.51.0")
+    assert ok is False
+    assert "not approved" in detail and "Submitted" in detail
+    # Not the "<label>=<version>" form, which means "this channel is serving that".
+    assert not crc._SERVING_RE.match(detail), detail
+
+
+def test_chocolatey_an_approved_version_is_published(crc, responses):
+    responses({"chocolatey.org": (200, _choco_entry("2.51.0"))})
+    assert crc.check_chocolatey("2.51.0") == (True, "listed")
+
+
+def test_chocolatey_without_the_approval_field_is_unknown_not_published(crc, responses):
+    """If the feed ever stops saying whether a version is approved, the honest answer
+    is "could not check" -- never a green tick on a guess."""
+    responses({"chocolatey.org": (200, _choco_entry("2.51.0", approved=None))})
+    assert crc.check_chocolatey("2.51.0")[0] is None
+
+
 def test_chocolatey_asks_for_the_exact_version_not_the_first_page(crc, monkeypatch):
     """The OData feed pages at 15 entries in no version order (checked 2026-11-04).
 
@@ -409,7 +455,7 @@ def test_chocolatey_asks_for_the_exact_version_not_the_first_page(crc, monkeypat
     def fake_get(url: str, headers=None):
         urls.append(url)
         if "Version%20eq%20%272.48.1%27" in url:
-            return 200, b"<feed><entry><d:Version>2.48.1</d:Version></entry></feed>"
+            return 200, _choco_entry("2.48.1")
         return 200, b"<feed></feed>"
 
     monkeypatch.setattr(crc, "_get", fake_get)

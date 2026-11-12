@@ -32,6 +32,10 @@ A mis-heard "delete the last 1000000 words" made dispatch send a million Ctrl+Ba
 
 Two classifiers (`Topic :: Adaptive Technologies`, `Topic :: Multimedia :: Sound/Audio :: Capture/Recording`) and five project URLs (Changelog, Releases, Discussions, Install guide, Try without installing).
 
+### Fixed — release checks: a Chocolatey version still in moderation counted as published
+
+`scripts/check-release-channels.py` asked the Chocolatey feed for the exact version and took the entry's existence as "published". The feed also serves versions that are only *submitted*: `IsApproved` is false, `Published` is the 1900-01-01 sentinel and `choco install` cannot fetch them. v2.51.0 sat in that state from 2026-11-07 (the verifier got an HTTP 503 from the feed and marked the test failed), and the checker reported the channel as caught up. It now needs `IsApproved=true`; a submitted version reads as "not approved (status Submitted)", and a feed that stops saying either way reads as "could not check", never as published.
+
 ### Fixed — docs site: translated pages declared `<html lang="en">`
 
 All 27 locale landing pages and the Hindi and Chinese pages said `lang="en"` while their own hreflang and canonical named another language. `hooks/hreflang.py` now writes the page's own language. English pages are unchanged.
