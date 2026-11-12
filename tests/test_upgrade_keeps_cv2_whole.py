@@ -522,16 +522,20 @@ def test_the_cv2_check_really_catches_a_namespace_leftover(tmp_path):
     import subprocess
     import sys
 
+    from tests import cv2_isolation
+
     (tmp_path / "cv2" / "face").mkdir(parents=True)
+    isolate = cv2_isolation.subprocess_prelude(tmp_path)
     proc = subprocess.run(
-        [sys.executable, "-c", f"import sys; sys.path.insert(0, {str(tmp_path)!r}); "
+        [sys.executable, "-c", isolate + f"import sys; sys.path.insert(0, {str(tmp_path)!r}); "
          + updater._CV2_CHECK],
         capture_output=True, text=True, cwd=str(tmp_path),
     )
     assert proc.returncode != 0
     assert "VideoCapture" in proc.stderr
     bare = subprocess.run(
-        [sys.executable, "-c", f"import sys; sys.path.insert(0, {str(tmp_path)!r}); import cv2"],
+        [sys.executable, "-c",
+         isolate + f"import sys; sys.path.insert(0, {str(tmp_path)!r}); import cv2"],
         capture_output=True, text=True, cwd=str(tmp_path),
     )
     assert bare.returncode == 0  # which is why a bare import proves nothing

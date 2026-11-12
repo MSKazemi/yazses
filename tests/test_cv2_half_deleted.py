@@ -15,7 +15,10 @@ itself; these pin the backstop for every other route:
   the pinned repair as its remedy and no "Install now" (installing changes nothing);
 * ``yazses doctor``'s **OpenCV** row.
 
-No OpenCV is installed or imported by any of these.
+No OpenCV is imported by any of these, and none that is installed can reach them: the
+tests that need ``import cv2`` to land on the husk install ``tests/cv2_isolation.py``,
+because a real ``cv2`` package later on ``sys.path`` would otherwise win over the
+namespace directory (``uv run --extra gaze``).
 """
 from __future__ import annotations
 
@@ -29,6 +32,7 @@ from pathlib import Path
 
 import pytest
 
+from tests import cv2_isolation
 from yazses.config import Config
 from yazses.system import dormant, ondemand, opencv_health
 from yazses.system.features import feature_status
@@ -141,19 +145,18 @@ def test_the_real_probes_never_import_cv2(tmp_path):
     """In a fresh interpreter whose sys.path holds a husk and its dist-info."""
     site = husk(tmp_path)
     dist_info(site)
-    code = textwrap.dedent(f"""
+    code = cv2_isolation.subprocess_prelude(site) + textwrap.dedent(f"""
         import sys
         sys.path.insert(0, {str(site)!r})
         from yazses.system.opencv_health import cv2_half_deleted, installed_cv2_versions
-        print(cv2_half_deleted(), installed_cv2_versions(), "cv2" in sys.modules)
+        print(cv2_half_deleted(), installed_cv2_versions()["opencv-contrib-python"],
+              "cv2" in sys.modules)
     """)
     out = subprocess.run(
         [sys.executable, "-c", code], capture_output=True, text=True, timeout=60
     )
     assert out.returncode == 0, out.stderr
-    assert out.stdout.split() == [
-        "True", "{'opencv-contrib-python':", "'5.0.0.93'}", "False"
-    ]
+    assert out.stdout.split() == ["True", "5.0.0.93", "False"]
 
 
 def test_the_updater_reads_versions_through_the_same_probe():
@@ -247,6 +250,9 @@ def test_today_a_real_husk_reads_as_healthy_to_the_import_probe(tmp_path, monkey
     monkeypatch.syspath_prepend(str(site))
     for name in ("cv2", "mediapipe"):
         monkeypatch.delitem(sys.modules, name, raising=False)
+    monkeypatch.setattr(
+        sys, "meta_path", [cv2_isolation.HuskOnlyCv2(str(site)), *sys.meta_path]
+    )
     importlib.invalidate_caches()
 
     from yazses.system.deps import missing_modules
