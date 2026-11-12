@@ -23,12 +23,15 @@ serial, so that squeezing a muscle works as hold-to-talk. It uses the existing s
 
 ## What you need
 
-- A Seeed XIAO RP2040 running MicroPython (the board's own page lists MicroPython support).
-- A Seeed Grove EMG Detector and the electrodes and cable its manual specifies. This project does not say which
+- A Seeed [XIAO RP2040](https://wiki.seeedstudio.com/XIAO-RP2040/) running MicroPython (the board's own page lists MicroPython support).
+- A Seeed [Grove EMG Detector](https://wiki.seeedstudio.com/Grove-EMG_Detector/) and the electrodes and cable its manual specifies. This project does not say which
   electrodes to use or where to place them; follow the sensor's manual.
 - A way to connect the sensor's Grove cable to the board: a Grove-compatible shield or expansion board, or jumper wires.
   Use the pin labels printed on your sensor, not an assumed order.
 - `yazses` with the serial extra (`pyserial`): `pipx install 'yazses[emg]'` or the equivalent for your install method.
+
+The two links name the hardware this example is written for. They do not mean the two have been verified together: that
+has not been done yet (see the status box at the top).
 
 ## Wiring
 
