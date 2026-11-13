@@ -1,6 +1,6 @@
 # ThinkGear blink-switch path — as built after ADR-v2-155, and the gates that remain
 
-**Status:** Review aid for [ADR-v2-155](../adr/adr-v2-155-thinkgear-transport-safety.md) (Accepted 2026-11-13, G0 [#827](https://github.com/MSKazemi/yazses/issues/827)) and its implementation in [#828](https://github.com/MSKazemi/yazses/issues/828)–[#830](https://github.com/MSKazemi/yazses/issues/830). Every figure is drawn from the code at `2c5480d0` (`feat/thinkgear-parity-830`, stacked on `feat/thinkgear-gate-829` and `feat/thinkgear-health-828`), checked on 2026-11-13. Those branches are **not merged into `main`**, so the line numbers below are for that commit.  
+**Status:** Review aid for [ADR-v2-155](../adr/adr-v2-155-thinkgear-transport-safety.md) (Accepted 2026-11-13, G0 [#827](https://github.com/MSKazemi/yazses/issues/827)) and its implementation in [#828](https://github.com/MSKazemi/yazses/issues/828)–[#830](https://github.com/MSKazemi/yazses/issues/830). Every figure was drawn from the code at `2c5480d0` (`feat/thinkgear-parity-830`, stacked on `feat/thinkgear-gate-829` and `feat/thinkgear-health-828`), checked on 2026-11-13. The stack was then rebased under two follow-up fixes: the trust-return reset (`e5ad4b6a`, #829) and the field-test session getting the guarded source (`97206fb8`, #830). The line numbers below were retargeted to `97206fb8`, and Figures 2 and 3 now show the trust-return reset. Those branches are **not merged into `main`**.  
 **Related:** [ADR-v2-155](../adr/adr-v2-155-thinkgear-transport-safety.md), [implementation contract](../specs/thinkgear-hardware-qualification.md), [first-device roadmap](2026-11-03-first-device-roadmap.md), [biosignal pipeline spec](../specs/biosignal-pipeline.md).
 
 The ADR and its spec describe the ThinkGear (TGAM-class headset) path in prose. This page draws
@@ -75,20 +75,20 @@ daemon, `monitor` and `field-test` all build the guarded source and the event ga
 `IntegrityGate` around `SignalQualityMonitor`. Every other source (synthetic, file, BrainFlow,
 LSL, BITalino, Myo) gets the guard and a plain `IntegrityGate`, the same as before.
 
-| Step in the figure | Where it is (file:line on `2c5480d0`) |
+| Step in the figure | Where it is (file:line on `97206fb8`) |
 |---|---|
 | One serial read, capped at 64 KiB | `biosignal/thinkgear.py:465` `ThinkGearSource.read`; cap at `:470` (`_MAX_READ`, `:143`) |
 | Parser; a packet with several `0x02` rows reports the largest | `biosignal/thinkgear.py:197` `ThinkGearParser.feed`; `:283` |
 | Health verdict for the read, or an idle tick | `biosignal/thinkgear.py:488` `observe_batch`; `:476` `observe_idle` |
 | Block and verdict kept together, last 8 blocks | `biosignal/thinkgear.py:503`; `:515` `health_for`; depth `:145` |
 | `start()` begins a new session; `stop()` and a lost port clear trust | `biosignal/thinkgear.py:458` `health.reset()`; `:509` and `:541` `_invalidate_health()` |
-| `guard_source`: `IntegrityGuard`, arrival-rate check for live sources | `biosignal/source_gates.py:83` |
+| `guard_source`: `IntegrityGuard`, arrival-rate check for live sources | `biosignal/source_gates.py:91` |
 | The guard carries the verdict across a sanitized copy | `biosignal/integrity.py:664` (records `_source_health(raw)`, `:717`); `:696` `IntegrityGuard.health_for` |
-| `compose_quality_gate`: adds `SourceHealthGate` for ThinkGear | `biosignal/source_gates.py:103`; scheme list `:65`; `needs_source_health` `:92` |
+| `compose_quality_gate`: adds `SourceHealthGate` for ThinkGear | `biosignal/source_gates.py:111`; scheme list `:73`; `needs_source_health` `:100` |
 | Daemon uses the constructor | `biosignal/runner.py:922` (`compose_quality_gate`), `:926` (`guard_source`) |
 | Daemon only: detector reset after a gap longer than the watchdog | `biosignal/runner.py:391-399` in `BiosignalRunner.step` (`:377`) |
 | Monitor uses the constructor; prints `Source health:` when the verdict changes | `biosignal/cli_impl.py:756-759` in `run_monitor` (`:718`); pumped through the guard at `:850` |
-| Field test uses the constructor and reads through the guard | `biosignal/cli_impl.py:1711` (`guard_source`), `:1721` (`compose_quality_gate`), `:1756` `guard.read()`, `:1766` `session.feed(block)` |
+| Field test uses the constructor and reads through the guard | `biosignal/cli_impl.py:1711` (`guard_source`), `:1721` (`compose_quality_gate`), `:1758` `guard.read()`, `:1768` `session.feed(block)` |
 | Field test leaves refused blocks out of exposure | `biosignal/fieldtest.py:877` `FieldTestSession.feed`; `:1054` `_trust` |
 
 Three things the figure shows that a reviewer may want to act on:
@@ -101,11 +101,12 @@ Three things the figure shows that a reviewer may want to act on:
   daemon releases a held squeeze and resets the pipeline (`runner.py:391-399`). `monitor` and
   `field-test` rely on the stream gate's stall check instead. The #830 CHANGELOG entry
   records this difference.
-- **`FieldTestSession` still holds the unguarded source.** `run_field_test` builds
-  `FieldTestSession(src, ...)` with the raw `src` (`cli_impl.py:1732`). Today this does no
-  harm: only `FieldTestSession.run()` reads that source (`fieldtest.py:902-911`), and
-  `run_field_test` never calls `run()`. It feeds blocks from `guard.read()` instead. If the
-  loop is ever replaced by `session.run()`, the field test would skip the guard again.
+- **`FieldTestSession` gets the guarded source (fixed in `97206fb8`).** On `2c5480d0`,
+  `run_field_test` built `FieldTestSession(src, ...)` with the raw `src`. That was harmless,
+  because only `FieldTestSession.run()` reads that source (`fieldtest.py:902-911`) and
+  `run_field_test` never calls it, but a later switch to `session.run()` would have skipped
+  the guard. It now passes the guard (`cli_impl.py:1734`), and a test fails if the bare
+  source is handed over.
 
 ## Figure 2 — As built: inside `BiosignalPipeline.process`
 
@@ -118,7 +119,7 @@ flowchart LR
 
     B[SampleBlock]:::normal --> QG[_quality_gate<br/>SourceHealthGate.update]:::normal
     B --> FL[_filter<br/>EEG notch + band-pass]:::normal
-    QG --> RS{new session<br/>or fault epoch?}
+    QG --> RS{new session, fault epoch<br/>or trust returning?}
     RS -->|yes| RD[_reset_detectors_locked<br/>filters + detectors only]:::normal
     RS -->|no| C{gate closed?<br/>BAD, suppress_events<br/>or bad_during_update}
     RD --> C
@@ -131,18 +132,22 @@ flowchart LR
     QX[inner gate or health<br/>lookup raised]:::muted -.->|held: fail closed| QG
 ```
 
-`pipeline.py:630` `process` asks the quality gate (`_quality_gate`, `:787`), which for ThinkGear
-is `SourceHealthGate.update`. If the report says the source started a new session or fault
-epoch (`reset_detector_state`, read at `:798`), the pipeline resets only its filters and
-detectors (`_reset_detectors_locked`, called at `:647`). The quality monitor, the closed-gate
-history, the governor and the ledger are kept. That reset is what stops a double blink from
-pairing a blink from before a contact loss with one after it. A closed gate refuses the events
-and releases a held squeeze, as before (`_admit`, `:851`).
+`pipeline.py:630` `process` asks the quality gate (`_quality_gate`, `:791`), which for ThinkGear
+is `SourceHealthGate.update`. The report asks for a reset (`reset_detector_state`, read at
+`:802`) when the source starts a new session or fault epoch, and again at the first trusted
+block after an untrusted, unknown or rearming one. The pipeline then resets only its filters
+and detectors (`_reset_detectors_locked`, called at `:650`) and filters that block again with
+the fresh chains (`:651`). The quality monitor, the closed-gate history, the governor and the
+ledger are kept. The first reset stops a double blink from pairing a blink from before a
+contact loss with one after it. The second is needed because the detector stamps a blink
+about 0.17 s after its samples. On `2c5480d0`, a pair whose first blink came wholly from
+rearming reads could therefore pass the closed-span check (`e5ad4b6a`). A closed gate refuses the events
+and releases a held squeeze, as before (`_admit`, `:855`).
 
 The dashed note marks a fail-closed change. Before ADR-v2-155, an exception in the quality
-monitor turned the pipeline's whole gate off (`pipeline.py:794`). `SourceHealthGate` now catches
+monitor turned the pipeline's whole gate off (`pipeline.py:798`). `SourceHealthGate` now catches
 a failure of its inner gate and of the health lookup, and holds events instead
-(`source_gates.py:165-216`). The pipeline's own "gate off" path is still there, so it only
+(`source_gates.py:174-230`). The pipeline's own "gate off" path is still there, so it only
 applies if an exception escapes `SourceHealthGate.update` itself.
 
 ## Figure 3 — As built: the source-health state machine (`thinkgear_health.py`)
@@ -298,19 +303,19 @@ flowchart LR
     SH --> HF[guard.health_for block]:::normal
     IN --> V{health trusted<br/>AND inner gate open?}
     HF --> V
-    HF --> K{session or epoch<br/>changed?}
+    HF --> K{session or epoch changed,<br/>or first trusted block<br/>after an untrusted one?}
     K -->|yes| RST[reset_detector_state<br/>for the pipeline]:::normal
     V -->|yes| OK[overall from the<br/>quality monitor;<br/>events may pass]:::success
     V -->|no| BAD[overall BAD<br/>suppress_events<br/>reason: stream or quality]:::failure
     ERR[no verdict, unknown block,<br/>or the inner gate or<br/>lookup raised]:::muted -.->|counts as untrusted| V
 ```
 
-`SourceHealthGate.update` (`source_gates.py:165`) runs the inner `IntegrityGate` and looks up
+`SourceHealthGate.update` (`source_gates.py:174`) runs the inner `IntegrityGate` and looks up
 the verdict for this exact block (`guard.health_for`). The gate is closed unless the verdict is
-trusted **and** the inner gate is open (`:206`). A block with no verdict, or a failure in either
-lookup, counts as untrusted. A change in `(session, epoch)` sets `reset_detector_state`
-(`:182-184`). Transport reasons (`corrupt_packet`, `transport_stalled`, `clock_invalid`,
-`:69`) are filed as `stream` refusals. Contact reasons are filed as `quality`.
+trusted **and** the inner gate is open (`:220`). A block with no verdict, or a failure in either
+lookup, counts as untrusted. A change in `(session, epoch)`, or the first trusted block
+after an untrusted one, sets `reset_detector_state` (`:191-199`). Transport reasons (`corrupt_packet`, `transport_stalled`, `clock_invalid`,
+`:77`) are filed as `stream` refusals. Contact reasons are filed as `quality`.
 
 ## Figure 6 — Gate dependencies, #827 to #833
 
@@ -343,7 +348,7 @@ cannot run it.
 
 ## Keeping this page true
 
-The line numbers point at `2c5480d0`. A rebase or merge can move them. Before relying on them,
+The line numbers point at `97206fb8`. A rebase or merge can move them. Before relying on them,
 rerun the checks they rest on:
 
 ```sh
