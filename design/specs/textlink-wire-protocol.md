@@ -77,15 +77,35 @@ failure MUST drop the whole frame (never repair or truncate) and count it:
 3. **Refuse** if the text contains any control character: C0 (`U+0000`-`U+001F`,
    including NUL, TAB, LF, CR and ESC), DEL (`U+007F`) or C1 (`U+0080`-`U+009F`).
    Multi-line text is therefore not representable.
-4. **Refuse** U+2028 and U+2029, and the bidirectional controls U+202A-U+202E,
-   U+2066-U+2069, U+200E, U+200F and U+061C. U+200C and U+200D (ZWNJ, ZWJ) are
-   allowed: Persian and other scripts need them.
-5. **Strip** surrounding whitespace; **refuse** if nothing remains.
+4. **Refuse** U+2028 and U+2029 and every character of Unicode general category **Cf**
+   (format). That covers the bidirectional controls U+202A-U+202E, U+2066-U+2069, U+200E,
+   U+200F and U+061C, and the invisible characters U+200B (zero-width space), U+2060
+   (word joiner), U+FEFF (BOM), U+206A-U+206F, U+FFF9-U+FFFB, the tag characters
+   U+E0000-U+E007F and U+00AD (soft hyphen). **Exception:** U+200C and U+200D (ZWNJ, ZWJ)
+   are allowed, because Persian, Arabic and Indic scripts need them, but only when the text
+   also contains at least one letter (category L). A ZWNJ or ZWJ in text with no letter
+   (for example an emoji ZWJ sequence, or `1` ZWNJ `2`) is refused.
+5. **Refuse** the noncharacters U+FFFE and U+FFFF, the replacement character U+FFFD, and
+   the invisible fillers U+2800 (braille blank), U+3164, U+FFA0, U+115F and U+1160 (Hangul
+   fillers).
+6. **Strip** surrounding whitespace; **refuse** if the text has no *visible content*,
+   meaning no character whose category starts with L, N, P or S. Text of spaces only, a
+   lone combining mark, or a lone ZWNJ is therefore empty.
+7. **Refuse** if the normalised, stripped text is longer than **512 bytes** of UTF-8.
 
-The 512-byte limit applies to the wire payload; NFC may lengthen the decoded text
-slightly. A sender SHOULD apply the same rules before sending, so that nothing it sends
-is dropped. A sender whose recogniser output is too long SHOULD cut at a character
-boundary at or below 512 bytes, or send several frames.
+The 512-byte limit applies twice: to the wire payload, and again to the text after
+normalisation. NFC can *expand* text: U+0344 becomes two characters and doubles in size,
+so a payload of 501 bytes can normalise to 1001 bytes. A receiver therefore MUST measure
+the limit after step 2, and a frame whose normalised text is longer is dropped and counted
+like any other refused text. A sender SHOULD apply the same rules before sending, so that
+nothing it sends is dropped, and MUST remove forbidden characters **before** it normalises,
+not after. A sender whose recogniser output is too long SHOULD cut at a character boundary
+at or below 512 bytes after normalisation, or send several frames.
+
+**Not handled.** Mixed-script and homoglyph text, for example a Cyrillic letter inside a
+Latin word, passes every rule above, because each character is an ordinary letter. A
+consumer that types the text MUST apply its own confusable check; this protocol offers
+none. Likewise no rule here judges whether the text is a command, a name or a URL.
 
 ## Receiver state machine and resynchronisation
 
@@ -114,21 +134,34 @@ Every iteration consumes at least one byte, so the loop terminates.
 
 A receiver MAY give up on an incomplete frame after an idle period (the reference
 reader uses 1 s): it then discards the head byte and rescans, which recovers complete
-frames queued behind a dead one. This is the only timing-dependent behaviour.
+frames queued behind a dead one. A receiver MUST do the same when its input ends (device
+EOF, the end of a recorded capture), because no more bytes are coming to complete the
+head, and a valid frame behind a truncated or corrupt head must not be lost. These are the
+only timing- or end-dependent behaviours.
+
+For bytes-like input the reference parser never raises, whatever the bytes are; handing it
+a `str` or another non-bytes-like object is a caller error and raises `TypeError`.
 
 ## SEQ
 
-SEQ lets a receiver measure loss; it never causes an authentic frame to be dropped
-**except** an exact immediate repeat. For each authentic frame:
+SEQ lets a receiver measure loss and repetition. It never causes an authentic frame to be
+dropped: **nothing is dropped because of its SEQ.** For each authentic frame:
 
-* if (SEQ, TYPE, PAYLOAD) equals the previous authentic frame's, it is a **duplicate**
-  (counted, flagged; the reference reader does not print it);
+* if (SEQ, TYPE, PAYLOAD) equals the previous authentic frame's, it is an exact repeat:
+  `seq_repeats` is incremented, and the frame is **delivered** like any other;
 * otherwise the number of skipped frames is `(SEQ - previous_SEQ - 1) mod 256`, and a
   non-zero value counts one `seq_gap`.
 
-A board reboot restarts SEQ at 0 and therefore appears as one gap. A replay of an older
-frame (not the immediately preceding one) is **not detected**; this protocol offers no
-replay protection.
+The receiver counts gaps and exact repeats and drops nothing. It cannot tell a
+retransmission from a repeated utterance: the protocol has no retransmit and no ACK, so
+a speaker who says "yes" twice produces two identical TEXT payloads, and dropping the second
+would lose a real sentence. Replay protection is therefore out of scope: a replayed frame,
+immediate or not, is delivered and, if it is an immediate repeat, counted. A sender that
+increments SEQ per frame (the reference board script does, modulo 256) makes a repeated
+utterance differ in SEQ, so `seq_repeats` then points at a real duplicate rather than at a
+second utterance.
+
+A board reboot restarts SEQ at 0 and therefore appears as one gap.
 
 ## Rate limit
 
@@ -176,3 +209,4 @@ precomposed é).
 * Whisper's real output on the board and how a recording is triggered.
 * Security beyond accident detection: there is no authentication, encryption or replay
   protection, and none is claimed.
+* Mixed-script and homoglyph text (see "Not handled" above) is not detected.

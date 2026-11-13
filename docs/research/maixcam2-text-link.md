@@ -35,8 +35,13 @@ This is a deliberate safety stance, not a missing feature. The reference reader:
 - only **reads** and **prints**; it does not type into any window,
 - does not use the YazSes typing code,
 - opens no network connection,
-- refuses a message that is too long, damaged, not valid UTF-8, or that contains
-  control or text-direction characters.
+- refuses a message that is too long (including after normalisation), damaged, not valid
+  UTF-8, that contains control, text-direction or invisible characters, or that has no
+  visible content,
+- counts gaps and exact repeats in the message numbering and drops nothing: it cannot tell
+  a resent message from a repeated sentence, so protection against replayed messages is out
+  of scope. Look-alike letters from mixed scripts are not handled either; anything that
+  types such text needs its own check.
 
 If this idea were ever added to YazSes itself, text from a board would have to go
 through the same safety checks as dictated text, stay off by default, and be

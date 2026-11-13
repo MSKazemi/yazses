@@ -17,7 +17,7 @@ capabilities, which is why it lives here and not in the daemon.
 |---|---|
 | The frame codec matches independently computed CRC and frame vectors | Verified by `tests/test_example_maixcam2_text_link.py` (CRC-16/CCITT-FALSE check value `0x29B1`, two independent implementations) |
 | The parser gives the same result however the bytes are chunked, and recovers after garbage, truncation, bad CRC, oversize length and a wrong version | Verified in software against the simulator, at every split point |
-| Hostile text (newline, ESC, NUL, bidi overrides, bad UTF-8, ...) is refused | Verified in software |
+| Hostile text (newline, ESC, NUL, bidi overrides, zero-width and other invisible characters, text with no visible content, NFC expansion past 512 bytes, bad UTF-8, ...) is refused, and the board script's cleaner and the host decoder agree on a table of code points | Verified in software |
 | The host reader works against a real file descriptor | Verified with a pseudo-terminal and with `--replay`, on a PC |
 | `board/maixpy_send.py` runs on a MaixCAM2 | **Not verified.** Never run on hardware. Its encoder is byte-compared to the host codec on a PC; the MaixPy calls follow the two Sipeed wiki pages and anything else is a `TODO(verify on device)` |
 | A real board's UART, a real USB-to-UART adapter and Whisper's real output behave like the simulator | **Not verified.** No board exists in this repository |
@@ -29,7 +29,7 @@ capabilities, which is why it lives here and not in the daemon.
 | File | Role |
 |---|---|
 | `textlink.py` | Pure stdlib codec: `encode`, `encode_text`, `FrameParser`, `RateLimiter`, `crc16_ccitt_false`. The wire format is specified in [`design/specs/textlink-wire-protocol.md`](../../design/specs/textlink-wire-protocol.md) (status: Draft) |
-| `simulated_board.py` | Scripted byte streams (clean, split UTF-8, garbage, truncation, bad CRC, oversize, replay, hostile text, heartbeats, reboot, stall) and `serve_pty()` |
+| `simulated_board.py` | Scripted byte streams (clean, split UTF-8, garbage, truncation, bad CRC, oversize, repeated frame, hostile text, heartbeats, reboot, stall) and `serve_pty()` |
 | `host_reader.py` | Reads a serial device, a pty or a recorded file; prints one JSON line per accepted text |
 | `board/maixpy_send.py` | The MaixPy script that would run on the board. Untested on hardware |
 
@@ -75,9 +75,11 @@ stream replays with `host_reader.py --replay FILE`. There is no Windows pty; use
 
 ## Wiring a real board (untested)
 
-The MaixCAM2's USB port is a USB *function* port. It is **not** a serial bridge, so a PC
-does not see a serial device just by plugging it in. Use a **USB-to-UART adapter on the
-board's UART pins**:
+Per Sipeed support (2026-11-09 email, not reproducible from this repository) the MaixCAM2's
+USB port is a USB *function* port and **not** a serial bridge. According to the MaixPy
+`README_MaixCAM2.md` the board appears on a PC as a USB *network* adapter, not as a serial
+device, so a PC does not see a serial port just by plugging it in. Use a **USB-to-UART
+adapter on the board's UART pins**:
 
 | Board | Adapter |
 |---|---|
@@ -98,13 +100,24 @@ Recheck both against your board's firmware version, as nothing here was run on o
 * **Text from a wire is untrusted.** Anything on that wire may be wrong, malformed or
   hostile; a CRC detects accidents, not an adversary, and the link has no
   authentication. The parser refuses control characters (so a newline cannot press
-  Enter and an ESC cannot start a terminal escape sequence), line separators and
-  bidirectional controls, and accepts only strict UTF-8. That is a minimum, not a
-  guarantee.
+  Enter and an ESC cannot start a terminal escape sequence), line separators, every
+  Unicode format character (zero-width space, word joiner, BOM, tag characters,
+  bidirectional controls; ZWNJ and ZWJ are allowed only beside a letter, as Persian needs
+  them), noncharacters, the replacement character and the invisible fillers, text with no
+  visible content, and text longer than 512 bytes after NFC, and accepts only strict
+  UTF-8. That is a minimum, not a guarantee.
+* **Not handled: mixed-script and homoglyph text.** A Cyrillic letter inside a Latin word
+  passes every rule above. A consumer that types the text must apply its own confusable
+  check.
+* **Repeats are delivered, not dropped.** The reader counts gaps (`seq_gaps`) and exact
+  immediate repeats (`seq_repeats`) and drops nothing. The receiver cannot tell a
+  retransmission from a repeated utterance ("yes", "yes"), so replay protection is out of
+  scope. The board script increments SEQ per frame sent.
 * **This example never types the text.** The reader prints JSON lines and nothing else:
   no keystroke injection, no `yazses` import, no network socket. Anything you build on
   top must treat the text as untrusted input and keep its own consent and rate limits.
 * The rate limiter drops excess frames instead of queueing them, so a stuck or
-  malicious sender cannot build up a backlog that is released later.
+  malicious sender cannot build up a backlog that is released later. `--rate` must be a
+  finite number above zero.
 * YazSes is offline by design; this link keeps that property (a local wire, no network),
   but the board's own software and model downloads are outside this repository.
