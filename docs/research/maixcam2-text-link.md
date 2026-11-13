@@ -22,9 +22,11 @@ studied is whether such a board could send the **text it recognised**, or a simp
 trigger, to a computer running YazSes over a wired serial connection. The speech
 recognition would happen on the board; the computer would receive plain text.
 
-The files that exist are a written description of the message format and a small
-reference reader that checks a stream of bytes and **prints** what it accepts.
-They run on any computer with no board attached, using made-up test data.
+The files that exist are a written description of the message format, a reference
+reader that prints accepted text, a simulated board, an untested board-side sender,
+and tests. The reader prints only **text** messages; it counts and drops trigger and
+ping messages and never acts on them. Everything except the board-side sender runs on
+any computer with no board attached, using made-up test data.
 
 ## The example never types anything
 
@@ -51,7 +53,7 @@ reviewable before it is typed. None of that exists today.
 | Whether recognition itself works with the board's network turned off, and whether anything is fetched later | **Not measured, not known.** The vendor says Whisper runs locally but did not separate setup, activation and download from recognition |
 | The board's USB cable shows up on the computer as a USB **network** adapter, not a serial port | Verified, same README |
 | Speed, accuracy, wiring behaviour, how well it works in practice | **Not measured.** No board has been used |
-| Whether anyone wants this | **No evidence.** Nobody has asked for it |
+| Whether anyone wants this | Open question; see the research issue described at the end of this page |
 
 Please do not describe this as "offline", "working" or "supported" anywhere until
 the unknown rows above have been measured on a named board.

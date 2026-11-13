@@ -1,7 +1,8 @@
 # MaixCAM2 text link (research example)
 
 A device-free reference for one question: could a [Sipeed MaixCAM2](https://wiki.sipeed.com/)
-board, running Whisper-base on-device and offline, send a recognised text string to a
+board, running Whisper-base on-device (offline after the one-time online setup, which is
+unmeasured), send a recognised text string to a
 desktop over a wired UART?
 
 This folder is the **wire format, a simulated board and a host reader**. It is an
@@ -84,7 +85,8 @@ board's UART pins**:
 | UART4 RX (pin A22) | TX (optional: this link is one-way, board to host) |
 | GND | GND |
 
-Use 3.3 V logic levels, 115200 baud, 8N1. Use UART4 (`/dev/ttyS4`); UART0 is the
+Check the logic level of your board revision. Sipeed documents 3.3 V for MaixCAM and
+does not state it for MaixCAM2. The adapter must match it. Use 115200 baud, 8N1. Use UART4 (`/dev/ttyS4`); UART0 is the
 system terminal and log port. Pin and device names are from the
 [Sipeed UART page](https://wiki.sipeed.com/maixpy/doc/en/peripheral/uart.html); the
 Whisper usage is from the

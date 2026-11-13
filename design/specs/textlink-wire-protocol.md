@@ -6,7 +6,7 @@
 | **Status** | **Draft**. **Unverified on hardware**: no board has ever sent a frame; everything below is exercised only by a software simulator on a PC |
 | **Date** | 2026-11-13 |
 | **Module** | none in `src/yazses/`. Reference code: `examples/maixcam2-text-link/textlink.py` (codec), `simulated_board.py`, `host_reader.py`, `board/maixpy_send.py` |
-| **Related** | [ADR-030](../adr/adr-030-agent-era-direction.md) (new capabilities are frozen, which is why this is an example and not a feature), ADR-011 (offline-only) |
+| **Related** | [ADR-030](../adr/adr-030-agent-era-direction.md) (new capabilities are frozen, which is why this is an example and not a feature), ADR-011 (offline by default) |
 
 ## Purpose and scope
 
@@ -23,8 +23,9 @@ Key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 ## Physical layer
 
 Asynchronous serial, **115200 baud, 8 data bits, no parity, 1 stop bit (8N1)**, no flow
-control, one direction (board to host). Logic levels are the adapter's concern (3.3 V
-on the MaixCAM2 pins per Sipeed's documentation, unverified here). A conforming sender
+control, one direction (board to host). Logic levels: check the logic level of your board
+revision. Sipeed documents 3.3 V for MaixCAM and does not state it for MaixCAM2. The
+adapter must match it. A conforming sender
 MUST NOT use the board's system console UART for this link.
 
 ## Frame layout

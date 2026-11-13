@@ -19,8 +19,9 @@ Sources (the only MaixPy APIs used here are the ones these pages show):
 
 Wiring: UART4 = ``/dev/ttyS4``, TX = pin A21, RX = pin A22. **Never use UART0**
 (``/dev/ttyS0``): the wiki lists it as the system terminal and log port. A USB-to-UART
-adapter (3.3 V logic) goes between those pins and the PC; connect board TX to adapter RX,
-and the grounds together. The board's USB-C port is a USB *function* port and is not a
+adapter goes between those pins and the PC; connect board TX to adapter RX, and the
+grounds together. Check the logic level of your board revision: Sipeed documents 3.3 V
+for MaixCAM and does not state it for MaixCAM2. The adapter must match it. The board's USB-C port is a USB *function* port and is not a
 serial bridge. The wire format is ``design/specs/textlink-wire-protocol.md`` in the YazSes
 repository; the encoder below is a minimal inline copy of ``textlink.py``.
 
