@@ -39,7 +39,7 @@ a serial port path from a private machine, a photograph or any personal detail i
 | Bluetooth adapter (model only) | «fill» |
 | Power during sessions | «fill: laptop on battery / on mains; headset battery state» |
 | YazSes version and commit | «fill: `yazses --version` line and `git rev-parse --short HEAD`» |
-| Open ThinkGear hardening issues at that commit | «fill: state of #828, #829, #830, #831» |
+| Safety code present at that commit | «fill: confirm #828, #829 and #830 are contained (branch `feat/thinkgear-parity-830` at `2c5480d0`, its merge, or a release listing all three); state of #831» |
 | Frozen `[biosignal]` section | «fill: paste it verbatim» |
 | `mains_hz` | «fill» |
 | Calibration profile age at each scored session | «fill: from `yazses biosignal profile`» |
@@ -98,7 +98,8 @@ From `yazses biosignal check-source thinkgear:<port> --seconds 30` (and its `--j
 | Source of evidence | Count | Over what duration | Command |
 |---|---|---|---|
 | `check-source` `no_stall` failures | «fill» | «fill» | runbook 5.2 |
-| `Events HELD` lines in the monitor logs | «fill» | «fill» | `grep -c "Events HELD" <log>` |
+| Stream-integrity gate closures in the monitor logs | «fill» | «fill» | `grep -c "Events HELD: the stream-integrity" <log>` |
+| Source-health refusals by reason code in the monitor logs | «fill: count per code, e.g. no_contact, corrupt_packet, contact_stale, transport_stalled» | «fill» | `grep -o "Source health: events HELD ([a-z_]*" <log> \| sort \| uniq -c` |
 | Runs that ended with "stopped streaming" or "not available" | «fill» | «fill» | read the end line of each log |
 
 ### 3.5 Contact quality, as time fractions
@@ -109,7 +110,7 @@ There are two different contact signals. Report them separately, and never merge
 |---|---|---|---|
 | Headset `POOR_SIGNAL` reports, worn | zero / 1–199 / 200 / 201–255 | «fill: count in each bin, and each count over the total» | `tally.py` counts. The reports come about once a second, so a share of reports only **approximates** a share of time. |
 | Headset `POOR_SIGNAL` reports, not worn | same | «fill» | This is the falsification check. If removing the headset does not move reports away from zero, contact health is unobservable, which is a stop condition. |
-| Waveform quality gate, per field-test phase | usable / degraded / excluded seconds | «fill: `usable_s`, `degraded_s`, `excluded_s` and `quality_fraction` from each JSON» | Computed by YazSes from the waveform, not by the headset. On the commit tested it ignores `POOR_SIGNAL` (#829). |
+| YazSes gates combined, per field-test phase | usable / degraded / excluded seconds | «fill: `usable_s`, `degraded_s`, `excluded_s` and `quality_fraction` from each JSON» | With #828 to #830, the excluded time covers the waveform gate, the stream-integrity gate and the ThinkGear source-health veto together. The JSON does not split them by cause. |
 
 ### 3.6 Provocations (runbook Stage D)
 
@@ -187,9 +188,9 @@ How to read the interval:
 | Activities during the hour, in words | «fill» | session sheet |
 | Deliberate double blinks during the hour | «fill: should be none; if any, how many, and how they were excluded» | session sheet |
 | False triggers `k` | «fill» | the `double_blink` row of `Detections:` (**not** the `Measured:` rate, which includes single blinks) |
-| Usable exposure `h` | «fill: minutes from the `Measured: … over N min` line, and the same in hours» | ungated ledger time. The waveform gate and the integrity gate remove time from it; `POOR_SIGNAL` does not (#829). |
+| Usable exposure `h` | «fill: minutes from the `Measured: … over N min` line, and the same in hours» | ungated ledger time. The waveform gate, the integrity gate and the source-health veto all remove time from it. |
 | Wall-clock duration | «fill» | log start and end |
-| `Events HELD` lines | «fill» | `grep -c` |
+| Gate closures and source-health refusals | «fill: stream-gate count; health count per reason code; the `dropped` number on the last status line» | the greps in runbook Stage G |
 | Phantoms per usable hour | «fill: k over h» | arithmetic |
 | One-sided 95% upper bound, exact Poisson | «fill» | the command below |
 
@@ -228,8 +229,7 @@ assumed activity mix, not data: quote it only beside the per-phase rows, if at a
 
 ## 7. Safety: stuck-mic count and the stress subset
 
-**Live activation status:** «fill: one of `run on commit …, after #829 merged`, or `not exercised:
-blocked on #829`».
+**Live activation status:** «fill: one of `run on commit … (contains #828-#830)`, or `not exercised: …` with the reason, e.g. lift-off never produced `Source health: events HELD` in Stage D».
 
 | Stress case (protocol "Stress tests") | Injected on hardware? | Activation from an untrusted window? | Daemon survived? | Notes |
 |---|---|---|---|---|
@@ -259,8 +259,11 @@ removed each).
 
 - «fill: failures, in order of occurrence»
 - **One subject, one unit, one or few configurations.** This is not a population estimate, and it is not ADR-v2-152 A0 (five participants, two configurations).
-- **No contact-health veto on the commit tested** (#828, #829): `POOR_SIGNAL` was recorded but did not gate events.
-- **The field-test had no integrity guard** (#830): its usable exposure was not reduced by stream-integrity faults.
+- **Unmeasured health thresholds.** The ADR-v2-155 constants (3.0 s contact freshness, two zero reports plus 1.0 s clean signal to rearm) are engineering choices, checked only on fake serial traces before this test.
+- **Misses after a reconnect.** After a contact fault the detector resets, and a double blink in the first few seconds can be missed (CHANGELOG #829: 3 s after was rejected, 5 s after was accepted in the synthetic trace). Count such misses here rather than hiding them.
+- **One known gate difference.** After a silence longer than the 1.5 s watchdog, the daemon resets its detectors; `monitor` and `field-test` do not.
+- **`calibrate` is not watched by the contact veto** (it does not use `source_gates`). Contact was checked by hand just before each calibration.
+- **No `check-source` health summary** (#831). The packet and contact counts come from the local counter script.
 - **Lost samples are unknowable:** ThinkGear has no sequence numbers or sensor timestamps.
 - **The µV scale is nominal**, with no per-headset gain calibration, and the spec has no `uv_scale` option.
 - **Cue latency includes reaction time.** It is not detector latency.

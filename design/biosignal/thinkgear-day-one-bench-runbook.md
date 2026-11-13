@@ -4,10 +4,10 @@
 |---|---|
 | **Status** | Proposed runbook. No physical unit has been paired, worn or measured. Every Bluetooth and serial step below is a hypothesis to check on the real unit. |
 | **Date** | 2026-11-13 |
-| **Code baseline** | `main` at `4a83e484`, `yazses 2.51.0` |
+| **Code baseline** | `feat/thinkgear-parity-830` at `2c5480d0` (`yazses 2.51.0`). It is stacked on `feat/thinkgear-gate-829` (`4660c77b`) and `feat/thinkgear-health-828` (`36920b3e`), on top of `main` at `4a83e484`. **The device test requires this code, or a release whose CHANGELOG lists #828, #829 and #830** (section 2). |
 | **Hardware study** | [#832](https://github.com/MSKazemi/yazses/issues/832) (BIO-TG-05). Claims decision: [#833](https://github.com/MSKazemi/yazses/issues/833). Epic: [#826](https://github.com/MSKazemi/yazses/issues/826). |
 | **Canonical method** | [Biosignal validation protocol](../specs/biosignal-validation-protocol.md). This runbook only sequences it for one ThinkGear unit. Where they disagree, the protocol wins. This runbook does not amend it. |
-| **Safety contract** | [ADR-v2-155](../adr/adr-v2-155-thinkgear-transport-safety.md) (Proposed), [qualification spec](../specs/thinkgear-hardware-qualification.md) section 6, [ADR-v2-152](../adr/adr-v2-152-biosignal-artifact-switches.md) kill criteria |
+| **Safety contract** | [ADR-v2-155](../adr/adr-v2-155-thinkgear-transport-safety.md) (Accepted 2026-11-13, G0 #827), [qualification spec](../specs/thinkgear-hardware-qualification.md) section 6, [ADR-v2-152](../adr/adr-v2-152-biosignal-artifact-switches.md) kill criteria |
 | **Report** | Fill in [the first-device report template](thinkgear-first-device-report-template.md) |
 | **Roadmap** | [First-device roadmap](2026-11-03-first-device-roadmap.md), gate G3 |
 
@@ -27,40 +27,50 @@ The test has one subject (the maintainer). It is an engineering feasibility pilo
 which require at least five participants on two configurations. The report is published whatever
 the result: good, bad, blocked or inconclusive.
 
-## 1. The state of `main` that shapes this day (checked 2026-11-13)
+## 1. The code this test needs, and what it still lacks (checked 2026-11-13 at `2c5480d0`)
 
-Three parts of the ADR-v2-155 hardening are still open on `main`. They change what a day-one run
-can show:
+The ADR-v2-155 hardening is implemented on three stacked local branches. **Do not run Stages C to H
+on code without them.** Without them, a headset reporting "no skin contact" is not vetoed, and
+`field-test` scores time the daemon would refuse.
 
-| Open item | What it means today | Observed how |
+| Item | State at `2c5480d0` | Observed how |
 |---|---|---|
-| [#828](https://github.com/MSKazemi/yazses/issues/828) / [#829](https://github.com/MSKazemi/yazses/issues/829): contact-health veto | `POOR_SIGNAL` (code `0x02`) is parsed and kept as `ThinkGearSource.poor_signal`, but **no gate acts on it**. A headset reporting `200` (no skin contact) is gated only if the waveform also looks bad. | Code read: `src/yazses/biosignal/thinkgear.py` `read()`. Emulated: a byte stream reporting `POOR_SIGNAL=200` for 5 s on a pseudo-terminal still showed `quality good` in `monitor` during that window. |
-| [#830](https://github.com/MSKazemi/yazses/issues/830): field-test parity | `field-test` feeds the raw source directly. `monitor` and the daemon wrap it in `IntegrityGuard` / `IntegrityGate`, but `field-test` does not, so a field-test's usable exposure is not reduced by stream-integrity faults. | Code read: `run_field_test` in `src/yazses/biosignal/cli_impl.py`. |
-| [#831](https://github.com/MSKazemi/yazses/issues/831): ThinkGear diagnostics | No `yazses` command prints `POOR_SIGNAL` values or the parser's rejected-packet counters. `check-source` passed (17 pass, 1 skip, 0 fail) on an emulated stream that reported no contact for 7 of its 10 s. | Emulated run, section 5. |
+| [#828](https://github.com/MSKazemi/yazses/issues/828): source-health state | Every serial read gets a verdict. It is untrusted on any nonzero `POOR_SIGNAL` (even if a later report in the same read is 0), a rejected packet or skipped framing byte, a contact report older than 3.0 s, or a clock that goes back. Recovery needs two separate zero reports and 1.0 s of clean raw samples, and the read that completes it is still refused. | CHANGELOG `[Unreleased]`, `src/yazses/biosignal/thinkgear_health.py` |
+| [#829](https://github.com/MSKazemi/yazses/issues/829): the veto is applied | The daemon admits a blink only when the block's health verdict, the stream-integrity gate and the signal-quality gate all allow it. | Emulated: `POOR_SIGNAL=200` from stream time 14 s to 21 s, with a scripted double blink at 17 s. `monitor` printed `Source health: events HELD (no_contact: the headset reports no skin contact)` and dropped the blink as `dropped (source health: no_contact (the headset reports no skin contact))`. It went back through `rearming` to `trusted` after contact returned, and accepted a later double blink. |
+| [#830](https://github.com/MSKazemi/yazses/issues/830): one guard for daemon, monitor and field-test | `monitor` and `field-test` use the daemon's constructor (`biosignal/source_gates.py`). `field-test` leaves refused blocks out of usable exposure and voids the cues they overlap. | Emulated: a `field-test` whose stream reported no contact for 10 of its first 45 s scored `rest` with `usable_s` 29, `excluded_s` 11 and `quality_fraction` 0.725. |
+| [#831](https://github.com/MSKazemi/yazses/issues/831): ThinkGear diagnostics | **Still open.** `check-source` has no ThinkGear health summary: it passed (17 pass, 1 skip, 0 fail) on an emulated stream that reported no contact for 7 of its 10 s. No command prints the parser's rejected-packet counters, or `POOR_SIGNAL` counts and fractions. | Emulated run, section 5. |
 
-Consequences for today:
+The CHANGELOG records two behaviours to watch for on hardware:
 
-- Day one is **observation only**: Stages A to G. Nothing is typed or acted on.
-- Stage H (live activation) waits for #829. The reason: a lifted electrode would not stop a live switch, unless the waveform happens to look bad as well.
-- Contact quality is counted by a short local script (section 5.1) until #831 adds a command for it.
+- **A missed double blink right after a reconnect.** The detector resets on a fault, and its new baseline can learn from the next blink. In the synthetic trace, a pair 3 s after a contact loss was rejected and a pair 5 s after was accepted. Report misses near a reconnect as such.
+- **One remaining difference after a long silence.** When the stream goes silent for longer than the 1.5 s watchdog, the daemon also resets its detectors, while `monitor` and `field-test` rely only on the stream gate's stall check.
+
+Consequences for the day:
+
+- Stages A to G are **observation only**. Nothing is typed or acted on.
+- Stage H (live activation) is allowed on this code after Stages C and D have shown the contact signal working on the real unit.
+- The packet and contact **counts** still come from a short local script (section 5.1), until #831 adds a command for them. `monitor`'s `Source health:` line shows **when** trust changes, not how much time each state took.
 
 ## 2. Before the unit arrives
 
-1. Update a checkout of `main` and install the serial extra into its environment:
+1. Get the code that contains #828 to #830, and install the serial extra into its environment.
+
+   Until those branches merge, check out the branch that contains them (here, `docs/thinkgear-first-device-runbook-post-830`, or `feat/thinkgear-parity-830` itself):
 
    ```sh
-   git pull --ff-only
+   git switch feat/thinkgear-parity-830
+   git merge-base --is-ancestor 2c5480d0 HEAD && echo "contains #828-#830"
    uv sync --extra emg
    uv run --extra emg yazses --version
    ```
 
-   Write down the exact version line and `git rev-parse --short HEAD`.
-   An installed copy works too: install `yazses[emg]` as in
-   [the switch guide](../../docs/how-to/biosignal-switch.md#install-what-it-needs), and drop the `uv run --extra emg` prefix from every command below.
+   After a merge, use `main`, or a release, instead. A squash merge changes the commit ids, so in that case check that the CHANGELOG entries for #828, #829 and #830 are present, rather than running `merge-base`. Write down the exact version line and `git rev-parse --short HEAD`.
+
+   An installed copy works too: a release that contains all three, installed as `yazses[emg]` per [the switch guide](../../docs/how-to/biosignal-switch.md#install-what-it-needs). Then drop the `uv run --extra emg` prefix from every command below.
 2. Re-check the flags. Run `uv run --extra emg yazses biosignal <command> --help` for each command in section 14. A flag in this runbook that `--help` no longer shows is a finding: record it, and do not guess a replacement.
 3. Create a private working folder **outside the repository**, for example `~/tg-pilot/`. Make it owner-only (`chmod 700`). Everything this runbook writes goes there. Nothing in it is committed.
 4. Copy the session sheet (section 11) into that folder, and fill in the fields you know before the unit arrives.
-5. Set the configuration (section 4.3). Keep `enabled = false` for the whole of day one.
+5. Set the configuration (section 4.3). Keep `enabled = false` until Stage H.
 
 ## 3. Stage A: Bluetooth discovery and pairing (every step is a hypothesis)
 
@@ -146,9 +156,11 @@ Run these in order. **Only one program may hold the port at a time**, so never r
 
 ### 5.1 Contact-report and packet tally (stopgap for #831)
 
-No `yazses` command reports `POOR_SIGNAL` or parser rejections today, so this script uses the
-public parser to count them. It prints counts only: no samples, no amplitudes and no timestamps.
-Save it as `~/tg-pilot/tally.py`:
+`monitor` now prints a `Source health:` line each time the verdict changes (Stage D). But no
+`yazses` command **counts** `POOR_SIGNAL` reports or parser rejections, and `check-source` does not
+look at contact at all. So the report's packet reject rate and contact fractions still come from
+this script, which uses the public parser. It prints counts only: no samples, no amplitudes and no
+timestamps. Save it as `~/tg-pilot/tally.py`:
 
 ```python
 import sys
@@ -197,8 +209,9 @@ uv run --extra emg python ~/tg-pilot/tally.py /dev/rfcomm0 60      # headset lyi
 
 The script was checked against a pseudo-terminal fed synthetic ThinkGear packets (512 raw/s, one
 `POOR_SIGNAL` per second, `200` for 5 of 20 s). It printed `raw_samples_per_s=511.9` and
-`poor_signal_reports zero=15 1_to_199=0 200_no_contact=5 201_to_255=0 total=20`. That shows the
-script counts what it is fed. It says nothing about a real unit.
+`poor_signal_reports zero=15 1_to_199=0 200_no_contact=5 201_to_255=0 total=20`, on both
+`4a83e484` and `2c5480d0`. That shows the script counts what it is fed. It says nothing about a
+real unit.
 
 Record all four lines for both runs. The not-worn run is the falsification check for the contact
 signal. If it does not report `200` (or at least nonzero) most of the time, the headset's contact
@@ -222,7 +235,8 @@ summary line and every clause that is not `PASS`, especially `no_stall` (the lon
 day per protocol precondition 2: record it as the result.
 
 `check-source` passing proves the stream keeps the block contract for 30 s. It does **not** prove
-contact (section 1) or a usable gesture.
+contact or a usable gesture: at `2c5480d0` it still passes while the headset reports no contact
+(section 1, #831).
 
 ## 6. Stage D: watch it, then provoke it (observation only)
 
@@ -240,7 +254,16 @@ During the five minutes, follow a fixed script and note on the sheet the wall-cl
 
 What to record from the log:
 
-- Whether each lift-off produced `Signal quality: bad` or an `Events HELD: the stream-integrity gate is closed` line. Today it may produce neither, because of the #829 gap. **Any `double_blink` line printed while an electrode was lifted is a safety finding.**
+- The `Source health:` lines around each lift-off. On the emulator, a contact loss produced this sequence:
+  1. `Source health: events HELD (no_contact: the headset reports no skin contact)`, and the status line showed `quality bad`.
+  2. A double blink inside the window was listed as `dropped (source health: no_contact (the headset reports no skin contact))`.
+  3. After contact returned: `Source health: events HELD (rearming: recovering: waiting for fresh contact reports and clean signal)`.
+  4. Then `Source health: trusted`.
+
+  A corrupt packet produced `events HELD (corrupt_packet: corrupt or lost packets; the number of lost samples is unknown)` and recovered the same way. Record which reason codes the **real** unit produced, and how long each lasted.
+- **Any `double_blink` line printed while an electrode was lifted is a safety finding.** A lift-off that never produces a `Source health: events HELD` line means the contact signal is not observable, which is a stop condition (section 12).
+- Any `Events HELD: the stream-integrity gate is closed` lines (stalls, rate problems).
+- Misses right after a reseat, which the CHANGELOG predicts (section 1).
 - What happened on power loss. Did the command end with `Stopped (...)` and a reason? Did the stream come back without restarting the command? (On the emulator, a vanished port ended `field-test` with `stopped streaming ([Errno 5] Input/output error)`.)
 - The `Detections:` table and the `Measured:` line at the end.
 
@@ -257,8 +280,13 @@ uv run --extra emg yazses biosignal profile
 Record three things (gate A3 of ADR-v2-152):
 
 - the wall-clock time from starting `calibrate` to a written profile, electrode seating included;
-- the number of attempts (on the emulator, the blink step gave up after 3 failed tries and exited 1);
+- the number of attempts (on the emulator, at both `4a83e484` and `2c5480d0`, the blink step gave up after 3 failed tries and exited 1);
 - success or failure.
+
+`calibrate` does not go through the `source_gates` constructor at `2c5480d0` (code read): the
+ThinkGear contact veto does not watch it. So run the worn `tally.py` check (section 5.1) or a short
+`monitor` immediately before, and make sure `Source health: trusted` is showing. Do not touch the
+electrode during calibration. Redo it if the electrode moved.
 
 `profile` prints the board, the channels and the age, never thresholds. A failed calibration is a
 result in its own right, so record it.
@@ -272,18 +300,22 @@ session:
 uv run --extra emg yazses biosignal field-test --out ~/tg-pilot/ft-<date>-s1.json
 ```
 
-- **Use the standard length (`--minutes` omitted), or `--minutes 8` up to `--minutes 120`.** On `4a83e484`, `--minutes 1.5` and `--minutes 5` printed `This build cannot change the length of the test; running the standard one.` and fell back to the module default protocol. That default cues **all three** gestures, including the switches you turned off. Scaling only works from about 8 minutes upward. Whatever happens, record the phase list the run actually printed.
+- **Use the standard length (`--minutes` omitted), or a value from 6 up to 120.**
+  - **Short values fall back.** On both `4a83e484` and `2c5480d0`, `--minutes 1.5` (and `5`, and anything up to 5.3) printed `This build cannot change the length of the test; running the standard one.`, then ran `Phase 1/8`. That is the module default protocol, which cues **all three** gestures, including the switches you turned off.
+  - **Why the threshold sits there.** The cause is the gesture phase: 8 cues with a 3 s window after a 5 s lead-in need at least 29 s, which a total under about 5.35 minutes cannot give it.
+  - **Valid values.** With only the double blink enabled, the standard run has 6 phases, and `--minutes 7`, `8` and `60` scale correctly.
+  - Whatever happens, record the phase list the run actually printed.
 - Every session scores at most **8** double-blink cues, whatever `--minutes` says: the cue count is fixed and no flag changes it. Reaching the 16 scored cues that ADR-v2-152's 80% floor needs (with no miss) takes at least two complete sessions. Plan for more.
 - Never overwrite a file: `--out` refuses an existing path. Use one file per session.
 - Repeat on a different day and after reseating the electrode. A reseat with a fresh calibration counts as a **new configuration**, so keep its files apart.
 - Do not change thresholds, the budget or the mapping between scored sessions of one round (see the protocol's "Tuning rounds").
-- Because of the #830 gap, the usable exposure in these files is not reduced by stream-integrity faults. Section 5 and Stage D are the cross-check, and the report states the gap.
+- With #830 in place, the blocks that the stream guard or the source health refuses are excluded from usable exposure (`excluded_s` in each phase), and the cues they overlap are voided. A session with a lot of excluded time is a stream finding, not a reason to drop the file.
 
 ## 9. Stage G: one hour of everyday use (the committed false-trigger measure)
 
 The protocol's no-intent phases are prompted activities. The committed measure is ordinary work.
-`monitor` runs the same pipeline with the integrity gate and acts on nothing, so it measures this
-without risk:
+`monitor` runs the daemon's guard and gate stack (stream integrity plus ThinkGear source health)
+and acts on nothing, so it measures this without risk:
 
 ```sh
 uv run --extra emg yazses biosignal monitor --source thinkgear:/dev/rfcomm0 --blink --no-emg --no-clench --seconds 3600 --interval 60 | tee ~/tg-pilot/everyday-<date>.log
@@ -293,16 +325,25 @@ Rules:
 
 - During this hour, make **no deliberate double blinks**. Every `double_blink` detection is then, by construction, a false trigger. Do ordinary desk work (typing, reading, calls, drinking, looking around), and write on the sheet what was actually done.
 - **The false-trigger count** is the `double_blink` row of the `Detections:` table, **not** the `Measured: … activations/h` line. That line counts every activating kind in the ledger, and single `blink` events are among them.
-- **The exposure** is the duration at the end of the `Measured:` line (`over N min`). It is the ledger's ungated time: the waveform quality gate and the stream-integrity gate both remove time from it, but `POOR_SIGNAL` does not (the #829 gap). It prints in whole minutes from 90 s up to two hours. Also record the wall-clock duration and the number of `Events HELD` lines (`grep -c "Events HELD" everyday-<date>.log`).
+- **The exposure** is the duration at the end of the `Measured:` line (`over N min`). It is the ledger's ungated time: anything the quality gate, the stream-integrity gate or the source-health veto refused is removed from it. On the emulator, a 34 s run with 7 s of no contact reported `over 21 s`, so the 2 s warm-up and the rearm time were also excluded. It prints in whole minutes from 90 s up to two hours.
+- Also record:
+  - the wall-clock duration;
+  - the number of stream-gate closures: `grep -c "Events HELD: the stream-integrity" everyday-<date>.log`;
+  - the source-health refusals by reason: `grep -o "Source health: events HELD ([a-z_]*" everyday-<date>.log | sort | uniq -c`;
+  - the refused events: the count of `dropped (` entries in the `recent:` lines does not work, because those lines repeat. Use the `dropped` number on the last status line instead.
 - The headline bound is the exact Poisson one, computed as in the report template. One hour with zero false triggers bounds the rate at about 3 per hour (exactly 2.9957 events / 1 h), not at zero.
 
-## 10. Stage H: live activation and the stress subset (held until #829 merges)
+## 10. Stage H: live activation and the stress subset
 
-Do not set `enabled = true` until the contact veto (#829) is merged and the code revision is
-recorded. If the six-week window closes first, the report says **live safety not exercised:
-blocked on #829**. A gap reported honestly is better than a live run without the veto.
+**Preconditions:**
 
-When it is allowed:
+- The running code contains #828, #829 and #830 (section 2), and its revision is recorded.
+- Stage D showed `Source health: events HELD` on a real lift-off, and no `double_blink` was accepted while an electrode was off.
+
+If either fails, do not enable the switch. The report then says **live safety not exercised**,
+with the reason. A gap reported honestly is better than a live run without a working veto.
+
+When the preconditions hold:
 
 1. Keep a hardware keyboard and the normal hotkey in reach. Point focus at a scratch text editor, because a double blink maps to `undo` by default (`intent_map = { double_blink = "undo" }`).
 2. Set `enabled = true` (and `[handsfree_safety]` if the global pause is to be tested), then run `uv run --extra emg yazses restart`.
@@ -316,6 +357,8 @@ When it is allowed:
    - laptop suspend and resume.
 
    For each case record two things: did any action fire from an untrusted window, and did the daemon survive?
+
+   For the power-off and silence cases, note that the daemon also resets its detectors after its 1.5 s watchdog, which `monitor` and `field-test` do not (section 1). This runbook has not checked what `yazses status` prints about source health, so record whatever it shows rather than expecting `monitor`'s wording.
 4. Count **stuck-mic events** as the protocol defines them. With the default mapping a double blink issues a one-shot intent and opens no hold, so this configuration cannot exercise the hold path much. The report must say that a zero here is weak evidence.
 5. Afterwards: `uv run --extra emg yazses biosignal report` shows the live ledger. Record its line.
 
@@ -365,10 +408,13 @@ dated ADR amendment, not an edit to this runbook.
 
 ## 14. Commands verified for this runbook
 
-Each command below was run with `--help` on 2026-11-13 at `4a83e484` (exit 0). Only the flags it
-printed are used above. `check-source`, `doctor`, `monitor`, `calibrate` and `field-test` were also
-run against a pseudo-terminal fed synthetic ThinkGear packets. That checked their parsing and output
-format only, not their behaviour on hardware.
+Each command below was run with `--help` on 2026-11-13, first at `4a83e484` and again at `2c5480d0`
+(exit 0 both times, with the same flags). Only the flags it printed are used above.
+
+`check-source`, `doctor`, `monitor`, `calibrate`, `profile` and `field-test` were also run at
+`2c5480d0` against a pseudo-terminal fed synthetic ThinkGear packets: a no-contact window, a corrupt
+packet and scripted double blinks. This checked their parsing, gating and output format only, not
+their behaviour on hardware.
 
 | Command | Flags it showed |
 |---|---|
@@ -385,16 +431,23 @@ format only, not their behaviour on hardware.
 
 ### Gaps the protocol needs and the CLI does not have
 
-These are findings to carry into the report and into #831 and #833. None of them is fixed here.
+These are findings to carry into the report and into #831 and #833. None of them is fixed in this
+document. Each was first found at `4a83e484` and re-checked at `2c5480d0`.
 
-1. **No command reports `POOR_SIGNAL` or parser rejections** (section 5.1 works around it).
-2. **`POOR_SIGNAL` does not gate events** (#828, #829).
-3. **`field-test` has no integrity guard** (#830).
-4. **`field-test --minutes` below about 8 silently falls back** to the full default protocol, including cues for switches that are off.
-5. **The cue count is fixed at 8 per gesture phase**, with no CLI option to change it. There is also no protocol-file option, which the protocol already lists as open question 1.
-6. **No CLI merges several field-test JSON files.** `FieldTestAggregate` exists only in Python.
-7. **No CLI gives an exact Poisson bound on a hand count.** The exact limit is the private `yazses.biosignal.evaluate._poisson_upper`. The field-test's own printed bound is the Wilson-Hilferty approximation at z = 1.645: 89.1/h for zero events in 120 s, against an exact 89.9/h.
-8. **The `monitor --source` help text lists only `synthetic | file: | brainflow:`.** A `thinkgear:` spec is accepted anyway.
+| # | Finding | At `2c5480d0` |
+|---|---|---|
+| 1 | **`check-source` has no ThinkGear health summary, and no command *counts* `POOR_SIGNAL` reports or parser rejections.** Section 5.1 works around it. | **Holds** (#831). `monitor` now shows *when* health changes, which is part of what was missing. |
+| 2 | **`POOR_SIGNAL` did not gate events** | **Fixed** by #828 and #829. Emulated no-contact window: `events HELD (no_contact …)`, and the blink was dropped. |
+| 3 | **`field-test` had no integrity guard** | **Fixed** by #830. Emulated: refused time landed in `excluded_s`. |
+| 4 | **`field-test --minutes` below about 5.35 silently falls back** to the full default protocol, including cues for switches that are off | **Holds**. `--minutes 1.5` ran `Phase 1/8` with squeeze and jaw-clench rows. The first report put the threshold at "about 8"; the measured boundary is between 5.3 (falls back) and 5.35 (scales). |
+| 5 | **The cue count is fixed at 8 per gesture phase**, with no CLI option and no protocol-file option (protocol open question 1) | **Holds** |
+| 6 | **No CLI merges field-test JSON files** (`FieldTestAggregate` is Python-only), **and no CLI gives an exact Poisson bound** (only the private `evaluate._poisson_upper`). The field-test prints the Wilson-Hilferty approximation at z = 1.645: 89.1/h for zero events in 120 s, against an exact 89.9/h. | **Holds** |
+| 7 | **`monitor`'s `Measured: … activations/h` includes single blinks** (`EventKind.BLINK` is in `ACTIVATING_KINDS`). Read the `double_blink` row instead. | **Holds** |
+| 8a | **The spec has no µV-scale option.** Only `baud` and `name` are accepted, and `uv_scale=` is a `ValueError`. | **Holds** |
+| 8b | **The `monitor --source` help text lists only `synthetic \| file: \| brainflow:`**, though `thinkgear:` works. The same holds for `field-test` and `record`. | **Holds** |
+| 8c | **`emg = true` is the shipped default.** `doctor` lists `detectors: emg, double_blink` for a ThinkGear source. Set `emg = false` (section 4.3). | **Holds** |
+| 8d | **The default `intent_map` sends a double blink as a one-shot `undo`** (`{'double_blink': 'undo'}`) and opens no microphone hold, so a stuck-mic zero is weak evidence here | **Holds** |
+| 9 | **`calibrate` does not use the source-health veto** (it does not go through `source_gates`) | **New at `2c5480d0`** (code read). See Stage E. |
 
 ## 15. References
 
@@ -405,6 +458,7 @@ These are findings to carry into the report and into #831 and #833. None of them
 - Bluetooth SIG, [Serial Port Profile 1.2](https://www.bluetooth.com/specifications/specs/serial-port-profile-1-2/) and [Assigned Numbers](https://www.bluetooth.com/specifications/assigned-numbers/).
 - In this repository: the [validation protocol](../specs/biosignal-validation-protocol.md), [ADR-v2-152](../adr/adr-v2-152-biosignal-artifact-switches.md), [ADR-v2-153](../adr/adr-v2-153-biosignal-false-positive-governor.md), [ADR-v2-155](../adr/adr-v2-155-thinkgear-transport-safety.md), the [qualification spec](../specs/thinkgear-hardware-qualification.md), the [evidence review](../research/2026-11-03-thinkgear-first-device-evidence.md), the [hands-free measurement proposal](../research/2026-11-06-hands-free-measurement-protocol.md) (P2, unintended actions per usable exposure hour), and the [hardware guide](../../docs/how-to/biosignal-hardware.md).
 
-**Verification note:** written from a code reading at `4a83e484`, `--help` output, and runs against an
-emulated byte stream. No physical headset, no Bluetooth pairing and no human session were part of
+**Verification note:** written from a code reading at `4a83e484`, then revised against `2c5480d0`
+(#828 to #830). The evidence is `--help` output at both commits, and runs against an emulated byte
+stream. No physical headset, no Bluetooth pairing and no human session were part of
 writing it.
