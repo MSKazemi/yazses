@@ -4,7 +4,7 @@
 **Owner/decision authority:** project maintainer (architecture, release claims); cloud coder may implement reviewed synthetic-only tasks; a human must run physical device tests  
 **Canonical epic:** [#826](https://github.com/MSKazemi/yazses/issues/826)  
 **Existing delivery milestone:** GitHub **milestone #10** for bounded accessibility/validation delivery. This roadmap defines *phases and gates*, **not** additional GitHub milestones.  
-**Decision/spec:** [ADR-v2-155](../adr/adr-v2-155-thinkgear-transport-safety.md), [implementation contract](../specs/thinkgear-hardware-qualification.md), [evidence review](../research/2026-11-03-thinkgear-first-device-evidence.md), [flowcharts: as built vs proposed, and these gates](thinkgear-flowcharts.md).
+**Decision/spec:** [ADR-v2-155](../adr/adr-v2-155-thinkgear-transport-safety.md), [implementation contract](../specs/thinkgear-hardware-qualification.md), [evidence review](../research/2026-11-03-thinkgear-first-device-evidence.md), [flowcharts of the implementation and these gates](thinkgear-flowcharts.md).
 
 ## Why this workstream, why now
 
