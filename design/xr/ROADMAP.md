@@ -2,6 +2,23 @@
 
 **Status: FUTURE WORK, research only.** No implementation milestone, release version, assigned maintainer, or target date is committed here. The [accepted ADR-030 direction](../adr/adr-030-agent-era-direction.md) remains the active plan.
 
+## Standalone SPECS spatial-review experiment — research only
+
+**Status: standalone external Lens Studio Preview experiment, entered in the Learn AR with SPECS hackathon (public [Devpost project page](https://devpost.com/software/yazses-spatial-review), checked 2026-11-13); no YazSes integration, hardware verification, or release.** This exploration is adjacent to YazSes's existing compose → review → deliberate confirm interaction research. It is not an approved XR feature milestone or an exception to [ADR-030](../adr/adr-030-agent-era-direction.md).
+
+**Working concept:** *YazSes Spatial Review* — a new standalone SPECS Lens Studio experience for a simulated tabletop task. The user places a note beside a work surface, chooses one of two explicitly labelled **simulated transcription** presets, reviews the text, and deliberately confirms, cancels, or resets it. The text must stay positioned relative to the scene as the viewpoint moves. All input is synthetic, with a persistent **"not live speech"** disclosure. No real speech capture, local ASR, YazSes transport, cloud service, external action, gaze recognition, or physical glasses validation is in scope.
+
+**Experimental boundary:** a [separate public technical repository](https://github.com/MSKazemi/yazses-specs-ar) exists with an [Ubuntu-to-Windows implementation roadmap](https://github.com/MSKazemi/yazses-specs-ar/blob/main/ROADMAP.md) and README. It holds the portable TypeScript core and, since 2026-11-09, a Lens Studio project (`lens/YazSesSpatialReview/`). **This note makes no claim about Preview or LEAF results**; those are recorded only in that repository, whose README still carried its 2026-11-08 status when this was checked. Portable TypeScript work on Ubuntu is not Lens validation. A genuine new Lens still requires Windows/macOS Lens Studio, CLAD/MCP, the official Devpost planning skill, and observed Preview testing. Only reviewed technical source and reproducible assets belong in that repo; a Preview prototype itself would not prove physical headset support or offline dictation on glasses.
+
+**Evidence checklist before describing the experiment as working:**
+1. Record actual editor/target versions and that the saved SPECS project opens in Lens Studio Preview.
+2. Demonstrate scene-relative placement, labelled preset drafts, no auto-confirm, intentional confirm/cancel, idempotent repeated input, and reset/recovery.
+3. Record actual Preview observations/Logger and applicable LEAF results, separating **PASS, FAIL, and NOT RUN** from generated code.
+4. Preserve a clean technical source snapshot and truthful limitations; do not publish credentials, account data, private strategy, or copyrighted assets without rights.
+5. Treat subsequent voice integration only as a **new research question**: test demand, supported host APIs, security/egress, consent, and transport assumptions before any ADR decision.
+
+**Possible follow-on, not scheduled:** the evidence may refine this existing XR discovery programme and its [decision register](DECISIONS.md). It does not satisfy any [entry gate](#entry-gate-do-not-start-a-new-capability-wave-by-default) below: documented non-contributor demand, an ADR-030 amendment and decision, privacy/egress review, a bounded delivery milestone under the [milestone policy](../milestone-policy.md), and a realistic test environment. An optional YazSes adapter could be proposed only after all five hold. No change to `src/yazses/`, the feature registry, release channels or `main` is implied.
+
 ## North star
 
 Enable **local, consent-first, multimodal access to supported virtual worlds** without turning YazSes into a virtual world, game automation bot, always-listening assistant, or cloud STT client. A user should be able to compose and review text with voice; later, a user can target an instrumented 3D object via gaze/head ray, propose a bounded action, and see whether it succeeded.
