@@ -85,5 +85,5 @@ and follow the board's own manual. This project has not verified any pin map.
 - Why a proposal like this stops at research for now:
   [how a research idea earns implementation](../roadmap.md#how-a-research-idea-earns-implementation).
 
-If you own a MaixCAM2 and would like to run the measurements, open a research issue
-in the repository. Please use synthetic or non-personal speech for anything you share.
+If you own a MaixCAM2 and would like to run the measurements, comment on
+[research issue #878](https://github.com/MSKazemi/yazses/issues/878). Please use synthetic or non-personal speech for anything you share.
