@@ -6,9 +6,9 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Added — research: a MaixCAM2 text link, recorded as a Proposed ADR and a research note, not a feature
+### Added — research: a MaixCAM2 text link, recorded as an ADR (research record only) and a research note, not a feature
 
-[ADR-v2-156](design/adr/adr-v2-156-maixcam2-text-link.md) (Proposed) records whether a Sipeed MaixCAM2 running Whisper `base` could send recognised text to a desktop over a wired UART: the falsifiable hypothesis, a threat model for text arriving over a wire, the egress statement, exit criteria and the unknowns. `docs/research/maixcam2-text-link.md` is the matching notice: experimental, research only, not part of YazSes. The change also adds a stdlib-only reference codec, simulator and printing reader under `examples/maixcam2-text-link/`, with tests, and a draft wire spec (`design/specs/textlink-wire-protocol.md`). Nothing in `src/` changes and no board has been tested; the ADR-030 breadth freeze applies, so implementation needs a recorded go and a named exception.
+[ADR-v2-156](design/adr/adr-v2-156-maixcam2-text-link.md) (Accepted as a research record only) records whether a Sipeed MaixCAM2 running Whisper `base` could send recognised text to a desktop over a wired UART: the falsifiable hypothesis, a threat model for text arriving over a wire, the egress statement, exit criteria and the unknowns. `docs/research/maixcam2-text-link.md` is the matching notice: experimental, research only, not part of YazSes. The change also adds a stdlib-only reference codec, simulator and printing reader under `examples/maixcam2-text-link/`, with tests, and a draft wire spec (`design/specs/textlink-wire-protocol.md`). Nothing in `src/` changes and no board has been tested; the ADR-030 breadth freeze applies, so implementation needs a recorded go and a named exception.
 
 The MaixCAM2 example now also records the vendor's answer (Sipeed support, 2026-11-13: one-time online setup, then local recognition, stated by the vendor and not measured here), and its board script can record a WAV the way Sipeed's own example does, still untested on a board.
 

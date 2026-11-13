@@ -245,6 +245,6 @@ The v2 programme: interaction layer, cognitive layer, and everything after.
 | [adr-v2-153-biosignal-false-positive-governor](adr-v2-153-biosignal-false-positive-governor.md) | The biosignal false-positive governor: measure a proxy, desensitize first, suspend only on evidence, release in one action | Proposed |
 | [adr-v2-154-eeg-eog-evidence-gates](adr-v2-154-eeg-eog-evidence-gates.md) | EEG/EOG research must pass artifact-origin and real-world safety gates before any activation integration | Proposed — research-only; not an implementation authorization |
 | [adr-v2-155-thinkgear-transport-safety](adr-v2-155-thinkgear-transport-safety.md) | Fail-closed ThinkGear stream health before first physical-device qualification | Proposed |
-| [adr-v2-156-maixcam2-text-link](adr-v2-156-maixcam2-text-link.md) | A wired text link from a MaixCAM2 board: research record, out-of-tree example, no product feature | Proposed |
+| [adr-v2-156-maixcam2-text-link](adr-v2-156-maixcam2-text-link.md) | A wired text link from a MaixCAM2 board: research record, out-of-tree example, no product feature | Accepted as a research record only |
 
 <!-- END GENERATED ADR INDEX -->

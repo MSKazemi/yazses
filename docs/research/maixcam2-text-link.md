@@ -84,7 +84,7 @@ and follow the board's own manual. This project has not verified any pin map.
 - The decision record, with the threat analysis, the unknowns and the conditions
   under which this idea would be dropped:
   [ADR-v2-156](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-v2-156-maixcam2-text-link.md)
-  (status: Proposed).
+  (status: Accepted as a research record only).
 - Why a proposal like this stops at research for now:
   [how a research idea earns implementation](../roadmap.md#how-a-research-idea-earns-implementation).
 

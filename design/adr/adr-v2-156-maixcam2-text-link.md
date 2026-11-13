@@ -1,6 +1,6 @@
 # ADR-v2-156 — A wired text link from a MaixCAM2 board: research record, out-of-tree example, no product feature
 
-**Status:** Proposed (2026-11-13); requires a maintainer decision (see [Decision requested](#decision-requested)) before anything beyond the out-of-tree example exists
+**Status:** Accepted as a research record only (2026-11-13, maintainer decision: Decision requested option 1). No implementation is authorised; anything beyond the out-of-tree example needs a recorded go and a named ADR-030 freeze exception
 **Scope:** Whether a separate board that recognises speech on-device may send **already-recognised text** or a **trigger** to a YazSes desktop over a wired UART. **Not** a new YazSes capability, not a claim that any board works, not an authorisation to change `src/`
 **Related:** [ADR-030](adr-030-agent-era-direction.md) (breadth freeze), [ADR-019](adr-019-egress-inventory-and-escalation.md) (egress inventory), [ADR-021](adr-021-invest-in-error-cost.md) (investment follows evidence), [ADR-v2-148](adr-v2-148-hands-free-composition.md) (one global safety state), [ADR-v2-155](adr-v2-155-thinkgear-transport-safety.md) (the closest precedent: a Proposed ADR for a serial device), [roadmap: how a research idea earns implementation](../../docs/roadmap.md#how-a-research-idea-earns-implementation)
 **Companion artefacts (written alongside this ADR, not inside it):** the normative wire format `design/specs/textlink-wire-protocol.md`; the device-free reference code `examples/maixcam2-text-link/`; the user-facing notice [`docs/research/maixcam2-text-link.md`](../../docs/research/maixcam2-text-link.md)
@@ -51,7 +51,7 @@ H1(c) deliberately has no number. A number here would be invented; the threshold
 
 - The maintainer holds a vendor answer that is time-sensitive in the sense that it is easy to lose; recording it costs one document. **[O]**
 - A *device-free* reference reader and frame codec can be built and tested entirely from synthetic bytes, and prove the parser rejects hostile input, with no hardware and no change to `src/`. **[O]**
-- ADR-030 §3 provides for a Proposed ADR and stops there ("A proposal outside the pillars during the freeze is written down as a *Proposed* ADR or an `evergreen:research` issue and stops there." **[V]** `adr-030-agent-era-direction.md`, §3). The out-of-tree example (Option B) goes one step beyond that. It is offered for the maintainer to accept or delete in Decision requested 1, and removal is one commit.
+- ADR-030 §3 provides for a Proposed ADR and stops there ("A proposal outside the pillars during the freeze is written down as a *Proposed* ADR or an `evergreen:research` issue and stops there." **[V]** `adr-030-agent-era-direction.md`, §3). The out-of-tree example (Option B) goes one step beyond that. The maintainer accepted it on 2026-11-13 (Decision requested 1); removal is one commit.
 
 **Why not now (the case against building it into YazSes):**
 
@@ -61,10 +61,10 @@ H1(c) deliberately has no number. A number here would be invented; the threshold
 - **It adds an untrusted text source to a program that types.** That is the highest-consequence part of the system. A reference reader in `examples/` does not touch it; a product feature would.
 - **The user already has the thing the board provides.** YazSes transcribes locally on the desktop CPU. The marginal user value of moving ASR to a separate board is unestablished. **[O]**
 
-## Decision (proposed)
+## Decision
 
-1. **Record this research question and stop at the roadmap gate.** Status stays Proposed. No `src/` change, no config key, no CLI command, no IPC method, no registry capability, no extra in `pyproject.toml`.
-2. **Ship only an out-of-tree reference example** under `examples/maixcam2-text-link/` (Option B): a pure frame encoder/decoder, a simulated board, a **receive-only** reference reader that **prints** accepted TEXT frames and never types, never calls the injector and never opens a network socket (it counts and drops TRIGGER and PING frames; it does not act on them), an untested board-side sender, and tests built from synthetic bytes. This goes one step beyond ADR-030 §3, which provides for a Proposed ADR and stops there; the maintainer accepts or deletes the example in Decision requested 1, and removal is one commit.
+1. **Record this research question and stop at the roadmap gate.** Status is Accepted as a record only. No `src/` change, no config key, no CLI command, no IPC method, no registry capability, no extra in `pyproject.toml`.
+2. **Ship only an out-of-tree reference example** under `examples/maixcam2-text-link/` (Option B): a pure frame encoder/decoder, a simulated board, a **receive-only** reference reader that **prints** accepted TEXT frames and never types, never calls the injector and never opens a network socket (it counts and drops TRIGGER and PING frames; it does not act on them), an untested board-side sender, and tests built from synthetic bytes. This goes one step beyond ADR-030 §3, which provides for a Proposed ADR and stops there; the maintainer accepted the example on 2026-11-13 (Decision requested 1) and removal is one commit.
 3. **Do not implement Option C (a `[textlink]` product feature) unless the maintainer both records a go and grants a named freeze exception**, and then only under the constraints in [Requirements on any future product wiring](#requirements-on-any-future-product-wiring).
 4. **Do not use Option D (HTTP/LAN or USB-network transport) for the first test, and do not implement it in YazSes.** The UART path with a USB-to-UART adapter is the chosen first test. See the egress statement.
 5. **File one `evergreen:research` issue** carrying the hypothesis and falsifiers above, so a person who owns a board can run the measurement. Filed as [#878](https://github.com/MSKazemi/yazses/issues/878) on 2026-11-13.
@@ -168,9 +168,11 @@ None of the following has been measured. None may be stated as true in any docum
 
 ## Decision requested
 
+**Outcome (2026-11-13):** the maintainer chose option 1 (accept as a research record). No freeze exception was granted, no board was requested or bought, and the cost gate stands.
+
 The maintainer is asked to choose **one**:
 
-1. **Accept as a research record (recommended).** This ADR stays Proposed or becomes Accepted *as a record only*; the out-of-tree example and the docs page stay; the `evergreen:research` issue (#878) stays open; **no** implementation is authorised.
+1. **Accept as a research record (recommended).** This ADR becomes Accepted *as a record only*; the out-of-tree example and the docs page stay; the `evergreen:research` issue (#878) stays open; **no** implementation is authorised.
 2. **Grant a named freeze exception** for Option C. The exception must name the owner of the work, state that the hands-free and agent-era pillars of ADR-030 are not displaced, require every item in [Requirements on any future product wiring](#requirements-on-any-future-product-wiring), and be recorded as an amendment to ADR-030 in the style of the 2026-11-01 amendment. **Not recommended**: no recorded demand, no device.
 3. **Reject.** The example, the docs page and this ADR are removed (or the ADR is marked Rejected and kept as a record of the reasoning); the vendor reply stays in the maintainer's correspondence.
 
