@@ -4,35 +4,38 @@
 raw packets, a POOR_SIGNAL/eSense report each second, scripted blink artefacts and
 transport faults); ``EmulatedSerial`` plays it against a fake clock. This file drives that
 stream through the three places a headset's blocks reach a detector, each exactly as the
-product composes it:
+product composes it - since #830 all three through ``source_gates``:
 
 * **daemon** - ``runner.build_runner_from_config`` -> ``BiosignalRunner.run``: ``open_source``
-  -> ``IntegrityGuard`` (arrival-rate check on) -> ``IntegrityGate`` -> ``BiosignalPipeline``;
-* **monitor** - ``cli_impl.run_monitor``: the same guard and gate, its own pipeline;
-* **field-test** - ``cli_impl.run_field_test``: the bare source, no guard (as shipped).
+  -> ``IntegrityGuard`` (arrival-rate check on) -> ``SourceHealthGate(IntegrityGate)`` ->
+  ``BiosignalPipeline``;
+* **monitor** - ``cli_impl.run_monitor``: the same guard and gates, its own pipeline;
+* **field-test** - ``cli_impl.run_field_test``: the same guard and gates, no runner.
 
-Only three things are replaced, none of them policy: the serial port (``_open_serial``
-returns the emulated port), the guard's and runner's clocks (the fake clock), and the
-runner's idle sleep (0, so a test does not wait for wall time). Detector thresholds, gates
-and the pipeline are untouched.
+Only these are replaced, none of them policy: the serial port (``_open_serial`` returns
+the emulated port), the clocks of the source's health state, the guard and the runner (the
+fake clock), and the runner's idle sleep (0, so a test does not wait for wall time).
+Detector thresholds, gates and the pipeline are untouched. Spies record what each layer
+did: the source's health verdict per block, the reason the pipeline logs for every refused
+event, and the pipeline/detector resets.
 
-## Characterization, not a fix
+## What is asserted
 
-Maintainer review of ADR-v2-155 (#827) is pending, so nothing under ``src/`` changes here.
-Where the current code admits an activation the ADR says it must not, the test states the
-*safe* property and is marked ``xfail(strict=True, raises=AssertionError)`` naming the
-issue that owns the fix: #828 (per-read source health), #829 (compose it with the gates),
-#830 (field-test/monitor parity). ``xfail_strict`` is on, so the day one of those lands
-the marker must come off - an xfail cannot outlive the bug it describes. Behaviour that is
-neither clearly safe nor unsafe is pinned as it is, with a comment.
+ADR-v2-155's safety properties, as plain tests: no activation from an untrusted read, on
+every path, with the layer that stopped it and the same reasons on all three paths. Two
+things are pinned as measured rather than as properties: the reconnect false negative
+(a pair made while the source rearms is held) and one KNOWN LIMIT (whole-packet loss
+compresses time; no layer can see it).
 
 Everything is synthetic and offline: no device, no network, no recording of a person.
 """
 
 from __future__ import annotations
 
+import collections
 import dataclasses
 import json
+import logging
 import os
 import sys
 import threading
@@ -50,6 +53,7 @@ from yazses.biosignal import integrity as integrity_mod
 from yazses.biosignal import runner as runner_mod
 from yazses.biosignal import sources as sources_mod
 from yazses.biosignal import thinkgear as thinkgear_mod
+from yazses.biosignal.artifacts import BlinkDetector
 from yazses.biosignal.pipeline import BiosignalPipeline
 from yazses.biosignal.runner import RunnerCallbacks, build_runner_from_config
 from yazses.biosignal.thinkgear import (
@@ -202,25 +206,24 @@ def test_emulated_port_follows_the_injected_clock_through_a_stall() -> None:
     assert port.pos == len(trace.data)
 
 
-def test_source_reports_only_the_last_poor_signal_of_a_read() -> None:
-    """Characterization (#828): a 0/200/0 burst inside one read leaves ``poor_signal == 0``.
-
-    The 200 was on the wire and parsed, but ``ThinkGearSource`` keeps only the final value,
-    so nothing downstream can know contact was lost inside that read. ADR-v2-155 asks for
-    the whole read to be untrusted instead.
-    """
+def test_a_0_200_0_burst_inside_one_read_taints_that_read() -> None:
+    """``poor_signal`` still shows only the latest value (0), but the read's health verdict
+    counts the 200 in wire order and is untrusted (#828): a final zero does not rescue it."""
     trace = em.generate(em.TraceSpec(seconds=3.0, poor_bursts=(em.PoorBurst(1.6),)))
     clock = em.FakeClock()
     port = em.EmulatedSerial(trace, clock, poll_s=0.5)
-    src = ThinkGearSource(SPEC, serial_factory=lambda: port)
+    src = ThinkGearSource(SPEC, serial_factory=lambda: port, clock=clock)
     src.start()
     seen = []
     for _ in range(8):
-        src.read()
-        seen.append(src.poor_signal)
+        block = src.read()
+        verdict = src.health_for(block) if block is not None else None
+        seen.append((src.poor_signal, verdict))
     assert trace.poor_values_between(1.5, 1.7) == (0, 0, 200, 0)
-    assert 200 not in seen                               # the 200 never became visible
-    assert set(seen) <= {None, 0}
+    assert 200 not in [poor for poor, _ in seen]         # the attribute never shows it ...
+    tainted = [v for _, v in seen if v is not None and v.nonzero_quality_reports]
+    assert len(tainted) == 1                             # ... the verdict of its read does
+    assert not tainted[0].trusted and tainted[0].reason.value == "no_contact"
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="pseudo-terminals need Linux or macOS")
@@ -292,8 +295,13 @@ def test_manual_pty_tool_streams_and_exits(capsys: pytest.CaptureFixture[str]) -
 class Outcome:
     path: str
     accepted: list[tuple[str, float]]      # (kind, stream t) of every event a pipeline accepted
-    refused: dict[str, int]                # pipeline gate refusals by reason
-    violations: dict[str, int]             # stream-integrity violations (guarded paths only)
+    refused: dict[str, int]                # pipeline gate refusals by category (quality/stream)
+    refusal_reasons: list[str]             # the gate's own reason for each refused event
+    violations: dict[str, int]             # stream-integrity violations
+    health: dict[str, int]                 # source-health reason -> blocks judged with it
+    first_trusted_t: float | None          # stream t0 of the first block the source trusted
+    runner_resets: int                     # pipeline.reset() calls (the runner's gap reset)
+    source_resets: int                     # detector resets asked by a new source fault epoch
     lost_packets: int
     skipped_bytes: int
     labels: list[str]                      # daemon intents
@@ -303,12 +311,65 @@ class Outcome:
     def activations(self) -> list[float]:
         return [t for kind, t in self.accepted if kind == "double_blink"]
 
+    def refused_by(self, prefix: str) -> int:
+        return sum(1 for r in self.refusal_reasons if r.startswith(prefix))
+
+
+class _RefusalLog(logging.Handler):
+    """Collects the reason the pipeline logs for each event a gate refused."""
+
+    _PREFIX = "Biosignal event "
+
+    def __init__(self) -> None:
+        super().__init__(logging.DEBUG)
+        self.reasons: list[str] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        msg = record.getMessage()
+        if msg.startswith(self._PREFIX) and " dropped: " in msg:
+            self.reasons.append(msg.split(" dropped: ", 1)[1])
+
 
 def _cfg() -> Config:
     cfg = Config()
     cfg.biosignal = dataclasses.replace(BiosignalConfig(), enabled=True, source=SPEC,
                                         double_blink=True, jaw_clench=False, emg=False)
     return cfg
+
+
+def _run_path(path: str, m: pytest.MonkeyPatch, stop_hook: list[Callable[[], None]],
+              data_dir: Path) -> tuple[list[str], dict[str, Any] | None]:
+    """Run one of the three product paths to the end of the trace; (daemon intents, report)."""
+    labels: list[str] = []
+    if path == "daemon":
+        runner = build_runner_from_config(
+            _cfg(), RunnerCallbacks(on_intent=lambda i: labels.append(i.label)), ledger_path="")
+        assert runner is not None
+        stop_hook.append(runner.stop)
+        runner.run()
+        assert runner.status()["last_error"] == ""
+        return labels, None
+
+    def interrupt() -> None:
+        raise KeyboardInterrupt              # what Ctrl-C does to both CLI loops
+
+    stop_hook.append(interrupt)
+    data_dir.mkdir()
+    if path == "monitor":
+        assert cli_impl.run_monitor(_cfg(), data_dir, blink=True, emg=False, clench=False) == 0
+        return labels, None
+    from yazses.biosignal import fieldtest
+
+    payloads: list[dict[str, Any]] = []
+    real_dict = fieldtest.report_to_dict
+
+    def keep(rep: Any) -> dict[str, Any]:
+        payloads.append(real_dict(rep))
+        return payloads[-1]
+
+    m.setattr(fieldtest, "report_to_dict", keep)
+    assert cli_impl.run_field_test(_cfg(), data_dir, as_json=True) == 0
+    return labels, payloads[0]
 
 
 @pytest.fixture
@@ -332,7 +393,9 @@ def drive(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[Callable[
         real_open = sources_mod.open_source
 
         def open_source(text: str, **kw: Any) -> Any:
-            src = real_open(text, **kw)
+            # The source's own health clock (contact TTL, stall while rearming) is the fake
+            # one too: on the wall clock a 12 s trace replays in ~0.3 s and nothing ages.
+            src = real_open(text, **{"clock": clock, **kw})
             opened.append(src)
             return src
 
@@ -349,13 +412,37 @@ def drive(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[Callable[
                 super().__init__(*a, **kw)
 
         real_process = BiosignalPipeline.process
+        real_reset = BiosignalPipeline.reset
+        health: collections.Counter[str] = collections.Counter()
+        first_trusted: list[float] = []
+        resets: list[str] = []
 
         def process(self: BiosignalPipeline, block: Any) -> Any:
             if not any(p is self for p in pipelines):
                 pipelines.append(self)
+            verdict = guards[0].health_for(block) if guards else None
+            if verdict is not None:
+                health[verdict.reason.value] += 1
+                if verdict.trusted and not first_trusted:
+                    first_trusted.append(float(block.t0))
             result = real_process(self, block)
             accepted.extend((e.kind.value, round(float(e.t), 3)) for e in result.events)
             return result
+
+        def reset(self: BiosignalPipeline, *a: Any, **kw: Any) -> Any:
+            resets.append("reset")             # the runner's stream-gap / backlog reset
+            return real_reset(self, *a, **kw)
+
+        real_det_reset = BlinkDetector.reset
+        detector_resets: list[str] = []
+
+        def det_reset(self: BlinkDetector) -> None:
+            # By the runner (inside pipeline.reset) or by a new source-health fault epoch.
+            detector_resets.append("reset")
+            real_det_reset(self)
+
+        refusals = _RefusalLog()
+        pipeline_log = logging.getLogger("yazses.biosignal.pipeline")
 
         with monkeypatch.context() as m:
             m.setattr(thinkgear_mod, "_open_serial", lambda port_name, baud: port)
@@ -363,48 +450,31 @@ def drive(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[Callable[
             m.setattr(integrity_mod, "IntegrityGuard", ClockedGuard)
             m.setattr(runner_mod, "BiosignalRunner", ClockedRunner)
             m.setattr(BiosignalPipeline, "process", process)
-            labels: list[str] = []
-            report: dict[str, Any] | None = None
-            if path == "daemon":
-                runner = build_runner_from_config(
-                    _cfg(), RunnerCallbacks(on_intent=lambda i: labels.append(i.label)),
-                    ledger_path="")
-                assert runner is not None
-                stop_hook.append(runner.stop)
-                runner.run()
-                assert runner.status()["last_error"] == ""
-            else:
-                def interrupt() -> None:
-                    raise KeyboardInterrupt  # what Ctrl-C does to both CLI loops
-
-                stop_hook.append(interrupt)
-                data_dir = tmp_path / f"run{next(counter)}"
-                data_dir.mkdir()
-                if path == "monitor":
-                    rc = cli_impl.run_monitor(_cfg(), data_dir, blink=True, emg=False,
-                                              clench=False)
-                else:
-                    payloads: list[dict[str, Any]] = []
-                    from yazses.biosignal import fieldtest
-
-                    real_dict = fieldtest.report_to_dict
-
-                    def keep(rep: Any) -> dict[str, Any]:
-                        payloads.append(real_dict(rep))
-                        return payloads[-1]
-
-                    m.setattr(fieldtest, "report_to_dict", keep)
-                    rc = cli_impl.run_field_test(_cfg(), data_dir, as_json=True)
-                    report = payloads[0]
-                assert rc == 0, path
+            m.setattr(BiosignalPipeline, "reset", reset)
+            m.setattr(BlinkDetector, "reset", det_reset)
+            # Every refusal is logged (DEBUG) with the gate's own reason, which names the
+            # layer that refused it ("source health: ...", "stream integrity: ...").
+            old_level = pipeline_log.level
+            pipeline_log.setLevel(logging.DEBUG)
+            pipeline_log.addHandler(refusals)
+            try:
+                labels, report = _run_path(path, m, stop_hook, tmp_path / f"run{next(counter)}")
+            finally:
+                pipeline_log.removeHandler(refusals)
+                pipeline_log.setLevel(old_level)
         assert port.pos == len(trace.data), "the run ended before the trace did"
         assert len(opened) == 1 and len(pipelines) == 1
+        assert len(guards) == 1                          # one guard on every path (#830)
         src = opened[0]
-        refused = dict(pipelines[0].status.dropped_by_reason)
-        violations = dict(guards[0].report.as_dict()["violations"]) if guards else {}
-        assert bool(guards) == (path != "field_test")
-        return Outcome(path, accepted, refused, violations, src.lost_packets,
-                       src.parser.stats.skipped_bytes, labels, report)
+        return Outcome(
+            path=path, accepted=accepted,
+            refused=dict(pipelines[0].status.dropped_by_reason),
+            refusal_reasons=refusals.reasons,
+            violations=dict(guards[0].report.as_dict()["violations"]),
+            health=dict(health), first_trusted_t=first_trusted[0] if first_trusted else None,
+            runner_resets=len(resets),
+            source_resets=len(detector_resets) - len(resets), lost_packets=src.lost_packets,
+            skipped_bytes=src.parser.stats.skipped_bytes, labels=labels, report=report)
 
     yield run
 
@@ -425,12 +495,33 @@ def test_clean_double_blink_is_exactly_one_activation(drive, path) -> None:
     assert len(out.activations) == 1
     assert PAIR_AT + 0.35 + em.BLINK_WIDTH_S / 2 <= out.activations[0] <= PAIR_AT + 0.8
     assert out.violations == {} and out.lost_packets == 0
+    # The rearm rule (two zero reports + 1 s clean) trusts the stream from the read after
+    # the 1.5 s report; nothing was refused and nothing reset.
+    assert out.first_trusted_t == pytest.approx(1.5, abs=POLL_S)
+    assert set(out.health) == {"unknown_contact", "rearming", "trusted"}
+    assert out.refusal_reasons == [] and out.runner_resets == 0 and out.source_resets == 0
     if path == "daemon":
         assert out.labels == ["undo"]                    # the default intent, once
     if path == "field_test":
         assert out.report is not None
         rest = next(p for p in out.report["phases"] if p["name"] == "rest")
         assert rest["phantom_activations"] == 1          # a no-intent phase: it is a phantom
+
+
+@pytest.mark.parametrize(("onset", "activations", "refusals"), [
+    (1.5, 0, []),                       # inside the detector's 2 s warm-up: never detected
+    (2.0, 0, ["signal quality bad"]),   # detected; the waveform-quality warm-up refuses it
+    (2.5, 1, []),                       # the earliest accepted onset on this 0.5 s grid
+])
+def test_how_soon_after_start_a_clean_double_blink_can_activate(drive, onset, activations,
+                                                                 refusals) -> None:
+    """Pinned as measured (daemon path). Source health trusts the stream from 1.5 s (the
+    second zero report), so it is *not* what limits the first activation: the 2 s
+    warm-ups of the detector and of the waveform quality monitor are."""
+    out = drive("daemon", _spec(blinks=em.double_blink(onset)))
+    assert out.first_trusted_t == pytest.approx(1.5, abs=POLL_S)
+    assert len(out.activations) == activations
+    assert sorted(set(out.refusal_reasons)) == refusals
 
 
 @pytest.mark.parametrize("path", PATHS)
@@ -479,111 +570,148 @@ def test_ten_minutes_of_spontaneous_single_blinks_has_no_false_activation(drive)
 
 # ---------------------------------------------------------------- (d) contact and transport
 
+# Which layer stops a pair, as these tests name it:
+#   VETO   - the pair is detected and the source-health gate refuses it, with its reason;
+#   RESET  - the fault starts a new source-health epoch, which resets the detector
+#            (ADR-v2-155 decision 3: no pairing across a fault), so the pair is never
+#            detected - nothing is refused, because nothing was emitted;
+#   STALL  - the stream-integrity guard refuses it ("stream integrity: stall ...");
+#   RUNNER - the daemon runner sees a block gap above its watchdog and resets the pipeline.
+VETO, RESET = "veto", "reset"
 
-# Scenario -> (spec, the ADR-v2-155 rule it breaks, the issue that owns the fix)
-UNSAFE: dict[str, tuple[em.TraceSpec, str]] = {
+
+@dataclasses.dataclass(frozen=True)
+class Untrusted:
+    spec: em.TraceSpec
+    layer: str             # VETO or RESET
+    health: str            # the source-health reason the fault produces
+    issue: str             # the issue that made it safe
+
+
+# Each case was admitted on every path before #828-#830 (see the commit's before/after).
+UNTRUSTED: dict[str, Untrusted] = {
     # Electrode off the skin (POOR_SIGNAL 200 on every report) while the raw waveform still
     # carries a double blink - e.g. a lifted electrode picking up movement.
-    "no_contact_200": (_spec(poor=(em.PoorSignal(2.0, SECONDS, 200),)),
-                       "#829: POOR_SIGNAL is read by nothing outside thinkgear.py"),
+    "no_contact_200": Untrusted(_spec(poor=(em.PoorSignal(2.0, SECONDS, 200),)),
+                                VETO, "no_contact", "#829"),
     # "any nonzero value indicates that some sort of noise contamination is detected"
-    "contaminated_26": (_spec(poor=(em.PoorSignal(2.0, SECONDS, 26),)),
-                        "#829: a nonzero POOR_SIGNAL does not veto"),
-    # 0, 200, 0 inside one read, between the two blinks of the pair
-    "burst_0_200_0": (_spec(poor_bursts=(em.PoorBurst(PAIR_AT + 0.2),)),
-                      "#828: only the last POOR_SIGNAL of a read survives"),
-    # A checksum failure just before the pair: the packet is dropped, t0 stays contiguous
-    "bad_checksum": (_spec(corrupt=(em.CorruptChecksum(PAIR_AT - 0.05, count=3),)),
-                     "#828: a rejected packet does not taint its read"),
-    # A loss in the middle of a packet between the blinks (visible: one bad checksum)
-    "torn_packet": (_spec(stalls=(em.Stall(PAIR_AT + 0.25, 0.02, drop=True, tear=True),)),
-                    "#828: a gesture spanning an uncertainty boundary is admitted"),
-    # The headset never sends POOR_SIGNAL: contact is unknown for the whole session
-    "contact_never_reported": (_spec(report_period_s=None),
-                               "#829: unknown contact is treated as healthy"),
-    # Reports stop at 1.5 s; the pair at 5 s is > 3 s after the last one
-    "contact_report_stale": (_spec(report_until_s=1.5),
-                             "#829: a stale contact report is treated as healthy"),
+    "contaminated_26": Untrusted(_spec(poor=(em.PoorSignal(2.0, SECONDS, 26),)),
+                                 VETO, "contact_contaminated", "#829"),
+    # The headset never sends POOR_SIGNAL: contact is unknown for the whole session.
+    "contact_never_reported": Untrusted(_spec(report_period_s=None),
+                                        VETO, "unknown_contact", "#829"),
+    # 0, 200, 0 inside one read, between the two blinks of the pair.
+    "burst_0_200_0": Untrusted(_spec(poor_bursts=(em.PoorBurst(PAIR_AT + 0.2),)),
+                               RESET, "no_contact", "#828"),
+    # A checksum failure just before the pair: the packet is dropped, t0 stays contiguous.
+    "bad_checksum": Untrusted(_spec(corrupt=(em.CorruptChecksum(PAIR_AT - 0.05, count=3),)),
+                              RESET, "corrupt_packet", "#828"),
+    # A loss in the middle of a packet between the blinks (visible: one bad checksum).
+    "torn_packet": Untrusted(
+        _spec(stalls=(em.Stall(PAIR_AT + 0.25, 0.02, drop=True, tear=True),)),
+        RESET, "corrupt_packet", "#828"),
+    # 120 non-sync bytes between the blinks: skipped framing bytes taint the read.
+    "garbage_120B": Untrusted(_spec(garbage=(em.Garbage(PAIR_AT + 0.25, 120),)),
+                              RESET, "corrupt_packet", "#828"),
+    # Reports at 0.5 and 1.5 s (enough to trust the stream), then none: stale after 4.5 s,
+    # before the pair. (The first version of this case stopped at 1.5 s, which left one
+    # zero report - the stream never became trusted, so it tested rearming, not staleness.)
+    "contact_report_stale": Untrusted(_spec(report_until_s=2.0),
+                                      RESET, "contact_stale", "#829"),
 }
 
 
 @pytest.mark.parametrize("path", PATHS)
-@pytest.mark.parametrize("scenario", sorted(UNSAFE))
-def test_unsafe_admission_is_reproduced_on_every_path(drive, scenario, path) -> None:
-    """Characterization: on every path, current code admits the pair in each UNSAFE case.
-
-    These are the numbers the report quotes. The safe property is stated separately below
-    as a strict xfail, so this test and that one flip together when the fix lands.
-    """
-    spec, _why = UNSAFE[scenario]
-    out = drive(path, spec)
-    assert len(out.activations) == 1
-    assert out.violations == {}                          # the stream guard saw nothing wrong
-    trace = em.generate(spec)
-    if scenario == "no_contact_200":
-        # ground truth: the electrode really was off at the moment the event was admitted
-        assert [trace.poor_at(t) for t in out.activations] == [200]
-    elif scenario == "contaminated_26":
-        assert [trace.poor_at(t) for t in out.activations] == [26]
-    elif scenario == "contact_never_reported":
-        assert [trace.poor_at(t) for t in out.activations] == [None]
-    elif scenario in ("bad_checksum", "torn_packet"):
-        assert out.lost_packets >= 1                     # counted, yet no gate consulted it
+@pytest.mark.parametrize("scenario", sorted(UNTRUSTED))
+def test_no_activation_while_source_health_is_untrusted(drive, scenario, path) -> None:
+    """ADR-v2-155 decisions 2-4, on every path: an untrusted read, nonzero, unknown or stale
+    contact, or a rejected frame never yields an activation, and the layer that stops it
+    is the source-health gate - not the stream guard (which sees nothing wrong here), not
+    the runner."""
+    case = UNTRUSTED[scenario]
+    out = drive(path, case.spec)
+    assert out.activations == []
+    assert out.health.get(case.health, 0) >= 1
+    assert out.violations == {} and out.runner_resets == 0
+    if case.layer == VETO:
+        assert out.refusal_reasons and all(
+            r.startswith(f"source health: {case.health}") for r in out.refusal_reasons)
+        assert out.refused == {"quality": len(out.refusal_reasons)}
+    else:
+        assert out.refusal_reasons == [] and out.source_resets >= 1
+    if scenario == "contact_never_reported":
+        assert out.first_trusted_t is None               # no zero report, no trust, ever
 
 
-def _xfail_param(scenario: str) -> Any:
-    return pytest.param(scenario, marks=pytest.mark.xfail(
-        strict=True, raises=AssertionError, reason=UNSAFE[scenario][1]))
+@pytest.mark.parametrize("scenario", sorted(UNTRUSTED))
+def test_the_three_paths_give_the_same_verdict_and_reasons(drive, scenario) -> None:
+    """ADR-v2-155 acceptance: field-test, monitor and daemon apply the same health gate and
+    report comparable reasons for the same packet sequence (#830)."""
+    seen = {p: drive(p, UNTRUSTED[scenario].spec) for p in PATHS}
+    keys = {p: (o.activations, o.refusal_reasons, o.health, o.source_resets)
+            for p, o in seen.items()}
+    assert keys["monitor"] == keys["daemon"] == keys["field_test"]
 
 
-@pytest.mark.parametrize("scenario", [_xfail_param(s) for s in sorted(UNSAFE)])
-def test_safe_property_no_activation_while_health_is_untrusted(drive, scenario) -> None:
-    """ADR-v2-155 decision 2-4: an untrusted read, nonzero/unknown/stale contact or a
-    rejected frame suppresses events. Strict xfail until #828/#829 land."""
-    spec, _why = UNSAFE[scenario]
-    assert drive("daemon", spec).activations == []
+@pytest.mark.parametrize("scenario", ["no_contact_200", "contact_never_reported"])
+def test_field_test_excludes_untrusted_time_from_exposure(drive, scenario) -> None:
+    """Untrusted seconds are not usable exposure (ADR-v2-155 decision 5): the rest phase
+    has 12 s of signal, 9 s past its 3 s settle, and all 9 are excluded."""
+    rest = next(p for p in drive("field_test", UNTRUSTED[scenario].spec).report["phases"]
+                if p["name"] == "rest")
+    assert (rest["usable_s"], rest["excluded_s"], rest["phantom_activations"]) == (0, 9, 0)
 
 
-def test_garbage_bytes_inside_the_pair_are_skipped_and_the_pair_admitted(drive) -> None:
-    """Pinned as-is: 120 non-sync bytes between the blinks are skipped (counted in
-    ``skipped_bytes``, not in ``lost_packets``) and the pair is admitted. ADR-v2-155 leaves
-    whether "a lone extraneous framing byte" vetoes the batch to the implementation, so this
-    is neither marked safe nor unsafe."""
-    out = drive("daemon", _spec(garbage=(em.Garbage(PAIR_AT + 0.25, 120),)))
-    assert out.skipped_bytes == 120 and out.lost_packets == 0
-    assert len(out.activations) == 1
+@pytest.mark.parametrize("path", PATHS)
+def test_reconnect_holds_a_pair_made_while_rearming(drive, path) -> None:
+    """Documented current behaviour (a false negative by design, ADR-v2-155 "may be overly
+    strict"). Contact is lost from 3 s to 5 s (POOR_SIGNAL 200 at 3.5 and 4.5 s); the zero
+    reports at 5.5 and 6.5 s rearm it. A pair begun at 6.0 s - 3 s after the loss began,
+    1 s after contact came back - is refused while rearming; one at 8.0 s (5 s after) is
+    accepted. Same on every path and on seeds 0-3. Measured boundary on seed 0, 0.1 s
+    grid: onsets up to 6.1 s are refused, from 6.2 s accepted."""
+    def run(onset: float) -> Outcome:
+        return drive(path, em.TraceSpec(seconds=16.0, seed=0,
+                                        poor=(em.PoorSignal(3.0, 5.0, 200),),
+                                        blinks=em.double_blink(onset)))
+
+    early, late = run(6.0), run(8.0)
+    assert early.activations == []
+    assert early.refusal_reasons and all(r.startswith("source health: rearming")
+                                         for r in early.refusal_reasons)
+    assert len(late.activations) == 1 and late.refusal_reasons == []
 
 
-def test_whole_packet_loss_compresses_time_into_a_false_double_blink(drive) -> None:
-    """Two blinks 0.9 s apart are *not* a double blink (window 0.6 s) - control: no event.
-    Lose 0.4 s of whole packets between them and ``t0`` (delivered samples / 512) closes the
-    gap to 0.5 s: the pair is admitted, and no layer can see why - no checksum fails, the
-    0.4 s silence is below the 1.5 s stall limit, and 4 % missing samples is inside the 10 %
-    arrival-rate tolerance. ADR-v2-155 "Context": ``t0`` is an index, not proof that no
-    sample was lost. Pinned as current behaviour; the torn-packet variant, which the parser
-    *can* see, is in UNSAFE."""
+def test_known_limit_whole_packet_loss_compresses_time_into_a_false_double_blink(drive) -> None:
+    """KNOWN LIMIT - not fixed by #828-#830, and no layer can see it.
+
+    Two blinks 0.9 s apart are *not* a double blink (window 0.6 s) - control: no event.
+    Lose 0.4 s of *whole* packets between them and ``t0`` (delivered samples / 512) closes
+    the gap to 0.5 s: the pair is admitted. Nothing is visible to any check: no checksum
+    fails and no byte is skipped (so source health stays trusted), the 0.4 s silence is
+    below the 1.5 s stall limit, and 4 % missing samples is inside the 10 % arrival-rate
+    tolerance. ADR-v2-155 "Context": ``t0`` is an index, not proof that no sample was lost.
+    A loss that tears a packet *is* visible and is refused (``torn_packet`` above). If this
+    test starts failing because the pair is refused, the limit was fixed: update it."""
     apart = (em.Blink(PAIR_AT), em.Blink(PAIR_AT + 0.9))
-    control = drive("daemon", _spec(blinks=apart))
-    assert control.activations == []
-    lossy = drive("daemon", _spec(blinks=apart, stalls=(em.Stall(PAIR_AT + 0.35, 0.4,
-                                                                   drop=True),)))
-    assert lossy.lost_packets == 0 and lossy.violations == {}
-    assert len(lossy.activations) == 1
+    for path in PATHS:
+        control = drive(path, _spec(blinks=apart))
+        assert control.activations == [], path
+        lossy = drive(path, _spec(blinks=apart, stalls=(em.Stall(PAIR_AT + 0.35, 0.4,
+                                                                    drop=True),)))
+        assert lossy.lost_packets == 0 and lossy.violations == {}, path
+        assert set(lossy.health) == {"unknown_contact", "rearming", "trusted"}, path
+        assert len(lossy.activations) == 1, path
 
 
-@pytest.mark.parametrize(("loss", "violations", "activations"), [
-    (0.05, set(), 1),
-    (0.125, {"arrival_drift"}, 0),
-], ids=["5pct", "12.5pct"])
-def test_sustained_checksum_loss_is_seen_only_by_the_arrival_rate_check(
-        drive, loss, violations, activations) -> None:
-    """One raw packet in 20 (or in 8) fails its checksum for 28 s; a pair at 20 s.
+@pytest.mark.parametrize(("loss", "violations"), [(0.05, set()), (0.125, {"arrival_drift"})],
+                         ids=["5pct", "12.5pct"])
+def test_sustained_checksum_loss_never_activates(drive, loss, violations) -> None:
+    """One raw packet in 20 (or in 8) fails its checksum for 28 s; a pair at 20 s (daemon).
 
-    Pinned as-is. 5 %: 717 packets lost, no layer reacts and the pair is admitted (the
-    ``bad_checksum`` row of UNSAFE is the strict-xfail statement of why that is wrong).
-    12.5 %: the arrival rate falls outside the guard's 10 % tolerance and it flags
-    ``arrival_drift``; the pair is not detected at all in this trace (nothing is refused),
-    so the 0 is the detector's, not the gate's."""
+    5 %: before #828 no layer reacted and the pair was admitted; now every read carries a
+    reject, the source never trusts the stream and the pair is not admitted - with no help
+    from the stream guard. 12.5 %: the guard's arrival-rate check also fires."""
     step = 1.0 / (loss * em.FS)
     spec = em.TraceSpec(seconds=30.0, seed=4, blinks=em.double_blink(20.0),
                         corrupt=tuple(em.CorruptChecksum(float(t))
@@ -591,47 +719,40 @@ def test_sustained_checksum_loss_is_seen_only_by_the_arrival_rate_check(
     out = drive("daemon", spec)
     assert out.lost_packets == round(28.0 / step)
     assert set(out.violations) == violations
-    assert len(out.activations) == activations and out.refused == {}
+    assert out.activations == [] and out.first_trusted_t is None
+    assert max(out.health, key=out.health.__getitem__) == "corrupt_packet"
 
 
-# ---------------------------------------------------------------- stall: where the paths differ
+# ---------------------------------------------------------------- stall: same count, different layer
 
 
 STALL_BURST = _spec(stalls=(em.Stall(PAIR_AT - 0.5, 2.0),))   # pair held back, then a burst
 
 
-@pytest.mark.parametrize(("path", "expected"), [("daemon", 0), ("monitor", 0),
-                                                ("field_test", 1)])
-def test_a_bluetooth_stall_burst_is_refused_only_where_the_guard_runs(drive, path,
-                                                                      expected) -> None:
+@pytest.mark.parametrize("path", PATHS)
+def test_a_bluetooth_stall_burst_never_activates_and_each_path_says_why(drive, path) -> None:
     """2 s of silence, then the held-back bytes (the pair among them) in one burst.
 
-    The guarded paths flag a ``stall``; field-test, which reads the bare source, accepts
-    the pair - the parity gap the spec describes (#830). The two guarded paths refuse it by
-    *different* mechanisms: the daemon's runner sees a block gap above its 1.5 s watchdog
-    and resets the detectors, so the pair is never detected (nothing is refused); monitor
-    has no runner, detects the pair and the stream gate refuses it (``stream``)."""
+    No path admits it (before #830 field-test did). The layer differs, by construction:
+    the daemon's runner sees a block gap above its 1.5 s watchdog and resets the pipeline,
+    so the pair is never detected and nothing is refused; monitor and field-test have no
+    runner, detect the pair, and the stream guard refuses it as a stall. Source health is
+    not involved: no byte was lost, only delayed."""
     out = drive(path, STALL_BURST)
-    assert len(out.activations) == expected
+    assert out.activations == []
+    assert out.violations == {"stall": 1}
+    assert "corrupt_packet" not in out.health and out.source_resets == 0
     if path == "daemon":
-        assert out.violations.get("stall", 0) >= 1 and out.refused == {}
-    elif path == "monitor":
-        assert out.violations.get("stall", 0) >= 1 and out.refused.get("stream", 0) >= 1
+        assert out.runner_resets == 1 and out.refusal_reasons == []
     else:
-        assert out.violations == {}
-
-
-@pytest.mark.xfail(strict=True, raises=AssertionError,
-                   reason="#830: run_field_test reads the bare source, without IntegrityGuard")
-def test_field_test_admits_what_the_daemon_admits(drive) -> None:
-    assert (len(drive("field_test", STALL_BURST).activations)
-            == len(drive("daemon", STALL_BURST).activations))
+        assert out.runner_resets == 0
+        assert out.refusal_reasons == ["stream integrity: stall (no block for 1.53 s)"]
+        assert out.refused == {"stream": 1}
 
 
 def test_contact_loss_without_a_blink_never_activates(drive) -> None:
-    """Control for the UNSAFE cases: contact loss, a 0/200/0 burst, corruption and garbage
-    with no blink in the waveform produce nothing on any path - the unsafe admissions above
-    come from the waveform, not from the faults themselves."""
+    """Control: contact loss, a 0/200/0 burst, corruption and garbage with no blink in the
+    waveform produce nothing on any path."""
     spec = em.TraceSpec(seconds=SECONDS, seed=2,
                         poor=(em.PoorSignal(3.0, 6.0, 200),),
                         poor_bursts=(em.PoorBurst(7.0),),
