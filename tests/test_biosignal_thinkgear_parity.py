@@ -323,6 +323,28 @@ def test_tg16_the_report_stays_aggregate_only(monkeypatch) -> None:
 # ---------------------------------------------------------------- lifecycle
 
 
+@pytest.mark.parametrize("spec", [SPEC, "synthetic:eog"])
+def test_field_test_session_is_handed_the_guarded_source_never_the_bare_one(
+        monkeypatch, tmp_path, capsys, spec) -> None:
+    """``FieldTestSession.run()`` reads whatever source it was given. ``run_field_test``
+    drives ``feed()`` itself today, but a session holding the bare source would be one
+    ``run()`` call away from scoring unguarded, ungated blocks."""
+    bare = trace_source(_trace()) if spec == SPEC else _synthetic()
+    monkeypatch.setattr(cli_impl, "_open", lambda _spec, realtime=False: bare)
+    seen: list[Any] = []
+    real_session = fieldtest.FieldTestSession
+
+    def session(source_or_blocks: Any = None, *a: Any, **kw: Any) -> Any:
+        seen.append(source_or_blocks)
+        return real_session(source_or_blocks, *a, **kw)
+
+    monkeypatch.setattr(fieldtest, "FieldTestSession", session)
+    run_field_test(_cfg(spec), _data_dir(tmp_path), source=spec, as_json=True)
+    assert len(seen) == 1
+    assert seen[0] is not bare
+    assert isinstance(seen[0], IntegrityGuard) and seen[0].inner is bare
+
+
 def test_field_test_starts_the_source_once_and_always_stops_it(monkeypatch, tmp_path,
                                                                capsys) -> None:
     starts: list[int] = []
