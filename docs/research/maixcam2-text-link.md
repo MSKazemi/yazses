@@ -58,7 +58,7 @@ reviewable before it is typed. None of that exists today.
 | Whether recognition itself works with the board's network turned off, and whether anything is fetched later | **Not measured, not known.** The vendor says Whisper runs locally but did not separate setup, activation and download from recognition |
 | The board's USB cable shows up on the computer as a USB **network** adapter, not a serial port | Verified, same README |
 | Speed, accuracy, wiring behaviour, how well it works in practice | **Not measured.** No board has been used |
-| Whether anyone wants this | Open question; see the research issue described at the end of this page |
+| Whether anyone wants this | Open question; see [research issue #878](https://github.com/MSKazemi/yazses/issues/878) |
 
 Please do not describe this as "offline", "working" or "supported" anywhere until
 the unknown rows above have been measured on a named board.

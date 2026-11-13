@@ -66,7 +66,7 @@ H1(c) deliberately has no number. A number here would be invented; the threshold
 2. **Ship only an out-of-tree reference example** under `examples/maixcam2-text-link/` (Option B): a pure frame encoder/decoder, a simulated board, a **receive-only** reference reader that **prints** accepted TEXT frames and never types, never calls the injector and never opens a network socket (it counts and drops TRIGGER and PING frames; it does not act on them), an untested board-side sender, and tests built from synthetic bytes. This goes one step beyond ADR-030 §3, which provides for a Proposed ADR and stops there; the maintainer accepts or deletes the example in Decision requested 1, and removal is one commit.
 3. **Do not implement Option C (a `[textlink]` product feature) unless the maintainer both records a go and grants a named freeze exception**, and then only under the constraints in [Requirements on any future product wiring](#requirements-on-any-future-product-wiring).
 4. **Do not use Option D (HTTP/LAN or USB-network transport) for the first test, and do not implement it in YazSes.** The UART path with a USB-to-UART adapter is the chosen first test. See the egress statement.
-5. **File one `evergreen:research` issue** carrying the hypothesis and falsifiers above, so a person who owns a board can run the measurement. The draft is kept private until the maintainer approves filing.
+5. **File one `evergreen:research` issue** carrying the hypothesis and falsifiers above, so a person who owns a board can run the measurement. Filed as [#878](https://github.com/MSKazemi/yazses/issues/878) on 2026-11-13.
 
 ## Options considered
 
@@ -169,7 +169,7 @@ None of the following has been measured. None may be stated as true in any docum
 
 The maintainer is asked to choose **one**:
 
-1. **Accept as a research record (recommended).** This ADR stays Proposed or becomes Accepted *as a record only*; the out-of-tree example and the docs page stay; the `evergreen:research` issue may be filed; **no** implementation is authorised.
+1. **Accept as a research record (recommended).** This ADR stays Proposed or becomes Accepted *as a record only*; the out-of-tree example and the docs page stay; the `evergreen:research` issue (#878) stays open; **no** implementation is authorised.
 2. **Grant a named freeze exception** for Option C. The exception must name the owner of the work, state that the hands-free and agent-era pillars of ADR-030 are not displaced, require every item in [Requirements on any future product wiring](#requirements-on-any-future-product-wiring), and be recorded as an amendment to ADR-030 in the style of the 2026-11-01 amendment. **Not recommended**: no recorded demand, no device.
 3. **Reject.** The example, the docs page and this ADR are removed (or the ADR is marked Rejected and kept as a record of the reasoning); the vendor reply stays in the maintainer's correspondence.
 
