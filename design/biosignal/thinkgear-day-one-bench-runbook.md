@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Proposed runbook. No physical unit has been paired, worn or measured. Every Bluetooth and serial step below is a hypothesis to check on the real unit. |
 | **Date** | 2026-11-13 |
-| **Code baseline** | `feat/thinkgear-parity-830` at `2c5480d0` (`yazses 2.51.0`). It is stacked on `feat/thinkgear-gate-829` (`4660c77b`) and `feat/thinkgear-health-828` (`36920b3e`), on top of `main` at `4a83e484`. **The device test requires this code, or a release whose CHANGELOG lists #828, #829 and #830** (section 2). |
+| **Code baseline** | `feat/thinkgear-parity-830` at `97206fb8` (`yazses 2.51.0`). It is stacked on `feat/thinkgear-gate-829` (`e5ad4b6a`) and `feat/thinkgear-health-828` (`36920b3e`), on top of `main` at `4a83e484`. **The device test requires this code, or a release whose CHANGELOG lists #828, #829 and #830** (section 2). **Do not use the earlier `2c5480d0`.** It lacks `e5ad4b6a`: on the emulator it admitted a double blink whose first blink came wholly from rearming reads after a contact loss. The observations below that name `2c5480d0` were made there and are kept as records. |
 | **Hardware study** | [#832](https://github.com/MSKazemi/yazses/issues/832) (BIO-TG-05). Claims decision: [#833](https://github.com/MSKazemi/yazses/issues/833). Epic: [#826](https://github.com/MSKazemi/yazses/issues/826). |
 | **Canonical method** | [Biosignal validation protocol](../specs/biosignal-validation-protocol.md). This runbook only sequences it for one ThinkGear unit. Where they disagree, the protocol wins. This runbook does not amend it. |
 | **Safety contract** | [ADR-v2-155](../adr/adr-v2-155-thinkgear-transport-safety.md) (Accepted 2026-11-13, G0 #827), [qualification spec](../specs/thinkgear-hardware-qualification.md) section 6, [ADR-v2-152](../adr/adr-v2-152-biosignal-artifact-switches.md) kill criteria |
@@ -59,7 +59,7 @@ Consequences for the day:
 
    ```sh
    git switch feat/thinkgear-parity-830
-   git merge-base --is-ancestor 2c5480d0 HEAD && echo "contains #828-#830"
+   git merge-base --is-ancestor 97206fb8 HEAD && echo "contains #828-#830"
    uv sync --extra emg
    uv run --extra emg yazses --version
    ```
