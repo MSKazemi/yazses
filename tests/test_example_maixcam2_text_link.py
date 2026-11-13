@@ -1037,8 +1037,13 @@ def test_iter_device_restores_the_terminal_it_put_in_raw_mode():
         assert next(gen) == b"hello"
         gen.close()
         after = termios.tcgetattr(slave)
-        assert after[3] == before[3]  # lflag (ICANON, ECHO, ISIG, ...)
-        assert after == before  # and every other field
+        # lflag (ICANON, ECHO, ISIG, ...). PENDIN is a status bit the kernel sets by itself
+        # while input is pending (macOS leaves it set after the restore), so it is not part
+        # of what the reader saved and must not be compared.
+        pendin = getattr(termios, "PENDIN", 0) | 0x20000000  # 0x20000000 is PENDIN on Darwin
+        assert after[3] & ~pendin == before[3] & ~pendin
+        assert after[:3] == before[:3]  # iflag, oflag, cflag
+        assert after[4:] == before[4:]  # speeds and control characters
     finally:
         os.close(master)
         os.close(slave)
