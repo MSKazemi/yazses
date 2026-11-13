@@ -695,14 +695,18 @@ def test_reader_never_types_and_never_touches_the_network():
 
 def test_nothing_in_the_product_imports_the_example():
     needles = ("maixcam2-text-link", "maixcam2_text_link", "textlink", "host_reader")
-    for path in (ROOT / "src").rglob("*.py"):
+    sources = sorted((ROOT / "src").rglob("*.py"))
+    assert len(sources) > 100  # the glob matched the product, so the loop below proves something
+    for path in sources:
         text = path.read_text(encoding="utf-8", errors="replace")
         assert not any(n in text for n in needles), path
 
 
 def test_example_files_carry_no_ai_attribution_or_personal_data():
+    examples = sorted(EXAMPLE.rglob("*.py"))
+    assert len(examples) == 4
     for path in [
-        *EXAMPLE.rglob("*.py"),
+        *examples,
         EXAMPLE / "README.md",
         ROOT / "design" / "specs" / "textlink-wire-protocol.md",
     ]:
