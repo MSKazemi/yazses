@@ -49,11 +49,10 @@ from yazses.config import BiosignalConfig, Config
 SPEC = "thinkgear:/dev/fake-thinkgear"
 DURATION_S = 12.0
 EARLY_PAIR = (4.3, 4.6)          # after the 2 s detector warm-up and the 1 s rearm
-# After the rearm that follows a loss at 4.45 s *and* the detector's fresh warm-up. Not
-# 7.5 s: the reset lands between the two early blinks, the second one then falls inside
-# the new warm-up and inflates the learned baseline, and a pair at 7.5 s is rejected on
-# amplitude (a false negative after reconnect, which ADR-v2-155 accepts). Measured with
-# this trace: 7.5 s -> 0 events, 9.5 s -> 1. Not retuned: blink thresholds are frozen.
+# After the rearm that follows a loss at 4.45 s (trusted again from ~6.1 s) *and* the
+# detector's 2 s warm-up, which restarts at that first trusted block: nothing seen while
+# rearming may feed an event. Earlier pairs are a false negative after reconnect, which
+# ADR-v2-155 accepts. Not retuned: blink thresholds are frozen.
 LATE_PAIR = (9.5, 9.8)
 LOSS_AT = 4.45                   # between the two blinks of EARLY_PAIR
 
@@ -215,14 +214,51 @@ def test_tg09_no_block_split_lets_the_straddled_pair_through(monkeypatch, read_s
 
 
 def test_tg09_the_veto_resets_pending_detector_state(monkeypatch) -> None:
-    trace = build_trace(blink_counts(EARLY_PAIR, 6.0), inject=((LOSS_AT, quality(200)),))
+    """Resets at each trust boundary, and only there: the first trusted block (~1.1 s),
+    the fault epoch (4.45 s) and the first trusted block after the rearm (~6.1 s)."""
+    trace = build_trace(blink_counts(EARLY_PAIR, 7.0), inject=((LOSS_AT, quality(200)),))
     runner = _runner_over(monkeypatch, trace_source(trace))
     detector = runner._pipeline._parts.detectors[0]
     resets = []
     original = detector.reset
     monkeypatch.setattr(detector, "reset", lambda: (resets.append(1), original())[1])
     _drain(runner)
-    assert len(resets) == 1                            # once, at the fault epoch
+    assert len(resets) == 3
+
+
+def _first_trusted_after(verdicts: list[tuple[float, bool]], t: float) -> float:
+    return next(t0 for t0, ok in verdicts if ok and t0 >= t)
+
+
+@pytest.mark.parametrize("onset", [round(5.6 + 0.05 * i, 2) for i in range(17)])
+def test_tg09_no_admitted_gesture_uses_samples_from_a_rearming_read(monkeypatch, onset) -> None:
+    """ADR-v2-155: no event before the next separate clean batch, and none spanning the
+    boundary. Contact is lost for seconds 3-4 and rearmed by the reports at 5 s and 6 s;
+    the first blink of a pair starts at ``onset`` (each blink lasts 0.3 s, the second
+    starts 0.35 s after the first). Whatever the detector does, an accepted double blink
+    must have *all* its samples in trusted reads: its first blink cannot start before the
+    first trusted block. Judged from the scheduled blink times, not the detector's own
+    (delayed) timestamps."""
+    trace = build_trace(blink_counts((onset, onset + 0.35), 12.0),
+                        contact=lambda s: 200 if s in (3, 4) else 0)
+    source = trace_source(trace)
+    runner = _runner_over(monkeypatch, source)
+    verdicts: list[tuple[float, bool]] = []
+    real_process = runner._pipeline.process
+
+    def process(block: SampleBlock) -> Any:
+        health = runner._source.health_for(block)
+        verdicts.append((float(block.t0), bool(health is not None and health.trusted)))
+        return real_process(block)
+
+    monkeypatch.setattr(runner._pipeline, "process", process)
+    _drain(runner)
+    trusted_from = _first_trusted_after(verdicts, 4.0)
+    assert 5.9 < trusted_from < 6.2                 # the hand-derived rearm point
+    if _n_double(runner):
+        assert onset >= trusted_from, (
+            f"a pair whose first blink starts at {onset} s was admitted, but the stream "
+            f"was only trusted from {trusted_from:.4f} s")
 
 
 def test_tg03_zero_200_zero_in_one_read_vetoes_the_pair(monkeypatch) -> None:

@@ -642,9 +642,13 @@ class BiosignalPipeline:
         self._source_fault = False
         gate_closed, gate_reason = self._quality_gate(block)
         if self._source_fault:
-            # The source began a new fault epoch (ADR-v2-155): pairing history and filter
-            # state from before it must not meet what comes after.
+            # The source crossed a trust boundary (ADR-v2-155): a new fault epoch, or the
+            # first trusted block after an untrusted stretch. Pairing history and filter
+            # state from before it must not meet what comes after -- so the block is
+            # filtered again with the fresh chains, or the old filter memory would carry
+            # untrusted samples into it.
             self._reset_detectors_locked()
+            filtered = self._filter(block)
         self._gate_reason = gate_reason if gate_closed else ""
         self._note_gate(block, gate_closed, gate_reason)
         # Which detectors the calibration check holds off (empty when it is fine or absent).
@@ -793,8 +797,8 @@ class BiosignalPipeline:
         except Exception:
             self._disable("quality", "signal-quality monitor failed; quality gate off")
             return False, ""
-        # A source-health gate asks for a detector reset when the source starts a new fault
-        # epoch. ``is True``: any other report (a Mock in a test included) never asks.
+        # A source-health gate asks for a detector reset at a trust boundary (a new fault
+        # epoch, or trust returning). ``is True``: any other report (a Mock) never asks.
         self._source_fault = getattr(report, "reset_detector_state", False) is True
         overall = _name(getattr(report, "overall", "unknown"))
         self._quality = overall
