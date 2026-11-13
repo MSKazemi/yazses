@@ -39,7 +39,7 @@ a serial port path from a private machine, a photograph or any personal detail i
 | Bluetooth adapter (model only) | «fill» |
 | Power during sessions | «fill: laptop on battery / on mains; headset battery state» |
 | YazSes version and commit | «fill: `yazses --version` line and `git rev-parse --short HEAD`» |
-| Safety code present at that commit | «fill: confirm #828, #829 and #830 are contained (branch `feat/thinkgear-parity-830` at `2c5480d0`, its merge, or a release listing all three); state of #831» |
+| Safety code present at that commit | «fill: confirm #828, #829 and #830 are contained (branch `feat/thinkgear-parity-830` at `97206fb8` or later, its merge, or a release listing all three; not `2c5480d0`, which lacks the trust-return reset `e5ad4b6a`); state of #831» |
 | Frozen `[biosignal]` section | «fill: paste it verbatim» |
 | `mains_hz` | «fill» |
 | Calibration profile age at each scored session | «fill: from `yazses biosignal profile`» |
