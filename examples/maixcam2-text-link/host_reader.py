@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import math
 import os
 import select
 import sys
@@ -72,26 +73,20 @@ def process(
     parser: FrameParser,
     chunk: bytes,
     limiter: RateLimiter | None = None,
-    *,
-    allow_duplicates: bool = False,
 ) -> list[tuple[int, str]]:
     """Feed one chunk; return ``(seq, text)`` for every text that should be shown.
 
-    Drops, in order: PING and TRIGGER frames (not text), immediate duplicates (unless
-    ``allow_duplicates``), and frames over the rate limit. Rate-limited frames are
-    dropped, not delayed.
+    Drops PING and TRIGGER frames (not text) and frames over the rate limit; rate-limited
+    frames are dropped, not delayed. An exact repeat of the previous frame is *not*
+    dropped: the receiver cannot tell a retransmission from a repeated utterance.
     """
-    return _select(parser.feed(chunk), limiter, allow_duplicates)
+    return _select(parser.feed(chunk), limiter)
 
 
-def _select(
-    frames: Sequence[Frame], limiter: RateLimiter | None, allow_duplicates: bool
-) -> list[tuple[int, str]]:
+def _select(frames: Sequence[Frame], limiter: RateLimiter | None) -> list[tuple[int, str]]:
     accepted: list[tuple[int, str]] = []
     for frame in frames:
         if frame.type != FrameType.TEXT or frame.text is None:
-            continue
-        if frame.duplicate and not allow_duplicates:
             continue
         if limiter is not None and not limiter.allow():
             continue
@@ -128,13 +123,21 @@ def _try_pyserial(path: str, baud: int) -> object | None:
     return serial.Serial(path, baud, bytesize=8, parity="N", stopbits=1, timeout=0.2)
 
 
-def _configure_tty(fd: int, baud: int) -> None:
-    """Best effort: raw 8N1 at ``baud`` on a tty file descriptor (POSIX)."""
+def _configure_tty(fd: int, baud: int) -> list[Any] | None:
+    """Best effort: raw 8N1 at ``baud`` on a tty file descriptor (POSIX).
+
+    Returns the terminal attributes as they were before, so the caller can put them back
+    (``None`` when nothing was changed). The device belongs to the user, not to this run.
+    """
     try:
         import termios
         import tty
     except ImportError:  # pragma: no cover - Windows
-        return
+        return None
+    try:
+        saved = termios.tcgetattr(fd)
+    except (termios.error, OSError):
+        return None
     try:
         tty.setraw(fd, termios.TCSANOW)  # TCSAFLUSH (the default) would drop bytes already queued
         speed = getattr(termios, f"B{baud}", None)
@@ -143,6 +146,20 @@ def _configure_tty(fd: int, baud: int) -> None:
             attrs[4] = attrs[5] = speed  # ispeed, ospeed
             termios.tcsetattr(fd, termios.TCSANOW, attrs)
     except (termios.error, OSError):
+        pass
+    return saved
+
+
+def _restore_tty(fd: int, saved: list[Any] | None) -> None:
+    if saved is None:
+        return
+    try:
+        import termios
+    except ImportError:  # pragma: no cover - Windows
+        return
+    try:
+        termios.tcsetattr(fd, termios.TCSANOW, saved)
+    except (termios.error, OSError):  # the device may be gone already
         pass
 
 
@@ -168,10 +185,15 @@ def iter_device(path: str, baud: int = DEFAULT_BAUD, idle_s: float = 1.0) -> Ite
             return
         finally:
             port.close()  # type: ignore[attr-defined]
-    fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOCTTY", 0))
+    # O_NONBLOCK: opening a FIFO (or a modem-controlled tty) for reading would otherwise
+    # block until a writer shows up, and --idle-exit could never fire. Reads are gated by
+    # select() below, so the descriptor stays non-blocking.
+    flags = os.O_RDONLY | getattr(os, "O_NOCTTY", 0) | getattr(os, "O_NONBLOCK", 0)
+    fd = os.open(path, flags)
+    saved = None
     try:
         if os.isatty(fd):
-            _configure_tty(fd, baud)
+            saved = _configure_tty(fd, baud)
         if sys.platform == "win32":  # select() does not work on file descriptors there
             while True:
                 chunk = os.read(fd, READ_SIZE)
@@ -185,12 +207,15 @@ def iter_device(path: str, baud: int = DEFAULT_BAUD, idle_s: float = 1.0) -> Ite
                 continue
             try:
                 chunk = os.read(fd, READ_SIZE)
+            except BlockingIOError:  # readiness was reported but the data is gone
+                continue
             except OSError:  # EIO: the pty/USB adapter went away
                 return
             if not chunk:
                 return
             yield chunk
     finally:
+        _restore_tty(fd, saved)
         os.close(fd)
 
 
@@ -199,29 +224,34 @@ def run(
     out: TextIO,
     err: TextIO,
     *,
-    rate: float = DEFAULT_RATE,
-    allow_duplicates: bool = False,
+    rate: float | None = DEFAULT_RATE,
     idle_exit_s: float | None = None,
     idle_tick_s: float = 1.0,
     clock: Callable[[], float] = time.monotonic,
 ) -> FrameParser:
     """Drive the parser from ``source`` until it ends; print accepted texts to ``out``.
 
-    ``None`` items mean "``idle_tick_s`` of silence": the parser gives up on any frame
-    stuck mid-way. With ``idle_exit_s`` set, that much cumulative silence ends the run.
+    ``rate`` is the accepted-texts-per-second cap (``None`` means unlimited; a rate that is
+    not finite and positive raises :class:`ValueError`). ``None`` items from the source mean
+    "``idle_tick_s`` of silence": the parser gives up on any frame stuck mid-way. With
+    ``idle_exit_s`` set, that much cumulative silence ends the run. When the run ends for
+    any reason (the source is exhausted, the device hit EOF, a replay finished, an idle
+    exit) the parser is flushed with the final flag, so a valid frame queued behind a
+    truncated or corrupt head is not lost.
     """
     parser = FrameParser()
-    limiter = RateLimiter(rate, clock=clock) if rate > 0 else None
+    limiter = None if rate is None else RateLimiter(rate, clock=clock)
     silent = 0.0
     for chunk in source:
         if chunk is None:
             silent += idle_tick_s
-            emit(_select(parser.flush_partial(), limiter, allow_duplicates), out)
+            emit(_select(parser.flush_partial(), limiter), out)
             if idle_exit_s is not None and silent >= idle_exit_s:
                 break
             continue
         silent = 0.0
-        emit(process(parser, chunk, limiter, allow_duplicates=allow_duplicates), out)
+        emit(process(parser, chunk, limiter), out)
+    emit(_select(parser.flush_partial(), limiter), out)  # end of input: nothing more is coming
     stats = {k: v for k, v in parser.stats().items() if v}
     if limiter is not None and limiter.dropped:
         stats["rate_limited"] = limiter.dropped
@@ -287,6 +317,17 @@ def selftest(out: TextIO | None = None, scenarios: Sequence[Any] | None = None) 
 # -- CLI -------------------------------------------------------------------------
 
 
+def _positive_rate(value: str) -> float:
+    """argparse type for ``--rate``: a finite number greater than zero."""
+    try:
+        rate = float(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{value!r} is not a number") from None
+    if not math.isfinite(rate) or rate <= 0:
+        raise argparse.ArgumentTypeError(f"{value!r}: the rate must be a finite number > 0")
+    return rate
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         description="Read TextLink frames from a serial device and print the text as JSON lines. "
@@ -299,15 +340,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     ap.add_argument(
         "--rate",
-        type=float,
+        type=_positive_rate,
         default=None,
-        help=f"max accepted text frames per second, excess dropped (0 = unlimited); "
+        help=f"max accepted text frames per second, excess dropped (finite, > 0); "
         f"default {DEFAULT_RATE:g} for a device, unlimited for --replay",
-    )
-    ap.add_argument(
-        "--allow-duplicates",
-        action="store_true",
-        help="also print an exact immediate repeat of the previous frame",
     )
     ap.add_argument(
         "--idle-exit",
@@ -336,8 +372,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             source,
             sys.stdout,
             sys.stderr,
-            rate=(0.0 if args.replay else DEFAULT_RATE) if args.rate is None else args.rate,
-            allow_duplicates=args.allow_duplicates,
+            rate=(None if args.replay else DEFAULT_RATE) if args.rate is None else args.rate,
             idle_exit_s=args.idle_exit,
         )
     except KeyboardInterrupt:

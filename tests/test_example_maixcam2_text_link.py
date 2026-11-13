@@ -18,10 +18,14 @@ import binascii
 import importlib.util
 import io
 import json
+import os
 import random
+import re
 import subprocess
 import sys
 import threading
+import types
+import unicodedata
 from pathlib import Path
 from types import ModuleType
 
@@ -92,6 +96,7 @@ GOLDEN = [
     ("hello seq 0", tl.FrameType.TEXT, 0, b"hello", "59 53 01 01 00 00 05 68 65 6c 6c 6f e5 3c"),
     ("trigger seq 1", tl.FrameType.TRIGGER, 1, b"", "59 53 01 02 01 00 00 61 05"),
     ("ping seq 255", tl.FrameType.PING, 255, b"", "59 53 01 03 ff 00 00 ef e2"),
+    ("ping seq 0", tl.FrameType.PING, 0, b"", "59 53 01 03 00 00 00 20 81"),
     (
         "chinese seq 7",
         tl.FrameType.TEXT,
@@ -145,27 +150,30 @@ def test_encoder_refuses_what_the_wire_cannot_carry():
 
 _SAFE_TEXT = st.text(
     alphabet=st.characters(
-        blacklist_categories=("Cc", "Cs", "Cn"),
+        blacklist_categories=("Cc", "Cf", "Cs", "Cn"),
         blacklist_characters=[
-            " ",
-            " ",
-            "‎",
-            "‏",
-            "؜",
-            *map(chr, range(0x202A, 0x202F)),
-            *map(chr, range(0x2066, 0x206A)),
+            "\u2028",
+            "\u2029",
+            "\ufffd",
+            "\u2800",
+            "\u3164",
+            "\uffa0",
+            "\u115f",
+            "\u1160",
         ],
     ),
     min_size=1,
-    max_size=100,
-).filter(lambda s: s.strip() != "")
+    max_size=60,  # NFC can double a character, and the post-NFC text is capped at 512 bytes
+).filter(lambda s: _has_visible_content(unicodedata.normalize("NFC", s)))
+
+
+def _has_visible_content(text: str) -> bool:
+    return any(unicodedata.category(c)[0] in "LNPS" for c in text)
 
 
 @settings(max_examples=150, deadline=None)
 @given(_SAFE_TEXT, st.integers(0, 255))
 def test_round_trip_property(text, seq):
-    import unicodedata
-
     expected = unicodedata.normalize("NFC", text).strip()
     wire = tl.encode_text(text, seq)
     frames, stats = parse_all([wire])
@@ -335,6 +343,29 @@ HOSTILE = {
     "fsi": "a⁨b",
     "pdi": "a⁩b",
     "blank": "   ",
+    "zero width space": "a\u200bb",
+    "word joiner": "a\u2060b",
+    "bom": "a\ufeffb",
+    "soft hyphen": "a\u00adb",
+    "tag character": "a\U000e0041b",
+    "deprecated format 206a": "a\u206ab",
+    "annotation anchor": "a\ufff9b",
+    "noncharacter fffe": "a\ufffeb",
+    "noncharacter ffff": "a\uffffb",
+    "replacement character": "a\ufffdb",
+    "braille blank": "a\u2800b",
+    "hangul filler": "a\u3164b",
+    "halfwidth hangul filler": "a\uffa0b",
+    "hangul choseong filler": "a\u115fb",
+    "hangul jungseong filler": "a\u1160b",
+    "zwnj alone": "\u200c",
+    "zwj alone": "\u200d",
+    "zwnj between digits": "1\u200c2",
+    "zwj emoji sequence without a letter": "\U0001f468\u200d\U0001f469",
+    "lone combining mark": "\u0301",
+    "combining marks and spaces": " \u0301 \u0308 ",
+    "zero width space only": "\u200b",
+    "tag characters only": "\U000e0041\U000e0042",
     "nbsp only": "  ",
 }
 
@@ -391,17 +422,14 @@ def test_seq_gap_is_measured_and_text_is_kept():
     assert stats["seq_gaps"] == 1
 
 
-def test_duplicate_is_flagged_and_reader_drops_it():
+def test_identical_consecutive_frames_are_both_delivered_and_counted():
     wire = tl.encode_text("same", 4) * 2 + tl.encode_text("next", 5)
     frames, stats = parse_all([wire])
-    assert [f.duplicate for f in frames] == [False, True, False]
-    assert stats["duplicates"] == 1 and stats["seq_gaps"] == 0
-    assert reader.process(tl.FrameParser(), wire) == [(4, "same"), (5, "next")]
-    assert reader.process(tl.FrameParser(), wire, allow_duplicates=True) == [
-        (4, "same"),
-        (4, "same"),
-        (5, "next"),
-    ]
+    assert [f.text for f in frames] == ["same", "same", "next"]
+    assert [f.seq_repeat for f in frames] == [False, True, False]
+    assert stats["seq_repeats"] == 1 and stats["seq_gaps"] == 0
+    assert "duplicates" not in stats
+    assert reader.process(tl.FrameParser(), wire) == [(4, "same"), (4, "same"), (5, "next")]
 
 
 def test_reboot_is_one_discontinuity_not_a_loss_of_text():
@@ -525,7 +553,7 @@ def test_reader_replay_prints_json_lines(tmp_path):
     capture = tmp_path / "capture.bin"
     capture.write_bytes(sim.SCENARIO_BY_NAME["multibyte_split"].stream)
     out, err = io.StringIO(), io.StringIO()
-    reader.run(reader.iter_file(str(capture)), out, err, rate=0.0)
+    reader.run(reader.iter_file(str(capture)), out, err, rate=None)
     lines = out.getvalue().splitlines()
     assert [json.loads(line) for line in lines] == [
         {"seq": s, "text": t} for s, t in sim.SCENARIO_BY_NAME["multibyte_split"].expected_texts
@@ -537,6 +565,7 @@ def test_reader_replay_prints_json_lines(tmp_path):
 def test_reader_replay_cli(tmp_path):
     capture = tmp_path / "hostile.bin"
     capture.write_bytes(sim.SCENARIO_BY_NAME["hostile"].stream)
+    n_hostile = sim.SCENARIO_BY_NAME["hostile"].expected_texts[0][0]
     done = subprocess.run(
         [sys.executable, str(EXAMPLE / "host_reader.py"), "--replay", str(capture)],
         capture_output=True,
@@ -546,9 +575,9 @@ def test_reader_replay_cli(tmp_path):
     )
     assert done.returncode == 0, done.stderr
     assert [json.loads(line) for line in done.stdout.splitlines()] == [
-        {"seq": 12, "text": "safe text after the hostile ones"}
+        {"seq": n_hostile, "text": "safe text after the hostile ones"}
     ]
-    assert '"invalid_text": 12' in done.stderr
+    assert f'"invalid_text": {n_hostile}' in done.stderr
 
 
 def test_reader_cli_argument_errors(capsys):
@@ -566,7 +595,7 @@ def test_reader_idle_tick_recovers_a_stalled_frame():
     cut = tl.encode_text("a long sentence that is cut off mid way", 0)[:15]
     source = iter([cut + tl.encode_text("one", 1), None])
     out, err = io.StringIO(), io.StringIO()
-    reader.run(source, out, err, rate=0.0)
+    reader.run(source, out, err, rate=None)
     assert [json.loads(line)["text"] for line in out.getvalue().splitlines()] == ["one"]
 
 
@@ -598,7 +627,7 @@ def test_pty_end_to_end():
         reader.iter_device(path[0], idle_s=0.2),
         out,
         err,
-        rate=0.0,
+        rate=None,
         idle_exit_s=0.4,
         idle_tick_s=0.2,
     )
@@ -713,3 +742,552 @@ def test_example_files_carry_no_ai_attribution_or_personal_data():
         text = path.read_text(encoding="utf-8").lower()
         for needle in ("co-authored-by", "generated by", "generated with"):
             assert needle not in text, f"{path}: {needle}"
+
+
+# -- review round 2: refusal rules, EOF flush, repeats, device handling ----------------
+
+# Characters the board's cleaner must remove that no unicode *category* rule covers. Written
+# out here on purpose: a test that read the board's own set would lose a case whenever
+# someone deleted one from it.
+UNCATEGORISED_REFUSED = [
+    0x2028,  # line separator (Zl)
+    0x2029,  # paragraph separator (Zp)
+    0xFFFE,  # noncharacters (Cn)
+    0xFFFF,
+    0xFFFD,  # replacement character (So)
+    0x2800,  # braille blank (So)
+    0x3164,  # hangul filler (Lo)
+    0xFFA0,  # halfwidth hangul filler (Lo)
+    0x115F,  # hangul choseong filler (Lo)
+    0x1160,  # hangul jungseong filler (Lo)
+]
+
+
+def _host_result(text: str) -> str | None:
+    """What the host does with ``text`` on the wire: the decoded text, or None if refused."""
+    try:
+        return tl.decode_text(text.encode("utf-8", "surrogatepass"))
+    except tl.InvalidText:
+        return None
+
+
+def test_the_refusal_constant_is_the_set_the_board_mirrors():
+    assert set(tl.REFUSED_CHARS) == {chr(c) for c in UNCATEGORISED_REFUSED}
+    assert set(board._REFUSED) == set(tl.REFUSED_CHARS)
+
+
+@pytest.mark.parametrize("code", UNCATEGORISED_REFUSED, ids=lambda c: f"U+{c:04X}")
+def test_every_character_of_the_boards_refused_set_is_removed(code):
+    ch = chr(code)
+    assert board.clean_text(f"a{ch}b") == "ab"
+    assert _host_result(f"a{ch}b") is None
+
+
+# ~60 representative code points: (code point, True when the host refuses it inside a word).
+_AGREEMENT = [(c, True) for c in (0x00, 0x09, 0x0A, 0x0D, 0x1B, 0x7F, 0x80, 0x85, 0x9B, 0x9F)]
+_AGREEMENT += [(c, True) for c in (0x00AD, 0x0600, 0x061C, 0x180E, 0x200B, 0x200E, 0x200F)]
+_AGREEMENT += [(c, True) for c in (0x202A, 0x202B, 0x202C, 0x202D, 0x202E, 0x2060, 0x2066)]
+_AGREEMENT += [(c, True) for c in (0x2067, 0x2068, 0x2069, 0x206A, 0x206F, 0xFEFF, 0xFFF9)]
+_AGREEMENT += [(c, True) for c in (0xFFFB, 0xE0001, 0xE0041, 0xE007F)]
+_AGREEMENT += [(c, True) for c in UNCATEGORISED_REFUSED]
+_AGREEMENT += [(c, True) for c in (0xD800, 0xDBFF, 0xDFFF)]  # lone surrogates
+_AGREEMENT += [(c, False) for c in (0x20, 0x2D, 0x2E, 0x31, 0x41, 0xA0, 0xE9, 0x200C, 0x200D)]
+_AGREEMENT += [(c, False) for c in (0x3000, 0x0301, 0x0344, 0x0627, 0x0F73, 0x1100, 0x1161)]
+_AGREEMENT += [(c, False) for c in (0x4F60, 0xAC00, 0xFE0F, 0x1F600, 0x2603, 0x10FFFF - 0x2)]
+
+
+def test_the_agreement_table_is_about_sixty_code_points():
+    assert 55 <= len({c for c, _ in _AGREEMENT}) <= 80
+
+
+@pytest.mark.parametrize(("code", "refused"), _AGREEMENT, ids=lambda v: f"{v}")
+def test_board_cleaner_and_host_decoder_agree_on_every_character(code, refused):
+    ch = chr(code)
+    text = f"a{ch}b"
+    host = _host_result(text)
+    cleaned = board.clean_text(text)
+    assert cleaned is not None
+    assert (host is None) is refused, f"host verdict for U+{code:04X}"
+    if host is not None:
+        assert cleaned == host  # the board keeps exactly what the host would accept
+    else:
+        assert ch not in cleaned  # the board removes what the host would refuse...
+    assert _host_result(cleaned) == cleaned  # ...so whatever it sends is accepted
+
+
+INVISIBLE_ONLY = [
+    "\u200b",
+    "\u2060",
+    "\ufeff",
+    "\U000e0041\U000e0042",
+    "\u206a\u206f",
+    "\ufff9\ufffa\ufffb",
+    "\ufffe",
+    "\uffff",
+    "\ufffd",
+    "\u2800",
+    "\u3164",
+    "\uffa0",
+    "\u115f\u1160",
+    "\u200c",
+    "\u200d",
+    "\u0301",
+    "  \t ",
+]
+
+
+@pytest.mark.parametrize("text", INVISIBLE_ONLY, ids=lambda t: "+".join(f"{ord(c):04X}" for c in t))
+def test_text_with_no_visible_content_is_refused_by_host_and_dropped_by_board(text):
+    with pytest.raises(tl.InvalidText):
+        tl.decode_text(text.encode())
+    frames, stats = parse_all([tl.encode(tl.FrameType.TEXT, 0, text.encode())])
+    assert frames == [] and stats["invalid_text"] == 1
+    assert board.clean_text(text) is None
+    assert board.text_frame(text, 0) is None
+
+
+def test_zero_width_non_joiner_and_joiner_need_a_letter_beside_them():
+    persian = "\u0645\u06cc\u200c\u062e\u0648\u0627\u0647\u0645"
+    assert tl.decode_text(persian.encode()) == persian
+    assert tl.decode_text("\u0915\u200d\u0937".encode()) == "\u0915\u200d\u0937"
+    for no_letter in ("1\u200c2", "\U0001f468\u200d\U0001f469", "\u200c\u200c"):
+        with pytest.raises(tl.InvalidText):
+            tl.decode_text(no_letter.encode())
+    assert board.clean_text("1\u200c2") == "12"  # the board drops them when there is no letter
+    assert board.clean_text(persian) == persian
+
+
+def test_invalid_text_reasons_for_the_new_rules():
+    reasons = []
+    for payload in ("a\u200bb", "a\u3164b", "\u0301", "1\u200c2"):
+        with pytest.raises(tl.InvalidText) as info:
+            tl.decode_text(payload.encode())
+        reasons.append(info.value.reason)
+    assert reasons == ["format", "invisible", "empty", "format"]
+
+
+def test_nfc_expansion_past_512_bytes_is_refused_after_normalisation():
+    # U+0344 normalises to U+0308 U+0301, doubling its UTF-8 size (2 bytes become 4).
+    fits = ("1" + "\u0344" * 127).encode()
+    grows = ("1" + "\u0344" * 128).encode()
+    assert len(fits) <= 512 and len(grows) <= 512  # both are legal wire payloads
+    assert len(unicodedata.normalize("NFC", fits.decode()).encode()) == 509
+    assert len(unicodedata.normalize("NFC", grows.decode()).encode()) == 513
+    assert tl.decode_text(fits) == unicodedata.normalize("NFC", fits.decode())
+    with pytest.raises(tl.InvalidText):
+        tl.decode_text(grows)
+    frames, stats = parse_all([tl.encode(tl.FrameType.TEXT, 0, grows) + tl.encode_text("ok", 1)])
+    assert [f.text for f in frames] == ["ok"] and stats["invalid_text"] == 1
+    with pytest.raises(tl.InvalidText):
+        tl.encode_text(grows.decode(), 0)
+    cleaned = board.clean_text(grows.decode())
+    assert cleaned is not None and len(cleaned.encode()) <= 512
+    assert _host_result(cleaned) == cleaned
+
+
+# -- duplicates are delivered ----------------------------------------------------------
+
+
+def test_a_repeated_utterance_is_not_lost_end_to_end():
+    out, err = io.StringIO(), io.StringIO()
+    wire = tl.encode_text("yes", 0) + tl.encode_text("yes", 0)
+    parser = reader.run(iter([wire]), out, err, rate=None)
+    assert [json.loads(line)["text"] for line in out.getvalue().splitlines()] == ["yes", "yes"]
+    assert parser.seq_repeats == 1
+    assert '"seq_repeats": 1' in err.getvalue()
+
+
+def test_the_reader_has_no_duplicate_dropping_option():
+    with pytest.raises(SystemExit) as info:
+        reader.main(["--replay", "x.bin", "--allow-duplicates"])
+    assert info.value.code == 2
+
+
+# -- end of input flushes the parser ---------------------------------------------------
+
+_TRUNCATED_HEAD = bytes.fromhex("59 53 01 01 00 01 00") + b"xxxxx"  # claims LEN 256, 5 bytes follow
+
+
+def test_run_flushes_at_end_of_input_so_a_frame_behind_a_dead_head_is_not_lost():
+    out, err = io.StringIO(), io.StringIO()
+    reader.run(iter([_TRUNCATED_HEAD + tl.encode_text("recovered", 1)]), out, err, rate=None)
+    assert [json.loads(line)["text"] for line in out.getvalue().splitlines()] == ["recovered"]
+
+
+def test_replay_cli_flushes_at_end_of_file(tmp_path):
+    capture = tmp_path / "cut.bin"
+    capture.write_bytes(_TRUNCATED_HEAD + tl.encode_text("recovered", 1))
+    done = subprocess.run(
+        [sys.executable, str(EXAMPLE / "host_reader.py"), "--replay", str(capture)],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert done.returncode == 0, done.stderr
+    assert [json.loads(line)["text"] for line in done.stdout.splitlines()] == ["recovered"]
+
+
+@pytest.mark.parametrize("tail", [b"Y", b"abcY", b"YS", b"YS\x01\x01", b"YS\x01\x01\x00\x00"])
+def test_final_flush_discards_a_tail_shorter_than_a_header(tail):
+    parser = tl.FrameParser()
+    parser.feed(tail)
+    assert parser.flush_partial() == []
+    assert parser.buffered == 0
+    assert parser.resync_bytes == len(tail)  # every byte held was counted as discarded
+
+
+# -- run(): the limiter, idle exit -------------------------------------------------------
+
+
+def test_run_applies_the_rate_limit_and_reports_it():
+    clock = _Clock()
+    wire = b"".join(tl.encode_text(f"t{i}", i) for i in range(4))
+    out, err = io.StringIO(), io.StringIO()
+    reader.run(iter([wire]), out, err, rate=1.0, clock=clock)
+    assert [json.loads(line)["text"] for line in out.getvalue().splitlines()] == ["t0"]
+    assert '"rate_limited": 3' in err.getvalue()
+
+
+def test_run_idle_exit_stops_reading_after_enough_silence():
+    after = tl.encode_text("after the silence", 1)
+    source = iter([tl.encode_text("before", 0), None, None, after])
+    out, err = io.StringIO(), io.StringIO()
+    reader.run(source, out, err, rate=None, idle_exit_s=2.0, idle_tick_s=1.0)
+    assert [json.loads(line)["text"] for line in out.getvalue().splitlines()] == ["before"]
+    assert next(source) == after  # the source was left unread past the exit
+
+
+def test_run_idle_exit_is_reset_by_data():
+    source = iter([None, tl.encode_text("a", 0), None, tl.encode_text("b", 1)])
+    out, err = io.StringIO(), io.StringIO()
+    reader.run(source, out, err, rate=None, idle_exit_s=2.0, idle_tick_s=1.0)
+    assert [json.loads(line)["text"] for line in out.getvalue().splitlines()] == ["a", "b"]
+
+
+def test_rate_limiter_survives_a_clock_that_goes_backwards():
+    clock = _Clock()
+    limiter = tl.RateLimiter(2.0, clock=clock)
+    assert limiter.allow() and limiter.allow() and not limiter.allow()
+    clock.now -= 100.0  # a wall-clock step back must not push the bucket into debt
+    assert not limiter.allow()
+    clock.now += 1.0  # one second later the bucket has refilled normally
+    assert limiter.allow()
+
+
+@pytest.mark.parametrize("rate", [0, 0.0, -5, float("nan"), float("inf"), float("-inf")])
+def test_rate_limiter_rejects_a_rate_that_is_not_finite_and_positive(rate):
+    with pytest.raises(ValueError):
+        tl.RateLimiter(rate)
+
+
+@pytest.mark.parametrize("rate", ["nan", "inf", "-inf", "-5", "0", "abc"])
+def test_cli_rejects_a_bad_rate_cleanly(rate, capsys):
+    with pytest.raises(SystemExit) as info:
+        reader.main(["--replay", "x.bin", f"--rate={rate}"])
+    assert info.value.code == 2
+    err = capsys.readouterr().err
+    assert "--rate" in err and "Traceback" not in err
+
+
+def test_cli_rate_error_is_clean_in_a_real_process(tmp_path):
+    done = subprocess.run(
+        [sys.executable, str(EXAMPLE / "host_reader.py"), "--replay", "x.bin", "--rate", "nan"],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert done.returncode == 2 and "Traceback" not in done.stderr
+
+
+# -- feed() input types ---------------------------------------------------------------
+
+
+def test_feed_accepts_any_bytes_like_object_including_a_strided_memoryview():
+    wire = tl.encode_text("strided", 3)
+    strided = memoryview(bytearray(b"".join(bytes((b, 0)) for b in wire)))[::2]
+    assert not strided.contiguous
+    for chunk in (strided, bytearray(wire), memoryview(wire), memoryview(wire).cast("B")):
+        assert [f.text for f in tl.FrameParser().feed(chunk)] == ["strided"]
+
+
+@pytest.mark.parametrize("bad", ["YS", 5, None, ["Y"]])
+def test_feed_refuses_what_is_not_bytes_like(bad):
+    with pytest.raises(TypeError):
+        tl.FrameParser().feed(bad)
+
+
+# -- device handling ------------------------------------------------------------------
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="pseudo-terminals are POSIX only")
+@pytest.mark.timeout(30)
+def test_iter_device_restores_the_terminal_it_put_in_raw_mode():
+    import pty
+    import termios
+
+    master, slave = pty.openpty()
+    try:
+        before = termios.tcgetattr(slave)
+        gen = reader.iter_device(os.ttyname(slave), idle_s=0.1)
+        assert next(gen) is None  # the first idle tick: the port is open and configured
+        assert termios.tcgetattr(slave)[3] != before[3]  # it really was switched to raw
+        os.write(master, b"hello")
+        assert next(gen) == b"hello"
+        gen.close()
+        after = termios.tcgetattr(slave)
+        assert after[3] == before[3]  # lflag (ICANON, ECHO, ISIG, ...)
+        assert after == before  # and every other field
+    finally:
+        os.close(master)
+        os.close(slave)
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="needs named pipes")
+def test_a_fifo_with_no_writer_does_not_block_idle_exit(tmp_path):
+    fifo = tmp_path / "link"
+    os.mkfifo(fifo)
+    try:
+        done = subprocess.run(
+            [sys.executable, str(EXAMPLE / "host_reader.py"), str(fifo), "--idle-exit", "0.5"],
+            capture_output=True,
+            text=True,
+            timeout=8,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        pytest.fail("host_reader blocked forever opening a FIFO that has no writer")
+    assert done.returncode == 0, done.stderr
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="needs named pipes")
+@pytest.mark.timeout(30)
+def test_a_fifo_with_a_writer_delivers_frames_and_ends_at_eof(tmp_path):
+    fifo = tmp_path / "link"
+    os.mkfifo(fifo)
+    proc = subprocess.Popen(
+        [sys.executable, str(EXAMPLE / "host_reader.py"), str(fifo)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        with open(fifo, "wb") as writer:  # returns once the reader has opened its end
+            writer.write(tl.encode_text("over a pipe", 0))
+        stdout, _ = proc.communicate(timeout=20)
+    finally:
+        proc.kill()
+        proc.wait()
+    assert [json.loads(line)["text"] for line in stdout.splitlines()] == ["over a pipe"]
+
+
+# -- the board script, round 2 ----------------------------------------------------------
+
+
+class _FakeSerial:
+    def __init__(self) -> None:
+        self.written: list[bytes] = []
+
+    def write(self, data: bytes) -> None:
+        self.written.append(bytes(data))
+
+
+@pytest.fixture
+def fake_maix(monkeypatch):
+    """A stand-in for the MaixPy ``maix`` package, so ``setup_uart`` and ``main`` run on a PC."""
+    state = types.SimpleNamespace(pins=[], uart_args=None, serial=_FakeSerial(), transcript="hi")
+
+    def make_uart(device, baud):
+        state.uart_args = (device, baud)
+        return state.serial
+
+    class Whisper:
+        def __init__(self, model, language):
+            state.whisper_args = (model, language)
+
+        def transcribe(self, wav):
+            return state.transcript
+
+    def set_pin(pin, func):
+        state.pins.append((pin, func))
+        return 0
+
+    module = types.ModuleType("maix")
+    module.err = types.SimpleNamespace(check_raise=lambda code, msg: None)
+    module.pinmap = types.SimpleNamespace(set_pin_function=set_pin)
+    module.uart = types.SimpleNamespace(UART=make_uart)
+    module.nn = types.SimpleNamespace(Whisper=Whisper)
+    monkeypatch.setitem(sys.modules, "maix", module)
+    monkeypatch.setattr(board, "_seq", 0)
+    return state
+
+
+def test_board_opens_uart4_at_the_baud_the_host_and_the_spec_use(fake_maix):
+    board.setup_uart()
+    assert fake_maix.uart_args == ("/dev/ttyS4", 115200)
+    assert fake_maix.pins == [("A21", "UART4_TX"), ("A22", "UART4_RX")]
+    assert board.BAUD == reader.DEFAULT_BAUD == 115200
+    assert "115200" in (ROOT / "design" / "specs" / "textlink-wire-protocol.md").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_board_seq_increments_per_frame_actually_sent(fake_maix):
+    for _ in range(3):
+        assert board.send_text(fake_maix.serial, "yes") is not None
+    assert board.send_text(fake_maix.serial, "\x00") is None  # nothing sendable: no frame, no SEQ
+    assert board.send_text(fake_maix.serial, "after") is not None
+    frames, stats = parse_all(fake_maix.serial.written)
+    assert [(f.seq, f.text) for f in frames] == [(0, "yes"), (1, "yes"), (2, "yes"), (3, "after")]
+    assert stats["seq_gaps"] == 0 and stats["seq_repeats"] == 0
+
+
+def test_board_seq_wraps_modulo_256(fake_maix, monkeypatch):
+    monkeypatch.setattr(board, "_seq", 255)
+    board.send_text(fake_maix.serial, "one")
+    board.send_text(fake_maix.serial, "two")
+    frames, stats = parse_all(fake_maix.serial.written)
+    assert [f.seq for f in frames] == [255, 0] and stats["seq_gaps"] == 0
+    assert board._seq == 1  # the counter itself wrapped, not just the byte on the wire
+
+
+@pytest.mark.parametrize("result", [None, 5, b"bytes", ["x"], "", "   ", "\x00\x1b", "\u200b"])
+def test_board_sends_nothing_when_there_is_no_text(fake_maix, capsys, result):
+    fake_maix.transcript = result
+    board.main()
+    out = capsys.readouterr().out
+    assert fake_maix.serial.written == []
+    assert "nothing sent" in out and "sent seq" not in out
+    assert board._seq == 0
+
+
+def test_board_main_reports_what_it_sent(fake_maix, capsys):
+    fake_maix.transcript = "hello"
+    board.main()
+    assert capsys.readouterr().out.strip() == "sent seq 0 bytes 14"
+    assert fake_maix.serial.written == [tl.encode_text("hello", 0)]
+
+
+def test_board_removes_forbidden_characters_before_it_normalises():
+    # Removing the zero-width space first lets "a" + U+0301 compose; the result is what the
+    # host will produce from the same text, so the two agree.
+    text = "a" + chr(0x200B) + chr(0x0301)
+    assert board.clean_text(text) == "\xe1"
+    assert _host_result(board.clean_text(text)) == "\xe1"
+
+
+def test_board_strips_lone_surrogates_instead_of_raising():
+    assert board.clean_text("a\ud800b") == "ab"
+    assert board.text_frame("\udfff", 0) is None
+    assert board.text_frame("x\ud83dy", 0) == tl.encode_text("xy", 0)
+
+
+def _board_pool() -> list[str]:
+    pool = [chr(c) for c in range(0x00, 0x20)] + [chr(0x7F), chr(0x85), chr(0x9F)]
+    pool += [chr(c) for c in range(0x0300, 0x0310)] + ["\u0344", "\u0345", "\u0f73", "\u0f71"]
+    pool += [chr(c) for c in (0x1100, 0x1101, 0x1161, 0x1162, 0x11A8, 0x115F, 0x1160)]
+    pool += [
+        "\u6f22",
+        "\u5b57",
+        "\u4f60",
+        "\u597d",
+        "\u00e9",
+        "\u00e8",
+        "\u00f1",
+        "\u01c6",
+        "\u00c5",
+        "\u00c5",
+        "\u00aa",
+        "\u00df",
+        "x",
+        "Y",
+        "7",
+        ".",
+        " ",
+    ]
+    pool += [
+        "\u200b",
+        "\u200c",
+        "\u200d",
+        "\u2060",
+        "\ufeff",
+        "\u2028",
+        "\u2029",
+        "\u202e",
+        "\u3164",
+    ]
+    pool += ["\uffa0", "\ufffd", "\uffff", "\U000e0041", "\ud800", "\u2800", "\u00a0", "\u0627"]
+    return pool
+
+
+def test_board_output_is_always_accepted_by_the_host_unchanged():
+    rng = random.Random(20261113)
+    pool = _board_pool()
+    sent = 0
+    for i in range(2500):
+        n = rng.choice([1, 2, 3, 5, 8, 20, 60, 60, 60, 600])
+        text = "".join(rng.choice(pool) for _ in range(n))
+        cleaned = board.clean_text(text)
+        frame = board.text_frame(text, i & 0xFF)
+        if cleaned is None:
+            assert frame is None, repr(text)
+            continue
+        assert frame is not None
+        sent += 1
+        assert _host_result(cleaned) == cleaned, repr(text)
+        frames, stats = parse_all([frame])
+        assert [f.text for f in frames] == [cleaned] and stats["invalid_text"] == 0, repr(text)
+    assert sent > 600  # the pool is mostly sendable, so the loop above proved something
+
+
+# -- the spec file is the other half of the golden vectors --------------------------------
+
+SPEC = ROOT / "design" / "specs" / "textlink-wire-protocol.md"
+
+
+def _spec_vectors() -> list[tuple[str, str, str, str]]:
+    rows = []
+    in_section = False
+    for line in SPEC.read_text(encoding="utf-8").splitlines():
+        if line.startswith("## "):
+            in_section = line.strip() == "## Golden vectors"
+        if not in_section or not line.startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        match = re.fullmatch(r"`((?:[0-9a-f]{2} ?)+)`", cells[1]) if len(cells) >= 4 else None
+        if match:
+            rows.append((cells[0], match.group(1), cells[2], cells[3]))
+    return rows
+
+
+def test_every_golden_vector_in_the_spec_is_reproduced_byte_for_byte_by_encode():
+    rows = _spec_vectors()
+    assert len(rows) >= 6
+    for label, hexstr, length, crc in rows:
+        wire = bytes.fromhex(hexstr)
+        ftype, seq, payload = wire[3], wire[4], wire[7:-2]
+        assert tl.encode(ftype, seq, payload) == wire, label
+        assert f"SEQ {seq}" in label, label
+        assert int(length) == len(wire), label
+        assert crc.strip("`") == f"0x{wire[-2:].hex().upper()}", label
+        assert _bitwise_crc(wire[2:-2]) == int.from_bytes(wire[-2:], "big"), label
+    assert {r[1] for r in rows} == {
+        g[4] for g in GOLDEN
+    }  # the spec and the tests list the same vectors
+
+
+def test_the_docs_describe_repeats_as_delivered_and_counted_not_dropped():
+    docs = {
+        "spec": SPEC,
+        "readme": EXAMPLE / "README.md",
+        "adr": ROOT / "design" / "adr" / "adr-v2-156-maixcam2-text-link.md",
+    }
+    for name, path in docs.items():
+        text = path.read_text(encoding="utf-8")
+        assert "drops an exact immediate repeat" not in text, name
+        assert "an exact immediate repeat" not in text or "not dropped" in text, name
+        if name != "adr":
+            assert "seq_repeats" in text and "Not handled" in text, name
+    spec_text = SPEC.read_text(encoding="utf-8")
+    assert "512 bytes" in spec_text and "slightly" not in spec_text

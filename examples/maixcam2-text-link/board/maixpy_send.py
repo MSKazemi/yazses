@@ -21,9 +21,11 @@ Wiring: UART4 = ``/dev/ttyS4``, TX = pin A21, RX = pin A22. **Never use UART0**
 (``/dev/ttyS0``): the wiki lists it as the system terminal and log port. A USB-to-UART
 adapter goes between those pins and the PC; connect board TX to adapter RX, and the
 grounds together. Check the logic level of your board revision: Sipeed documents 3.3 V
-for MaixCAM and does not state it for MaixCAM2. The adapter must match it. The board's USB-C port is a USB *function* port and is not a
-serial bridge. The wire format is ``design/specs/textlink-wire-protocol.md`` in the YazSes
-repository; the encoder below is a minimal inline copy of ``textlink.py``.
+for MaixCAM and does not state it for MaixCAM2. The adapter must match it. Per Sipeed
+support (2026-11-09 email, not reproducible from this repository) the USB-C port is a USB
+*function* port and is not a serial bridge. The wire format is
+``design/specs/textlink-wire-protocol.md`` in the YazSes repository; the encoder below is
+a minimal inline copy of ``textlink.py``.
 
 This file is a research example and is not part of YazSes.
 """
@@ -48,10 +50,14 @@ TYPE_TEXT = 0x01
 TYPE_PING = 0x03
 MAX_TEXT_BYTES = 512
 
-# Same rules as textlink.decode_text: refuse C0/C1/DEL, U+2028/9 and bidi controls.
-_REFUSED = set("  ‎‏؜")
-_REFUSED.update(chr(c) for c in range(0x202A, 0x202F))
-_REFUSED.update(chr(c) for c in range(0x2066, 0x206A))
+# Same rules as textlink.decode_text (a test compares the two, character by character).
+# Removed by unicode category: Cc (controls), Cf (format: zero-width, BOM, tags, bidi
+# controls, ...) and Cs (lone surrogates), except ZWNJ/ZWJ, which are kept only beside a
+# letter. _REFUSED lists what no category covers: U+2028/9, the noncharacters
+# U+FFFE/U+FFFF, U+FFFD and the invisible fillers U+2800, U+3164, U+FFA0, U+115F, U+1160.
+_REFUSED = set(chr(c) for c in (0x2028, 0x2029, 0xFFFE, 0xFFFF, 0xFFFD))
+_REFUSED.update(chr(c) for c in (0x2800, 0x3164, 0xFFA0, 0x115F, 0x1160))
+_JOINERS = (chr(0x200C), chr(0x200D))
 
 
 def crc16_ccitt_false(data, crc=0xFFFF):
@@ -70,24 +76,38 @@ def encode(frame_type, seq, payload=b""):
     return SYNC + body + crc16_ccitt_false(body).to_bytes(2, "big")
 
 
+def _wanted(ch):
+    """True for a character the host would accept (the joiners are handled separately)."""
+    return ch in _JOINERS or (
+        unicodedata.category(ch) not in ("Cc", "Cf", "Cs") and ch not in _REFUSED
+    )
+
+
 def clean_text(text):
-    """NFC, drop forbidden characters (newlines become spaces), strip, cap at 512 UTF-8 bytes.
+    """Drop forbidden characters, NFC, strip, cap at 512 UTF-8 bytes; None if nothing is left.
 
     The host refuses a whole frame that contains a forbidden character, so the board
-    removes them first (a Whisper transcript has no business containing them). Returns
-    None when nothing is left to send.
+    removes them first (a Whisper transcript has no business containing them); newlines
+    and tabs become spaces so words stay apart. Removal comes *before* NFC: normalising
+    first could compose a character that the filter then no longer recognises. The 512
+    byte cap applies after NFC (it can expand text), cutting on a character boundary.
+    A ZWNJ/ZWJ is kept only when the text has a letter, and text with no visible
+    character (a letter, number, punctuation or symbol) is not sent.
     """
-    text = unicodedata.normalize("NFC", text)
     text = text.replace("\t", " ").replace("\r", " ").replace("\n", " ")  # keep words apart
-    text = "".join(
-        ch for ch in text if unicodedata.category(ch) != "Cc" and ch not in _REFUSED
-    ).strip()
-    data = text.encode("utf-8")
-    while len(data) > MAX_TEXT_BYTES:  # cut on a character boundary, never mid-character
-        text = text[:-1]
-        data = text.encode("utf-8")
-    text = text.strip()
-    return text or None
+    text = "".join(ch for ch in text if _wanted(ch))
+    while True:  # settle: every step below can change what the next one sees
+        before = text
+        if not any(unicodedata.category(ch)[0] == "L" for ch in text):
+            text = "".join(ch for ch in text if ch not in _JOINERS)  # joiners need a letter
+        text = unicodedata.normalize("NFC", text).strip()
+        if len(text.encode("utf-8")) > MAX_TEXT_BYTES:
+            text = text[:-1]  # cut on a character boundary, never mid-character
+        if text == before:
+            break
+    if not any(unicodedata.category(ch)[0] in "LNPS" for ch in text):
+        return None
+    return text
 
 
 def text_frame(text, seq):
@@ -96,6 +116,28 @@ def text_frame(text, seq):
     if text is None:
         return None
     return encode(TYPE_TEXT, seq, text.encode("utf-8"))
+
+
+_seq = 0  # SEQ of the next frame; counts frames actually sent, wraps modulo 256
+
+
+def send_text(serial, result):
+    """Clean ``result`` and send it as one TEXT frame. Returns ``(seq, bytes)`` or None.
+
+    Sends nothing, and does not advance SEQ, when ``result`` is not a ``str`` (the Whisper
+    page does not state the return type) or when nothing sendable is left after cleaning.
+    """
+    global _seq
+    if not isinstance(result, str):
+        return None
+    frame = text_frame(result, _seq)
+    if frame is None:
+        return None
+    serial.write(frame)  # `.write(bytes)` per the UART wiki page
+    # TODO(verify on device): whether write() blocks until the bytes are on the wire.
+    sent = _seq
+    _seq = (_seq + 1) & 0xFF
+    return sent, len(frame)
 
 
 # --- hardware parts: imported inside functions so this file imports on a PC ---------------
@@ -128,20 +170,18 @@ def main():
 
     serial = setup_uart()
     whisper = nn.Whisper(model=MODEL_PATH, language=LANGUAGE)
-    seq = 0
     # TODO(verify on device): loop/trigger design (button? voice activity?) is not decided.
     # One utterance per run is the smallest thing that exercises the whole path.
     if RECORD_FIRST:
         record_wav(WAV_PATH, RECORD_SECONDS)
     # TODO(verify on device): the wiki shows `text = whisper.transcribe(wav_path)` and
-    # prints it, but does not state the return type; str is assumed here.
+    # prints it, but does not state the return type; send only if it is a str.
     result = whisper.transcribe(WAV_PATH)
-    frame = text_frame(str(result), seq)
-    if frame is not None:
-        serial.write(frame)  # `.write(bytes)` per the UART wiki page
-        # TODO(verify on device): whether write() blocks until the bytes are on the wire.
-        seq = (seq + 1) & 0xFF
-    print("sent seq", (seq - 1) & 0xFF, "bytes", len(frame) if frame else 0)
+    sent = send_text(serial, result)
+    if sent is None:
+        print("nothing sent")
+    else:
+        print("sent seq", sent[0], "bytes", sent[1])
 
 
 if __name__ == "__main__":

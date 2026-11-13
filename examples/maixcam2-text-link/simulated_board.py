@@ -68,8 +68,8 @@ class Event:
 class Scenario:
     """A scripted run: what is sent, and what a correct receiver must make of it.
 
-    ``expected_texts`` is ``(seq, text)`` for every text a receiver that drops
-    immediate duplicates must output. ``expected_counters`` lists the parser counters
+    ``expected_texts`` is ``(seq, text)`` for every text a receiver must output (nothing
+    is dropped because of its SEQ, so a repeated frame appears twice). ``expected_counters`` lists the parser counters
     that must have exactly these values at the end; counters not listed must be 0.
     """
 
@@ -253,20 +253,20 @@ def _build() -> tuple[Scenario, ...]:
 
     out.append(
         _scenario(
-            "seq_replay",
-            "an immediate exact repeat is dropped by the reader; a later replay is not detected",
+            "seq_repeat",
+            "an immediate exact repeat is delivered and counted (a repeated utterance looks the same)",
             [
                 encode_text("alpha", 0),
                 encode_text("alpha", 0),
                 encode_text("bravo", 1),
                 encode_text("alpha", 0),
             ],
-            [(0, "alpha"), (1, "bravo"), (0, "alpha")],
-            {"frames_ok": 4, "duplicates": 1, "seq_gaps": 1},
+            [(0, "alpha"), (0, "alpha"), (1, "bravo"), (0, "alpha")],
+            {"frames_ok": 4, "seq_repeats": 1, "seq_gaps": 1},
         )
     )
 
-    hostile: list[tuple[str, bytes]] = [
+    hostile: list[tuple[str, bytes | str]] = [
         ("newline", b"line one\nline two"),
         ("escape", b"\x1b[31mred\x1b[0m"),
         ("bidi override", "evil ‮txet".encode()),
@@ -279,13 +279,33 @@ def _build() -> tuple[Scenario, ...]:
         ("invalid utf-8", b"\xff\xfe\xfd"),
         ("overlong", b"\xc0\xaf"),
         ("surrogate", b"\xed\xa0\x80"),
+        ("zero width space", "a" + chr(0x200B) + "b"),
+        ("word joiner", "a" + chr(0x2060) + "b"),
+        ("byte order mark", "a" + chr(0xFEFF) + "b"),
+        ("tag character", "a" + chr(0xE0041) + "b"),
+        ("deprecated format controls", "a" + chr(0x206A) + chr(0x206F) + "b"),
+        ("interlinear annotation", "a" + chr(0xFFF9) + "b"),
+        ("noncharacter", "a" + chr(0xFFFF) + "b"),
+        ("replacement character", "a" + chr(0xFFFD) + "b"),
+        ("braille blank", "a" + chr(0x2800) + "b"),
+        ("hangul filler", "a" + chr(0x3164) + "b"),
+        ("halfwidth hangul filler", "a" + chr(0xFFA0) + "b"),
+        ("hangul choseong filler", "a" + chr(0x115F) + "b"),
+        ("lone zwnj", chr(0x200C)),
+        ("zwj emoji sequence", chr(0x1F468) + chr(0x200D) + chr(0x1F469)),
+        ("lone combining mark", chr(0x0301)),
+        ("zero width space only", chr(0x200B)),
+        ("nfc expansion past 512 bytes", "1" + chr(0x0344) * 128),
     ]
-    hostile_frames = [_text_raw(i, p) for i, (_, p) in enumerate(hostile)]
+    hostile_frames = [
+        _text_raw(i, p if isinstance(p, bytes) else p.encode()) for i, (_, p) in enumerate(hostile)
+    ]
     n = len(hostile)
     out.append(
         _scenario(
             "hostile",
-            "payloads with newline, ESC, bidi override, NUL, tab, U+2028, C1, DEL, blank, bad UTF-8",
+            "payloads with newline, ESC, bidi override, NUL, tab, U+2028, C1, DEL, blank, bad UTF-8, "
+            "zero-width and other format characters, fillers, no visible content, NFC expansion",
             [*hostile_frames, encode_text("safe text after the hostile ones", n)],
             [(n, "safe text after the hostile ones")],
             {"frames_ok": 1, "invalid_text": n},

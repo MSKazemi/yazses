@@ -18,9 +18,11 @@ Design decisions, each deliberate:
 
 * **Stdlib only.** The module imports nothing outside the standard library, so it can
   be copied onto a board or into a test without a dependency.
-* **Never raise on input.** :meth:`FrameParser.feed` accepts any bytes whatsoever and
-  never raises; damage is counted, not thrown. (The *encoder* does raise
-  :class:`ValueError`, because a caller building a frame controls its input.)
+* **Never raise on content.** For any bytes-like input (``bytes``, ``bytearray``, any
+  ``memoryview``), :meth:`FrameParser.feed` never raises whatever the bytes contain;
+  damage is counted, not thrown. A ``str`` or other non-bytes-like argument is a caller
+  error and raises :class:`TypeError`. (The *encoder* raises :class:`ValueError`, because a
+  caller building a frame controls its input.)
 * **Chunking is invisible.** The parser's output and counters depend only on the
   concatenation of the bytes fed, never on how they were split across ``feed`` calls
   (a UART read returns whatever happens to be in the FIFO). A UTF-8 character split
@@ -34,15 +36,20 @@ Design decisions, each deliberate:
 * **Bounded memory.** At most one incomplete frame (<= :data:`MAX_FRAME_LEN` bytes) is
   buffered, plus one 4096-byte input slice, however much is fed.
 * **Text from a wire is untrusted.** A TEXT payload is accepted only if it is strict
-  UTF-8 and contains no control, line-separator or bidirectional-control character
-  (see :func:`decode_text`). A refused frame is dropped and counted, never repaired.
-* **SEQ is advisory.** It exists to *measure* loss. A CRC-valid frame is never dropped
-  because of its SEQ, except that an exact immediate repeat (a replay) is flagged
-  ``duplicate`` so a consumer can ignore it.
+  UTF-8, contains no control, format, line-separator, bidirectional-control or invisible
+  character, has some visible content and stays within 512 bytes after NFC (see
+  :func:`decode_text`). A refused frame is dropped and counted, never repaired. Mixed-script
+  look-alike text is *not* handled; a consumer that types the text needs its own check.
+* **SEQ is advisory and nothing is dropped because of it.** It exists to *measure* loss.
+  The parser counts gaps (``seq_gaps``) and exact immediate repeats (``seq_repeats``) and
+  delivers every CRC-valid frame. The protocol has no retransmission and no ACK, so a
+  receiver cannot tell a retransmitted frame from a repeated utterance ("yes", "yes");
+  replay protection is out of scope.
 """
 
 from __future__ import annotations
 
+import math
 import time
 import unicodedata
 from collections.abc import Callable
@@ -53,6 +60,7 @@ __all__ = [
     "MAX_FRAME_LEN",
     "MAX_PAYLOAD",
     "MAX_TEXT_BYTES",
+    "REFUSED_CHARS",
     "SYNC",
     "VERSION",
     "Frame",
@@ -87,14 +95,39 @@ class FrameType(IntEnum):
 _EMPTY_TYPES = (FrameType.TRIGGER, FrameType.PING)
 _KNOWN_TYPES = frozenset(int(t) for t in FrameType)
 
-# Characters refused inside TEXT beyond the Unicode "Cc" category (C0, DEL and C1).
-# U+2028/U+2029 are line/paragraph separators; the rest are the bidirectional
-# formatting controls that can make text display in a different order than it types
-# ("Trojan Source" class of attack). U+200C/U+200D (ZWNJ/ZWJ) are deliberately *not*
-# refused: Persian and several other scripts need them to spell ordinary words.
-_SEPARATORS = frozenset({" ", " "})
+# What TEXT may not contain. Refused outright, by Unicode general category: Cc (C0, DEL,
+# C1: a newline would press Enter, an ESC could start a terminal escape sequence), Cf
+# (format characters: zero-width space, word joiner, BOM, tag characters, the bidirectional
+# controls of the "Trojan Source" class, ...) and Cs (lone surrogates). The only Cf
+# exceptions are U+200C and U+200D (ZWNJ, ZWJ): Persian, Arabic and Indic scripts need them
+# to spell ordinary words, so they are allowed, but only when the text also contains a
+# letter (see _validate_text).
+#
+# REFUSED_CHARS lists the characters that no category rule above covers: the line and
+# paragraph separators, the noncharacters U+FFFE/U+FFFF, the replacement character
+# U+FFFD, and the invisible fillers (braille blank and the Hangul fillers) that render as
+# nothing. board/maixpy_send.py mirrors this set inline; a test compares the two.
+REFUSED_CHARS = frozenset(
+    chr(c)
+    for c in (
+        0x2028,  # LINE SEPARATOR
+        0x2029,  # PARAGRAPH SEPARATOR
+        0xFFFE,  # noncharacter
+        0xFFFF,  # noncharacter
+        0xFFFD,  # REPLACEMENT CHARACTER
+        0x2800,  # BRAILLE PATTERN BLANK
+        0x3164,  # HANGUL FILLER
+        0xFFA0,  # HALFWIDTH HANGUL FILLER
+        0x115F,  # HANGUL CHOSEONG FILLER
+        0x1160,  # HANGUL JUNGSEONG FILLER
+    )
+)
+_JOINERS = frozenset({chr(0x200C), chr(0x200D)})  # ZWNJ, ZWJ: Cf, allowed beside a letter
+_REFUSED_CATEGORIES = frozenset({"Cc", "Cf", "Cs"})
+_SEPARATORS = frozenset({chr(0x2028), chr(0x2029)})  # only to label the refusal reason
+# Only to label the refusal reason "bidi" (all of these are category Cf as well).
 _BIDI = frozenset(
-    {"‎", "‏", "؜"}
+    {chr(0x200E), chr(0x200F), chr(0x061C)}
     | {chr(c) for c in range(0x202A, 0x202F)}  # LRE RLE PDF LRO RLO
     | {chr(c) for c in range(0x2066, 0x206A)}  # LRI RLI FSI PDI
 )
@@ -128,8 +161,8 @@ def crc16_ccitt_false(data: bytes | bytearray | memoryview, crc: int = 0xFFFF) -
 class InvalidText(ValueError):
     """A TEXT payload (or a string offered to the encoder) failed validation.
 
-    ``reason`` is a short stable token: ``utf8``, ``control``, ``separator``, ``bidi``
-    or ``empty``.
+    ``reason`` is a short stable token: ``utf8``, ``control``, ``separator``, ``bidi``,
+    ``format``, ``invisible``, ``too_long`` or ``empty`` (no visible content).
     """
 
     def __init__(self, reason: str, detail: str = "") -> None:
@@ -138,18 +171,35 @@ class InvalidText(ValueError):
 
 
 def _validate_text(text: str) -> str:
-    """NFC-normalise, refuse forbidden characters, strip, refuse empty."""
+    """NFC-normalise, refuse forbidden characters, strip, require visible content, cap."""
     text = unicodedata.normalize("NFC", text)
+    has_joiner = False
+    has_letter = False
     for ch in text:
-        if unicodedata.category(ch) == "Cc":  # C0 (incl. NUL, TAB, LF, CR, ESC), DEL, C1
+        category = unicodedata.category(ch)
+        if category == "Cs":
+            raise InvalidText("utf8", f"lone surrogate U+{ord(ch):04X}")
+        if category == "Cc":  # C0 (incl. NUL, TAB, LF, CR, ESC), DEL, C1
             raise InvalidText("control", f"U+{ord(ch):04X}")
         if ch in _SEPARATORS:
             raise InvalidText("separator", f"U+{ord(ch):04X}")
         if ch in _BIDI:
             raise InvalidText("bidi", f"U+{ord(ch):04X}")
+        if ch in _JOINERS:
+            has_joiner = True
+        elif category in _REFUSED_CATEGORIES:  # Cf: zero-width, BOM, tags, ...
+            raise InvalidText("format", f"U+{ord(ch):04X}")
+        elif ch in REFUSED_CHARS:  # noncharacters, U+FFFD, invisible fillers
+            raise InvalidText("invisible", f"U+{ord(ch):04X}")
+        if category[0] == "L":
+            has_letter = True
+    if has_joiner and not has_letter:
+        raise InvalidText("format", "ZWNJ/ZWJ without a letter")
     text = text.strip()
-    if not text:
-        raise InvalidText("empty")
+    if not any(unicodedata.category(ch)[0] in "LNPS" for ch in text):
+        raise InvalidText("empty", "no visible content")
+    if len(text.encode("utf-8")) > MAX_TEXT_BYTES:
+        raise InvalidText("too_long", "more than 512 bytes after NFC")
     return text
 
 
@@ -164,12 +214,21 @@ def decode_text(payload: bytes | bytearray) -> str:
     3. refusal of every C0 control (including NUL, TAB, LF, CR, ESC), DEL and every C1
        control: a newline would press Enter and an ESC could start a terminal escape
        sequence if the text were ever typed or echoed. Multi-line text is not supported;
-    4. refusal of U+2028/U+2029 and of the bidirectional controls U+202A-202E,
-       U+2066-2069, U+200E, U+200F and U+061C;
-    5. surrounding whitespace is stripped, and text that is empty afterwards is refused.
+    4. refusal of U+2028/U+2029 and of every character of unicode category Cf (format:
+       zero-width space, word joiner, BOM, tag characters, the bidirectional controls
+       U+202A-202E, U+2066-2069, U+200E, U+200F and U+061C, ...). U+200C and U+200D are
+       the exception, allowed only when the text also contains a letter;
+    5. refusal of the noncharacters U+FFFE/U+FFFF, the replacement character U+FFFD and the
+       invisible fillers U+2800, U+3164, U+FFA0, U+115F, U+1160 (:data:`REFUSED_CHARS`);
+    6. surrounding whitespace is stripped, and text with no *visible content* afterwards
+       is refused: at least one character of category L, N, P or S is required, so spaces
+       only, a lone combining mark or a lone ZWNJ count as empty;
+    7. the normalised, stripped text must still fit in :data:`MAX_TEXT_BYTES` bytes of
+       UTF-8. NFC can *expand* text (U+0344 becomes two characters and doubles in size),
+       so a payload that fit on the wire can be refused here.
 
-    NFC can expand a few characters, so the result may be longer than 512 bytes of
-    UTF-8; the 512-byte limit applies to the wire payload.
+    Not handled: mixed-script or homoglyph text (a Cyrillic letter inside a Latin word).
+    A consumer that types the text must apply its own confusable check.
     """
     try:
         text = bytes(payload).decode("utf-8", errors="strict")
@@ -204,8 +263,8 @@ def encode_text(text: str, seq: int) -> bytes:
     """Build a TEXT frame, applying the same validation the receiver will apply.
 
     The text is NFC-normalised and stripped; a string the receiver would refuse
-    (control characters, bidi controls, empty) raises :class:`InvalidText`, and one
-    longer than 512 UTF-8 bytes raises :class:`ValueError`.
+    (control, format or invisible characters, no visible content, more than 512 UTF-8
+    bytes after normalisation) raises :class:`InvalidText`.
     """
     clean = _validate_text(text)
     return encode(FrameType.TEXT, seq, clean.encode("utf-8"))
@@ -219,7 +278,9 @@ class Frame:
     ``seq_skipped`` is how many frames the SEQ counter jumped over relative to the
     previous valid frame (0 when continuous or when this is the first frame). A board
     reboot restarts SEQ and therefore shows up as a (large) skip, not as an error.
-    ``duplicate`` is true for an exact immediate repeat of the previous valid frame.
+    ``seq_repeat`` is true for an exact immediate repeat of the previous valid frame
+    (same SEQ, TYPE and payload); the frame is delivered all the same, because a repeat
+    cannot be told from a repeated utterance.
     """
 
     type: int
@@ -227,7 +288,7 @@ class Frame:
     payload: bytes
     text: str | None = None
     seq_skipped: int = 0
-    duplicate: bool = False
+    seq_repeat: bool = False
 
 
 class FrameParser:
@@ -251,7 +312,7 @@ class FrameParser:
     ``bad_length``      TRIGGER/PING frames with a non-zero LEN
     ``resync_bytes``    bytes discarded while hunting for the next SYNC
     ``seq_gaps``        valid frames whose SEQ was not the expected next value
-    ``duplicates``      exact immediate repeats of the previous valid frame
+    ``seq_repeats``     exact immediate repeats of the previous valid frame (delivered)
     ``invalid_text``    CRC-valid TEXT frames refused by :func:`decode_text`
     ``unknown_type``    CRC-valid frames of a TYPE this version does not define (ignored)
     """
@@ -264,7 +325,7 @@ class FrameParser:
         "bad_length",
         "resync_bytes",
         "seq_gaps",
-        "duplicates",
+        "seq_repeats",
         "invalid_text",
         "unknown_type",
     )
@@ -279,7 +340,7 @@ class FrameParser:
         self.bad_length = 0
         self.resync_bytes = 0
         self.seq_gaps = 0
-        self.duplicates = 0
+        self.seq_repeats = 0
         self.invalid_text = 0
         self.unknown_type = 0
 
@@ -293,9 +354,18 @@ class FrameParser:
         return {name: int(getattr(self, name)) for name in self.COUNTERS}
 
     def feed(self, chunk: bytes | bytearray | memoryview) -> list[Frame]:
-        """Consume bytes, return the frames they completed. Never raises on content."""
+        """Consume bytes, return the frames they completed.
+
+        Accepts any bytes-like object, including a non-contiguous ``memoryview``, and never
+        raises for such input whatever the bytes are. A ``str`` or any other object that is
+        not bytes-like raises :class:`TypeError`.
+        """
         out: list[Frame] = []
-        view = memoryview(chunk).cast("B")
+        view = memoryview(chunk)  # TypeError for a str, an int, None, ...
+        try:
+            view = view.cast("B")
+        except TypeError:  # non-contiguous (strided) view: copy it into contiguous bytes
+            view = memoryview(view.tobytes())
         for start in range(0, len(view), _FEED_SLICE):
             self._buf += view[start : start + _FEED_SLICE]
             self._drain(out, final=False)
@@ -304,11 +374,12 @@ class FrameParser:
     def flush_partial(self) -> list[Frame]:
         """Give up on an incomplete frame held at the head of the buffer.
 
-        Call this when the line has been idle (the board stalled mid-frame). Bytes
-        that cannot complete a frame are discarded and parsing resumes from the next
-        SYNC, so complete frames queued *behind* a dead one are still recovered. This
-        is the only entry point whose result depends on timing, which is why it is
-        separate from :meth:`feed`. After it returns the buffer is empty.
+        Call this when the line has been idle (the board stalled mid-frame) and when the
+        input has ended (EOF, end of a replay). Bytes that cannot complete a frame are
+        discarded and parsing resumes from the next SYNC, so complete frames queued
+        *behind* a dead one are still recovered. This is the only entry point whose result
+        depends on timing, which is why it is separate from :meth:`feed`. After it returns
+        the buffer is empty.
         """
         out: list[Frame] = []
         self._drain(out, final=True)
@@ -378,10 +449,10 @@ class FrameParser:
     def _accept(self, ftype: int, seq: int, payload: bytes, out: list[Frame]) -> None:
         key = (seq, ftype, payload)
         if key == self._last:
-            self.duplicates += 1
-            duplicate, skipped = True, 0
+            self.seq_repeats += 1
+            repeat, skipped = True, 0
         else:
-            duplicate = False
+            repeat = False
             skipped = 0 if self._last is None else (seq - self._last[0] - 1) & 0xFF
             if skipped:
                 self.seq_gaps += 1
@@ -397,7 +468,7 @@ class FrameParser:
                 self.invalid_text += 1
                 return
         self.frames_ok += 1
-        out.append(Frame(ftype, seq, payload, text, skipped, duplicate))
+        out.append(Frame(ftype, seq, payload, text, skipped, repeat))
 
 
 class RateLimiter:
@@ -417,8 +488,8 @@ class RateLimiter:
         burst: int | None = None,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
-        if max_frames_per_second <= 0:
-            raise ValueError("max_frames_per_second must be > 0")
+        if not math.isfinite(max_frames_per_second) or max_frames_per_second <= 0:
+            raise ValueError("max_frames_per_second must be a finite number > 0")
         self.rate = float(max_frames_per_second)
         self.capacity = float(burst if burst is not None else max(1, int(self.rate)))
         if self.capacity < 1:
