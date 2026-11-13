@@ -850,7 +850,8 @@ def build_runner_from_config(
         log.warning("[biosignal] enabled but no source configured; biosignal off.")
         return None
     try:
-        from yazses.biosignal.integrity import IntegrityGate, IntegrityGuard
+        from yazses.biosignal.integrity import IntegrityGuard
+        from yazses.biosignal.source_gates import compose_quality_gate, guard_source, is_live
         from yazses.biosignal.sources import open_source
     except Exception:
         log.warning("Biosignal sources unavailable; biosignal off.", exc_info=True)
@@ -858,8 +859,10 @@ def build_runner_from_config(
     # Every source goes through the stream-integrity guard: a dropped packet, a stalled or
     # rate-drifting device or a channel swap closes the event gate exactly like bad signal
     # does (ADR-v2-152: a bad stream never produces an event). The arrival-rate check is
-    # for live hardware only -- a replay delivers faster than real time by design.
-    live = source_spec.split(":", 1)[0].strip().lower() not in ("synthetic", "file")
+    # for live hardware only -- a replay delivers faster than real time by design. A source
+    # that reports its own health (ThinkGear) also gets its per-block veto (ADR-v2-155).
+    # One constructor (source_gates) for the daemon, `monitor` and `field-test`.
+    live = is_live(source_spec)
 
     cbs = callbacks or RunnerCallbacks()
     mains_hz = float(_cfg(section, "mains_hz", 50.0))
@@ -916,12 +919,11 @@ def build_runner_from_config(
             with_ledger=True,
         ))
         if isinstance(source, IntegrityGuard):
-            parts.quality = IntegrityGate(source, parts.quality)
+            parts.quality = compose_quality_gate(source, parts.quality, source_spec)
         return BiosignalPipeline(parts)
 
     return BiosignalRunner(
-        source_factory=lambda: IntegrityGuard(open_source(source_spec),
-                                              check_arrival_rate=live),
+        source_factory=lambda: guard_source(open_source(source_spec), source_spec),
         pipeline_factory=make_pipeline,
         callbacks=cbs,
         mode_map=mode_map,
