@@ -47,8 +47,9 @@ reviewable before it is typed. None of that exists today.
 | The MaixCAM2 documentation lists Whisper `base`, for Chinese and English, needing 1 GB of memory | Verified, from the [vendor page](https://wiki.sipeed.com/maixpy/doc/en/mllm/asr_whisper.html), 2026-11-13 |
 | The vendor says a serial link is feasible, and that the board's USB port is **not** a serial connection | Vendor statement by email, November 2026. Not tested |
 | The model must be downloaded first | Verified, from the same page |
-| Whether the board needs the internet during first-time setup or activation | **Not known.** The vendor did not answer and the page is silent |
-| Whether recognition works with the board's network turned off | **Not measured** |
+| The board's first setup needs internet access (to activate the device, install the runtime and connect development tools) | Verified, from the [MaixCAM2 README](https://github.com/sipeed/MaixPy/blob/main/docs/doc/en/README_MaixCAM2.md), 2026-11-13. So "offline" could at most mean offline **after** a one-time online setup |
+| Whether recognition itself works with the board's network turned off, and whether anything is fetched later | **Not measured, not known.** The vendor says Whisper runs locally but did not separate setup, activation and download from recognition |
+| The board's USB cable shows up on the computer as a USB **network** adapter, not a serial port | Verified, same README |
 | Speed, accuracy, wiring behaviour, how well it works in practice | **Not measured.** No board has been used |
 | Whether anyone wants this | **No evidence.** Nobody has asked for it |
 
@@ -57,9 +58,10 @@ the unknown rows above have been measured on a named board.
 
 ## What you would need to wire it
 
-The board's USB port is a USB *device* port. It does **not** give your computer a
-serial port. The vendor says a **USB-to-UART adapter** has to be connected to the
-board's UART pins. The board's console UART (UART0) is not meant to be used for this.
+The board's USB port does **not** give your computer a serial port: it appears as a
+USB *network* adapter. The vendor says a **USB-to-UART adapter** has to be connected
+to the board's UART pins. The USB-network link is not used in this research, because
+it would add a network listener on the computer. The board's console UART (UART0) is not meant to be used for this.
 Check the voltage level of the pins against your adapter before connecting anything,
 and follow the board's own manual. This project has not verified any pin map.
 
