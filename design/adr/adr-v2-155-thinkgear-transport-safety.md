@@ -1,6 +1,6 @@
 # ADR-v2-155 — Fail-closed ThinkGear stream health before first physical-device qualification
 
-**Status:** Proposed (2026-11-03); requires maintainer review before any runtime patch  
+**Status:** Accepted (2026-11-13, maintainer; G0 #827)  
 **Scope:** Device-specific correctness hardening of the already-shipped, opt-in biosignal source; **not** a new capability or a claim of hardware support  
 **Related:** [ADR-v2-152](adr-v2-152-biosignal-artifact-switches.md), [ADR-v2-153](adr-v2-153-biosignal-false-positive-governor.md), [ADR-030](adr-030-agent-era-direction.md), [research](../research/2026-11-03-thinkgear-first-device-evidence.md), [implementation spec](../specs/thinkgear-hardware-qualification.md).
 

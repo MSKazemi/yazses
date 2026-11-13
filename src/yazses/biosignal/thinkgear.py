@@ -18,6 +18,19 @@ waveform and makes its own, testable decision. The one non-raw value kept is
 POOR_SIGNAL (0x02), surfaced as *quality metadata* on the source
 (:attr:`ThinkGearSource.poor_signal`), never as an event.
 
+## Source health (ADR-v2-155)
+
+Every serial read is also judged by :class:`~yazses.biosignal.thinkgear_health.ThinkGearHealth`:
+each accepted packet's POOR_SIGNAL in wire order, the parser's reject and skipped-byte
+deltas for that read, and an injected monotonic clock. The verdict is an immutable
+:class:`~yazses.biosignal.thinkgear_health.BatchHealth` kept beside the block the read
+produced, in a small bounded map: :meth:`ThinkGearSource.health_for` returns it for that
+exact block (by identity) and ``None`` for any other, so a gate downstream judges each
+block by the state of the read that made it -- never by the current, possibly later,
+:attr:`ThinkGearSource.poor_signal`. A read that taints the stream but carries no raw
+samples still moves the state (and its fault epoch), with no block and no invented one.
+Stopping, a failed or lost port and a fresh ``start()`` clear all trust.
+
 ## Protocol (verified against NeuroSky's own documentation)
 
 Source: NeuroSky, "ThinkGear Communications Protocol",
@@ -77,12 +90,20 @@ down. :func:`import_serial` is the lazy import itself and raises a clear
 from __future__ import annotations
 
 import logging
+import time
+from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
 
+from yazses.biosignal.thinkgear_health import (
+    THINKGEAR_FS,
+    BatchHealth,
+    PacketReport,
+    ThinkGearHealth,
+)
 from yazses.biosignal.types import ChannelInfo, SampleBlock, SignalKind
 
 log = logging.getLogger(__name__)
@@ -108,7 +129,7 @@ CODE_POOR_SIGNAL = 0x02
 CODE_RAW = 0x80
 POOR_SIGNAL_NO_CONTACT = 200           # "electrodes aren't contacting a person's skin"
 
-THINKGEAR_FS = 512.0                   # ASIC raw output rate ("512 times a second")
+# THINKGEAR_FS (512.0, the ASIC's raw output rate) is defined once, in thinkgear_health.
 THINKGEAR_BAUD = 57600                 # raw 16-bit output needs >= 57600 baud
 # NeuroSky: V = raw * (1.8 / 4096) / 2000  ->  µV per count
 THINKGEAR_RAW_TO_UV = 1.8 / 4096.0 / 2000.0 * 1e6
@@ -117,6 +138,11 @@ _READ_CHUNK = 4096
 # A garbage-only stream must not grow the buffer without bound: beyond this many bytes
 # without a sync pair the head is dropped (counted as skipped).
 _MAX_BUFFER = 1 << 16
+# Spec §2 step 1: one read() takes at most this many bytes, however many the port says are
+# waiting, so a flood is drained over several bounded iterations instead of one huge one.
+_MAX_READ = 1 << 16
+# How many emitted blocks health_for() can still name (as integrity._PROVENANCE_DEPTH).
+_PROVENANCE_DEPTH = 8
 
 
 def thinkgear_checksum(payload: bytes | bytearray) -> int:
@@ -129,8 +155,9 @@ class ThinkGearPacket:
     """One checksum-valid packet, reduced to what the pipeline may use.
 
     ``raw`` holds every 0x80 raw value in the packet (signed counts, in order);
-    ``poor_signal`` is the 0x02 value when the packet had one. Every other row (eSense,
-    band powers, unknown codes) is skipped by design — see the module docstring.
+    ``poor_signal`` is the 0x02 value when the packet had one (the largest, if a packet
+    carries several: a later zero must not hide an earlier nonzero). Every other row
+    (eSense, band powers, unknown codes) is skipped by design — see the module docstring.
     """
 
     raw: tuple[int, ...] = ()
@@ -253,7 +280,7 @@ class ThinkGearParser:
             if code == CODE_RAW and vlen == 2:
                 raw.append(int.from_bytes(value, "big", signed=True))
             elif code == CODE_POOR_SIGNAL:
-                poor = value[0]
+                poor = value[0] if poor is None else max(poor, value[0])
             # everything else (eSense 0x04/0x05, band powers, unknown) is ignored on purpose
         return ThinkGearPacket(raw=tuple(raw), poor_signal=poor)
 
@@ -355,12 +382,13 @@ class ThinkGearSource:
     (``uv_scale`` µV per raw count, NeuroSky's nominal conversion by default). ``fs`` and
     ``channels`` are fixed by the protocol, so they are valid before ``start()``.
 
-    ``read()`` drains whatever bytes the port has, returns every raw sample decoded so
-    far as one block (``None`` when there is none yet), and updates
+    ``read()`` drains up to a bounded number of bytes the port has, returns every raw
+    sample decoded so far as one block (``None`` when there is none yet), and updates
     :attr:`poor_signal` — the latest POOR_SIGNAL value (0 = no noise flagged, 200 = no
-    skin contact, ``None`` until the headset has sent one). ``serial_factory`` is
-    injected by tests (a fake port); production passes ``None`` and pyserial is opened
-    on ``port`` at ``baudrate``.
+    skin contact, ``None`` until the headset has sent one) — and :attr:`health` (see
+    the module docstring). ``serial_factory`` is injected by tests (a fake port);
+    production passes ``None`` and pyserial is opened on ``port`` at ``baudrate``.
+    ``clock`` is the monotonic clock the health state ages by (injected by tests).
     """
 
     def __init__(
@@ -372,6 +400,7 @@ class ThinkGearSource:
         uv_scale: float = THINKGEAR_RAW_TO_UV,
         serial_factory: Callable[[], Any] | None = None,
         read_chunk: int = _READ_CHUNK,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         if not channel_name.strip():
             raise ValueError("channel_name must not be empty")
@@ -391,6 +420,11 @@ class ThinkGearSource:
         self.available = False
         self.last_error = ""
         self._reported_lost = 0
+        self._clock = clock
+        self.health = ThinkGearHealth(THINKGEAR_FS)
+        self.last_health: BatchHealth | None = None
+        self._provenance: deque[tuple[SampleBlock, BatchHealth]] = deque(
+            maxlen=_PROVENANCE_DEPTH)
 
     @property
     def lost_packets(self) -> int:
@@ -409,6 +443,7 @@ class ThinkGearSource:
                    else _open_serial(self.port, self.baudrate))
         except ImportError as exc:
             self.last_error = str(exc)
+            self._invalidate_health()
             log.info("ThinkGear source disabled: %s", exc)
             return
         except Exception as exc:
@@ -420,6 +455,9 @@ class ThinkGearSource:
         self._emitted = 0
         self._reported_lost = 0
         self.poor_signal = None
+        self.health.reset()                 # a fresh session: no trust carried over
+        self.last_health = None
+        self._provenance.clear()
         self.available = True
         log.info("ThinkGear source streaming (1 channel at %g Hz).", self.fs)
         log.debug("ThinkGear port: %s", self.port)
@@ -429,17 +467,28 @@ class ThinkGearSource:
             return None
         try:
             waiting = int(getattr(self._ser, "in_waiting", 0) or 0)
-            data = self._ser.read(max(waiting, self._read_chunk))
+            size = min(max(waiting, self._read_chunk), max(self._read_chunk, _MAX_READ))
+            data = self._ser.read(size)
         except Exception as exc:
             self._fail(f"ThinkGear headset on {self.port!r} stopped streaming ({exc})")
             return None
         if not data:
+            self.health.observe_idle(self._now())
             return None
+        stats = self.parser.stats
+        rejected0, skipped0 = stats.rejected_packets, stats.skipped_bytes
+        packets = self.parser.feed(data)
         raw: list[int] = []
-        for packet in self.parser.feed(data):
+        reports: list[PacketReport] = []
+        for packet in packets:
             raw.extend(packet.raw)
+            reports.append(PacketReport(len(packet.raw), packet.poor_signal))
             if packet.poor_signal is not None:
                 self.poor_signal = packet.poor_signal
+        health = self.health.observe_batch(
+            self._now(), reports, stats.rejected_packets - rejected0,
+            stats.skipped_bytes - skipped0)
+        self.last_health = health
         lost = self.lost_packets
         if lost > self._reported_lost:
             log.warning("ThinkGear %s: %d packet(s) rejected (checksum/length); no samples "
@@ -451,19 +500,45 @@ class ThinkGearSource:
         block = SampleBlock(data=data_uv, fs=self.fs, channels=self.channels,
                             t0=self._emitted / self.fs)
         self._emitted += len(raw)
+        self._provenance.append((block, health))
         return block
 
     def stop(self) -> None:
         ser, self._ser = self._ser, None
         self.available = False
+        self._invalidate_health()
         if ser is not None:
             _close_quietly(ser)
+
+    # ---- source health ---------------------------------------------------
+
+    def health_for(self, block: SampleBlock) -> BatchHealth | None:
+        """The health verdict of the read that produced ``block`` (by identity), or
+        ``None`` for a block this source did not emit recently: unknown provenance, which
+        a gate must treat as untrusted."""
+        for emitted, health in reversed(self._provenance):
+            if emitted is block:
+                return health
+        return None
+
+    def _now(self) -> float:
+        try:
+            return float(self._clock())
+        except Exception:
+            log.debug("ThinkGear health clock failed", exc_info=True)
+            return float("nan")             # judged CLOCK_INVALID: fail closed
+
+    def _invalidate_health(self) -> None:
+        self.health.invalidate()
+        self.last_health = None
+        self._provenance.clear()
 
     # ---- internals -------------------------------------------------------
 
     def _fail(self, message: str) -> None:
         self.last_error = message
         self.available = False
+        self._invalidate_health()
         log.warning("%s", message)
         ser, self._ser = self._ser, None
         if ser is not None:
