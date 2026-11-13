@@ -68,8 +68,9 @@ and follow the board's own manual. This project has not verified any pin map.
 ## Where to read more
 
 - The reference files: [`examples/maixcam2-text-link/`](https://github.com/MSKazemi/yazses/tree/main/examples/maixcam2-text-link)
-  and the message format in `design/specs/textlink-wire-protocol.md` (in the
-  repository's design folder).
+  and the message format in
+  [`design/specs/textlink-wire-protocol.md`](https://github.com/MSKazemi/yazses/blob/main/design/specs/textlink-wire-protocol.md)
+  (a draft, not yet verified on a board).
 - The decision record, with the threat analysis, the unknowns and the conditions
   under which this idea would be dropped:
   [ADR-v2-156](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-v2-156-maixcam2-text-link.md)
