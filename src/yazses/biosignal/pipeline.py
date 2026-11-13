@@ -432,6 +432,7 @@ class BiosignalPipeline:
         # applied *inside* them, so the confidence floor must not apply it a second time.
         self._scaled: set[int] = set()
         self._detector_failed = False
+        self._source_fault = False            # this block's gate asked for a detector reset
         self._dropped_by_reason: dict[str, int] = {}
         # Detector-internal suppressions banked at each reset (detectors zero their own
         # counters when reset), so the totals survive a stream gap.
@@ -533,18 +534,7 @@ class BiosignalPipeline:
             self._cal_checked = -math.inf
 
     def _reset_locked(self, *, keep_governor_state: bool = True) -> None:
-        for chain in self._chains.values():
-            self._safe(chain, "reset")
-        for det in self._detectors:
-            # Bank what the reset takes away (detectors zero their own counters; one that
-            # keeps them loses nothing, so nothing is banked and nothing double counts).
-            before = _suppressed_counts(_health_of(det))
-            self._safe(det, "reset")
-            after = _suppressed_counts(_health_of(det))
-            for reason, n in before.items():
-                lost = n - after.get(reason, 0)
-                if lost > 0:
-                    self._banked[reason] = self._banked.get(reason, 0) + lost
+        self._reset_chains_and_detectors()
         self._safe(self._parts.quality, "reset")
         self._gate_reason = ""
         self._closed_spans.clear()
@@ -557,6 +547,29 @@ class BiosignalPipeline:
                 self._propagate_scale(self._factor)
         else:
             self._release_governor_locked()
+
+    def _reset_chains_and_detectors(self) -> None:
+        for chain in self._chains.values():
+            self._safe(chain, "reset")
+        for det in self._detectors:
+            # Bank what the reset takes away (detectors zero their own counters; one that
+            # keeps them loses nothing, so nothing is banked and nothing double counts).
+            before = _suppressed_counts(_health_of(det))
+            self._safe(det, "reset")
+            after = _suppressed_counts(_health_of(det))
+            for reason, n in before.items():
+                lost = n - after.get(reason, 0)
+                if lost > 0:
+                    self._banked[reason] = self._banked.get(reason, 0) + lost
+
+    def _reset_detectors_locked(self) -> None:
+        """Only the filter and detector state, for a source fault. The quality monitor, the
+        closed-gate history, the governor's verdict and the ledger are kept: a fault is not
+        evidence that earlier problems went away. A held squeeze is released by the closed
+        gate of the same block."""
+        self._reset_chains_and_detectors()
+        if self._factor > 1.0:
+            self._propagate_scale(self._factor)
 
     # ---- ledger exposure while the daemon pauses the switches ------------
 
@@ -626,7 +639,16 @@ class BiosignalPipeline:
         dropped: list[DroppedEvent] = []
 
         filtered = self._filter(block)
+        self._source_fault = False
         gate_closed, gate_reason = self._quality_gate(block)
+        if self._source_fault:
+            # The source crossed a trust boundary (ADR-v2-155): a new fault epoch, or the
+            # first trusted block after an untrusted stretch. Pairing history and filter
+            # state from before it must not meet what comes after -- so the block is
+            # filtered again with the fresh chains, or the old filter memory would carry
+            # untrusted samples into it.
+            self._reset_detectors_locked()
+            filtered = self._filter(block)
         self._gate_reason = gate_reason if gate_closed else ""
         self._note_gate(block, gate_closed, gate_reason)
         # Which detectors the calibration check holds off (empty when it is fine or absent).
@@ -775,6 +797,9 @@ class BiosignalPipeline:
         except Exception:
             self._disable("quality", "signal-quality monitor failed; quality gate off")
             return False, ""
+        # A source-health gate asks for a detector reset at a trust boundary (a new fault
+        # epoch, or trust returning). ``is True``: any other report (a Mock) never asks.
+        self._source_fault = getattr(report, "reset_detector_state", False) is True
         overall = _name(getattr(report, "overall", "unknown"))
         self._quality = overall
         # `bad_during_update`: a block can span many evaluations; a bad stretch inside it that
