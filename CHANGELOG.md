@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — research: a MaixCAM2 text link, recorded as a Proposed ADR and a research note, not a feature
+
+[ADR-v2-156](design/adr/adr-v2-156-maixcam2-text-link.md) (Proposed) records whether a Sipeed MaixCAM2 running Whisper `base` could send recognised text to a desktop over a wired UART: the falsifiable hypothesis, a threat model for text arriving over a wire, the egress statement, exit criteria and the unknowns. `docs/research/maixcam2-text-link.md` is the matching notice: experimental, research only, not part of YazSes. Nothing in `src/` changes and no board has been tested; the ADR-030 breadth freeze applies, so implementation needs a recorded go and a named exception.
+
 ### Fixed — `yazses mcp-server` could not connect to Claude Code: `serverInfo.version` was missing
 
 The MCP `initialize` reply carried `serverInfo.name` and `title` but no `version`, which the MCP schema requires. Claude Code 2.1.319 validates the reply and refused the server (`claude mcp list`: "Failed to connect — INVALID_RESULT … serverInfo.version expected string"). The reply now includes the installed YazSes version. Checked by running the documented `claude mcp add yazses -- yazses mcp-server` in a throwaway Claude Code config: it failed before this change and printed "Connected" after. Not checked: calling the tools from inside a Claude Code session, other MCP clients, or the `.mcpb` bundle in Claude Desktop.
