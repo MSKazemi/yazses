@@ -301,7 +301,8 @@ class Outcome:
     health: dict[str, int]                 # source-health reason -> blocks judged with it
     first_trusted_t: float | None          # stream t0 of the first block the source trusted
     runner_resets: int                     # pipeline.reset() calls (the runner's gap reset)
-    source_resets: int                     # detector resets asked by a new source fault epoch
+    source_resets: int                     # detector resets asked by source health: a new
+                                           # fault epoch, or trust returning (e5ad4b6a)
     lost_packets: int
     skipped_bytes: int
     labels: list[str]                      # daemon intents
@@ -496,10 +497,11 @@ def test_clean_double_blink_is_exactly_one_activation(drive, path) -> None:
     assert PAIR_AT + 0.35 + em.BLINK_WIDTH_S / 2 <= out.activations[0] <= PAIR_AT + 0.8
     assert out.violations == {} and out.lost_packets == 0
     # The rearm rule (two zero reports + 1 s clean) trusts the stream from the read after
-    # the 1.5 s report; nothing was refused and nothing reset.
+    # the 1.5 s report; nothing was refused. The one source reset is at that first trusted
+    # block: nothing seen before it may feed an event.
     assert out.first_trusted_t == pytest.approx(1.5, abs=POLL_S)
     assert set(out.health) == {"unknown_contact", "rearming", "trusted"}
-    assert out.refusal_reasons == [] and out.runner_resets == 0 and out.source_resets == 0
+    assert out.refusal_reasons == [] and out.runner_resets == 0 and out.source_resets == 1
     if path == "daemon":
         assert out.labels == ["undo"]                    # the default intent, once
     if path == "field_test":
@@ -509,15 +511,18 @@ def test_clean_double_blink_is_exactly_one_activation(drive, path) -> None:
 
 
 @pytest.mark.parametrize(("onset", "activations", "refusals"), [
-    (1.5, 0, []),                       # inside the detector's 2 s warm-up: never detected
-    (2.0, 0, ["signal quality bad"]),   # detected; the waveform-quality warm-up refuses it
-    (2.5, 1, []),                       # the earliest accepted onset on this 0.5 s grid
+    (1.5, 0, []),                       # before trust: never detected
+    (2.5, 0, []),                       # inside the detector's warm-up, restarted at 1.5 s
+    (3.2, 0, []),
+    (3.4, 1, []),                       # the earliest accepted onset on a 0.2 s grid
 ])
 def test_how_soon_after_start_a_clean_double_blink_can_activate(drive, onset, activations,
                                                                  refusals) -> None:
     """Pinned as measured (daemon path). Source health trusts the stream from 1.5 s (the
-    second zero report), so it is *not* what limits the first activation: the 2 s
-    warm-ups of the detector and of the waveform quality monitor are."""
+    second zero report). The pipeline resets its detectors and filters at that first
+    trusted block (e5ad4b6a: nothing seen before trust may feed an event), so the
+    detector's 2 s warm-up runs from 1.5 s and limits the first activation. Before that
+    fix the earliest accepted onset was 2.5 s; it is now 3.4 s."""
     out = drive("daemon", _spec(blinks=em.double_blink(onset)))
     assert out.first_trusted_t == pytest.approx(1.5, abs=POLL_S)
     assert len(out.activations) == activations
@@ -666,19 +671,28 @@ def test_field_test_excludes_untrusted_time_from_exposure(drive, scenario) -> No
 def test_reconnect_holds_a_pair_made_while_rearming(drive, path) -> None:
     """Documented current behaviour (a false negative by design, ADR-v2-155 "may be overly
     strict"). Contact is lost from 3 s to 5 s (POOR_SIGNAL 200 at 3.5 and 4.5 s); the zero
-    reports at 5.5 and 6.5 s rearm it. A pair begun at 6.0 s - 3 s after the loss began,
-    1 s after contact came back - is refused while rearming; one at 8.0 s (5 s after) is
-    accepted. Same on every path and on seeds 0-3. Measured boundary on seed 0, 0.1 s
-    grid: onsets up to 6.1 s are refused, from 6.2 s accepted."""
+    reports at 5.5 and 6.5 s rearm it, and the stream is trusted from 6.5 s.
+
+    - A pair begun at 5.5 s, wholly inside the rearm, is detected and refused as rearming.
+    - A pair begun at 6.2 s has its whole first blink (6.20-6.50 s) in rearming reads. It
+      must not be admitted, and it is never even detected: the pipeline resets its
+      detectors and filters at the first trusted block (e5ad4b6a), so nothing seen while
+      rearming feeds an event. Before that fix this pair was admitted, because the
+      detector placed the first blink at 6.51 s (filter delay plus peak search, ~0.17 s
+      after its samples), just after the last vetoed block.
+    - The detector's 2 s warm-up restarts at that reset. Measured on seed 0, 0.1 s grid:
+      onsets up to 8.3 s produce nothing, from 8.4 s accepted. One at 9.0 s is accepted.
+    """
     def run(onset: float) -> Outcome:
         return drive(path, em.TraceSpec(seconds=16.0, seed=0,
                                         poor=(em.PoorSignal(3.0, 5.0, 200),),
                                         blinks=em.double_blink(onset)))
 
-    early, late = run(6.0), run(8.0)
+    early, straddle, late = run(5.5), run(6.2), run(9.0)
     assert early.activations == []
     assert early.refusal_reasons and all(r.startswith("source health: rearming")
                                          for r in early.refusal_reasons)
+    assert straddle.activations == [] and straddle.refusal_reasons == []
     assert len(late.activations) == 1 and late.refusal_reasons == []
 
 
@@ -741,7 +755,7 @@ def test_a_bluetooth_stall_burst_never_activates_and_each_path_says_why(drive, p
     out = drive(path, STALL_BURST)
     assert out.activations == []
     assert out.violations == {"stall": 1}
-    assert "corrupt_packet" not in out.health and out.source_resets == 0
+    assert "corrupt_packet" not in out.health and out.source_resets == 1   # first trust
     if path == "daemon":
         assert out.runner_resets == 1 and out.refusal_reasons == []
     else:
