@@ -1729,7 +1729,9 @@ def run_field_test(
         if budget > 0:
             session_kwargs["max_cancelled_per_hour"] = budget   # judge against YOUR budget
         try:
-            session = fieldtest.FieldTestSession(src, make_pipeline, **session_kwargs)
+            # The guarded source, never the bare one: the loop below feeds blocks itself,
+            # but a session's run() reads whatever source it holds.
+            session = fieldtest.FieldTestSession(guard, make_pipeline, **session_kwargs)
         except (ValueError, TypeError) as exc:
             _warn(f"Cannot start the field test on this source: {exc}")
             return UNUSABLE
