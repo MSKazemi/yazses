@@ -24,10 +24,18 @@ replaces them. A block is admitted only when the source's own verdict for *that 
 stream-integrity gate is open **and** the waveform quality monitor allows it. A block
 with no verdict -- unknown provenance -- is vetoed, and so is any block the gate cannot
 judge because something raised: a source-health gate error fails closed, it never turns
-the gate off. When the source starts a new fault epoch (or a new session) the report asks
-the pipeline to reset its detector and filter state, so a double blink cannot pair a
-blink from before a contact loss with one after it, even when the loss arrived in a
-serial read that carried no samples at all.
+the gate off.
+
+The report asks the pipeline to reset its detector and filter state at both edges of an
+untrusted stretch. At its start (a new fault epoch or session), so a double blink cannot
+pair a blink from before a contact loss with one after it, even when the loss arrived in
+a serial read that carried no samples at all. And at the first trusted block after it,
+so nothing the detectors and filters saw while the source was untrusted, unknown or
+rearming can contribute to an event admitted afterwards. The second edge is needed because
+a detector reports a gesture *later* than the samples that formed it (filter delay plus
+its own peak search: about 0.17 s for a blink here), so judging the event by its reported
+times against the vetoed blocks can let a pair whose first blink came from a rearming
+read through.
 
 Duck-typed on purpose: the gate reads ``trusted``, ``reason``, ``session``, ``epoch`` and
 ``describe()`` from the verdict, so it does not import a device module.
@@ -150,6 +158,7 @@ class SourceHealthGate:
         self.guard = guard
         self.inner = inner
         self._last_key: tuple[Any, ...] | None = None
+        self._last_trusted = False      # nothing is trusted before the first block
         self._warned: set[str] = set()
 
     @property
@@ -181,8 +190,13 @@ class SourceHealthGate:
         trusted = health is not None and getattr(health, "trusted", False) is True
         key: tuple[Any, ...] = (("unknown",) if health is None else
                                 (getattr(health, "session", None), getattr(health, "epoch", None)))
-        reset_state = self._last_key is not None and key != self._last_key
+        # Reset at the start of a fault epoch / session, and at the first trusted block
+        # after any untrusted one (see the module docstring: a detector's event times lag
+        # its samples, so only a clean slate keeps rearming samples out of an event).
+        reset_state = ((self._last_key is not None and key != self._last_key)
+                       or (trusted and not self._last_trusted))
         self._last_key = key
+        self._last_trusted = trusted
 
         if inner_failed or inner_report is None:
             inner_closed, inner_overall, inner_why = True, "BAD", ""
