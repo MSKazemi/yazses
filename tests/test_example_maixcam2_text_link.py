@@ -1112,6 +1112,7 @@ def fake_maix(monkeypatch):
             state.whisper_args = (model, language)
 
         def transcribe(self, wav):
+            state.transcribed = wav
             return state.transcript
 
     def set_pin(pin, func):
@@ -1123,6 +1124,22 @@ def fake_maix(monkeypatch):
     module.pinmap = types.SimpleNamespace(set_pin_function=set_pin)
     module.uart = types.SimpleNamespace(UART=make_uart)
     module.nn = types.SimpleNamespace(Whisper=Whisper)
+    state.calls = []
+
+    class Recorder:
+        def __init__(self, path, sample_rate, channel):
+            state.calls.append(("Recorder", path, sample_rate, channel))
+
+        def volume(self, value):
+            state.calls.append(("volume", value))
+
+        def record(self, ms):
+            state.calls.append(("record", ms))
+
+        def finish(self):
+            state.calls.append(("finish",))
+
+    module.audio = types.SimpleNamespace(Recorder=Recorder)
     monkeypatch.setitem(sys.modules, "maix", module)
     monkeypatch.setattr(board, "_seq", 0)
     return state
@@ -1136,6 +1153,41 @@ def test_board_opens_uart4_at_the_baud_the_host_and_the_spec_use(fake_maix):
     assert "115200" in (ROOT / "design" / "specs" / "textlink-wire-protocol.md").read_text(
         encoding="utf-8"
     )
+
+
+def test_board_record_wav_follows_the_sipeed_example_call_order(fake_maix):
+    # The order and arguments of Sipeed's asr_whisper.py file-recording branch: a mono 16 kHz
+    # recorder on the path, a volume, record(ms), then finish() so the WAV is closed.
+    assert board.record_wav("/root/x.wav", 3) == "/root/x.wav"
+    assert fake_maix.calls == [
+        ("Recorder", "/root/x.wav", 16000, 1),
+        ("volume", board.RECORD_VOLUME),
+        ("record", 3000),
+        ("finish",),
+    ]
+    assert board.SAMPLE_RATE == 16000
+
+
+@pytest.mark.parametrize("seconds", [0, -1])
+def test_board_record_wav_refuses_a_non_positive_duration(fake_maix, seconds):
+    with pytest.raises(ValueError):
+        board.record_wav("/root/x.wav", seconds)
+    assert fake_maix.calls == []  # nothing was opened
+
+
+def test_board_main_transcribes_the_demo_file_by_default(fake_maix, monkeypatch):
+    monkeypatch.setattr(board, "RECORD_FIRST", False)
+    board.main()
+    assert fake_maix.transcribed == board.WAV_PATH
+    assert fake_maix.calls == []  # no recording unless asked
+
+
+def test_board_main_records_first_when_asked_and_transcribes_that_file(fake_maix, monkeypatch):
+    monkeypatch.setattr(board, "RECORD_FIRST", True)
+    board.main()
+    assert fake_maix.transcribed == board.RECORD_PATH
+    assert ("record", board.RECORD_SECONDS * 1000) in fake_maix.calls
+    assert fake_maix.calls[-1] == ("finish",)  # the file is closed before transcribe() reads it
 
 
 def test_board_seq_increments_per_frame_actually_sent(fake_maix):

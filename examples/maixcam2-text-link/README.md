@@ -1,8 +1,8 @@
 # MaixCAM2 text link (research example)
 
 A device-free reference for one question: could a [Sipeed MaixCAM2](https://wiki.sipeed.com/)
-board, running Whisper-base on-device (offline after the one-time online setup, which is
-unmeasured), send a recognised text string to a
+board, running Whisper-base on-device (Sipeed support says it is offline after a one-time
+online setup; not measured by us), send a recognised text string to a
 desktop over a wired UART?
 
 This folder is the **wire format, a simulated board and a host reader**. It is an
@@ -21,7 +21,8 @@ capabilities, which is why it lives here and not in the daemon.
 | The host reader works against a real file descriptor | Verified with a pseudo-terminal and with `--replay`, on a PC |
 | `board/maixpy_send.py` runs on a MaixCAM2 | **Not verified.** Never run on hardware. Its encoder is byte-compared to the host codec on a PC; the MaixPy calls follow the two Sipeed wiki pages and anything else is a `TODO(verify on device)` |
 | A real board's UART, a real USB-to-UART adapter and Whisper's real output behave like the simulator | **Not verified.** No board exists in this repository |
-| Recording audio on the board | **Not implemented**: the Sipeed Whisper page does not document recording, so `record_wav()` is a stub |
+| Recording audio on the board | `record_wav()` copies the file-recording branch of Sipeed's own `asr_whisper.py` example (`audio.Recorder`, `volume`, `record`, `finish`). Off by default (`RECORD_FIRST = False`, the script transcribes Sipeed's demo WAV); a PC test with a fake `maix` module checks the call order. **Never run on a board** |
+| Offline after setup | **Vendor statement, not measured.** Sipeed support (2026-11-13): setup needs the internet once (activation, runtime, model download); recognition afterwards is local and needs no activation or licence check |
 | Latency, power, accuracy, the right trigger (button, voice activity) | **Unknown** |
 
 ## Files
@@ -120,4 +121,5 @@ Recheck both against your board's firmware version, as nothing here was run on o
   malicious sender cannot build up a backlog that is released later. `--rate` must be a
   finite number above zero.
 * YazSes is offline by design; this link keeps that property (a local wire, no network),
-  but the board's own software and model downloads are outside this repository.
+  but the board's own software, activation and model download are outside this repository, and
+the one-time online setup they need is a step the board takes, not YazSes.

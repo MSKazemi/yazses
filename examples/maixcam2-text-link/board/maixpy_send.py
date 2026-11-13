@@ -3,16 +3,24 @@
 ##########################################################################################
 #  UNTESTED ON HARDWARE.  This file has been syntax-checked and its frame encoder is     #
 #  byte-compared against the host codec in the test suite, on a PC. It has never run on  #
-#  a MaixCAM2. Every MaixPy call that is not named on the two Sipeed pages below is left  #
-#  as a TODO(verify on device) rather than guessed.                                      #
+#  a MaixCAM2. Every MaixPy call comes from a Sipeed page or example named below; what   #
+#  those do not state is left as a TODO(verify on device) rather than guessed.           #
 ##########################################################################################
 
-Sources (the only MaixPy APIs used here are the ones these pages show):
+Sources (the only MaixPy APIs used here are the ones these pages and this example show):
 
 * Whisper:  https://wiki.sipeed.com/maixpy/doc/en/mllm/asr_whisper.html
   ``nn.Whisper(model=".../whisper-base.mud", language="en")`` and ``.transcribe(wav_path)``.
   The page gives the input as a mono, 16 kHz WAV and says Whisper-base on MaixCAM2 needs
   1 GB of memory. It does not document how to record audio.
+* Recording: the Sipeed example ``examples/audio/asr/whisper/asr_whisper.py`` in
+  https://github.com/sipeed/MaixPy (read 2026-11-13, blob e28684d0): ``audio.Recorder(path,
+  sample_rate=16000, channel=1)``, ``.volume(60)``, ``.record(milliseconds)``, ``.finish()``.
+  That is the only recording code used here, and it is not run by default.
+* Network: Sipeed support wrote on 2026-11-13 that the first setup needs the internet once
+  (device activation, runtime libraries, model download) and that recognition afterwards is
+  local, with no activation or licence check. That is a vendor statement by email, not
+  reproducible from this repository and not measured on a board.
 * UART:     https://wiki.sipeed.com/maixpy/doc/en/peripheral/uart.html
   ``uart.UART(device, baud)``, ``.write(bytes)``, and for MaixCAM2 UART4 the pins
   A21 (TX) and A22 (RX) with ``pinmap.set_pin_function``.
@@ -40,7 +48,10 @@ MODEL_PATH = "/root/models/whisper-base/whisper-base.mud"  # path shown on the w
 LANGUAGE = "en"  # the wiki: "zh" for Chinese, "en" for English
 WAV_PATH = "/maixapp/share/audio/demo.wav"  # the wiki's demo file: mono, 16 kHz WAV
 RECORD_SECONDS = 5
-RECORD_FIRST = False  # True needs record_wav() implemented; see the TODO there
+RECORD_FIRST = False  # False transcribes the demo file; True records RECORD_SECONDS first
+RECORD_PATH = "/root/audio.wav"  # where the recording goes (the path Sipeed's example uses)
+RECORD_VOLUME = 60  # the value Sipeed's example uses; not tuned for any microphone
+SAMPLE_RATE = 16000  # Hz, mono: what the Whisper page says transcribe() expects
 
 # --- inline minimal copy of the TextLink encoder (kept in sync by a test) -----------------
 
@@ -155,14 +166,22 @@ def setup_uart():
 
 
 def record_wav(path, seconds):
-    """Record ``seconds`` of mono 16 kHz audio into a WAV file at ``path``.
+    """Record ``seconds`` of mono 16 kHz audio into a WAV file at ``path``; return ``path``.
 
-    TODO(verify on device): the Whisper wiki page does not document recording and the UART
-    page is unrelated, so no recording API is named here on purpose. Implement this with
-    the MaixPy audio recorder after reading its documentation, and check the file is mono,
-    16 kHz, 16-bit PCM, which is what the Whisper page says ``transcribe`` expects.
+    Follows the file-recording branch of Sipeed's ``asr_whisper.py`` example. Untested on a
+    board. TODO(verify on device): that ``record()`` blocks for the whole duration, that the
+    file is complete after ``finish()``, and what a sensible ``volume`` is for the
+    microphone in use (60 is the example's value, not a measured one).
     """
-    raise NotImplementedError("record_wav: TODO(verify on device)")
+    from maix import audio  # type: ignore[import-not-found,unused-ignore]
+
+    if seconds <= 0:
+        raise ValueError("seconds must be above zero")
+    recorder = audio.Recorder(path, sample_rate=SAMPLE_RATE, channel=1)
+    recorder.volume(RECORD_VOLUME)
+    recorder.record(int(seconds * 1000))
+    recorder.finish()
+    return path
 
 
 def main():
@@ -172,11 +191,12 @@ def main():
     whisper = nn.Whisper(model=MODEL_PATH, language=LANGUAGE)
     # TODO(verify on device): loop/trigger design (button? voice activity?) is not decided.
     # One utterance per run is the smallest thing that exercises the whole path.
+    wav_path = WAV_PATH
     if RECORD_FIRST:
-        record_wav(WAV_PATH, RECORD_SECONDS)
+        wav_path = record_wav(RECORD_PATH, RECORD_SECONDS)
     # TODO(verify on device): the wiki shows `text = whisper.transcribe(wav_path)` and
     # prints it, but does not state the return type; send only if it is a str.
-    result = whisper.transcribe(WAV_PATH)
+    result = whisper.transcribe(wav_path)
     sent = send_text(serial, result)
     if sent is None:
         print("nothing sent")
