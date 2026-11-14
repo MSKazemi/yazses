@@ -94,9 +94,11 @@ jobs:
       GH_REPO: ${{ github.repository }}
     steps:
       - id: resolve
+        env:
+          VERSION_INPUT: ${{ github.event.inputs.version }}
         run: |
           set -euo pipefail
-          version="${{ github.event.inputs.version }}"
+          version="$VERSION_INPUT"
           [[ -n "$version" ]] || version="${GITHUB_REF_NAME#v}"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "Publishing v$version"

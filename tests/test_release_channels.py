@@ -181,8 +181,28 @@ def test_aur_absent(crc, responses):
     assert ok is False and "not in AUR" in detail
 
 
+def _choco_entry(version: str, *, approved: bool | None = True, status: str = "Approved") -> bytes:
+    """One OData entry shaped like the real feed (captured 2026-11-12).
+
+    The feed also serves versions that are only *submitted*: `IsApproved` is false,
+    `Published` is the 1900-01-01 sentinel and `PackageStatus` says where moderation
+    stands. `approved=None` omits the field, as a renamed feed would.
+    """
+    flag = (
+        ""
+        if approved is None
+        else f'<d:IsApproved m:type="Edm.Boolean">{str(approved).lower()}</d:IsApproved>'
+    )
+    return (
+        "<feed><entry>"
+        f"<d:Version>{version}</d:Version>{flag}"
+        f"<d:PackageStatus>{status}</d:PackageStatus>"
+        "</entry></feed>"
+    ).encode()
+
+
 def test_chocolatey_needs_this_exact_version(crc, responses):
-    feed = b"<feed><entry><d:Version>2.17.0</d:Version></entry></feed>"
+    feed = _choco_entry("2.17.0")
     responses({"chocolatey.org": (200, feed)})
     assert crc.check_chocolatey("2.18.2")[0] is False
     assert crc.check_chocolatey("2.17.0")[0] is True
@@ -363,7 +383,8 @@ def test_ghcr_outage_on_the_manifest_is_unknown_not_missing(crc, monkeypatch, st
     _ghcr_paged_registry(crc, monkeypatch, manifests={"2.48.1": status}, pages=_many_tags())
     ok, detail = crc.check_docker("2.48.1")
     assert ok is crc.UNKNOWN, (ok, detail)
-    assert str(status) in detail
+    # A status that never arrived has no number to show; it says "unreachable" instead.
+    assert ("unreachable" if status == 0 else str(status)) in detail
 
 
 @pytest.mark.parametrize("status", [0, 429, 500, 503])
@@ -398,6 +419,32 @@ def test_ghcr_tags_are_ordered_by_version_not_lexically(crc):
     assert tags == ["latest", "2.9.0", "2.10.0", "2.48.1"]
 
 
+def test_chocolatey_a_submitted_version_is_not_published(crc, responses):
+    """v2.51.0 sat on the feed as `Submitted` / `IsApproved=false` after the verifier
+    hit a 503 (2026-11-07). `choco install` cannot get such a version, yet the entry
+    exists, so "the entry is there" reported the channel as caught up for days.
+    """
+    feed = _choco_entry("2.51.0", approved=False, status="Submitted")
+    responses({"chocolatey.org": (200, feed)})
+    ok, detail = crc.check_chocolatey("2.51.0")
+    assert ok is False
+    assert "not approved" in detail and "Submitted" in detail
+    # Not the "<label>=<version>" form, which means "this channel is serving that".
+    assert not crc._SERVING_RE.match(detail), detail
+
+
+def test_chocolatey_an_approved_version_is_published(crc, responses):
+    responses({"chocolatey.org": (200, _choco_entry("2.51.0"))})
+    assert crc.check_chocolatey("2.51.0") == (True, "listed")
+
+
+def test_chocolatey_without_the_approval_field_is_unknown_not_published(crc, responses):
+    """If the feed ever stops saying whether a version is approved, the honest answer
+    is "could not check" -- never a green tick on a guess."""
+    responses({"chocolatey.org": (200, _choco_entry("2.51.0", approved=None))})
+    assert crc.check_chocolatey("2.51.0")[0] is None
+
+
 def test_chocolatey_asks_for_the_exact_version_not_the_first_page(crc, monkeypatch):
     """The OData feed pages at 15 entries in no version order (checked 2026-11-04).
 
@@ -409,7 +456,7 @@ def test_chocolatey_asks_for_the_exact_version_not_the_first_page(crc, monkeypat
     def fake_get(url: str, headers=None):
         urls.append(url)
         if "Version%20eq%20%272.48.1%27" in url:
-            return 200, b"<feed><entry><d:Version>2.48.1</d:Version></entry></feed>"
+            return 200, _choco_entry("2.48.1")
         return 200, b"<feed></feed>"
 
     monkeypatch.setattr(crc, "_get", fake_get)
@@ -538,6 +585,145 @@ def test_retries_give_up_and_report_zero(crc, monkeypatch):
     status, body = crc._get("https://example.invalid/x")
     assert status == 0
     assert b"no route" in body
+
+
+def test_get_keeps_the_exception_type_and_message_when_it_gives_up(crc, monkeypatch):
+    """Status 0 carried only `str(e)`: a bare `TimeoutError()` has an empty message.
+
+    Issue #872: the Snap row read "HTTP 0" every day and nothing said why, because the
+    exception was thrown away. The type is what tells a timeout from a TLS or DNS failure.
+    """
+    import urllib.error
+
+    def always_fail(req, timeout=None):
+        raise urllib.error.URLError(TimeoutError("timed out"))
+
+    monkeypatch.setattr(crc.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(crc.urllib.request, "urlopen", always_fail)
+    status, body = crc._get("https://example.invalid/x")
+    assert status == 0
+    assert b"URLError" in body and b"timed out" in body
+
+    def silent(req, timeout=None):
+        raise TimeoutError()  # str(e) == ""
+
+    monkeypatch.setattr(crc.urllib.request, "urlopen", silent)
+    status, body = crc._get("https://example.invalid/x")
+    assert status == 0 and b"TimeoutError" in body
+
+
+def test_snap_unreachable_detail_names_the_failure_and_stays_unknown(crc, responses):
+    responses({"api.snapcraft.io": (0, b"URLError: <urlopen error [Errno 101] Network is unreachable>")})
+    ok, detail = crc.check_snap("2.51.0")
+    assert ok is crc.UNKNOWN, "an unreachable store must not become 'absent'"
+    assert "URLError" in detail and "Network is unreachable" in detail
+    assert "HTTP 0" not in detail, "'HTTP 0' is the uninformative text this replaces"
+
+
+def test_snap_unreachable_detail_is_not_read_as_a_served_version(crc, responses):
+    """`serving()` matches `_SERVING_RE`, i.e. `label=version` at the start. A detail that
+    did would claim the channel serves a version, and `regressions` would act on it.
+    Messages that contain `=` are the dangerous ones."""
+    for body in (
+        b"URLError: <urlopen error stable=2.51.0>",
+        b"SSLError: certificate verify failed: version=3",
+        b"OSError: no route",
+    ):
+        responses({"api.snapcraft.io": (0, body)})
+        ok, detail = crc.check_snap("2.51.0")
+        assert ok is crc.UNKNOWN
+        assert crc._SERVING_RE.match(detail) is None, detail
+        assert crc.serving(crc.Result("snap", "Snap Store (stable)", ok, detail)) is None
+
+
+def test_snap_unreachable_detail_is_one_short_markdown_safe_line(crc, responses):
+    """The detail is written into a markdown table cell in a GitHub issue."""
+    nasty = b"URLError: first line\nsecond | line " + b"x" * 5000
+    responses({"api.snapcraft.io": (0, nasty)})
+    _, detail = crc.check_snap("2.51.0")
+    assert "\n" not in detail and "|" not in detail
+    assert len(detail) <= 300
+    assert "first line" in detail
+
+
+def test_snap_http_error_still_reports_the_status(crc, responses):
+    """A store that answered keeps its HTTP code; only status 0 gets the new wording."""
+    responses({"api.snapcraft.io": (503, b"busy")})
+    ok, detail = crc.check_snap("2.51.0")
+    assert ok is False
+    assert "HTTP 503" in detail
+
+def _every_check(crc):
+    """Every check as `(name, call)`, `call(version) -> [(ok, detail), ...]`.
+
+    The three release-asset rows come from one function, so they are one entry.
+    `CHECKS` is read live: a channel added tomorrow is covered without editing a list.
+    """
+    entries = [("assets", lambda v: list(crc.check_release_assets(v).values()))]
+    entries += [(key, lambda v, fn=fn: [fn(v)]) for key, _label, fn in crc.CHECKS]
+    return entries
+
+
+def _unreachable_at_every_stage(crc, responses, body):
+    """Never-answered for every request, plus the docker case where only the
+    second request (the manifest, after a good token) fails."""
+    token = _body({"token": "t"})
+    return [
+        lambda: responses({}, default=(0, body)),
+        lambda: responses({"ghcr.io/token": (200, token)}, default=(0, body)),
+    ]
+
+
+_HOSTILE_BODIES = [
+    pytest.param(b"URLError: <urlopen error timed out>", id="plain"),
+    pytest.param(b"TimeoutError: ", id="no-message"),
+    pytest.param(b"URLError: <urlopen error stable=2.51.0>", id="label=version"),
+    pytest.param(b"SSLError: certificate verify failed: version=3", id="eq-mid-text"),
+    pytest.param(b"URLError: first\nsecond | line " + b"x" * 5000, id="multiline-pipe-huge"),
+]
+
+
+@pytest.mark.parametrize("body", _HOSTILE_BODIES)
+def test_every_channel_says_why_it_was_unreachable(crc, responses, body):
+    """Issue #872 only fixed Snap; every other channel still wrote "HTTP 0".
+
+    For each channel, at each stage a request can fail: the verdict stays UNKNOWN,
+    the detail carries the failure type instead of "HTTP 0", and the detail is a
+    safe one-line table cell that `serving()` cannot read as "serving a version"
+    (messages containing `=` are the dangerous ones: `regressions` acts on those).
+    """
+    for arm in _unreachable_at_every_stage(crc, responses, body):
+        for name, call in _every_check(crc):
+            arm()
+            for ok, detail in call("2.51.0"):
+                where = f"{name}: {detail!r}"
+                assert ok is crc.UNKNOWN, where
+                assert "HTTP 0" not in detail, where
+                assert "unreachable" in detail, where
+                assert "\n" not in detail and "|" not in detail, where
+                assert len(detail) <= 300, where
+                assert crc._SERVING_RE.match(detail) is None, where
+                result = crc.Result(name, name, ok, detail)
+                assert crc.serving(result) is None, where
+
+
+def test_every_channel_keeps_the_exception_type_in_its_detail(crc, responses):
+    """Stronger than the loop above: EVERY channel, at EVERY stage, names the type."""
+    for arm in _unreachable_at_every_stage(crc, responses, b"URLError: <urlopen error timed out>"):
+        for name, call in _every_check(crc):
+            arm()
+            for _ok, detail in call("2.51.0"):
+                assert "URLError" in detail and "timed out" in detail, f"{name}: {detail!r}"
+
+
+def test_a_real_http_error_is_still_absent_and_still_names_its_status(crc, responses):
+    """Only status 0 gets the new wording; a store that answered keeps its code."""
+    for name, call in _every_check(crc):
+        responses({}, default=(404, b"not here"))
+        for ok, detail in call("2.51.0"):
+            assert ok is False, f"{name}: {ok!r}"
+            assert "HTTP 404" in detail, f"{name}: {detail!r}"
+            assert "unreachable" not in detail, f"{name}: {detail!r}"
 
 
 def test_unknown_is_reported_separately_from_missing(crc, responses, capsys, monkeypatch):

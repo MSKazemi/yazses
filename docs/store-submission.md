@@ -154,6 +154,91 @@ placeholder identity would otherwise fail at submission, long after the build lo
 
 Find them in Partner Center under the product's **Product identity** page.
 
+## Updates on the Store build
+
+The Store replaces the package, and the install folder under `C:\Program Files\WindowsApps\`
+is read-only to the app ([MSIX containerization overview](https://learn.microsoft.com/windows/msix/msix-containerization-overview)),
+so the in-app updater ([ADR-027](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-027-one-click-windows-update.md))
+could not replace the files even if it tried. A packaged build therefore never updates itself:
+
+- `yazses update` prints `via msix`, says updates are managed by the Microsoft Store (or App
+  Installer for a sideloaded package), prints the Store steps and exits 0. It makes **no network
+  call**.
+- The tray and Settings messages say the same, with no "Update available" or install button.
+- `yazses doctor` shows an `Update check` row, `managed by the Microsoft Store`.
+- The optional background release watcher (`update-check`, off by default) has nothing to announce
+  for a packaged build.
+
+"Packaged" is decided in `platform/windows/host.py`, and only for a frozen executable: an
+`AppxManifest.xml` beside the executable, **or** package identity from Windows itself
+(`GetCurrentPackageFullName`; `ERROR_INSUFFICIENT_BUFFER` means the process has identity,
+`APPMODEL_ERROR_NO_PACKAGE` means it has none, per
+[Detect package identity](https://learn.microsoft.com/windows/msix/detect-package-identity)).
+A pip install run by the Store's own Python has *Python's* package identity and is not
+mistaken for the Store build.
+
+**Untested:** all of this is covered by unit tests with fakes on Linux. Nobody has run it from a
+real MSIX install. Part of the first Windows test pass is to confirm that `yazses update` there
+prints the Store message, that `doctor` shows the row, and that a plain `.exe` install
+still updates itself.
+
+## Static review of the MSIX files (2026-11-12)
+
+A read of `AppxManifest.xml`, `scripts/build-msix.ps1` and the workflow against this page and
+Microsoft Learn. **Nothing below was run on Windows.**
+
+Matches the documentation:
+
+- `uap10:RuntimeBehavior="packagedClassicApp"` with `uap10:TrustLevel="mediumIL"` is a documented
+  combination, and `MinVersion="10.0.19041.0"` is what the `uap10` namespace requires
+  ([Application element](https://learn.microsoft.com/uwp/schemas/appxpackage/uapmanifestschema/element-f-application)).
+- `runFullTrust` (restricted, needs the justification above) and `microphone` (a normal device
+  capability) are declared in the right namespaces.
+- The version is four-part with the fourth part 0; the other parts must be 0 to 65535 and the first
+  not 0 ([package version numbering](https://learn.microsoft.com/windows/apps/publish/publish-your-app/msix/app-package-requirements#package-version-numbering)).
+  `build-msix.ps1` takes `X.Y.Z` and appends `.0`.
+- Identity `Name`, `Publisher` and `PublisherDisplayName` are placeholders that the build refuses
+  to leave in place, and Partner Center's values must be used exactly.
+- All six logos the manifest names exist in `Assets/`, and `Wide310x150Logo` is present beside
+  `Square310x310Logo`.
+
+Defects and doubts, most important first:
+
+1. **Autostart is probably broken or at least unproven in the package.** YazSes starts at sign-in
+   through an `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` value
+   (`platform/windows/lifecycle.py`). Microsoft's pages disagree on whether HKCU writes from a
+   packaged app are copied to a private per-app location (*"Writes under HKCU: Copied on write to a
+   per-user, per-app private location"*, [behind the scenes](https://learn.microsoft.com/windows/msix/desktop/desktop-to-uwp-behind-the-scenes#registry))
+   or persist ([troubleshooting guide](https://learn.microsoft.com/windows/msix/msix-troubleshooting-guide)).
+   If they are private, Windows never reads the value at sign-in. The documented route for a packaged
+   desktop app is a `desktop:StartupTask` in the manifest, which the manifest does not declare.
+   Unknown until tested; either `yazses autostart enable` must be packaging-aware, or the Store
+   listing must not promise start-at-sign-in.
+2. **No `yazses` command on PATH.** The package ships `yazses-cli.exe` (the console binary), but the
+   manifest declares no app execution alias, so a Store user has no terminal command, and
+   `yazses doctor`, `yazses features enable ...` and the other commands quoted throughout these docs
+   are not reachable. Whether the windowed `YazSesApp.exe --cli` route works from a package is also
+   unverified. Not fixed here.
+3. **Per-user data is redirected.** For a packaged app, new files under `%LOCALAPPDATA%` go to a
+   private per-package location visible only to that app, and are deleted on uninstall
+   (same Microsoft page as above). Downloaded models and config in a Store install are therefore
+   not shared with a PyPI or `.exe` install on the same machine. Measure model download size and
+   uninstall behaviour on a real install.
+4. **`MaxVersionTested="10.0.22621.0"` is old** (Windows 11 22H2). Raise it to a current build
+   when packaging for real. Learn gives no rule that makes this fail certification, so this is a
+   hygiene point, not a known rejection.
+5. **The build script does not XML-escape** the values it substitutes into the manifest. A
+   `PublisherDisplayName` containing `&` or `<` produces malformed XML, which `makeappx` rejects
+   loudly at pack time (not silently). Partner Center values for an individual account are not
+   expected to contain them, but the check is cheap.
+6. **The version check is looser than the rule.** `^\d+\.\d+\.\d+$` accepts `0.1.0` (first
+   part 0 is forbidden) and numbers above 65535. Both fail only at upload.
+7. **Only base-scale tile PNGs, no `resources.pri`.** The manifest points at plain files. That
+   works, but Microsoft's icon guidance recommends scale variants and unplated target-size
+   icons; without them taskbar and Start icons may look soft or plated. Cosmetic.
+8. **Reviewer risk, not a defect:** a global hook plus synthetic input will be questioned during
+   certification. The disclosure above is the answer; whether it is accepted is unknown.
+
 ## Privacy switches on the Store build
 
 Windows gates the microphone behind *Settings → Privacy & Security → Microphone*. The
@@ -178,9 +263,10 @@ YazSes on, `yazses doctor` shows the microphone as OK) is part of preparing a su
 
 The reserved `YazSes` product is typed **"EXE or MSI app"**. That product type takes a
 download URL to a signed installer; it does not accept an MSIX package. Publishing this
-package needs a product of type **"MSIX or PWA app"**, and a Store name can only be held by
-one product — so using the reserved name for MSIX means releasing it from the EXE product
-first.
+package needs a product of type **"MSIX or PWA app"**, and a Store name is held by one
+product. Whether Partner Center lets a second, MSIX-typed product reserve the same name while the
+EXE product holds it is **not verified**; if it does not, using the name for MSIX means releasing
+it from the EXE product first.
 
 That is a deliberate choice, not a formality: keeping the EXE product reserves the option of
 a signed direct-download submission later, if a certificate ever becomes available.

@@ -45,10 +45,11 @@ jobs:
         id: run_id
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Dispatch inputs arrive as data, not as shell source (CI_POLICY.md section 7).
+          MANUAL_ID: ${{ github.event.inputs.run_id }}
+          EVENT_ID: ${{ github.event.workflow_run.id }}
+          WORKFLOW: ${{ github.event.inputs.workflow || 'release' }}
         run: |
-          MANUAL_ID="${{ github.event.inputs.run_id }}"
-          EVENT_ID="${{ github.event.workflow_run.id }}"
-          WORKFLOW="${{ github.event.inputs.workflow || 'release' }}"
           # Map friendly name to filename
           case "$WORKFLOW" in
             release)       WF_FILE="release.yml" ;;
