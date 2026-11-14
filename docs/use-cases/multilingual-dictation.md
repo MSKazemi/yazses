@@ -11,7 +11,7 @@ description: YazSes is English-tuned and ships an English-only model. Whisper it
     project publishes are English** ([LibriSpeech](../benchmarks.md)) **except one
     Persian run** on a single 4-vCPU machine, in which no model measured was both
     accurate enough for dictation and faster than real time
-    ([Persian numbers](../benchmarks.md#persian-fa-first-measured-numbers)).
+    ([Persian numbers](../benchmarks.md#persian-fa--first-measured-numbers)).
     **We do not claim support for any other language.** What follows is a how-to, not a
     support claim.
 
