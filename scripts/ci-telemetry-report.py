@@ -32,6 +32,7 @@ not gate), 1 when the API could not be read, 2 for a usage error.
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
 import os
 import sys
@@ -57,6 +58,12 @@ SEARCH_CAP = 1000
 MAX_JOB_PAGES = 3
 TIMEOUT_S = 30
 USER_AGENT = "yazses-ci-telemetry"
+RETRY_BACKOFF_S = 2
+
+#: A dropped or truncated transfer. `IncompleteRead` (an `HTTPException`, not an
+#: `OSError`) is raised by `response.read()` when the server closes mid-body (#894).
+#: `URLError`, `TimeoutError` and `ConnectionError` are all `OSError`s.
+TRANSIENT_ERRORS = (urllib.error.URLError, http.client.HTTPException, OSError)
 
 #: (parsed JSON, response headers with lower-cased names)
 Response = tuple[Any, Mapping[str, str]]
@@ -68,7 +75,7 @@ class ApiError(RuntimeError):
 
 
 def http_get(token: str, *, opener: Callable[..., Any] = urllib.request.urlopen) -> Transport:
-    """A GET-only transport. One retry on a 5xx or a dropped connection, nothing else."""
+    """A GET-only transport. One retry on a 5xx or a dropped/truncated transfer, nothing else."""
 
     def get(url: str) -> Response:
         request = urllib.request.Request(
@@ -92,11 +99,11 @@ def http_get(token: str, *, opener: Callable[..., Any] = urllib.request.urlopen)
                     time.sleep(2)
                     continue
                 raise ApiError(f"GET {_redact(url)} failed: HTTP {exc.code}") from None
-            except (urllib.error.URLError, TimeoutError) as exc:
+            except TRANSIENT_ERRORS as exc:
                 if attempt == 1:
-                    time.sleep(2)
+                    time.sleep(RETRY_BACKOFF_S)
                     continue
-                reason = getattr(exc, "reason", exc)
+                reason = getattr(exc, "reason", None) or f"{type(exc).__name__}: {exc}"
                 raise ApiError(f"GET {_redact(url)} failed: {reason}") from None
             except json.JSONDecodeError:
                 raise ApiError(f"GET {_redact(url)} returned something that is not JSON") from None

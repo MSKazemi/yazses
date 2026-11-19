@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — CI telemetry: a truncated API response (`http.client.IncompleteRead`) is retried once, then reported (#894)
+
+`scripts/ci-telemetry-report.py` caught only `URLError` and `TimeoutError`, so a response cut off mid-body crashed the scheduled run with a traceback. It now treats `http.client.HTTPException` and connection errors as the same transient transport failure: one retry after a short backoff, then a clear `ApiError`. Never more than two attempts (CI_POLICY §9.1). Covered offline; the scheduled run itself was not re-run.
+
 ### Added — research: a MaixCAM2 text link, recorded as an ADR (research record only) and a research note, not a feature
 
 [ADR-v2-156](design/adr/adr-v2-156-maixcam2-text-link.md) (Accepted as a research record only) records whether a Sipeed MaixCAM2 running Whisper `base` could send recognised text to a desktop over a wired UART: the falsifiable hypothesis, a threat model for text arriving over a wire, the egress statement, exit criteria and the unknowns. `docs/research/maixcam2-text-link.md` is the matching notice: experimental, research only, not part of YazSes. The change also adds a stdlib-only reference codec, simulator and printing reader under `examples/maixcam2-text-link/`, with tests, and a draft wire spec (`design/specs/textlink-wire-protocol.md`). Nothing in `src/` changes and no board has been tested; the ADR-030 breadth freeze applies, so implementation needs a recorded go and a named exception.

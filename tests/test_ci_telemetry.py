@@ -21,6 +21,7 @@ a gate) is pinned at the end.
 
 from __future__ import annotations
 
+import http.client
 import importlib.util
 import io
 import json
@@ -523,6 +524,56 @@ def test_http_get_retries_one_server_error(monkeypatch: pytest.MonkeyPatch) -> N
         return _Response([], {})
 
     rep.http_get("tok", opener=opener)("https://api.github.com/x")
+    assert len(calls) == 2
+
+
+class _TruncatedResponse(_Response):
+    def read(self) -> bytes:
+        raise http.client.IncompleteRead(b"[", 100)
+
+
+def test_http_get_retries_an_incomplete_read_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    sleeps: list[float] = []
+    monkeypatch.setattr(rep.time, "sleep", sleeps.append)
+    calls: list[int] = []
+
+    def opener(request: Any, timeout: float) -> _Response:
+        calls.append(1)
+        return _TruncatedResponse([], {}) if len(calls) == 1 else _Response({"ok": 1}, {})
+
+    data, _ = rep.http_get("tok", opener=opener)("https://api.github.com/x")
+    assert data == {"ok": 1} and len(calls) == 2 and sleeps == [rep.RETRY_BACKOFF_S]
+
+
+def test_http_get_gives_up_after_two_incomplete_reads(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(rep.time, "sleep", lambda s: None)
+    calls: list[int] = []
+
+    def opener(request: Any, timeout: float) -> _Response:
+        calls.append(1)
+        return _TruncatedResponse([], {})
+
+    with pytest.raises(rep.ApiError) as excinfo:
+        rep.http_get("tok-SECRET", opener=opener)("https://api.github.com/x?page=1")
+    assert len(calls) == 2
+    assert "IncompleteRead" in str(excinfo.value) and "tok-SECRET" not in str(excinfo.value)
+
+
+@pytest.mark.parametrize("exc", [
+    urllib.error.URLError("dns"), TimeoutError("slow"), ConnectionResetError("reset"),
+])
+def test_http_get_retries_other_transport_errors_once(
+    monkeypatch: pytest.MonkeyPatch, exc: Exception
+) -> None:
+    monkeypatch.setattr(rep.time, "sleep", lambda s: None)
+    calls: list[int] = []
+
+    def opener(request: Any, timeout: float) -> _Response:
+        calls.append(1)
+        raise exc
+
+    with pytest.raises(rep.ApiError):
+        rep.http_get("tok", opener=opener)("https://api.github.com/x")
     assert len(calls) == 2
 
 
