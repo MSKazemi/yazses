@@ -9,7 +9,7 @@ fails an application nobody re-reads. These tests pin every piece to the file th
 
 The credit line is written as what signed releases *will* carry: no release is signed
 until SignPath approves, so stating it as present fact would be false. When signing goes
-live, move the line out of the "Application pending" note and update this test with it.
+live, move the line out of the "Application not approved" note and update this test with it.
 """
 from __future__ import annotations
 
@@ -65,10 +65,10 @@ def test_the_policy_links_the_privacy_statement():
 
 
 def test_the_credit_is_not_claimed_while_signing_is_pending():
-    """Until SignPath approves, the credit sits inside the pending note, not as fact."""
+    """Until signing is approved, the credit sits inside the note, not as fact."""
     section = _policy_section()
-    note = re.search(r'!!! note "Application pending"\n(.*?)(?=^\S)', section, re.S | re.M)
-    assert note, "the pending note around the credit line is missing"
+    note = re.search(r'!!! note "Application not approved"\n(.*?)(?=^\S)', section, re.S | re.M)
+    assert note, "the not-approved note around the credit line is missing"
     assert CREDIT in _plain(note.group(1))
     outside = section.replace(note.group(0), "")
     assert "Free code signing provided by" not in outside

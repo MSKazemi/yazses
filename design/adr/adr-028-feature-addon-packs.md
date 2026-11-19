@@ -746,8 +746,8 @@ its most cautious behaviour, which is what landed in `e50e35f2`. This ADR stays
      invisible to Windows. Smart App Control behaviour for packs stays a Phase 1 manual
      checklist item.
    - Routes:
-     - **SignPath Foundation** (application answered 2026-09-13; current status
-       unverified);
+     - **SignPath Foundation** (application answered 2026-09-13; declined on
+       2026-11-17 for insufficient independent evidence of trust, to be revisited);
      - **Certum's open-source certificate** (€69 with a hardware card; listed out of stock
        on 2026-10-21; impractical from hosted CI);
      - Azure Trusted Signing is excluded by owner policy.

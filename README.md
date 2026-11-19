@@ -949,9 +949,10 @@ See [CITATION.cff](CITATION.cff) for machine-readable metadata (CFF 1.2.0).
 
 ## Code signing policy
 
-Windows builds are not code-signed yet. YazSes has applied to the
-[SignPath Foundation](https://signpath.org) free programme for open-source projects and is
-awaiting approval. The [code signing policy](https://mskazemi.com/yazses/code-signing.html#code-signing-policy)
+Windows builds are not code-signed yet. YazSes applied to the
+[SignPath Foundation](https://signpath.org) free programme for open-source projects; the
+application was declined on 2026-11-17 for lack of independent evidence of trust, and no
+signing is in place. It will be revisited when there is more. The [code signing policy](https://mskazemi.com/yazses/code-signing.html#code-signing-policy)
 on the website covers what gets signed, team roles, who approves each signing request and
 privacy, and explains how to verify a download today.
 
