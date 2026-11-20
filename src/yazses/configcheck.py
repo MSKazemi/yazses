@@ -348,6 +348,8 @@ def _injection_backend_values() -> tuple[str, ...]:
 
 _ENUMS: Mapping[str, tuple[str, ...]] = _ClosedSets({
     "commands.language": ("auto", "en", "zh"),
+    # Held equal to `hotkeys/toggle.MODES` by tests/test_toggle_dictation.py (#869).
+    "hotkey.mode": ("hold", "toggle"),
     # DERIVED from `inject/registry.BACKENDS`, not hand-written. The hand-written
     # version is what silently reverted a documented `backend = "ydotool"` to
     # `auto`: the value existed in the docs and in `get_injector`, and only this

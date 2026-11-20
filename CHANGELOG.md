@@ -6,6 +6,18 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — toggle dictation: press once to start, press again to stop (#869)
+
+Holding the hotkey for a whole sentence is hard or painful for some people with motor
+disabilities. `[hotkey] mode = "toggle"` makes the dictation key a latch: the first press
+starts recording, the second press stops it and the text is typed as on a hold-to-talk
+release. Key auto-repeat never stops or restarts a recording, a press while the previous
+dictation is still being transcribed or typed is ignored, a recording that ends some other
+way (microphone lost) resets the latch, and `[audio] max_record_seconds` ends a recording
+left running. The command key stays hold-to-talk and is ignored while a toggle dictation is
+open; `[autostop]` is not used in toggle mode. The default stays `mode = "hold"`, so an
+existing install is unchanged. The latch is a pure module, `yazses.hotkeys.toggle`.
+
 ### Added — research: a MaixCAM2 text link, recorded as an ADR (research record only) and a research note, not a feature
 
 [ADR-v2-156](design/adr/adr-v2-156-maixcam2-text-link.md) (Accepted as a research record only) records whether a Sipeed MaixCAM2 running Whisper `base` could send recognised text to a desktop over a wired UART: the falsifiable hypothesis, a threat model for text arriving over a wire, the egress statement, exit criteria and the unknowns. `docs/research/maixcam2-text-link.md` is the matching notice: experimental, research only, not part of YazSes. The change also adds a stdlib-only reference codec, simulator and printing reader under `examples/maixcam2-text-link/`, with tests, and a draft wire spec (`design/specs/textlink-wire-protocol.md`). Nothing in `src/` changes and no board has been tested; the ADR-030 breadth freeze applies, so implementation needs a recorded go and a named exception.
