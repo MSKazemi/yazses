@@ -6,6 +6,12 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — a script to compare pyannote 3.1 with community-1; the pyannote adapter reads exclusive diarization
+
+`scripts/bench-pyannote-pipelines.py` runs `pyannote/speaker-diarization-3.1` and `pyannote/speaker-diarization-community-1` on the same RTTM-labelled fixtures. It reports DER, JER, speaker-count error and wall time, with the ADR-033 provenance fields (commit, snapshot revision and hash, versions, machine, corpus hashes). It runs offline by default. Nobody has run it yet: both models are gated, so a person with access has to. `docs/benchmarks.md` explains how. The default pipeline is still 3.1.
+
+`[recimport] backend = "pyannote"` now reads `exclusive_speaker_diarization` when the pipeline output has it (pyannote.audio 4.x `DiarizeOutput`). That view gives one speaker per instant, so `align.py` does not have to settle an overlap by tie-break. Otherwise the adapter reads `speaker_diarization`, or a bare legacy `Annotation`, as before.
+
 ### Added — research: a MaixCAM2 text link, recorded as an ADR (research record only) and a research note, not a feature
 
 [ADR-v2-156](design/adr/adr-v2-156-maixcam2-text-link.md) (Accepted as a research record only) records whether a Sipeed MaixCAM2 running Whisper `base` could send recognised text to a desktop over a wired UART: the falsifiable hypothesis, a threat model for text arriving over a wire, the egress statement, exit criteria and the unknowns. `docs/research/maixcam2-text-link.md` is the matching notice: experimental, research only, not part of YazSes. The change also adds a stdlib-only reference codec, simulator and printing reader under `examples/maixcam2-text-link/`, with tests, and a draft wire spec (`design/specs/textlink-wire-protocol.md`). Nothing in `src/` changes and no board has been tested; the ADR-030 breadth freeze applies, so implementation needs a recorded go and a named exception.
