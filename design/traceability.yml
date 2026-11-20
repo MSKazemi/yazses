@@ -501,6 +501,18 @@ entries:
       task: null
       milestone: null
     gate: "Explicitly design-only; offline remains the only implemented transcription path."
+  - id: "decision:adr-v2-157"
+    kind: decision
+    title: "BCI HID Switch Consumer"
+    source: "design/adr/adr-v2-157-bci-hid-switch-consumer.md"
+    decision_status: proposed
+    delivery_status: deferred
+    tracking:
+      kind: none
+      issues: []
+      task: null
+      milestone: null
+    gate: "Research record only under the ADR-030 freeze; the device-free example under examples/bci-hid-switch/ is the whole deliverable until a device, a non-contributor request and a named freeze exception exist."
   - id: "decision:mob-010"
     kind: decision
     title: "Apple second wave"
