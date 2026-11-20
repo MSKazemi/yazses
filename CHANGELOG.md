@@ -18,6 +18,18 @@ left running. The command key stays hold-to-talk and is ignored while a toggle d
 open; `[autostop]` is not used in toggle mode. The default stays `mode = "hold"`, so an
 existing install is unchanged. The latch is a pure module, `yazses.hotkeys.toggle`.
 
+A quick tap of a key that types nothing (Right Ctrl, Right Alt / Option and the other
+modifiers) now counts on every hotkey backend. The X11 key-grab backend (snap, BSD) and the
+macOS backend used to wait `[hotkey] hold_threshold_ms` (500 ms) before they reported any
+press, so in toggle mode every press had to last half a second. The threshold is only
+needed for a key that also types, where a tap must keep typing; both backends now start a
+modifier on key-down, as evdev and Windows already did. That also changes hold-to-talk on
+those two backends: a modifier hold starts at once instead of clipping the first half
+second of speech, and on macOS a modifier hold could not start at all before, since its
+`flagsChanged` events never repeat (read from the code, not yet seen on a Mac). `space`
+keeps the guard, so toggle mode on space still needs each press held that long;
+`yazses doctor` and the daemon log now say so and suggest `right_ctrl`.
+
 ### Added — research: a MaixCAM2 text link, recorded as an ADR (research record only) and a research note, not a feature
 
 [ADR-v2-156](design/adr/adr-v2-156-maixcam2-text-link.md) (Accepted as a research record only) records whether a Sipeed MaixCAM2 running Whisper `base` could send recognised text to a desktop over a wired UART: the falsifiable hypothesis, a threat model for text arriving over a wire, the egress statement, exit criteria and the unknowns. `docs/research/maixcam2-text-link.md` is the matching notice: experimental, research only, not part of YazSes. The change also adds a stdlib-only reference codec, simulator and printing reader under `examples/maixcam2-text-link/`, with tests, and a draft wire spec (`design/specs/textlink-wire-protocol.md`). Nothing in `src/` changes and no board has been tested; the ADR-030 breadth freeze applies, so implementation needs a recorded go and a named exception.
