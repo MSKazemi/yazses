@@ -62,6 +62,13 @@ slm_confidence_threshold = 0.75 # the default; below this, the router's answer i
     its answer is taken only above `slm_confidence_threshold`, and a router that
     fails or raises falls back to typing the words rather than losing them.
 
+    The router cannot invent a command. Its answer must name one of the commands on
+    this page, with arguments of the right type: counts from 1 to 99, a line number
+    from 1 to 1,000,000, and names or shell commands made of words you actually said.
+    Anything else is thrown away and your words are typed. When your
+    `llama-cpp-python` supports JSON-schema grammars the model is held to that shape
+    while it writes; on an older one it is not, and the same check still runs after.
+
 ### When you want to be certain it types, not acts
 
 Ordinary speech sometimes collides with command phrasing. Two escape hatches:
