@@ -571,6 +571,15 @@ def run_calibrate(
     except (ValueError, FileNotFoundError, ImportError) as exc:
         _warn(f"Cannot open source {spec!r}: {exc}")
         return UNUSABLE
+    # A source that judges its own signal (ThinkGear, ADR-v2-155) is read through the same
+    # guard the daemon, monitor and field-test use, and a block it does not trust -- or that
+    # the stream-integrity gate holds -- never reaches the profile (#887). Every other
+    # source is read exactly as before.
+    from yazses.biosignal import source_gates
+
+    judged = source_gates.needs_source_health(src, spec)
+    if judged:
+        src = source_gates.guard_source(src, spec)
     src.start()
     try:
         if getattr(src, "available", True) is False or not src.channels or not src.fs:
@@ -610,6 +619,7 @@ def run_calibrate(
 
         shown = ""
         last_pct = -1
+        held = False                    # the current stretch of reads is untrusted
         try:
             while not session.finished:
                 prompt = session.prompt()
@@ -623,7 +633,14 @@ def run_calibrate(
                     session.abort()
                     _warn("The recording ended before the calibration was complete.")
                     return FAILED
-                issue = session.feed(block)
+                distrust = _distrust(src, block) if judged and block is not None else ""
+                if distrust and not held:
+                    _say(f"\n  ! Not using this signal ({distrust}); waiting for the device "
+                         "to trust it again.")
+                if block is not None:
+                    held = bool(distrust)
+                issue = (session.feed_untrusted(block, distrust) if distrust
+                         else session.feed(block))
                 if block is None:
                     time.sleep(0.005)
                 elif sys.stdout.isatty():          # a redrawn percentage is noise in a log
@@ -646,8 +663,12 @@ def run_calibrate(
         issue = session.last_issue
         _warn(f"\nCalibration failed ({session.phase.value})"
               + (f": {issue.message}" if issue is not None else "."))
+        if session.excluded_s > 0:
+            _warn(f"Left out {session.excluded_s:.1f} s of samples the source did not trust.")
         return FAILED
     profile = session.result()
+    if session.excluded_s > 0:
+        _say(f"\nLeft out {session.excluded_s:.1f} s of samples the source did not trust.")
     path = profile_path(bio, data_dir)
     try:
         save_profile(profile, path)
@@ -658,6 +679,33 @@ def run_calibrate(
     _say("Restart the daemon to use it (`yazses restart`), and check the rate you actually get "
          "with `yazses biosignal report`.")
     return OK
+
+
+def _distrust(guard: Any, block: Any) -> str:
+    """Why ``block`` must not be used, or ``""`` when the guarded source trusts it.
+
+    No verdict (unknown provenance) and a closed stream-integrity gate both distrust it:
+    fail closed, as :class:`source_gates.SourceHealthGate` does for events.
+    """
+    try:
+        health = guard.health_for(block)
+        closed = bool(guard.gate_closed_for(block))
+    except Exception:
+        log.debug("source health lookup failed during calibration", exc_info=True)
+        return "the source health could not be read"
+    if health is None:
+        return "no source-health verdict for this read"
+    if getattr(health, "trusted", False) is not True:
+        reason = getattr(health, "reason", None)
+        code = str(getattr(reason, "value", reason) or "untrusted")
+        try:
+            text = str(reason.describe()) if reason is not None else ""
+        except Exception:
+            text = ""
+        return f"{code}: {text}" if text else code
+    if closed:
+        return "stream integrity: " + (str(guard.report.reason()) or "gate closed")
+    return ""
 
 
 # ---------------------------------------------------------------------------
