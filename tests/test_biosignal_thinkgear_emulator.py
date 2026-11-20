@@ -696,6 +696,47 @@ def test_reconnect_holds_a_pair_made_while_rearming(drive, path) -> None:
     assert len(late.activations) == 1 and late.refusal_reasons == []
 
 
+@pytest.mark.parametrize("path", PATHS)
+def test_the_span_check_alone_now_holds_the_issue_886_pair(drive, monkeypatch, path) -> None:
+    """The #886 case with the trust-return reset (e5ad4b6a) switched off, so only the
+    pipeline's closed-span check stands between the pair and an activation.
+
+    The pair begun at 6.2 s has its first blink (6.20-6.50 s) in rearming reads; the
+    detector stamps that blink at ~6.51 s, after the last vetoed block. The span check now
+    starts at the blink's samples (``onset_t - rise_s``), not at its stamp, so it refuses
+    the pair as rearming. Before #886 this pair was admitted when the reset was off. A
+    pair begun at 7.0 s, wholly in trusted reads, is still admitted."""
+    from yazses.biosignal.source_gates import SourceHealthGate
+
+    real_update = SourceHealthGate.update
+
+    def epoch_resets_only(self: SourceHealthGate, block: Any) -> Any:
+        before = self._last_key
+        report = real_update(self, block)
+        if report.reset_detector_state and before == self._last_key:   # trust returning
+            report = dataclasses.replace(report, reset_detector_state=False)
+        return report
+
+    monkeypatch.setattr(SourceHealthGate, "update", epoch_resets_only)
+
+    def run(onset: float) -> Outcome:
+        return drive(path, em.TraceSpec(seconds=16.0, seed=0,
+                                        poor=(em.PoorSignal(3.0, 5.0, 200),),
+                                        blinks=em.double_blink(onset)))
+
+    from yazses.biosignal import pipeline as pipeline_mod
+
+    with monkeypatch.context() as m:                 # the stamp-based check of before #886
+        m.setattr(pipeline_mod, "_sample_start", lambda _detail, default: default)
+        assert len(run(6.2).activations) == 1, "the case no longer reproduces the bug"
+
+    straddle, after = run(6.2), run(7.0)
+    assert straddle.activations == []
+    assert straddle.refusal_reasons and all(r.startswith("source health: rearming")
+                                            for r in straddle.refusal_reasons)
+    assert len(after.activations) == 1 and after.refusal_reasons == []
+
+
 def test_known_limit_whole_packet_loss_compresses_time_into_a_false_double_blink(drive) -> None:
     """KNOWN LIMIT - not fixed by #828-#830, and no layer can see it.
 

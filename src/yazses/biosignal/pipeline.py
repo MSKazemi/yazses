@@ -352,6 +352,32 @@ _DROP_PREFIXES = ("suppressed_", "rejected_", "dropped_")
 _NESTED_COUNTERS = ("stats", "suppressed", "dropped", "rejected")
 
 
+def _sample_start(detail: Mapping[str, Any], default: float) -> float:
+    """The earliest stream time whose samples can have formed an event, from its detail.
+
+    A detector that reports where its gesture began in the signal (``onset_t``, with the
+    ``rise_s`` it measured) gives ``onset_t - rise_s``. For a pair the earlier part is the
+    ``first`` blink. Detail without those keys (jaw clench and squeeze events are already
+    stamped at their delay-compensated onset) gives ``default``: nothing is assumed.
+
+    Why ``rise_s`` again: ``onset_t`` is where the *filtered* blink crossed the detector's
+    opening level, which is below its half maximum, so the raw samples before it are the
+    ramp up to that level plus the filter delay. On a smooth blink the ramp from baseline
+    to half maximum takes about as long as the measured half-maximum-to-peak rise, so one
+    more ``rise_s`` reaches back past the raw onset (measured on the synthetic EOG source
+    and the synthetic ThinkGear headset: 16-32 ms before it; #886).
+    """
+    start = default
+    for part in (detail, detail.get("first")):
+        if not isinstance(part, Mapping) or "onset_t" not in part:
+            continue
+        onset = _float(part.get("onset_t"), math.inf)
+        rise = max(_float(part.get("rise_s"), 0.0), 0.0)
+        if math.isfinite(onset):
+            start = min(start, onset - rise)
+    return start
+
+
 def _health_of(det: Any) -> dict[str, Any]:
     """A detector's ``health()`` (else its ``stats`` dict) as a plain dict; ``{}`` if none."""
     try:
@@ -829,10 +855,21 @@ class BiosignalPipeline:
 
         A double blink spans both blinks (``detail["interval_s"]`` back from its timestamp):
         a pair whose first half fell in a closed stretch is not a pair anyone can trust.
+
+        The span starts at the samples, not at the detector's timestamps (#886). A blink is
+        stamped at its filtered *peak*, ~0.16 s after the raw blink began (filter delay plus
+        the rise), so ``t - interval_s`` lands after the samples that formed the first blink
+        and a pair whose first blink came from the last closed blocks was admitted. A blink
+        detector's detail carries ``onset_t`` (where its filtered excursion opened, already
+        after the raw onset) and ``rise_s`` (half maximum to peak); the span is taken back
+        to ``onset_t - rise_s``, which covers the sub-threshold ramp and the filter delay
+        before the opening. See :func:`_sample_start`.
         """
         end = _float(event.t, 0.0)
-        interval = (event.detail or {}).get("interval_s", 0.0)
+        detail = event.detail or {}
+        interval = detail.get("interval_s", 0.0)
         start = end - max(_float(interval, 0.0), 0.0)
+        start = min(start, _sample_start(detail, start))
         for span_start, span_end, why in self._closed_spans:
             if span_start <= end and start < span_end:
                 return why
