@@ -104,7 +104,7 @@ class SLMRouter:
             return
 
         try:
-            self._model = Llama(model_path=model_path, n_ctx=1024, verbose=False)
+            self._model = Llama(model_path=model_path, n_ctx=512, verbose=False)
             self._enabled = True
             logger.info("SLMRouter loaded model from %r (threshold=%.2f)", model_path, threshold)
         except Exception:
@@ -181,7 +181,7 @@ class SLMRouter:
                 # No "\n" stop under the grammar: the grammar ends the object itself,
                 # and its whitespace rule may emit a newline mid-object.
                 return self._model.create_completion(
-                    prompt, max_tokens=128, temperature=0.0, grammar=self._grammar
+                    prompt, max_tokens=100, temperature=0.0, grammar=self._grammar
                 )
             except TypeError:
                 # A binding whose create_completion predates the grammar keyword.
@@ -189,7 +189,7 @@ class SLMRouter:
                             "continuing unconstrained (answers are still re-validated).")
                 self._grammar = None
         return self._model.create_completion(
-            prompt, max_tokens=128, temperature=0.0, stop=["\n"]
+            prompt, max_tokens=100, temperature=0.0, stop=["\n"]
         )
 
     def _run_inference(self, transcript: str, profile: str) -> CommandIntent | None:  # noqa: ARG002

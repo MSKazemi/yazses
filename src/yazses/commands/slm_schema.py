@@ -20,8 +20,9 @@ come from here:
    for ``run_command``, the Command Safety Gate (`cmdsafety`) exactly as before.
 
 The action table is derived from `grammars/en.py` (`ENGLISH_GRAMMAR.rules`) — the same
-rules Tier 1 matches — so a new command cannot appear in the grammar without appearing
-here, and an argument the table cannot bound fails at import rather than at dispatch.
+rules Tier 1 matches — filtered by the explicit allow-list `TIER2_ACTIONS`. Intents and
+arguments always come from the rules, an allowed action the grammar no longer has fails
+at import, and so does an argument the table cannot bound.
 """
 from __future__ import annotations
 
@@ -52,6 +53,23 @@ COUNT, LINE, NAME, CMD = "count", "line", "name", "cmd"
 
 #: The intent/action pair that means "this is prose, type it".
 DICTATE_ACTION = "inject"
+
+#: The Tier 1 actions Tier 2 may produce: exactly the set its prompt listed before the
+#: schema existed. Deliberately *not* every grammar action. The keystroke actions
+#: (``press_enter``, ``press_tab``, arrows, paging, ``cut``, ``undo_n`` ...) are left
+#: to Tier 1's anchored whole-utterance rules, because a guessed Return is how ambient
+#: audio submits a prompt to a focused agent (threat G7 in
+#: design/research/2026-11-06-prompt-injection-via-transcripts-threat-model.md).
+#: Every name must still be a Tier 1 rule (`build_action_table` raises otherwise), so
+#: renaming or removing a grammar action cannot leave the router pointing at nothing.
+TIER2_ACTIONS: frozenset[str] = frozenset({
+    "delete_words", "delete_lines", "undo", "save", "copy", "paste", "comment",
+    "select_lines", "select_to_end", "select_all", "new_function", "new_class",
+    "new_file",
+    "go_to_line", "go_to_function", "go_to_class", "go_to_file",
+    "rename_symbol",
+    "run_tests", "run_build", "run_last", "run_command",
+})
 
 
 @dataclass(frozen=True)
@@ -96,19 +114,30 @@ def _arg_kind(action: str, arg: str) -> str:
     )
 
 
-def build_action_table(grammar: CommandGrammar = ENGLISH_GRAMMAR) -> tuple[ActionSpec, ...]:
-    """Every action ``grammar`` can produce, in rule order, plus dictation.
+def build_action_table(
+    grammar: CommandGrammar = ENGLISH_GRAMMAR,
+    allowed: frozenset[str] = TIER2_ACTIONS,
+) -> tuple[ActionSpec, ...]:
+    """The ``allowed`` actions of ``grammar``, in rule order, plus dictation.
 
-    An action several rules produce ("delete the last word" / "delete the last 3
+    Intents and arguments come from the grammar's rules, never from ``allowed``. An
+    action several rules produce ("delete the last word" / "delete the last 3
     words") takes the union of their arguments; one is required only if every rule
-    for that action captures it.
+    for that action captures it. An allowed name no rule produces raises ValueError.
     """
     intents: dict[str, IntentType] = {}
     seen: dict[str, list[tuple[str, ...]]] = {}
     for rule in grammar.rules:
         if intents.setdefault(rule.action, rule.intent) is not rule.intent:
             raise ValueError(f"action {rule.action!r} is produced under two intents")
-        seen.setdefault(rule.action, []).append(rule.arg_names)
+        if rule.action in allowed:
+            seen.setdefault(rule.action, []).append(rule.arg_names)
+    missing = allowed - set(seen)
+    if missing:
+        raise ValueError(
+            f"Tier-2 actions {sorted(missing)} are not produced by any {grammar.language!r} "
+            "grammar rule; update commands/slm_schema.py::TIER2_ACTIONS"
+        )
 
     table = [ActionSpec(IntentType.DICTATE, DICTATE_ACTION)]
     for action, arg_lists in seen.items():
@@ -150,16 +179,17 @@ def output_schema(table: tuple[ActionSpec, ...] = ACTIONS) -> dict[str, Any]:
 
 
 def prompt_catalogue(table: tuple[ActionSpec, ...] = ACTIONS) -> str:
-    """The "Known intents" line of the router prompt, from the same table."""
+    """The "Known intents" line of the router prompt, from the same table.
+
+    Argument names only, not their bounds: the prompt has to fit a 512-token context
+    with room for the answer, and the bounds are enforced by the grammar and
+    `validate`, not by asking nicely.
+    """
     by_intent: dict[IntentType, list[str]] = {}
     for spec in table:
         label = spec.action
         if spec.args:
-            label += "(" + ", ".join(
-                f"{a.name}: integer 1-{a.maximum}" if a.kind in (COUNT, LINE)
-                else f"{a.name}: text"
-                for a in spec.args
-            ) + ")"
+            label += "(" + ", ".join(a.name for a in spec.args) + ")"
         by_intent.setdefault(spec.intent, []).append(label)
     return ", ".join(
         f"{intent.value} (actions: {', '.join(labels)})" for intent, labels in by_intent.items()

@@ -21,6 +21,7 @@ from yazses.commands.grammars.en import ENGLISH_GRAMMAR
 from yazses.commands.slm_schema import (
     ACTIONS,
     MAX_LINE,
+    TIER2_ACTIONS,
     InvalidRouterOutput,
     output_schema,
     prompt_catalogue,
@@ -31,12 +32,52 @@ from yazses.commands.types import IntentType
 # ── the schema is the grammar table ──────────────────────────────────────────
 
 
-def test_the_schema_has_one_branch_per_grammar_action_and_dictation() -> None:
-    grammar_actions = {rule.action for rule in ENGLISH_GRAMMAR.rules}
+#: What the hand-written prompt listed before the schema existed. M4 adds no command,
+#: so Tier 2 may reach exactly these and nothing more.
+_PRE_SCHEMA_ACTIONS = {
+    "inject",
+    "delete_words", "delete_lines", "undo", "save", "copy", "paste", "comment",
+    "select_lines", "select_to_end", "select_all", "new_function", "new_class", "new_file",
+    "go_to_line", "go_to_function", "go_to_class", "go_to_file",
+    "rename_symbol",
+    "run_tests", "run_build", "run_last", "run_command",
+}
+
+
+def test_the_schema_has_one_branch_per_allowed_action_and_dictation() -> None:
     branches = output_schema()["oneOf"]
     schema_actions = {b["properties"]["action"]["const"] for b in branches}
-    assert schema_actions == grammar_actions | {"inject"}
+    assert schema_actions == TIER2_ACTIONS | {"inject"} == _PRE_SCHEMA_ACTIONS
     assert len(branches) == len(schema_actions), "one branch per action, no duplicates"
+
+
+def test_the_allow_list_is_a_subset_of_the_grammar_rules() -> None:
+    assert TIER2_ACTIONS <= {rule.action for rule in ENGLISH_GRAMMAR.rules}
+
+
+def test_an_allowed_action_the_grammar_lost_fails_at_build_time() -> None:
+    from yazses.commands.slm_schema import build_action_table
+
+    with pytest.raises(ValueError, match="go_to_moon"):
+        build_action_table(allowed=TIER2_ACTIONS | {"go_to_moon"})
+
+
+@pytest.mark.parametrize(
+    "action",
+    ["press_enter", "press_tab", "press_escape", "press_backspace", "cut", "undo_n",
+     "page_up", "page_down", "line_home", "line_end",
+     "arrow_up", "arrow_down", "arrow_left", "arrow_right"],
+)
+def test_keystroke_and_submit_actions_are_not_reachable_from_tier_two(action: str) -> None:
+    """A guessed Return is how room audio submits a prompt (threat G7): Tier 1 only."""
+    assert action in {rule.action for rule in ENGLISH_GRAMMAR.rules}, "still a Tier 1 rule"
+    schema_actions = {b["properties"]["action"]["const"] for b in output_schema()["oneOf"]}
+    assert action not in schema_actions
+    assert action not in prompt_catalogue()
+    with pytest.raises(InvalidRouterOutput):
+        validate(_answer(action, "edit"), "please hit enter")
+    with pytest.raises(InvalidRouterOutput):
+        validate(_answer(action, "navigate"), "please hit enter")
 
 
 def test_every_branch_pins_its_intent_and_forbids_extra_fields() -> None:
@@ -56,7 +97,7 @@ def test_argument_bounds_match_the_grammar_and_dispatch() -> None:
     def arg(action: str, name: str) -> dict:
         return by_action[action]["properties"]["args"]["properties"][name]
 
-    for action in ("delete_words", "delete_lines", "undo_n", "select_lines"):
+    for action in ("delete_words", "delete_lines", "select_lines"):
         assert arg(action, "n") == {"type": "integer", "minimum": 1, "maximum": MAX_REPEAT}
     assert arg("go_to_line", "n") == {"type": "integer", "minimum": 1, "maximum": MAX_LINE}
     assert arg("run_command", "cmd")["type"] == "string"
@@ -98,7 +139,7 @@ def test_an_unboundable_grammar_argument_fails_at_build_time() -> None:
         normalise=str,
     )
     with pytest.raises(ValueError, match="blob"):
-        build_action_table(bad)
+        build_action_table(bad, allowed=frozenset({"frob"}))
 
 
 # ── re-validation, independent of the grammar ────────────────────────────────
@@ -136,7 +177,7 @@ def _answer(action: str, intent: str, args: dict | None = None, conf: float = 0.
         (_answer("go_to_line", "navigate", {"n": True}), "yes"),
         (_answer("go_to_line", "navigate"), "go somewhere"),
         (_answer("delete_words", "edit", {"n": MAX_REPEAT + 1}), "delete a lot"),
-        (_answer("undo_n", "edit", {"n": 1_000_000}), "undo everything"),
+        (_answer("select_lines", "edit", {"n": 1_000_000}), "select everything"),
         # arguments the action does not take, or of the wrong type
         (_answer("save", "edit", {"cmd": "rm -rf ~"}), "save it"),
         (_answer("rename_symbol", "refactor", {"name": ["a"]}), "rename it to a"),

@@ -381,9 +381,11 @@ Stage by stage:
    path is set** — Tier 1 alone decides every utterance otherwise, which is what every
    install without a model does. Few-shot examples mined by `yazses tune` are loaded
    from `few_shots.toml` if present. A router that fails or raises falls back to Tier 1
-   rather than losing the burst. The router can only name a command the Tier 1
-   grammar already has (`commands/slm_schema.py` builds the action list, a JSON
-   Schema and the prompt from the grammar table). When the installed
+   rather than losing the burst. The router can only name one of 22 Tier 1 commands
+   (`commands/slm_schema.py::TIER2_ACTIONS`, checked against the grammar table, which
+   also supplies their arguments, the JSON Schema and the prompt list). Keystroke
+   commands such as *"press enter"*, arrows and paging are deliberately not among
+   them: only Tier 1's exact phrases can send those. When the installed
    `llama-cpp-python` has `LlamaGrammar.from_json_schema`, decoding runs under that
    schema; on an older binding it runs unconstrained. Either way the answer is then
    re-checked in plain code: an unknown action, an argument of the wrong type, a count
