@@ -4021,13 +4021,19 @@ class Daemon:
         raw = getattr(cfg.hotkey, "mode", "hold")
         if isinstance(raw, str) and raw.strip().lower() in ("", "hold"):
             return None
-        from yazses.hotkeys.toggle import MODES, ToggleTurn, normalise_mode
+        from yazses.hotkeys.toggle import MODES, ToggleTurn, normalise_mode, toggle_key_note
 
         if normalise_mode(raw) != "toggle":
             log.warning("[hotkey] mode = %r is not one of %s; using hold-to-talk.",
                         raw, ", ".join(repr(m) for m in MODES))
             return None
         turn = ToggleTurn(max_seconds=cfg.audio.max_record_seconds)
+        key = cfg.hotkey.key
+        if key == "auto":
+            key = self._platform.default_hotkey
+        note = toggle_key_note(raw, key, cfg.hotkey.hold_threshold_ms)
+        if note:
+            log.warning("[hotkey] %s.", note)
         if turn.max_seconds:
             log.info("Toggle dictation: press the hotkey to start, press it again to stop "
                      "(a recording left running ends after %d s).", int(turn.max_seconds))

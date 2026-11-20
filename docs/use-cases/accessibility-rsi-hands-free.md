@@ -57,10 +57,16 @@ mode = "toggle"   # the default is "hold"
   ignored while a toggle dictation is open. [Hands-Free Auto-Stop](#triggers-that-are-not-a-keyboard)
   is not used in toggle mode: with `mode = "toggle"` a pause in your speech never ends the
   recording.
-- With the default modifier hotkeys a quick tap counts on Linux and Windows. Where the
-  hotkey backend waits for `[hotkey] hold_threshold_ms` before it reports a press (the
-  `space` key, the X11 key-grab backend, macOS), each press has to last that long; lower
-  `hold_threshold_ms` if quick taps are not picked up.
+- **A quick tap counts on a key that types nothing**: the default hotkeys and every
+  other modifier (Right Ctrl, Right Alt / Option, Shift, Meta / Cmd), on Linux (evdev and
+  the X11 key grab), macOS and Windows.
+- **The `space` key is the exception.** A tap of space must still type a space, so YazSes
+  only counts a space press once it has been held for `[hotkey] hold_threshold_ms`
+  (500 ms by default): each toggle press on space has to last that long. `yazses doctor`
+  warns about this combination. If you tap, pick a key that types nothing:
+  `yazses hotkey set right_ctrl`, then `yazses restart`.
+- Avoid a key you also use in shortcuts. In toggle mode a Right Ctrl + C opens a
+  recording just as a tap of Right Ctrl does, and it stays open until the next press.
 
 ## Dysfluent speech — stutter and dysarthria
 
