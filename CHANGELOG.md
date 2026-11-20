@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — biosignal: the ThinkGear source spec takes a µV scale, and `--source` help names `thinkgear:` ([#889](https://github.com/MSKazemi/yazses/issues/889), items 2 and 3)
+
+`thinkgear:<port>:uv_scale=<µV per count>` now sets the raw-count conversion for a headset whose front end differs from NeuroSky's nominal formula (it used to raise "unknown option"). It must be a positive, finite number, and the source refuses anything else. The `--source` help of `biosignal monitor`, `field-test` and `record` now lists `thinkgear:<port>`, which already worked there. The command index and man page were regenerated.
+
 ### Fixed — biosignal: `field-test` and `monitor` now refuse what the daemon refuses ([#830](https://github.com/MSKazemi/yazses/issues/830))
 
 `yazses biosignal field-test` used to read the bare source with no stream-integrity gate, so it could score a stream the daemon would reject. It now builds the source and event gate with the same constructor as the daemon and `monitor` (`biosignal/source_gates.py`), and starts the source once, through the guard. Blocks the stream guard or a ThinkGear source's own health refuses are now left out of usable exposure, and any cue they overlap is voided, not scored as a miss. The report format is unchanged and still holds only aggregate counts and whole seconds. With a `thinkgear:` source, `monitor` prints a `Source health:` line whenever the verdict changes. The line gives a reason code and its meaning, never a signal value, port or address. On a correct source the guard never fires, so a synthetic field test reports exactly what it did before; a test pins that. A fake ThinkGear trace (contact 0/200/0 inside one read, a corrupt frame, recovery, double blinks) now gives the same admissions, refusals and reasons block for block in the daemon, `monitor` and `field-test`. One difference remains: after a silence longer than its 1.5 s watchdog, the daemon also resets its detectors, whereas `monitor` and `field-test` rely only on the stream gate's stall check. Checked with fake serial traces only.
