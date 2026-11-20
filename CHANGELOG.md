@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — research: a consumer for Apple's BCI HID switch protocol, recorded as a Proposed ADR (research record only), not a feature
+
+[ADR-v2-157](design/adr/adr-v2-157-bci-hid-switch-consumer.md) (Proposed, research record only) records Apple's BCI HID report layout from Apple's reference page: usage page `0x60`, 32 buttons, pointer with the `-128` absent-axis sentinel, item selection, signal quality, and the host's scan-information report, which never reveals a focused keyboard key. It also records how such a device could become a YazSes switch on macOS, Linux and Windows by reusing the biosignal event types and the false-positive governor, and what nobody has measured yet. `examples/bci-hid-switch/` adds a stdlib-only parser for synthetic report bytes, with tests. Nothing in `src/` changes and no device has been tested. The ADR-030 freeze on new device families applies.
+
 ### Added — research: a MaixCAM2 text link, recorded as an ADR (research record only) and a research note, not a feature
 
 [ADR-v2-156](design/adr/adr-v2-156-maixcam2-text-link.md) (Accepted as a research record only) records whether a Sipeed MaixCAM2 running Whisper `base` could send recognised text to a desktop over a wired UART: the falsifiable hypothesis, a threat model for text arriving over a wire, the egress statement, exit criteria and the unknowns. `docs/research/maixcam2-text-link.md` is the matching notice: experimental, research only, not part of YazSes. The change also adds a stdlib-only reference codec, simulator and printing reader under `examples/maixcam2-text-link/`, with tests, and a draft wire spec (`design/specs/textlink-wire-protocol.md`). Nothing in `src/` changes and no board has been tested; the ADR-030 breadth freeze applies, so implementation needs a recorded go and a named exception.
