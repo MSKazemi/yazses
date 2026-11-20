@@ -33,6 +33,10 @@ if TYPE_CHECKING:  # pragma: no cover - type hints only
 
 logger = logging.getLogger(__name__)
 
+#: Sent when ``[filters.disfluency] llm_endpoint_model`` is empty — the name every
+#: install sent before that key existed.
+DEFAULT_ENDPOINT_MODEL = "qwen2.5:1.5b"
+
 
 # ---------------------------------------------------------------------------
 # Endpoint locality (the "nothing leaves the machine" guard)
@@ -286,6 +290,15 @@ class LlmCleaner:
             return None
         return self._model
 
+    def _endpoint_model(self) -> str:
+        """The model name sent to the HTTP endpoint.
+
+        It used to be hardcoded, so anyone whose Ollama held a different model got a
+        404 on every burst and a silent fallback to raw text. Empty keeps the old name
+        so an existing install sends the same request it always did.
+        """
+        return self._config.llm_endpoint_model.strip() or DEFAULT_ENDPOINT_MODEL
+
     def _complete_ollama(self, text: str, custom_prompt: str | None) -> str | None:
         # Imported here, not at module scope: the daemon imports this module on every
         # start to build a cleaner that is disabled by default, and `urllib.request`
@@ -295,7 +308,7 @@ class LlmCleaner:
 
         payload = json.dumps(
             {
-                "model": "qwen2.5:1.5b",
+                "model": self._endpoint_model(),
                 "prompt": self._prompt(text, custom_prompt),
                 "stream": False,
                 "options": {"temperature": 0.0, "num_predict": self._config.llm_max_tokens},

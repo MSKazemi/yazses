@@ -5,6 +5,12 @@ all return the input unchanged; only a guard-passing reformat is accepted.
 """
 from __future__ import annotations
 
+import json
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+import pytest
+
 from yazses.config import DisfluencyConfig
 from yazses.postprocess.llm_cleanup import (
     LlmCleaner,
@@ -286,3 +292,74 @@ def test_doctor_says_a_local_model_makes_no_network_call():
     )
     assert status == "OK"
     assert "no network call" in detail
+
+
+# ── the HTTP backend, against a real in-process loopback server ─────────────
+#
+# No mocks of urllib: a `ThreadingHTTPServer` bound to 127.0.0.1 on an ephemeral port
+# records what the cleaner actually sent and answers with a canned body. Nothing leaves
+# the machine, and the request the test inspects is the request the code built.
+
+class _FakeServer:
+    def __init__(self) -> None:
+        self.requests: list[tuple[str, dict]] = []
+        self.reply: dict = {}
+        outer = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self) -> None:  # noqa: N802 - http.server's naming
+                length = int(self.headers.get("Content-Length", "0"))
+                outer.requests.append((self.path, json.loads(self.rfile.read(length))))
+                body = json.dumps(outer.reply).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *args) -> None:
+                pass
+
+        self._httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.endpoint = f"http://127.0.0.1:{self._httpd.server_address[1]}"
+        self._thread = threading.Thread(target=self._httpd.serve_forever, daemon=True)
+        self._thread.start()
+
+    def close(self) -> None:
+        self._httpd.shutdown()
+        self._httpd.server_close()
+
+
+@pytest.fixture
+def fake_server():
+    server = _FakeServer()
+    yield server
+    server.close()
+
+
+def _http_config(endpoint: str, **kw) -> DisfluencyConfig:
+    return DisfluencyConfig(
+        llm_enabled=True, llm_model="", llm_endpoint=endpoint, llm_timeout_ms=5000, **kw
+    )
+
+
+def test_ollama_default_model_is_unchanged_for_existing_installs(fake_server):
+    fake_server.reply = {"response": "Deploy at 0900."}
+    cleaner = LlmCleaner(_http_config(fake_server.endpoint))
+    assert cleaner.cleanup("deploy at 0900") == "Deploy at 0900."
+    (path, payload), = fake_server.requests
+    assert path == "/api/generate"
+    assert payload["model"] == "qwen2.5:1.5b"
+
+
+def test_ollama_sends_the_configured_model(fake_server):
+    """The bug: the model was hardcoded, so any other model 404'd into raw text."""
+    fake_server.reply = {"response": "Deploy at 0900."}
+    cleaner = LlmCleaner(_http_config(fake_server.endpoint, llm_endpoint_model="llama3.2:3b"))
+    assert cleaner.cleanup("deploy at 0900") == "Deploy at 0900."
+    (_, payload), = fake_server.requests
+    assert payload["model"] == "llama3.2:3b"
+
+
+def test_endpoint_model_defaults_to_empty():
+    assert DisfluencyConfig().llm_endpoint_model == ""

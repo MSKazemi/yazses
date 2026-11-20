@@ -406,6 +406,10 @@ class DisfluencyConfig:
     # HTTP endpoint above. Mirrors the Rust v1.0 [cleanup] feature for the
     # Python path (kept in parity until v1.0 GA).
     llm_model: str = ""
+    # The model name sent to the `llm_endpoint` server (e.g. "llama3.2:3b" for
+    # Ollama). Empty keeps the historical "qwen2.5:1.5b", so an install that never
+    # set it sends exactly what it sent before this key existed.
+    llm_endpoint_model: str = ""
     llm_system_prompt: str = (
         "Reformat only. Do not add facts and do not remove information. "
         "Preserve every proper noun, number, code identifier, and URL exactly "
