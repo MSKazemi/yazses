@@ -133,7 +133,8 @@ def test_cap_and_second_press_racing_end_the_turn_exactly_once():
         for th in threads:
             th.start()
         for th in threads:
-            th.join()
+            th.join(timeout=10)
+            assert not th.is_alive()
         assert len(ended) == 1
 
 
