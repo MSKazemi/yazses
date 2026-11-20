@@ -12,6 +12,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 The MaixCAM2 example now also records the vendor's answer (Sipeed support, 2026-11-13: one-time online setup, then local recognition, stated by the vendor and not measured here), and its board script can record a WAV the way Sipeed's own example does, still untested on a board.
 
+### Fixed — Quit stops a daemon that does not answer, and reopening the app replaces one that predates a permission
+
+Two gaps were left after the macOS `before_quit` fix (#578). Quit sent the daemon `shutdown` and, if that failed (no answer, a timeout, an error), did nothing more, so a daemon that was alive but not answering outlived Quit with the permission it had read at start. Quit now gives that daemon the same stop `yazses stop` sends, through the platform lifecycle, and waits up to 3 s for it to go. A daemon that accepts `shutdown` is left to finish on its own. Separately, a newly started daemon replaced only a strictly older one. Now it also replaces one that reports `stale_permissions` (it started before a grant), but only while that daemon is idle or in error and not in a meeting. A lock holder that does not answer is asked again for 3 s, then named in the log by pid and left running: no answer is not proof it is stuck. Verified with fakes only, not on a Mac.
+
 ### Fixed — `yazses mcp-server` could not connect to Claude Code: `serverInfo.version` was missing
 
 The MCP `initialize` reply carried `serverInfo.name` and `title` but no `version`, which the MCP schema requires. Claude Code 2.1.319 validates the reply and refused the server (`claude mcp list`: "Failed to connect — INVALID_RESULT … serverInfo.version expected string"). The reply now includes the installed YazSes version. Checked by running the documented `claude mcp add yazses -- yazses mcp-server` in a throwaway Claude Code config: it failed before this change and printed "Connected" after. Not checked: calling the tools from inside a Claude Code session, other MCP clients, or the `.mcpb` bundle in Claude Desktop.
