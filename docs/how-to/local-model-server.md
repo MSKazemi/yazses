@@ -40,18 +40,28 @@ server's base address, **without** the `/v1` suffix:
 [filters.disfluency]
 llm_enabled = true
 llm_api = "openai"
-llm_endpoint = "http://127.0.0.1:8080"   # llama-server's default port
+llm_endpoint = "http://127.0.0.1:9931"   # llama-server's current default port
 llm_endpoint_model = "my-model"          # whatever name your server expects
 ```
 
-Common default ports: llama-server `8080`, LM Studio `1234`, vLLM `8000`,
-Ollama `11434`. YazSes POSTs `{llm_endpoint}/v1/chat/completions` with your
-system prompt as a `system` message, the dictated text as a `user` message,
-`temperature = 0`, `max_tokens = llm_max_tokens` and `stream = false`, and reads
+YazSes POSTs `{llm_endpoint}/v1/chat/completions` with your system prompt as a
+`system` message, the dictated text as a `user` message, `temperature = 0`,
+`max_tokens = llm_max_tokens` and `stream = false`, and reads
 `choices[0].message.content`. Left empty, `llm_endpoint_model` sends `qwen2.5:1.5b`.
-llama-server serves whichever model it loaded and ignores the name, so you can leave
-it empty there. vLLM and LM Studio match the name, so set it to what the server
-lists under `/v1/models`.
+
+What each server expects, from its own documentation (checked November 2026):
+
+| Server | Default address | What `llm_endpoint_model` must be |
+|---|---|---|
+| [llama-server](https://github.com/ggml-org/llama.cpp/tree/master/tools/server) (llama.cpp) | `127.0.0.1:9931`. Older releases and many guides used `8080`; check `--port` | In router mode the name picks the model, so give it. With a single model, the docs say only that a sibling endpoint ignores the name, so the default probably works but is unverified |
+| [LM Studio](https://lmstudio.ai/docs/developer/openai-compat) | The docs' examples use `localhost:1234`; `lms server start` reuses the last port | The model identifier LM Studio shows. With just-in-time loading on, a request loads that model; with it off, load the model first |
+| [vLLM](https://docs.vllm.ai/en/latest/serving/online_serving/openai_compatible_server/) | `localhost:8000` (`vllm serve --port`, [default 8000](https://docs.vllm.ai/en/latest/cli/serve/)) | The served model name (`--served-model-name`, else the `--model` argument). An unknown name gets a 404 |
+| [Ollama](https://docs.ollama.com/api/openai-compatibility) | `localhost:11434` | A model you have pulled. Ollama's native API above is the simpler choice |
+
+Not verified: the LM Studio pages do not state a fixed default port. The llama-server
+docs do not say what its chat endpoint does with an unknown name in single-model mode. The Ollama
+compatibility page's examples use only the `user` role. No real server of any of
+these four has been tried with YazSes yet. Only an in-process fake server has.
 
 If the model emits a `<think>…</think>` block before its answer, YazSes removes it.
 An answer that is nothing but a thinking block counts as a failed cleanup.
