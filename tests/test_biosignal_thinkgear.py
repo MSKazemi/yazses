@@ -335,6 +335,10 @@ def test_constructor_validation() -> None:
     ("thinkgear:/dev/tty.MindWaveMobile-SerialPo", {"port": "/dev/tty.MindWaveMobile-SerialPo"}),
     ("thinkgear:COM5:baud=9600,name=Fp1L",
      {"port": "COM5", "baudrate": 9600, "channel_name": "Fp1L"}),
+    # #889: a per-headset µV scale, for a front end that differs from NeuroSky's formula.
+    ("thinkgear:/dev/rfcomm0:uv_scale=0.25", {"port": "/dev/rfcomm0", "uv_scale": 0.25}),
+    ("thinkgear:COM5:baud=9600,uv_scale=2.2e-1",
+     {"port": "COM5", "baudrate": 9600, "uv_scale": 0.22}),
 ])
 def test_parse_thinkgear_spec(spec: str, expected: dict) -> None:
     assert parse_thinkgear_spec(spec) == expected
@@ -347,10 +351,46 @@ def test_parse_thinkgear_spec(spec: str, expected: dict) -> None:
     "thinkgear:COM5:name=",
     "thinkgear:COM5:color=blue",
     "thinkgear:COM5:simulated",
+    "thinkgear:COM5:uv_scale=",
+    "thinkgear:COM5:uv_scale=0",
+    "thinkgear:COM5:uv_scale=-0.2",
+    "thinkgear:COM5:uv_scale=nan",
+    "thinkgear:COM5:uv_scale=inf",
+    "thinkgear:COM5:uv_scale=big",
 ])
 def test_parse_thinkgear_spec_rejects(spec: str) -> None:
     with pytest.raises(ValueError):
         parse_thinkgear_spec(spec)
+
+
+def test_a_spec_uv_scale_reaches_the_samples() -> None:
+    nominal = thinkgear_from_spec("thinkgear:COM3", serial_factory=lambda: FakeSerial(
+        [packet(raw_row(100))]))
+    scaled = thinkgear_from_spec("thinkgear:COM3:uv_scale=0.5", serial_factory=lambda: FakeSerial(
+        [packet(raw_row(100))]))
+    nominal.start()
+    scaled.start()
+    a, b = nominal.read(), scaled.read()
+    assert a is not None and b is not None
+    assert float(b.data[0, 0]) == pytest.approx(50.0)
+    assert float(a.data[0, 0]) == pytest.approx(100 * THINKGEAR_RAW_TO_UV)
+
+
+@pytest.mark.parametrize("scale", [0.0, -1.0, float("nan"), float("inf")])
+def test_the_source_refuses_a_nonsense_uv_scale(scale: float) -> None:
+    with pytest.raises(ValueError):
+        ThinkGearSource("x", uv_scale=scale)
+
+
+def test_monitor_field_test_and_record_name_the_thinkgear_scheme() -> None:
+    """#889: the scheme works for all three, so their --source help says so."""
+    import inspect
+
+    from yazses import cli
+
+    for fn in (cli.biosignal_monitor, cli.biosignal_field_test, cli.biosignal_record):
+        help_text = inspect.signature(fn).parameters["source"].default.help
+        assert "thinkgear:<port>" in help_text, fn.__name__
 
 
 def test_thinkgear_from_spec_builds_an_unstarted_source() -> None:

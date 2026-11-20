@@ -127,7 +127,7 @@ Score the detectors against known events: precision, recall, latency, false alar
 
 Guided test of how often the switches fire by mistake during ordinary activity.
 
-- `--source` — Test this source instead of [biosignal] source (synthetic | file:<path> | brainflow:<id>[:<port>]).
+- `--source` — Test this source instead of [biosignal] source (synthetic | file:<path> | brainflow:<id>[:<port>] | thinkgear:<port>).
 - `--minutes` — Stretch or shrink the test to about this long (0 = the standard length).
 - `--json` — Print one JSON object instead of text.
 - `--out`, `-o` — Also write the counts to this JSON file (owner-only; never overwrites).
@@ -136,7 +136,7 @@ Guided test of how often the switches fire by mistake during ordinary activity.
 
 Watch signal quality and detections live. Nothing is typed or acted on.
 
-- `--source` — Watch this source instead of [biosignal] source (synthetic | file:<path> | brainflow:<id>[:<port>]).
+- `--source` — Watch this source instead of [biosignal] source (synthetic | file:<path> | brainflow:<id>[:<port>] | thinkgear:<port>).
 - `--seconds` — Stop after this long (0 = until Ctrl-C).
 - `--interval` — Seconds between status lines.
 - `--emg`, `--no-emg` — Override [biosignal] emg for this run.
@@ -160,7 +160,7 @@ Delete the saved calibration profile.
 Record raw signal to a local file, to replay or evaluate later.
 
 - `--out`, `-o` — File to write: .csv (streamed) or .npz.
-- `--source` — Record this source instead of [biosignal] source (synthetic | file:<path> | brainflow:<id>[:<port>]).
+- `--source` — Record this source instead of [biosignal] source (synthetic | file:<path> | brainflow:<id>[:<port>] | thinkgear:<port>).
 - `--seconds` — How much signal to record.
 - `--force` — Overwrite --out (and --truth-out) if it exists.
 - `--seed` — Synthetic source only: seed for the scripted gestures and noise.

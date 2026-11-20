@@ -90,6 +90,7 @@ down. :func:`import_serial` is the lazy import itself and raises a clear
 from __future__ import annotations
 
 import logging
+import math
 import time
 from collections import deque
 from collections.abc import Callable
@@ -339,11 +340,13 @@ def _parse_options(text: str) -> dict[str, str]:
     return opts
 
 
-_TG_SPEC_HELP = "expected 'thinkgear:<port>[:baud=<n>,name=<channel>]'"
+_TG_SPEC_HELP = "expected 'thinkgear:<port>[:baud=<n>,name=<channel>,uv_scale=<uV per count>]'"
 
 
 def parse_thinkgear_spec(spec: str) -> dict[str, Any]:
-    """``thinkgear:<port>[:baud=57600,name=Fp1]`` (scheme optional) -> constructor kwargs.
+    """``thinkgear:<port>[:baud=57600,name=Fp1,uv_scale=0.2197]`` (scheme optional) ->
+    constructor kwargs. ``uv_scale`` is µV per raw count, for a headset whose front end
+    differs from NeuroSky's nominal formula (a positive, finite number).
 
     Raises ``ValueError`` for a missing port or an unknown/malformed option.
     """
@@ -364,6 +367,15 @@ def parse_thinkgear_spec(spec: str) -> dict[str, Any]:
             if not value:
                 raise ValueError(f"thinkgear spec {spec!r}: name must not be empty")
             kw["channel_name"] = value
+        elif key == "uv_scale":
+            try:
+                scale = float(value)
+            except ValueError:
+                scale = math.nan
+            if not math.isfinite(scale) or scale <= 0:
+                raise ValueError(f"thinkgear spec {spec!r}: uv_scale must be a positive number "
+                                 "(µV per raw count)")
+            kw["uv_scale"] = scale
         else:
             raise ValueError(f"thinkgear spec {spec!r}: unknown option {key!r} ({_TG_SPEC_HELP})")
     return kw
@@ -406,6 +418,8 @@ class ThinkGearSource:
             raise ValueError("channel_name must not be empty")
         if read_chunk <= 0:
             raise ValueError("read_chunk must be > 0")
+        if not math.isfinite(float(uv_scale)) or float(uv_scale) <= 0:
+            raise ValueError("uv_scale must be a positive, finite number")
         self.port = port
         self.baudrate = int(baudrate)
         self.fs: float = THINKGEAR_FS
