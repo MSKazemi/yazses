@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — `[injection] type_delay_ms`: make dictation appear faster by typing faster
+
+Keystroke pacing is nearly all of the time after the decode: at ~12 ms per character a 150-word dictation takes ~9 s to type. `[injection] type_delay_ms` sets the milliseconds per typed character for the typing backends: xdotool `type --delay N`; ydotool 1.x `-d ⌈N/2⌉ -H ⌊N/2⌋`; ydotool 0.1.x `--key-delay ⌈N/2⌉`; wtype `-d N` (0 sends no `-d`, which wtype refuses). The default, `-1`, keeps each backend's own pacing (`--delay 12`, `-d 6 -H 6`, `--key-delay 6`, no `-d`), so an install that does not set it types exactly as before. Values outside -1..200 are reported and fall back to the default. Some apps drop keys when they arrive too fast, worst at 0; try 4–6 ms. Timeouts scale with a slower setting so a long burst cannot time out mid-string and be pasted a second time. See `docs/benchmarks.md` ("…except typing it").
+
 ### Changed — Wayland dictation returns ~0.3 s sooner per burst; nothing typed changes
 
 After typing, the ydotool flood guard sent a key-up for 60 fixed keys, and ydotool waits 12 ms after each one. That added about 730 ms to every burst. It now releases the keys that burst's `ydotool type` can have pressed (ydotool 1.x maps text through a fixed US keycode table, so that set is known exactly), plus the shifts, left Ctrl/Alt, Space and the hotkey modifiers. The pacing is the same, and no key-up is sent that the old sweep did not send. A failed `type` or a control character still gets the full sweep. Measured with a stand-in ydotool that sleeps the documented pacing: 730 → 360–420 ms. The hold-end hotkey key-up (~18 ms) now runs alongside the decode, and every keystroke waits for it, so it still lands before any typed character. The post-processing chain was re-measured at 0.13 ms for 40 words, which leaves keystroke pacing (12 ms per character) as the real cost. The recommendations for that, none of them applied, are in `design/research/2026-11-20-dictation-latency-inject.md`.

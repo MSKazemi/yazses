@@ -724,9 +724,29 @@ optimising anything else would be pointless.
 Re-measured on 2026-11-20, the default post-processing chain still costs **0.13 ms** for 40
 words and **0.36 ms** for 150. Once the text exists, the time goes to **keystroke pacing**:
 `xdotool type --delay 12` on X11 and `ydotool type -d 6 -H 6` on Wayland both spend about
-12 ms per character, so a 150-word dictation takes ~9 s to type. That is a default, and
-changing it is an owner decision. The measurements and recommendations are in
-[the injection latency note](https://github.com/MSKazemi/yazses/blob/main/design/research/2026-11-20-dictation-latency-inject.md).
+12 ms per character, so a 150-word dictation takes ~9 s to type. That default is
+unchanged, but it is yours to change: `[injection] type_delay_ms` sets the milliseconds per
+typed character (the measurements and recommendations are in
+[the injection latency note](https://github.com/MSKazemi/yazses/blob/main/design/research/2026-11-20-dictation-latency-inject.md)).
+
+```toml
+[injection]
+type_delay_ms = 5   # -1 (default) = each backend's own pacing; 0-200 otherwise
+```
+
+| Backend | Unset (`-1`) — today's pacing | `type_delay_ms = N` |
+|---|---|---|
+| xdotool (X11) | `type --delay 12` | `type --delay N` |
+| ydotool 1.x (Wayland) | `type -d 6 -H 6` | `-d ⌈N/2⌉ -H ⌊N/2⌋` (key delay + hold), so 12 is today's 6/6 |
+| ydotool 0.1.x (Debian/Ubuntu) | `type --key-delay 6` | `--key-delay ⌈N/2⌉` (it has no hold time) |
+| wtype (wlroots Wayland) | no `-d`: wtype's own 0 ms | `-d N`; 0 sends no `-d`, since wtype refuses `-d 0` |
+
+It applies to typed text only: key combos, backspaces and the clipboard paste keep their own
+pacing, and the portal, Windows and macOS backends ignore it. The trade-off is reliability.
+Some applications, toolkits and remote sessions drop or reorder keystrokes that arrive too
+fast, and 0 is the worst case. Try 4–6 ms, dictate a long paragraph into the apps you use,
+and only go lower if every character arrives. A value outside -1..200 is reported by
+`yazses doctor` and the default is used.
 
 Two fixed costs on Wayland ydotool sessions were cut without changing what is typed:
 
