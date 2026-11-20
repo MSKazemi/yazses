@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — `[context] use_git`: the focused repository's name and branch as recognition hints
+
+With `[context] enabled = true` and the new `use_git = true` (off by default, and off even when `[context]` is on), the git repository behind the focused window lends its name, its branch and the branch's words (`fix-tray-crash` → "fix", "tray", "crash") to Whisper's `initial_prompt`, within `max_terms`. The repository is found by reading `.git`, `HEAD` and `gitdir:`/`commondir` pointer files (detached HEAD, linked worktrees and submodules handled); no `git` binary runs. The branch is split with the same spoken-separator table `gitvoice` uses. The focused directory comes from a new `FocusedCwdProvider` platform seam: Linux on an X11 session (the focused window's PID via `xdotool`, then `/proc/<pid>/cwd`, following the youngest child so a terminal answers for its shell); Wayland, macOS, Windows and the BSDs have no provider yet and the setting does nothing there. The path, repository name and branch are used for one decode and never stored or logged.
+
 ### Added — research: a MaixCAM2 text link, recorded as an ADR (research record only) and a research note, not a feature
 
 [ADR-v2-156](design/adr/adr-v2-156-maixcam2-text-link.md) (Accepted as a research record only) records whether a Sipeed MaixCAM2 running Whisper `base` could send recognised text to a desktop over a wired UART: the falsifiable hypothesis, a threat model for text arriving over a wire, the egress statement, exit criteria and the unknowns. `docs/research/maixcam2-text-link.md` is the matching notice: experimental, research only, not part of YazSes. The change also adds a stdlib-only reference codec, simulator and printing reader under `examples/maixcam2-text-link/`, with tests, and a draft wire spec (`design/specs/textlink-wire-protocol.md`). Nothing in `src/` changes and no board has been tested; the ADR-030 breadth freeze applies, so implementation needs a recorded go and a named exception.

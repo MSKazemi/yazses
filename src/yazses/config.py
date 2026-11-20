@@ -983,13 +983,16 @@ class ContextConfig:
     Compose Whisper's initial_prompt from already-consented, transient desktop
     signals (active window title, selection, clipboard, editor LSP symbols) and
     resolve deictic commands against them. OFF by default; content is read at decode
-    time and NEVER stored or logged.
+    time and NEVER stored or logged. ``use_git`` adds the focused window's git
+    repository name and branch, read from ``.git`` files (no ``git`` binary); it is a
+    new signal, so it stays off even when ``enabled`` is on.
     """
     enabled: bool = False
     use_window_title: bool = True
     use_selection: bool = True
     use_clipboard: bool = False       # clipboard is the broadest signal; opt-in separately
     use_lsp: bool = True
+    use_git: bool = False             # focused repo's name + branch words; off even with [context] on
     max_terms: int = 48
 
 

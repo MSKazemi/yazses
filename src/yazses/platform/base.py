@@ -485,6 +485,26 @@ class FocusedAppProvider(Protocol):
         ...
 
 
+@runtime_checkable
+class FocusedCwdProvider(Protocol):
+    """Names the working directory of the process behind the focused window -- only that.
+
+    Read by Context-Primed Dictation when ``[context] use_git`` is on, so the git
+    repository the user is typing into (a terminal, an editor) can lend its name and
+    branch to the recognition prompt (`commands/git_hint.py`). The directory is used for
+    one decode and never stored or logged, like every other ``[context]`` signal.
+    """
+
+    def cwd(self) -> Path | None:
+        """The focused process's working directory now, or ``None`` when unknown.
+
+        Called once per decode, on the daemon's thread: it must be cheap and must never
+        raise. ``None`` covers every "cannot tell" (no session, no permission, a process
+        that has exited), and the hint is then simply absent.
+        """
+        ...
+
+
 @dataclass(frozen=True)
 class UpdateHandoff:
     """What a detached updater must do once YazSes itself has exited (ADR-027).
@@ -707,6 +727,14 @@ than one that always answers "". It may raise when the OS facility it needs is m
 (macOS without the AppKit bridge); the message is the reason the daemon logs.
 """
 
+FocusedCwdFactory = Callable[[], FocusedCwdProvider]
+"""Builds this platform's focused-window working-directory provider (``[context] use_git``).
+
+A factory, and optional, for the pointer's reasons: nothing OS-specific runs while
+`get_platform()` merely runs, and a platform with no provider says so with `None` (macOS,
+Windows and the BSDs today) rather than one that always answers ``None``.
+"""
+
 InputBlockProbe = Callable[[], str | None]
 """Says why the focused window will not receive synthetic input, or returns None.
 
@@ -775,6 +803,11 @@ class Platform:
     # sentence the daemon log can repeat -- or None when it is set, or when the platform
     # reads the focused application some other way (Linux, above).
     focused_app_unavailable_reason: str | None = None
+    # Builds the provider that names the focused window's working directory
+    # (`FocusedCwdProvider`), for `[context] use_git`. Linux sets it on an X11 session
+    # (xdotool's focused-window PID, then /proc/<pid>/cwd); None on Wayland, which names
+    # no focused PID, and on every other OS until one is implemented.
+    focused_cwd_factory: FocusedCwdFactory | None = None
     # The modifier this OS's application shortcuts use (`PRIMARY_MODIFIER_CTRL` or
     # `PRIMARY_MODIFIER_CMD`). macOS sets Cmd; every other bundle keeps the Ctrl default,
     # which is what keeps their spoken-command keys exactly what they always were.
