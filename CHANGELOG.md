@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — Meeting Mode's Silero VAD backend crashed on its first chunk; `silero-vad` floor raised to 6.2.3
+
+`[meeting] vad_backend = "silero"` passed a numpy slice to silero-vad's ONNX wrapper, which calls `x.dim()` first and so needs a torch tensor: the first voiced chunk raised `AttributeError`. Each 512-sample window is now wrapped with `torch.from_numpy`, and `tests/test_meeting_silero_contract.py` pins what the backend expects from the package (bundled ONNX via `load_silero_vad(onnx=True)`, 512 samples at 16 kHz in, a `(1, 1)` probability out), so a future upstream change fails in CI. The `silero` and `all` extras now require `silero-vad>=6.2.3` (was `>=5.1.2`; the lock already resolved 6.2.3). Upstream reports the v6 model makes 16% fewer errors on noisy real-life data and 11% fewer on multi-domain validation; YazSes has not measured that. YazSes's own `silero_threshold` (0.5) is unchanged. The backend stays off by default and still pulls torch (~3 GB).
+
 ### Added — research: a MaixCAM2 text link, recorded as an ADR (research record only) and a research note, not a feature
 
 [ADR-v2-156](design/adr/adr-v2-156-maixcam2-text-link.md) (Accepted as a research record only) records whether a Sipeed MaixCAM2 running Whisper `base` could send recognised text to a desktop over a wired UART: the falsifiable hypothesis, a threat model for text arriving over a wire, the egress statement, exit criteria and the unknowns. `docs/research/maixcam2-text-link.md` is the matching notice: experimental, research only, not part of YazSes. The change also adds a stdlib-only reference codec, simulator and printing reader under `examples/maixcam2-text-link/`, with tests, and a draft wire spec (`design/specs/textlink-wire-protocol.md`). Nothing in `src/` changes and no board has been tested; the ADR-030 breadth freeze applies, so implementation needs a recorded go and a named exception.
