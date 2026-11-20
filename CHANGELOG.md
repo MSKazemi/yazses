@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Docs — README comparison tables brought up to November 2026 and dated
+
+The README's "Comparison & alternatives" section now matches `docs/comparison.md` as re-checked on 2026-11-20. Handy transcribes files since v0.10.0; OpenWhispr records meetings with local speaker labels and has paid cloud plans; FluidVoice has FluidMeet meetings with speaker labels and Windows and Linux betas (no longer "announced" or a "community port"); VoiceInk is GPLv3, sold one-time from $25, and offers optional cloud models. Speaker-labelled meetings are no longer listed as a YazSes-only difference; the no-cloud egress inventory is. The tables now carry their check date.
+
 ### Added — research: a MaixCAM2 text link, recorded as an ADR (research record only) and a research note, not a feature
 
 [ADR-v2-156](design/adr/adr-v2-156-maixcam2-text-link.md) (Accepted as a research record only) records whether a Sipeed MaixCAM2 running Whisper `base` could send recognised text to a desktop over a wired UART: the falsifiable hypothesis, a threat model for text arriving over a wire, the egress statement, exit criteria and the unknowns. `docs/research/maixcam2-text-link.md` is the matching notice: experimental, research only, not part of YazSes. The change also adds a stdlib-only reference codec, simulator and printing reader under `examples/maixcam2-text-link/`, with tests, and a draft wire spec (`design/specs/textlink-wire-protocol.md`). Nothing in `src/` changes and no board has been tested; the ADR-030 breadth freeze applies, so implementation needs a recorded go and a named exception.
