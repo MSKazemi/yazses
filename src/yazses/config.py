@@ -410,6 +410,11 @@ class DisfluencyConfig:
     # Ollama). Empty keeps the historical "qwen2.5:1.5b", so an install that never
     # set it sends exactly what it sent before this key existed.
     llm_endpoint_model: str = ""
+    # The request shape `llm_endpoint` speaks: "ollama" (POST /api/generate) or
+    # "openai" (POST /v1/chat/completions -- llama-server, LM Studio, vLLM, and
+    # Ollama's own compatibility route). Either way the endpoint must be loopback
+    # unless `llm_allow_remote_endpoint` is set; this key does not change that.
+    llm_api: str = "ollama"
     llm_system_prompt: str = (
         "Reformat only. Do not add facts and do not remove information. "
         "Preserve every proper noun, number, code identifier, and URL exactly "

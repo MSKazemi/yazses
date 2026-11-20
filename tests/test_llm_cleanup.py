@@ -363,3 +363,168 @@ def test_ollama_sends_the_configured_model(fake_server):
 
 def test_endpoint_model_defaults_to_empty():
     assert DisfluencyConfig().llm_endpoint_model == ""
+
+
+def test_ollama_asks_for_no_thinking(fake_server):
+    fake_server.reply = {"response": "Deploy at 0900."}
+    LlmCleaner(_http_config(fake_server.endpoint)).cleanup("deploy at 0900")
+    (_, payload), = fake_server.requests
+    assert payload["think"] is False
+
+
+# ── llm_api = "openai": the chat-completions shape ─────────────────────────
+
+def _chat_reply(content) -> dict:
+    return {"choices": [{"index": 0, "message": {"role": "assistant", "content": content}}]}
+
+
+def test_api_defaults_to_ollama():
+    assert DisfluencyConfig().llm_api == "ollama"
+
+
+def test_openai_path_url_payload_and_model(fake_server):
+    fake_server.reply = _chat_reply("Deploy at 0900.")
+    cfg = _http_config(
+        fake_server.endpoint + "/",  # a trailing slash must not double up
+        llm_api="openai",
+        llm_endpoint_model="qwen3.5-2b",
+        llm_max_tokens=128,
+    )
+    assert LlmCleaner(cfg).cleanup("deploy at 0900") == "Deploy at 0900."
+    (path, payload), = fake_server.requests
+    assert path == "/v1/chat/completions"
+    assert payload == {
+        "model": "qwen3.5-2b",
+        "messages": [
+            {"role": "system", "content": cfg.llm_system_prompt},
+            {"role": "user", "content": "deploy at 0900"},
+        ],
+        "temperature": 0,
+        "max_tokens": 128,
+        "stream": False,
+    }
+
+
+def test_openai_path_sends_a_custom_prompt_as_the_system_message(fake_server):
+    fake_server.reply = _chat_reply("Deploy at 0900.")
+    cleaner = LlmCleaner(_http_config(fake_server.endpoint, llm_api="openai"))
+    cleaner.cleanup("deploy at 0900", custom_prompt="Be terse.")
+    (_, payload), = fake_server.requests
+    assert payload["messages"][0] == {"role": "system", "content": "Be terse."}
+
+
+def test_openai_api_value_is_matched_case_insensitively(fake_server):
+    """configcheck accepts `"OpenAI"` (it compares lowered), so the consumer must too."""
+    fake_server.reply = _chat_reply("Deploy at 0900.")
+    LlmCleaner(_http_config(fake_server.endpoint, llm_api=" OpenAI ")).cleanup("deploy at 0900")
+    (path, _), = fake_server.requests
+    assert path == "/v1/chat/completions"
+
+
+def test_openai_path_strips_a_leading_think_block(fake_server):
+    fake_server.reply = _chat_reply(
+        "<think>\nThe user wants punctuation. 0900 must stay.\n</think>\n\nDeploy at 0900."
+    )
+    cleaner = LlmCleaner(_http_config(fake_server.endpoint, llm_api="openai"))
+    assert cleaner.cleanup("deploy at 0900") == "Deploy at 0900."
+
+
+def test_a_reply_that_is_only_thinking_is_rejected(fake_server):
+    fake_server.reply = _chat_reply("<think>deploy at 0900, so the answer is</think>   ")
+    cleaner = LlmCleaner(_http_config(fake_server.endpoint, llm_api="openai"))
+    assert cleaner.cleanup("deploy at 0900") == "deploy at 0900"
+
+
+def test_an_unclosed_think_block_is_rejected(fake_server):
+    """The token budget ran out mid-thought: there is no answer to type."""
+    fake_server.reply = _chat_reply("<think>deploy at 0900. Let me consider")
+    cleaner = LlmCleaner(_http_config(fake_server.endpoint, llm_api="openai"))
+    assert cleaner.cleanup("deploy at 0900") == "deploy at 0900"
+
+
+def test_openai_reply_that_drops_a_number_is_rejected(fake_server):
+    fake_server.reply = _chat_reply("Transfer the dollars.")
+    cleaner = LlmCleaner(_http_config(fake_server.endpoint, llm_api="openai"))
+    assert cleaner.cleanup("transfer 100 dollars") == "transfer 100 dollars"
+
+
+def test_openai_reply_that_changes_a_number_is_rejected(fake_server):
+    fake_server.reply = _chat_reply("Transfer 1000 dollars.")
+    cleaner = LlmCleaner(_http_config(fake_server.endpoint, llm_api="openai"))
+    assert cleaner.cleanup("transfer 100 dollars") == "transfer 100 dollars"
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [{}, {"choices": []}, {"choices": [{"message": {"content": None}}]}, ["not", "a", "dict"]],
+)
+def test_openai_malformed_reply_returns_input(fake_server, reply):
+    fake_server.reply = reply
+    cleaner = LlmCleaner(_http_config(fake_server.endpoint, llm_api="openai"))
+    assert cleaner.cleanup("deploy at 0900") == "deploy at 0900"
+
+
+def test_openai_server_down_returns_input():
+    # Bind and close a socket so the port is known to be free, then point at it.
+    import socket
+
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    cleaner = LlmCleaner(_http_config(f"http://127.0.0.1:{port}", llm_api="openai"))
+    assert cleaner.cleanup("deploy at 0900") == "deploy at 0900"
+
+
+def test_remote_endpoint_is_refused_on_the_openai_path_too(mocker):
+    """The API style must not open a second door past the loopback guard."""
+    cfg = DisfluencyConfig(
+        llm_enabled=True, llm_model="", llm_endpoint="https://api.openai.com", llm_api="openai"
+    )
+    cleaner = LlmCleaner(cfg)
+    post = mocker.patch.object(cleaner, "_post_json")
+    openai = mocker.spy(cleaner, "_complete_openai")
+    assert cleaner.cleanup("my private dictation") == "my private dictation"
+    post.assert_not_called()
+    openai.assert_not_called()
+
+
+def test_the_openai_path_goes_through_the_same_socket_as_ollama():
+    """One primitive, one gate: both shapes use `_post_json`, which `_complete` guards."""
+    import inspect
+
+    from yazses.postprocess import llm_cleanup
+
+    src = inspect.getsource(llm_cleanup)
+    assert src.count("urlopen(") == 1
+    assert "_post_json(" in inspect.getsource(LlmCleaner._complete_openai)
+    assert "_post_json(" in inspect.getsource(LlmCleaner._complete_ollama)
+
+
+def test_strip_think_leaves_an_ordinary_answer_alone():
+    from yazses.postprocess.llm_cleanup import _strip_think
+
+    assert _strip_think("Deploy at 0900.") == "Deploy at 0900."
+    # Only a *leading* block is reasoning; a later mention is content.
+    assert _strip_think("Use the <think> tag.</think>") == "Use the <think> tag.</think>"
+
+
+def test_config_rejects_an_unknown_api_and_keeps_the_default(tmp_path):
+    from yazses.config import load_config_checked
+
+    path = tmp_path / "config.toml"
+    path.write_text('[filters.disfluency]\nllm_api = "opneai"\n', encoding="utf-8")
+    result = load_config_checked(path)
+    assert result.config.filters.disfluency.llm_api == "ollama"
+    (problem,) = [p for p in result.problems if p.key == "llm_api"]
+    assert "openai" in str(problem)
+
+
+@pytest.mark.parametrize("value", ["ollama", "openai"])
+def test_config_accepts_both_documented_apis(tmp_path, value):
+    from yazses.config import load_config_checked
+
+    path = tmp_path / "config.toml"
+    path.write_text(f'[filters.disfluency]\nllm_api = "{value}"\n', encoding="utf-8")
+    result = load_config_checked(path)
+    assert result.config.filters.disfluency.llm_api == value
+    assert not result.problems
