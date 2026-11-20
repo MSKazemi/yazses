@@ -124,7 +124,7 @@ def provenance(model: str) -> dict[str, Any]:
         commit = None
     cpu = platform.processor()
     try:
-        for line in Path("/proc/cpuinfo").read_text().splitlines():
+        for line in Path("/proc/cpuinfo").read_text(encoding="utf-8", errors="replace").splitlines():
             if line.startswith("model name"):
                 cpu = line.split(":", 1)[1].strip()
                 break
