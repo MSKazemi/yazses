@@ -63,7 +63,11 @@ from yazses.audio.device_monitor import DeviceMonitor, SilentStreakTracker, capt
 from yazses.audio.mic_prompt import MicPrompt
 from yazses.audio.padding import PreSpeechRingBuffer
 from yazses.audio.recorder import AudioRecorder
-from yazses.audio.speech_presence import holds_no_speech, speech_check_applies
+from yazses.audio.speech_presence import (
+    holds_no_speech,
+    prime_detector,
+    speech_check_applies,
+)
 from yazses.audio.vad_calibrated import is_silent_calibrated
 from yazses.cmdsafety.classify import ConfirmGate
 from yazses.commands.dispatch import dispatch as cmd_dispatch
@@ -1592,6 +1596,25 @@ class Daemon:
         self._idle_unload_engine = wrapped
         return wrapped
 
+    def _prime_speech_detector(self) -> None:
+        """Load the speech-presence detector during start-up, not on the first burst.
+
+        Only when the check is on and no mode at start-up exempts it, so a daemon that
+        never runs the check never loads Silero. Never raises: a detector that cannot
+        load fails open on every burst exactly as it would have without this.
+        """
+        acc = self._config.accessibility
+        wm = self._config.whispermode
+        if not speech_check_applies(
+            enabled=acc.speech_presence_check,
+            dysfluency_friendly=acc.dysfluency_friendly,
+            sotto_voce=wm.enabled and wm.command_channel,
+        ):
+            return
+        took = prime_detector(int(self._config.audio.sample_rate))
+        if took is not None:
+            log.debug("Speech-presence detector ready in %.0f ms.", took)
+
     def _start_stt_idle_unloader(self) -> None:
         """Run the idle-unload tick beside the portal reaper. Dormant at the default.
 
@@ -1876,6 +1899,7 @@ class Daemon:
         self._announce_model_download(cfg)
         self._engine = self._with_idle_unload(build_engine(cfg.stt))
         self._remember_engine_info()
+        self._prime_speech_detector()
 
         # [injection] backend selects the Linux injector (type | ydotool |
         # clipboard | wtype | auto), and fallback_to_clipboard the runtime fallback.
