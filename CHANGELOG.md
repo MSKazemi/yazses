@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Docs — which MCP clients still talk to `yazses mcp-server` under MCP 2026-07-28
+
+The MCP 2026-07-28 revision removes the `initialize` handshake that `yazses mcp-server` expects. The new [MCP client compatibility](docs/mcp-compatibility.md) page records, with a date and a source per row, which revision Claude Code, Claude Desktop, Codex CLI, Cursor, VS Code and Gemini CLI ask for and whether they still send `initialize`. All six do, as of 2026-11-20. Claude Code 2.1.329 was observed: it probes `server/discover` at 2026-07-28, then falls back to `initialize` and lists the tools. Codex, VS Code and Gemini CLI come from their source code and Cursor from a forum reply, none of them run here. Claude Desktop is not determined. No migration is needed yet, and the server's behaviour does not change. Replay fixtures for each client are under `tests/fixtures/mcp/`, and new tests check that every recorded client reaches `tools/list` and that an `initialize` asking for an unsupported revision (2026-07-28) is answered with 2025-06-18, not an error.
+
 ### Added — research: a MaixCAM2 text link, recorded as an ADR (research record only) and a research note, not a feature
 
 [ADR-v2-156](design/adr/adr-v2-156-maixcam2-text-link.md) (Accepted as a research record only) records whether a Sipeed MaixCAM2 running Whisper `base` could send recognised text to a desktop over a wired UART: the falsifiable hypothesis, a threat model for text arriving over a wire, the egress statement, exit criteria and the unknowns. `docs/research/maixcam2-text-link.md` is the matching notice: experimental, research only, not part of YazSes. The change also adds a stdlib-only reference codec, simulator and printing reader under `examples/maixcam2-text-link/`, with tests, and a draft wire spec (`design/specs/textlink-wire-protocol.md`). Nothing in `src/` changes and no board has been tested; the ADR-030 breadth freeze applies, so implementation needs a recorded go and a named exception.
