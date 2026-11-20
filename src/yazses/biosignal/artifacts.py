@@ -811,6 +811,9 @@ class BlinkDetector:
             "rise_s": rise_s,
             "fall_s": fall_s,
             "scale_uv": self._scale,
+            # Stream time of the first filtered sample attributed to this blink (where its
+            # excursion, or its piece of one, opened). The event time is the peak, later.
+            "onset_t": t_start,
         }
         channel = ",".join(self._selector.names)
         self.stats["blinks"] += 1

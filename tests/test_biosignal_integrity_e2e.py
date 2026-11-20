@@ -214,3 +214,47 @@ def test_the_gate_names_the_stream_gap_in_status_while_closed(monkeypatch, tmp_p
     assert _event_count(runner) == 0
     reasons = " ".join([*status["events"]["dropped_by_reason"], status["pipeline"]["reason"]])
     assert "stream" in reasons or "gap" in reasons
+
+
+# --- #886: the closed-span check starts at the samples, not at the detector's stamps -----
+# A 0.5 s gap at 4.0 s closes the gate until 1.0 s of clean stream has passed: blocks are
+# stamped 0.5 s late from then on, so the gate reopens at stamped 5.5 s (inner 5.0 s).
+STRADDLE_PAIR = (4.88, 5.18)    # first blink: samples at stamped 5.38-5.68 s, half closed
+AFTER_PAIR = (5.10, 5.40)       # first blink begins 0.1 s after the gate reopened
+
+
+def test_a_pair_whose_first_blink_straddles_the_reopening_is_refused(monkeypatch, tmp_path):
+    """Reproduces #886 for a source with no health verdict of its own (synthetic EOG, the
+    plain IntegrityGate). The detector stamps the first blink at its filtered peak, ~0.16 s
+    after its samples began and so after the closed span: the stamp-based check admitted
+    the pair. Judged from the blink's samples it is refused."""
+    from yazses.biosignal import pipeline as pipeline_mod
+
+    with monkeypatch.context() as m:                    # the stamp-based check of before
+        m.setattr(pipeline_mod, "_sample_start", lambda _detail, default: default)
+        _, before = _run(m, tmp_path, corruption="jump", amount=0.5, blinks=STRADDLE_PAIR)
+    assert before == ["undo"], "the case no longer reproduces the bug"
+    runner, labels = _run(monkeypatch, tmp_path, corruption="jump", amount=0.5,
+                          blinks=STRADDLE_PAIR)
+    assert labels == []
+    assert runner.status()["events"]["dropped_by_reason"].get("stream") == 1
+
+
+def test_a_pair_after_the_reopening_is_still_admitted(monkeypatch, tmp_path):
+    runner, labels = _run(monkeypatch, tmp_path, corruption="jump", amount=0.5,
+                          blinks=AFTER_PAIR)
+    assert labels == ["undo"]
+    assert _event_count(runner) == 1
+
+
+def test_sample_start_reads_the_first_blinks_onset_and_rise():
+    from yazses.biosignal.pipeline import _sample_start
+
+    pair = {"interval_s": 0.3, "first": {"onset_t": 5.4, "rise_s": 0.07}, "second": {}}
+    assert _sample_start(pair, 5.52) == pytest.approx(5.33)
+    assert _sample_start({"onset_t": 2.0, "rise_s": 0.1}, 2.2) == pytest.approx(1.9)
+    # No sample extent reported (jaw clench, squeeze): nothing is assumed.
+    assert _sample_start({"interval_s": 0.4}, 3.0) == 3.0
+    assert _sample_start({"first": {"onset_t": float("nan")}}, 3.0) == 3.0
+    # Never later than the stamp-based start.
+    assert _sample_start({"onset_t": 9.0, "rise_s": 0.0}, 3.0) == 3.0
