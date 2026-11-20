@@ -381,7 +381,17 @@ Stage by stage:
    path is set** — Tier 1 alone decides every utterance otherwise, which is what every
    install without a model does. Few-shot examples mined by `yazses tune` are loaded
    from `few_shots.toml` if present. A router that fails or raises falls back to Tier 1
-   rather than losing the burst.
+   rather than losing the burst. The router can only name one of 22 Tier 1 commands
+   (`commands/slm_schema.py::TIER2_ACTIONS`, checked against the grammar table, which
+   also supplies their arguments, the JSON Schema and the prompt list). Keystroke
+   commands such as *"press enter"*, arrows and paging are deliberately not among
+   them: only Tier 1's exact phrases can send those. When the installed
+   `llama-cpp-python` has `LlamaGrammar.from_json_schema`, decoding runs under that
+   schema; on an older binding it runs unconstrained. Either way the answer is then
+   re-checked in plain code: an unknown action, an argument of the wrong type, a count
+   above 99, a line number above 1,000,000, or a name or shell command the user did not
+   actually say means no command, and the words are typed. A `run_command` that passes
+   still goes through the Command Safety Gate like any other.
 9. **Dispatch and inject.** Plain dictation goes to text injection; commands go to
    a key sequence (`src/yazses/commands/dispatch.py`). For dictation only, two
    optional finishing steps run first: an offline **LLM cleanup** pass that lightly
