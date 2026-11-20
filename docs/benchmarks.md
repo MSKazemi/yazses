@@ -719,6 +719,25 @@ repetitions each:
 That is roughly **0.02 %** of `base.en` decode time. All latency is the speech model;
 optimising anything else would be pointless.
 
+### …except typing it
+
+Re-measured on 2026-11-20, the default post-processing chain still costs **0.13 ms** for 40
+words and **0.36 ms** for 150. Once the text exists, the time goes to **keystroke pacing**:
+`xdotool type --delay 12` on X11 and `ydotool type -d 6 -H 6` on Wayland both spend about
+12 ms per character, so a 150-word dictation takes ~9 s to type. That is a default, and
+changing it is an owner decision. The measurements and recommendations are in
+[the injection latency note](https://github.com/MSKazemi/yazses/blob/main/design/research/2026-11-20-dictation-latency-inject.md).
+
+Two fixed costs on Wayland ydotool sessions were cut without changing what is typed:
+
+| Per burst | Before | After |
+|---|---|---|
+| Flood-guard key-ups after typing (ydotool waits 12 ms after each) | 60 keys, ~730 ms | the burst's own keys, ~360–420 ms |
+| Hold-end hotkey key-up | ~18 ms, in front of the decode | runs alongside the decode |
+
+These come from a stand-in `ydotool` that sleeps the documented pacing around real
+process spawns. They are not a uinput measurement.
+
 ## Speech end → text: what you actually wait for
 
 The table above measures the model. This measures **you**: from the moment you stop
