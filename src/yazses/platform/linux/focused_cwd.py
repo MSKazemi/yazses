@@ -60,7 +60,7 @@ def process_cwd(pid: int, proc_root: Path = _PROC) -> Path | None:
 
 def _children(pid: int, proc_root: Path) -> list[int]:
     try:
-        text = (proc_root / str(pid) / "task" / str(pid) / "children").read_text()
+        text = (proc_root / str(pid) / "task" / str(pid) / "children").read_text(encoding="utf-8", errors="replace")
     except OSError:
         return []
     return [int(tok) for tok in text.split() if tok.isdigit()]
@@ -69,7 +69,7 @@ def _children(pid: int, proc_root: Path) -> list[int]:
 def _start_time(pid: int, proc_root: Path) -> int:
     """Field 22 of ``/proc/<pid>/stat`` (start time in clock ticks), or -1."""
     try:
-        stat = (proc_root / str(pid) / "stat").read_text()
+        stat = (proc_root / str(pid) / "stat").read_text(encoding="utf-8", errors="replace")
     except OSError:
         return -1
     # The command name (field 2) is parenthesised and may contain spaces or ")", so

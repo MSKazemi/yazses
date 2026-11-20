@@ -24,7 +24,7 @@ from yazses.platform.base import FocusedCwdProvider, Platform
 def _repo(root: Path, head: str = "ref: refs/heads/main\n") -> Path:
     git = root / ".git"
     git.mkdir(parents=True)
-    (git / "HEAD").write_text(head)
+    (git / "HEAD").write_text(head, encoding="utf-8")
     return root
 
 
@@ -61,7 +61,7 @@ def test_nested_directory_walks_up(tmp_path):
 def test_file_start_uses_its_directory(tmp_path):
     repo = _repo(tmp_path / "proj")
     f = repo / "README.md"
-    f.write_text("x")
+    f.write_text("x", encoding="utf-8")
     assert git_hint(f) == GitHint("proj", "main")
 
 
@@ -80,11 +80,11 @@ def test_linked_worktree_reads_its_own_head_and_main_name(tmp_path):
     main = _repo(tmp_path / "yazses", "ref: refs/heads/main\n")
     wt_git = main / ".git" / "worktrees" / "agent-1"
     wt_git.mkdir(parents=True)
-    (wt_git / "HEAD").write_text("ref: refs/heads/feat/n4-context-git-hints\n")
-    (wt_git / "commondir").write_text("../..\n")
+    (wt_git / "HEAD").write_text("ref: refs/heads/feat/n4-context-git-hints\n", encoding="utf-8")
+    (wt_git / "commondir").write_text("../..\n", encoding="utf-8")
     wt = tmp_path / "elsewhere" / "agent-1"
     wt.mkdir(parents=True)
-    (wt / ".git").write_text(f"gitdir: {wt_git}\n")
+    (wt / ".git").write_text(f"gitdir: {wt_git}\n", encoding="utf-8")
     assert git_hint(wt) == GitHint("yazses", "feat/n4-context-git-hints")
 
 
@@ -92,10 +92,10 @@ def test_submodule_relative_gitdir(tmp_path):
     outer = _repo(tmp_path / "outer", "ref: refs/heads/main\n")
     mod_git = outer / ".git" / "modules" / "libfoo"
     mod_git.mkdir(parents=True)
-    (mod_git / "HEAD").write_text("ref: refs/heads/topic\n")
+    (mod_git / "HEAD").write_text("ref: refs/heads/topic\n", encoding="utf-8")
     sub = outer / "vendor" / "libfoo"
     sub.mkdir(parents=True)
-    (sub / ".git").write_text("gitdir: ../../.git/modules/libfoo\n")
+    (sub / ".git").write_text("gitdir: ../../.git/modules/libfoo\n", encoding="utf-8")
     # The nearest .git wins: the submodule answers for itself.
     assert git_hint(sub) == GitHint("libfoo", "topic")
 
@@ -103,9 +103,9 @@ def test_submodule_relative_gitdir(tmp_path):
 def test_broken_gitdir_pointer_is_none(tmp_path):
     d = tmp_path / "broken"
     d.mkdir()
-    (d / ".git").write_text("gitdir: /does/not/exist\n")
+    (d / ".git").write_text("gitdir: /does/not/exist\n", encoding="utf-8")
     assert git_hint(d) is None
-    (d / ".git").write_text("not a pointer\n")
+    (d / ".git").write_text("not a pointer\n", encoding="utf-8")
     assert git_hint(d) is None
 
 
@@ -263,9 +263,9 @@ def test_linux_reader_follows_youngest_descendant(tmp_path):
     def make(pid, cwd, start, children=()):
         p = proc / str(pid)
         (p / "task" / str(pid)).mkdir(parents=True)
-        (p / "task" / str(pid) / "children").write_text(" ".join(map(str, children)))
+        (p / "task" / str(pid) / "children").write_text(" ".join(map(str, children)), encoding="utf-8")
         fields = ["S"] + ["0"] * 18 + [str(start)] + ["0"] * 10
-        (p / "stat").write_text(f"{pid} (a b) c) " + " ".join(fields))
+        (p / "stat").write_text(f"{pid} (a b) c) " + " ".join(fields), encoding="utf-8")
         os.symlink(cwd, p / "cwd")
 
     make(100, term_dir, 1, children=(200, 300))
