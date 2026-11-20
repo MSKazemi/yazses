@@ -12,6 +12,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 The MaixCAM2 example now also records the vendor's answer (Sipeed support, 2026-11-13: one-time online setup, then local recognition, stated by the vendor and not measured here), and its board script can record a WAV the way Sipeed's own example does, still untested on a board.
 
+### Fixed — Windows Store (MSIX) build: the microphone and camera checks read the app's own consent entry
+
+The packaged build already skipped the "Let desktop apps access…" (`NonPackaged`) switch, which does not govern it, but read nothing in its place, so a user who had switched YazSes off in the Settings app list still got `doctor` OK, and the camera could never be reported as allowed. It now asks Windows for its package family name (`GetCurrentPackageFamilyName`) and reads `HKCU\…\ConsentStore\<microphone|webcam>\<package family name>`: a `Deny` there is a refusal, and the camera is `GRANTED` only on that entry's own `Allow`. Microsoft documents this per-app layout for `location`; that the microphone and camera use the same one is inferred, and none of it has run on a real MSIX install. With no family name the check falls back to the two broader switches, as before (#653).
+
 ### Fixed — `yazses mcp-server` could not connect to Claude Code: `serverInfo.version` was missing
 
 The MCP `initialize` reply carried `serverInfo.name` and `title` but no `version`, which the MCP schema requires. Claude Code 2.1.319 validates the reply and refused the server (`claude mcp list`: "Failed to connect — INVALID_RESULT … serverInfo.version expected string"). The reply now includes the installed YazSes version. Checked by running the documented `claude mcp add yazses -- yazses mcp-server` in a throwaway Claude Code config: it failed before this change and printed "Connected" after. Not checked: calling the tools from inside a Claude Code session, other MCP clients, or the `.mcpb` bundle in Claude Desktop.
