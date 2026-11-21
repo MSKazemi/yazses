@@ -99,11 +99,34 @@ def test_doctor_summary_carries_the_row(tmp_path):
     assert any(n == "Hotkey mode" and s == "WARN" for n, s, _ in checks)
 
 
+_DAEMONS: list = []
+
+
 def _daemon(cfg: Config):
     from yazses.core.daemon import Daemon
     from yazses.platform import get_platform
 
-    return Daemon(config=cfg, platform=get_platform())
+    daemon = Daemon(config=cfg, platform=get_platform())
+    _DAEMONS.append(daemon)
+    return daemon
+
+
+@pytest.fixture(autouse=True)
+def _stop_toggle_watchers():
+    """End every `toggle-watch` thread a test started, so none outlives it.
+
+    A latched recording leaves its watcher alive; a later test that replaces
+    ``time.sleep`` would otherwise share the process with it (the FreeBSD crash on #910).
+    """
+    yield
+    while _DAEMONS:
+        daemon = _DAEMONS.pop()
+        daemon._stop_event.set()
+        daemon._toggle_gen += 1
+    for t in threading.enumerate():
+        if t.name == "toggle-watch":
+            t.join(timeout=5)
+            assert not t.is_alive()
 
 
 def test_daemon_logs_the_limitation_for_toggle_on_space(caplog):
