@@ -3070,6 +3070,14 @@ class Daemon:
             log.warning("Camera switch registration failed; `yazses camera` will report "
                         "nothing to switch.", exc_info=True)
 
+    def _camera_status_payload(self) -> dict[str, object] | None:
+        """The camera switch as a status block, or None -- a status read never fails on it."""
+        try:
+            return self._camera_switch.status().as_payload()
+        except Exception:  # pragma: no cover - defensive
+            log.debug("camera status unavailable", exc_info=True)
+            return None
+
     def _handle_camera(self, request: Request) -> dict[str, object]:
         """IPC: `status` / `on` / `off` for the camera, for every camera feature at once."""
         action = str(request.params.get("action", "status"))
@@ -9208,6 +9216,9 @@ class Daemon:
                 "meeting_enabled": self._config.meeting.enabled,
                 "meeting_active": self._meeting_controller is not None,
                 "meeting_finalizing": self._meeting_finalizing,
+                # The camera switch (#924): state, holders, failures. The tray's Camera
+                # toggle and its held/released line read it; None if it cannot be read.
+                "camera": self._camera_status_payload(),
                 # Decode latency over a bounded recent window, per model (#296).
                 # Percentiles, not a mean: decode time is right-skewed and it is
                 # the slow tail you wait through. The count travels with it so a

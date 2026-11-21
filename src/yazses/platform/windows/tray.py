@@ -20,6 +20,7 @@ from yazses.tray.about import (
     fit_balloon_title,
     help_links,
 )
+from yazses.tray.camera import CAMERA_LABEL, camera_entry
 from yazses.tray.menu import (
     ABOUT_LABEL,
     HELP_LABEL,
@@ -99,7 +100,12 @@ class WindowsTray:
 
     def _meeting_menu_key(self) -> tuple:
         entries = meeting_entries(self._status)
-        return (tuple(e.enabled for e in entries), meeting_notice(entries))
+        cam = camera_entry(self._status)
+        return (
+            tuple(e.enabled for e in entries),
+            meeting_notice(entries),
+            (cam.checked, cam.indicator) if cam is not None else None,
+        )
 
     def run(self, on_quit: Callable[[], None]) -> None:
         try:
@@ -172,6 +178,20 @@ class WindowsTray:
 
             return _handler
 
+        def _camera_clicked(icon, _item) -> None:  # noqa: ANN001
+            # Off the UI thread, like the meeting actions: it is an IPC round trip.
+            entry = camera_entry(self._status)
+            if entry is None:
+                return
+            action = entry.action
+
+            def _work() -> None:
+                from yazses.tray.camera import run_camera_action
+
+                _notify(icon, *run_camera_action(action))
+
+            threading.Thread(target=_work, name="tray-camera", daemon=True).start()
+
         # The same Help/About/update entries the Linux and macOS trays have. "Help" used
         # to be a disabled placeholder here — a menu item that did nothing when clicked.
         help_menu = pystray.Menu(
@@ -201,6 +221,25 @@ class WindowsTray:
                 MEETING_STOP_LABEL,
                 _meeting_clicked("meeting_stop"),
                 enabled=lambda _item: self._meeting_entry("meeting_stop").enabled,
+            ),
+            pystray.Menu.SEPARATOR,
+            # Camera switch (#924), from the same `camera_entry` the Linux tray uses:
+            # checked = ON, plus a held/released line. Hidden when no camera feature is on.
+            pystray.MenuItem(
+                CAMERA_LABEL,
+                _camera_clicked,
+                checked=lambda _item: bool(
+                    (e := camera_entry(self._status)) and e.checked
+                ),
+                visible=lambda _item: camera_entry(self._status) is not None,
+            ),
+            pystray.MenuItem(
+                lambda _item: (
+                    e.indicator if (e := camera_entry(self._status)) else ""
+                ),
+                None,
+                enabled=False,
+                visible=lambda _item: camera_entry(self._status) is not None,
             ),
             pystray.Menu.SEPARATOR,
             # No "Pause hotkey" here any more: it was a greyed-out placeholder with

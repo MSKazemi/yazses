@@ -530,6 +530,12 @@ def run() -> None:
                             if isinstance(info.get("engine_fallback"), dict)
                             else None
                         ),
+                        # The camera switch (#924): None on an older daemon.
+                        camera=(
+                            info.get("camera")
+                            if isinstance(info.get("camera"), dict)
+                            else None
+                        ),
                     )
                 )
                 # Toasts the daemon could not show itself (no libnotify — Windows,

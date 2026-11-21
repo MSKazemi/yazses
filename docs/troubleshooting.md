@@ -244,6 +244,10 @@ The switch takes effect at once, needs no restart, and is not saved: a restarted
 with the camera on. If `camera on` cannot reopen the device (another app still has it),
 `yazses camera status` prints the reason and the feature stays off until you run it again.
 
+The tray menu has the same switch: a **Camera** entry (checked while on) and, under it, a line
+saying whether YazSes holds the camera right now and which features do. It only appears while a
+camera feature is enabled.
+
 ## It works, but not after I reboot
 
 YazSes is a daemon, so it should already be running when you sit down:
