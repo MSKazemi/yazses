@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — face switch: the log now says when YazSes holds the webcam, and why a call app cannot open it (#922)
+
+With `[facegesture]` on, the camera is held from daemon start, and a video-call app saying "camera not available" gave no hint that YazSes was the cause. The daemon now logs one INFO line when it takes the camera and one when it hands it back ("holding camera N: other applications (video calls) cannot use it ... `systemctl --user stop yazses`"), the busy-camera warning names "another application holds it", and `docs/troubleshooting.md` has a section on the symptom. Observability and documentation only: the camera lifecycle, config keys, CLI and IPC are unchanged. Idle release, a tray toggle and camera sharing remain open as #924 and #925. Checked with fake `cv2` handles; not checked against a real webcam or a real call app.
+
 ### Added — research: a MaixCAM2 text link, recorded as an ADR (research record only) and a research note, not a feature
 
 [ADR-v2-156](design/adr/adr-v2-156-maixcam2-text-link.md) (Accepted as a research record only) records whether a Sipeed MaixCAM2 running Whisper `base` could send recognised text to a desktop over a wired UART: the falsifiable hypothesis, a threat model for text arriving over a wire, the egress statement, exit criteria and the unknowns. `docs/research/maixcam2-text-link.md` is the matching notice: experimental, research only, not part of YazSes. The change also adds a stdlib-only reference codec, simulator and printing reader under `examples/maixcam2-text-link/`, with tests, and a draft wire spec (`design/specs/textlink-wire-protocol.md`). Nothing in `src/` changes and no board has been tested; the ADR-030 breadth freeze applies, so implementation needs a recorded go and a named exception.

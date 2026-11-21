@@ -62,6 +62,7 @@ from yazses.facegesture.switches import (
     parse_bindings,
     stuck_consequence,
 )
+from yazses.perception.camera import camera_held_message
 from yazses.perception.mediapipe_backend import DEFAULT_PRESENCE_CONFIDENCE
 from yazses.perception.signals import FacePerceptionSource
 
@@ -366,6 +367,8 @@ class FaceGestureBackend:
             self._drain()
             try:
                 cap.release()
+                log.info(camera_held_message(
+                    int(getattr(self._cfg, "camera_index", 0) or 0), released=True))
             except Exception:
                 log.debug("face-gesture: camera release failed", exc_info=True)
             if hasattr(landmarker, "close"):
@@ -553,9 +556,11 @@ class FaceGestureBackend:
             return None, None
         if not cap.isOpened():
             log.warning("Face-gesture switch could not open camera %d "
-                        "(in use, or no permission).", index)
+                        "(busy because another application holds it, or no permission).",
+                        index)
             cap.release()
             return None, None
+        log.info(camera_held_message(index))
         return cap, cv2
 
     def _loop(self, landmarker, cap, cv2, mp) -> None:
