@@ -6,15 +6,12 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-<<<<<<< HEAD
 ### Added — tray: a Camera toggle and a held/released line (#924)
 
 The tray menu (Linux, Windows and macOS) gains a **Camera** entry, checked while the camera is ON, that does what `yazses camera on|off` does: one click releases the webcam for every YazSes camera feature, another takes it back, and voice dictation is untouched. A line under it says whether YazSes holds the device right now and which features do ("Camera held by: gaze"), that it is released, or which feature could not reopen it. The entry only appears when a camera feature is enabled, so an install without one sees no new menu item. The daemon `status` reply gains a `camera` block (`state`, `holders`, `failures`, `consumers`) from the same switch; no new config key or IPC method. The Linux menu rebuilds on open and the Windows menu on change, so the checkmark follows a CLI switch; the macOS menu is updated on the tray's status poll. Tested on fake status payloads and a stand-in `pystray`; the Qt and macOS menus themselves were not run on a real desktop or Mac.
-=======
 ### Added — `yazses camera list` and `yazses camera use <name-or-path>`: pick the webcam by name, not by guessed index (#924)
 
 `yazses camera list` shows every camera with its index, its name and its stable `/dev/v4l/by-id/...` path (Linux reads `/sys/class/video4linux` and `/dev/v4l/by-id`; other systems briefly open indexes 0 to 7 and call them `Camera N`, which cannot see a camera something else holds). `yazses camera use "Logitech C920"` (a name, part of a name, an index or a by-id path) switches every camera feature to that camera at once: the camera goes OFF, the shared source, the face switch and gaze are pointed at the new index, and it comes back ON, with no restart. A name that is missing or matches two cameras changes nothing and prints the list to choose from; two identical webcams are told apart by index or path. `yazses camera status` now names the chosen camera. The choice is runtime-only and is **not** saved: a restarted daemon uses `camera_index` from config again (saving it needs a config key, which the ADR-030 freeze leaves to the owner). The `camera` IPC method gains the `list` and `use` actions (`target` param). The resolver is a pure module, `yazses.perception.devices`.
->>>>>>> feat/924-camera-list-use
 
 ### Added — `yazses camera status|on|off`: one runtime switch that releases the webcam for every camera feature (#922, #924)
 
