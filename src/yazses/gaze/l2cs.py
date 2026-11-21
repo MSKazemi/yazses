@@ -8,6 +8,8 @@ frames are processed in-RAM and never stored or transmitted (ADR-011).
 """
 from __future__ import annotations
 
+import threading
+
 
 class L2csGazeBackend:
     """Webcam gaze estimator over L2CS-Net."""
@@ -23,6 +25,7 @@ class L2csGazeBackend:
         self._cap = None
         self._camera_off = False
         self._camera_failure = ""
+        self._camera_lock = threading.RLock()
         self._pipeline = Pipeline(
             weights=None,            # l2cs resolves its bundled pretrained ResNet
             arch="ResNet50",
@@ -34,30 +37,41 @@ class L2csGazeBackend:
         return "l2cs"
 
     def _ensure_camera(self):
-        if self._camera_off:
-            return None  # switched off at runtime (perception/switch.py): hold nothing
-        if self._cap is None:
-            self._cap = self._cv2.VideoCapture(self._camera_index)
-            if not self._cap.isOpened():
-                self._camera_failure = (
-                    f"camera {self._camera_index} is in use or permission was denied"
-                )
-                self._cap.release()
-                self._cap = None
-                return None
-            self._camera_failure = ""
-        return self._cap
+        with self._camera_lock:
+            if self._camera_off:
+                return None  # switched off at runtime (perception/switch.py): hold nothing
+            if self._cap is None:
+                self._cap = self._cv2.VideoCapture(self._camera_index)
+                if not self._cap.isOpened():
+                    self._camera_failure = (
+                        f"camera {self._camera_index} is in use or permission was denied"
+                    )
+                    self._cap.release()
+                    self._cap = None
+                    return None
+                self._camera_failure = ""
+            return self._cap
 
     # -- camera on/off switch (perception/switch.py) ---------------------------
 
     def pause_camera(self) -> None:
         """Release the device and stay off it until :meth:`resume_camera`."""
-        self._camera_off = True
-        self.close()
+        with self._camera_lock:
+            self._camera_off = True
+            self.close()
 
     def resume_camera(self) -> None:
-        """Allow the next estimate to reopen the device (lazily, as before)."""
-        self._camera_off = False
+        """Reopen the device now, so ``camera status`` is truthful and a failure is reported.
+
+        A busy or denied camera is recorded in :attr:`camera_failure`, never raised.
+        """
+        with self._camera_lock:
+            self._camera_off = False
+            try:
+                self._ensure_camera()
+            except Exception as exc:  # a driver error must not reach the switch
+                self._camera_failure = f"could not open camera {self._camera_index}: {exc}"[:200]
+                self._cap = None
 
     @property
     def camera_held(self) -> bool:

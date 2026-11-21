@@ -377,6 +377,7 @@ def _gaze_stub(cls_name):
     obj._cap = None
     obj._camera_off = False
     obj._camera_failure = ""
+    obj._camera_lock = threading.RLock()
     return obj, caps
 
 
@@ -388,7 +389,25 @@ def test_gaze_backend_pause_releases_and_keeps_off_until_resume(which):
     assert caps[0].released and not b.camera_held
     assert b._ensure_camera() is None and len(caps) == 1  # nothing reopens while off
     b.resume_camera()
-    assert b._ensure_camera() is caps[1] and b.camera_held
+    # resume reopens at once: no estimate has been asked for yet
+    assert len(caps) == 2 and b.camera_held
+    assert b._ensure_camera() is caps[1]
+
+
+@pytest.mark.parametrize("which", ["mp", "l2cs"])
+def test_gaze_backend_resume_reports_a_busy_camera_without_raising(which):
+    b, caps = _gaze_stub(which)
+    b.pause_camera()
+    b._cv2 = SimpleNamespace(VideoCapture=lambda i: caps.append(_GCap(ok=False)) or caps[-1])
+    b.resume_camera()
+    assert not b.camera_held and "in use" in b.camera_failure
+
+    def boom(_i):
+        raise RuntimeError("driver exploded")
+
+    b._cv2 = SimpleNamespace(VideoCapture=boom)
+    b.resume_camera()
+    assert not b.camera_held and "driver exploded" in b.camera_failure
 
 
 @pytest.mark.parametrize("which", ["mp", "l2cs"])
@@ -497,7 +516,7 @@ class _Daemon:
 def daemon(monkeypatch, tmp_path):
     stub = _Daemon()
     platform = types.SimpleNamespace(
-        paths=types.SimpleNamespace(ipc_socket=tmp_path / "sock"),
+        paths=types.SimpleNamespace(ipc_socket=tmp_path / "sock", config_file=tmp_path / "c.toml"),
         ipc_client_factory=lambda _sock: stub,
     )
     monkeypatch.setattr(cli, "get_platform", lambda: platform)
@@ -552,3 +571,52 @@ def test_cli_surfaces_a_refusal(daemon):
     daemon.reply = {"ok": False, "reason": "unknown action 'zoom'"}
     result = runner.invoke(cli.app, ["camera", "status"])
     assert result.exit_code == 1 and "unknown action" in result.output
+
+
+# ------------------------------------------------- calibrate commands vs. a daemon
+
+def test_camera_guard_refuses_while_the_daemon_holds_the_camera(daemon, capsys):
+    daemon.reply = {"ok": True, "state": "on", "holders": ["gaze"],
+                    "consumers": ["gaze"], "failures": {}}
+    with pytest.raises(cli.typer.Exit):
+        cli._camera_guard("gaze calibrate")
+    err = capsys.readouterr().err
+    assert "holds the camera (gaze)" in err
+    assert "yazses camera off" in err and "yazses camera on" in err
+    assert daemon.calls == [("camera", {"action": "status"})]
+
+
+def test_camera_guard_notes_a_switched_off_camera_and_continues(daemon, capsys):
+    daemon.reply = {"ok": True, "state": "off", "holders": [], "consumers": ["gaze"],
+                    "failures": {}}
+    cli._camera_guard("gaze calibrate")
+    assert "switched OFF" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("reply,error", [
+    ({"ok": True, "state": "on", "holders": [], "consumers": [], "failures": {}}, None),
+    ({"ok": False, "reason": "unknown method"}, None),
+    (None, IpcUnreachableError("no socket")),
+])
+def test_camera_guard_is_silent_when_nothing_holds_the_camera(daemon, capsys, reply, error):
+    daemon.reply, daemon.error = reply, error
+    cli._camera_guard("gaze calibrate")
+    assert capsys.readouterr().err == ""
+
+
+def test_gaze_calibrate_stops_at_the_guard_before_installing_anything(daemon, monkeypatch):
+    daemon.reply = {"ok": True, "state": "on", "holders": ["gaze"],
+                    "consumers": ["gaze"], "failures": {}}
+    monkeypatch.setattr("yazses.gaze.calibrate.calibration_blocker", lambda **_k: None)
+    monkeypatch.setattr("yazses.gaze.desktop.build_desktop", lambda: object())
+    monkeypatch.setattr("yazses.config.load_config", lambda *_a, **_k: Config())
+    installed: list[object] = []
+    monkeypatch.setattr(cli, "_install_feature_deps", lambda *a, **k: installed.append(a))
+    result = runner.invoke(cli.app, ["gaze", "calibrate"])
+    assert result.exit_code == 1
+    assert "yazses camera off" in result.output and not installed
+
+
+def test_open_failure_message_points_at_the_switch():
+    msg = cli._camera_open_failed("facegesture calibrate")
+    assert "yazses camera off" in msg and "yazses camera on" in msg

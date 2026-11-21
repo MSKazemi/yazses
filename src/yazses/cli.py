@@ -6426,6 +6426,7 @@ def facegesture_calibrate(
             )
             raise typer.Exit(1)
 
+    _camera_guard("facegesture calibrate")
     backend = FaceGestureBackend(face_cfg)
     landmarker = backend._build_landmarker()
     if landmarker is None:
@@ -6439,7 +6440,7 @@ def facegesture_calibrate(
     if cap is None:
         if hasattr(landmarker, "close"):
             landmarker.close()
-        typer.echo("Could not open the camera (in use, or no permission).", err=True)
+        typer.echo(_camera_open_failed("facegesture calibrate"), err=True)
         raise typer.Exit(1)
 
     floor = getattr(face_cfg, "confidence_floor", 0.0)
@@ -6709,6 +6710,50 @@ def _echo_camera(result: dict) -> None:
         typer.echo("Voice dictation is unaffected. Turn it back on with: yazses camera on")
 
 
+def _camera_guard(feature: str) -> None:
+    """Refuse to open the camera ourselves while a running daemon holds it (#924).
+
+    A webcam is exclusive, so a calibration that opens its own capture would fail with a
+    bare "could not open the camera". Ask the daemon first: when it holds the device, say
+    so and how to hand it over; when the switch is OFF, say that too (the open can still
+    work, but the user switched it off on purpose). A daemon that is not running, or too
+    old to know the `camera` method, changes nothing.
+    """
+    platform = get_platform()
+    try:
+        client = platform.ipc_client_factory(platform.paths.ipc_socket)
+        result = client.call("camera", action="status")
+    except Exception:  # noqa: BLE001 - no daemon (or an old one) is simply "nothing holds it"
+        return
+    if not isinstance(result, dict) or not result.get("ok"):
+        return
+    holders = [str(h) for h in (result.get("holders") or [])]
+    if holders:
+        typer.echo(
+            f"The running daemon holds the camera ({', '.join(holders)}), so {feature} "
+            "cannot open it.\n"
+            "  Release it:  yazses camera off\n"
+            f"  Run {feature} again, then give it back:  yazses camera on",
+            err=True,
+        )
+        raise typer.Exit(1)
+    if result.get("state") == "off":
+        typer.echo(
+            "Note: the camera is switched OFF for the running daemon (yazses camera off). "
+            f"{feature} opens the camera itself; turn the daemon's features back on "
+            "afterwards with: yazses camera on",
+            err=True,
+        )
+
+
+def _camera_open_failed(feature: str) -> str:
+    """The message for a camera that would not open, with the switch guidance appended."""
+    return (
+        f"Could not open the camera for {feature} (in use, or no permission).\n"
+        "  If YazSes is running, free it first:  yazses camera off  (then  yazses camera on)"
+    )
+
+
 @camera_app.command(
     "status",
     epilog=_examples("yazses camera status    is the camera on, and which features hold it"),
@@ -6792,6 +6837,8 @@ def gaze_calibrate(
         typer.echo(blocked, err=True)
         raise typer.Exit(1)
 
+    _camera_guard("gaze calibrate")
+
     # Auto-install the webcam gaze deps on first run (same path as
     # `yazses features enable gaze`), so calibration is turnkey.
     feat = find_feature(cfg, "gaze")
@@ -6845,6 +6892,11 @@ def gaze_calibrate(
             "Improve lighting / camera framing and retry.",
             err=True,
         )
+        if not samples:
+            typer.echo(
+                "  If the camera would not open: " + _camera_open_failed("gaze calibrate").split("\n", 1)[1].strip(),
+                err=True,
+            )
         raise typer.Exit(1)
 
     try:
