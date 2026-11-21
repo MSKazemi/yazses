@@ -1134,6 +1134,22 @@ yazses gaze rollback     # undo an implicit refinement, restoring the previous c
 yazses gaze measure --camera-class integrated   # derived-numbers-only field report for issue #104
 ```
 
+### `yazses camera` — switch the camera on or off at runtime
+
+| Command | Description |
+|---|---|
+| `yazses camera status` | Whether the camera is ON or OFF, which YazSes features hold the device right now, and why a reopen failed, if it did. |
+| `yazses camera off` | Release the camera for every camera feature (face switch, gaze, Head-Pointer) so a video-call app can open it. Dictation keeps working. |
+| `yazses camera on` | Let the enabled camera features reopen the camera. |
+
+A runtime state, not a config key: nothing is saved and a restarted daemon starts with the
+camera on. It never turns a feature on that you did not enable.
+
+```bash
+yazses camera off      # before a video call
+yazses camera on       # after it
+```
+
 ### `yazses facegesture` — face-gesture switch calibration
 
 | Command | Description |

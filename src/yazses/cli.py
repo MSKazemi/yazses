@@ -6666,6 +6666,76 @@ def facegesture_status() -> None:
         typer.echo(f"    {counts}{suffix}")
 
 
+camera_app = typer.Typer(
+    name="camera",
+    help="Switch the camera on or off for every camera feature at once, without restarting.",
+)
+app.add_typer(camera_app, rich_help_panel=_SETUP)
+
+
+def _camera_call(action: str) -> dict:
+    """Ask the running daemon for a camera `action`; exits with a hint when it cannot."""
+    platform = get_platform()
+    client = platform.ipc_client_factory(platform.paths.ipc_socket)
+    try:
+        result = client.call("camera", action=action)
+    except IpcUnreachableError:
+        typer.echo("Daemon is not running. Start it with: yazses start", err=True)
+        raise typer.Exit(1)
+    if not isinstance(result, dict) or not result.get("ok"):
+        reason = result.get("reason") if isinstance(result, dict) else None
+        typer.echo(f"Camera: {reason or 'failed'}", err=True)
+        raise typer.Exit(1)
+    return result
+
+
+def _echo_camera(result: dict) -> None:
+    on = result.get("state") == "on"
+    holders = [str(h) for h in (result.get("holders") or [])]
+    consumers = result.get("consumers") or []
+    typer.echo(f"Camera: {'ON' if on else 'OFF'}")
+    if not consumers:
+        typer.echo("No camera feature is running, so nothing holds the camera.")
+    elif holders:
+        typer.echo(f"Held by: {', '.join(holders)}")
+    else:
+        typer.echo("YazSes is not holding the camera.")
+    failures = result.get("failures") or {}
+    for name, reason in failures.items():
+        typer.echo(f"  {name}: could not reopen the camera -- {reason}")
+    if on and holders:
+        typer.echo("Before a video call: yazses camera off")
+    elif not on:
+        typer.echo("Voice dictation is unaffected. Turn it back on with: yazses camera on")
+
+
+@camera_app.command(
+    "status",
+    epilog=_examples("yazses camera status    is the camera on, and which features hold it"),
+)
+def camera_status() -> None:
+    """Show whether the camera is on and which YazSes features hold the device."""
+    _echo_camera(_camera_call("status"))
+
+
+@camera_app.command(
+    "on",
+    epilog=_examples("yazses camera on    let the enabled camera features have the camera back"),
+)
+def camera_on() -> None:
+    """Switch the camera on: every enabled camera feature reopens the device."""
+    _echo_camera(_camera_call("on"))
+
+
+@camera_app.command(
+    "off",
+    epilog=_examples("yazses camera off    release the camera before a video call"),
+)
+def camera_off() -> None:
+    """Switch the camera off: every camera feature releases the device. Dictation keeps working."""
+    _echo_camera(_camera_call("off"))
+
+
 gaze_app = typer.Typer(name="gaze", help="Aim dictation with your gaze — type into whichever pane you look at.")
 app.add_typer(gaze_app, rich_help_panel=_SETUP)
 

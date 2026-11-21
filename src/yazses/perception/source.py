@@ -373,6 +373,7 @@ class SharedPerceptionSource:
         # flight when the camera closed can recognise that its sample is stale
         # instead of publishing it into a source that is dormant.
         self._epoch = 0
+        self._suspended = False
         self._opens = 0
         self._state = SourceState.DORMANT
         self._failure = ""
@@ -503,6 +504,42 @@ class SharedPerceptionSource:
             self._retire_locked()
         self._drain()
 
+    # -- camera on/off switch ------------------------------------------------ #
+
+    @property
+    def suspended(self) -> bool:
+        """Whether the camera is switched off: leases are kept, the device is not open."""
+        return self._suspended
+
+    def suspend(self) -> None:
+        """Close the device now but keep every lease, so :meth:`resume` can reopen it.
+
+        New leases taken while suspended open nothing. Idempotent.
+        """
+        with self._lock:
+            if self._suspended:
+                return
+            self._suspended = True
+            self._retire_locked()
+        self._drain()
+
+    def resume(self) -> None:
+        """Undo :meth:`suspend`: reopen once if any consumer still holds a lease.
+
+        A reopen that fails leaves the source ``FAILED`` with a reason, as an ordinary
+        first open would; nothing propagates.
+        """
+        with self._lock:
+            if not self._suspended:
+                return
+            self._suspended = False
+            if not self._leases or self._state is not SourceState.DORMANT:
+                return
+            self._epoch += 1
+            token = self._epoch
+            self._state = SourceState.STARTING
+        self._open(token)
+
     # -- internals ---------------------------------------------------------- #
     #
     # Two locks, deliberately. ``_lock`` guards the bookkeeping (leases, state, the
@@ -521,6 +558,10 @@ class SharedPerceptionSource:
                 return
             lease._held = True
             self._leases.add(lease)
+            if self._suspended:
+                # Camera switched off (perception/switch.py): the lease is recorded so
+                # resume() knows who wants it back, but nothing opens.
+                return
             if len(self._leases) > 1 or self._state is not SourceState.DORMANT:
                 # Already open, opening, or failed: sharing one observation is the
                 # entire point, and a retry loop against a camera that just refused is

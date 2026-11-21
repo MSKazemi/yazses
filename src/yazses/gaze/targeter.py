@@ -210,6 +210,28 @@ class GazeTargeter:
         op(window_id)
         return True
 
+    # -- camera on/off switch (perception/switch.py). A backend on the shared source has
+    # no such methods and is suspended through the source instead, so these are no-ops.
+
+    def pause_camera(self) -> None:
+        """Release the backend's own capture device and keep off it."""
+        fn = getattr(self._backend, "pause_camera", None)
+        if fn is not None:
+            fn()
+
+    def resume_camera(self) -> None:
+        fn = getattr(self._backend, "resume_camera", None)
+        if fn is not None:
+            fn()
+
+    @property
+    def camera_held(self) -> bool:
+        return bool(getattr(self._backend, "camera_held", False))
+
+    @property
+    def camera_failure(self) -> str:
+        return str(getattr(self._backend, "camera_failure", "") or "")
+
     def close(self) -> None:
         """Release the camera held by the backend."""
         try:

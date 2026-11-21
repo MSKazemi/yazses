@@ -33,6 +33,8 @@ class MediapipeGazeBackend:
         self._mp = mp
         self._camera_index = config.camera_index
         self._cap = None
+        self._camera_off = False
+        self._camera_failure = ""
         model = getattr(config, "model_path", "") or str(ensure_face_landmarker())
         opts = vision.FaceLandmarkerOptions(
             base_options=python.BaseOptions(model_asset_path=model),
@@ -46,9 +48,38 @@ class MediapipeGazeBackend:
         return "mediapipe"
 
     def _ensure_camera(self):
+        if self._camera_off:
+            return None  # switched off at runtime (perception/switch.py): hold nothing
         if self._cap is None:
             self._cap = self._cv2.VideoCapture(self._camera_index)
+            if not self._cap.isOpened():
+                self._camera_failure = (
+                    f"camera {self._camera_index} is in use or permission was denied"
+                )
+                self._cap.release()
+                self._cap = None
+                return None
+            self._camera_failure = ""
         return self._cap
+
+    # -- camera on/off switch (perception/switch.py) ---------------------------
+
+    def pause_camera(self) -> None:
+        """Release the device and stay off it until :meth:`resume_camera`."""
+        self._camera_off = True
+        self.close()
+
+    def resume_camera(self) -> None:
+        """Allow the next estimate to reopen the device (lazily, as before)."""
+        self._camera_off = False
+
+    @property
+    def camera_held(self) -> bool:
+        return self._cap is not None
+
+    @property
+    def camera_failure(self) -> str:
+        return self._camera_failure
 
     def estimate(self) -> tuple[float, float] | None:
         sample = self.estimate_sample()
@@ -66,6 +97,8 @@ class MediapipeGazeBackend:
         from yazses.perception.derive import derive_gaze
 
         cap = self._ensure_camera()
+        if cap is None:
+            return None
         ok, frame = cap.read()
         if not ok or frame is None:
             return None

@@ -75,6 +75,7 @@ from yazses.config import Config, load_config
 from yazses.inject.streaming import StreamingInjector
 from yazses.ipc.protocol import Request
 from yazses.mcp.budget import InterruptBudget
+from yazses.perception.switch import CameraConsumer, CameraSwitch
 from yazses.platform import Platform, get_platform
 from yazses.platform.base import (
     PRIMARY_MODIFIER_CTRL,
@@ -563,6 +564,9 @@ class Daemon:
         # Non-keyboard activation sources (EMG squeeze — [emg] device_port).
         # Each is a HotkeyBackend duck-type driving the same hold callbacks.
         self._extra_activations: list[HotkeyBackend] = []
+        # The runtime camera on/off switch (perception/switch.py, #922/#924). Always built,
+        # always starts ON, never persisted; camera features register their owners below.
+        self._camera_switch = CameraSwitch()
         # Verbatim/autoformat mode (ADR-v2-078): a persistent gate toggled by the
         # spoken commands "dictate verbatim" / "resume formatting". Lazily created on
         # first use when [verbatim] enabled; holds mode across bursts. None = feature off.
@@ -2039,6 +2043,7 @@ class Daemon:
 
         # Optional non-keyboard activation sources (EMG squeeze via [emg]).
         self._extra_activations = self._build_activation_sources(cfg)
+        self._register_camera_consumers()
         # Tier 2 natural-language intent fallback (ADR: commands/slm_router.py).
         # None unless `[commands] slm_model_path` names a usable model.
         self._slm_router = self._build_slm_router(cfg)
@@ -2193,6 +2198,7 @@ class Daemon:
         server.register("headpointer", self._handle_headpointer)
         server.register("handsfree", self._handle_handsfree)
         server.register("facegesture", self._handle_facegesture)
+        server.register("camera", self._handle_camera)
         server.register("gesture", self._handle_gesture)
         server.register("mousegrid", self._handle_mousegrid)
         server.serve_in_thread()
@@ -3011,6 +3017,74 @@ class Daemon:
                 reason = "the face switch is not running (`yazses features enable facegesture`)"
             return {"ok": True, "active": False, "reason": reason}
         return {"ok": True, "active": True, **payload}
+
+    # ---- Camera on/off switch (perception/switch.py, #922 / #924) --------------------
+
+    def _register_camera_consumers(self) -> None:
+        """Tell the camera switch who owns a device. Never raises; dictation is not in here."""
+        try:
+            from yazses.perception.source import SourceState
+
+            switch = self._camera_switch
+            perception = getattr(self, "_perception", None)
+            if perception is not None:
+                def _shared_holders(src=perception) -> tuple[str, ...]:
+                    status = src.status()
+                    if src.suspended or status.state not in (
+                        SourceState.RUNNING, SourceState.STARTING
+                    ):
+                        return ()
+                    return tuple(status.consumers)
+
+                def _shared_failure(src=perception) -> str:
+                    return "" if src.suspended else str(src.status().failure_reason)
+
+                switch.register(CameraConsumer(
+                    name="shared camera",
+                    pause=perception.suspend,
+                    resume=perception.resume,
+                    holders=_shared_holders,
+                    failure=_shared_failure,
+                ))
+            owners: list[tuple[str, Any]] = [
+                ("facegesture", src) for src in self._extra_activations
+                if hasattr(src, "pause_camera")
+            ]
+            if getattr(self, "_gaze_targeter", None) is not None:
+                owners.append(("gaze", self._gaze_targeter))
+            def _own_holders(name: str, owner: Any) -> Callable[[], tuple[str, ...]]:
+                return lambda: (name,) if owner.camera_held else ()
+
+            def _own_failure(owner: Any) -> Callable[[], str]:
+                return lambda: str(owner.camera_failure)
+
+            for name, owner in owners:
+                switch.register(CameraConsumer(
+                    name=name,
+                    pause=owner.pause_camera,
+                    resume=owner.resume_camera,
+                    holders=_own_holders(name, owner),
+                    failure=_own_failure(owner),
+                ))
+        except Exception:
+            log.warning("Camera switch registration failed; `yazses camera` will report "
+                        "nothing to switch.", exc_info=True)
+
+    def _handle_camera(self, request: Request) -> dict[str, object]:
+        """IPC: `status` / `on` / `off` for the camera, for every camera feature at once."""
+        action = str(request.params.get("action", "status"))
+        switch = self._camera_switch
+        if action not in ("status", "on", "off"):
+            return {"ok": False, "reason": f"unknown action {action!r}"}
+        try:
+            if action == "on":
+                switch.set(True)
+            elif action == "off":
+                switch.set(False)
+            return {"ok": True, **switch.status().as_payload()}
+        except Exception as exc:  # pragma: no cover - defensive
+            log.exception("camera %s raised", action)
+            return {"ok": False, "reason": f"failed: {type(exc).__name__}"}
 
     def _build_slm_router(self, cfg):
         """Tier 2 SLM intent router, or None (#164).

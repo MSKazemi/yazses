@@ -229,6 +229,21 @@ only describe the sender:
 Without the desktop extra (PySide6) or a graphical session there is no check window; the command
 says so and falls back to typing into the focused window, with arrival **not** checked.
 
+## A video-call app says "camera not available"
+
+A YazSes camera feature (the face switch, gaze, the Head-Pointer) keeps the webcam open, and a
+UVC webcam can be opened by only one program at a time. Release it before the call:
+
+```sh
+yazses camera status   # is the camera on, and which YazSes features hold it?
+yazses camera off      # release it for every camera feature; dictation keeps working
+yazses camera on       # take it back after the call
+```
+
+The switch takes effect at once, needs no restart, and is not saved: a restarted daemon starts
+with the camera on. If `camera on` cannot reopen the device (another app still has it),
+`yazses camera status` prints the reason and the feature stays off until you run it again.
+
 ## It works, but not after I reboot
 
 YazSes is a daemon, so it should already be running when you sit down:
