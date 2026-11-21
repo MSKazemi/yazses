@@ -174,11 +174,35 @@ def test_mode_loads_from_toml(tmp_path):
 # --- daemon wiring --------------------------------------------------------------------
 
 
+_DAEMONS: list = []
+
+
 def _daemon(cfg: Config):
     from yazses.core.daemon import Daemon
     from yazses.platform import get_platform
 
-    return Daemon(config=cfg, platform=get_platform())
+    daemon = Daemon(config=cfg, platform=get_platform())
+    _DAEMONS.append(daemon)
+    return daemon
+
+
+@pytest.fixture(autouse=True)
+def _stop_toggle_watchers():
+    """End every `toggle-watch` thread a test started.
+
+    A latched recording leaves its watcher polling for as long as the process lives, and a
+    later test that replaces ``time.sleep`` (the injection-delay tests do) would otherwise
+    share the process with it.
+    """
+    yield
+    while _DAEMONS:
+        daemon = _DAEMONS.pop()
+        daemon._stop_event.set()
+        daemon._toggle_gen += 1
+    for t in threading.enumerate():
+        if t.name == "toggle-watch":
+            t.join(timeout=5)
+            assert not t.is_alive()
 
 
 def _toggle_cfg(max_seconds: int = 300) -> Config:
@@ -315,3 +339,37 @@ def test_hold_mode_leaves_the_command_key_unchanged(monkeypatch):
     daemon._on_command_hold_start(0)
     daemon._on_command_hold_end()
     assert calls.log == ["start", "end"]
+
+
+def _watchers() -> list[threading.Thread]:
+    return [t for t in threading.enumerate() if t.name == "toggle-watch"]
+
+
+def test_the_watcher_ends_when_the_daemon_stops(monkeypatch):
+    """A latched recording must not leave a thread polling after the daemon is gone."""
+    daemon, _calls = _wired(monkeypatch, _toggle_cfg())
+    daemon._on_toggle_press(0)
+    assert len(_watchers()) == 1
+    daemon._stop_event.set()
+    for t in _watchers():
+        t.join(timeout=5)
+    assert _watchers() == []
+
+
+def test_the_watcher_does_not_depend_on_time_sleep(monkeypatch):
+    """It waits on the stop event, so a replaced ``time.sleep`` cannot make it spin.
+
+    ``test_windows_injection_reaches_the_app`` swaps ``time.sleep`` for a function that
+    records its calls; a watcher looping on the real one flooded that list and crashed
+    the worker on the FreeBSD leg.
+    """
+    calls_to_sleep: list[float] = []
+    monkeypatch.setattr("time.sleep", lambda s: calls_to_sleep.append(s))
+    daemon, _calls = _wired(monkeypatch, _toggle_cfg())
+    daemon._on_toggle_press(0)
+    assert len(_watchers()) == 1
+    daemon._stop_event.set()
+    for t in _watchers():
+        t.join(timeout=5)
+    assert _watchers() == []
+    assert calls_to_sleep == []

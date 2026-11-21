@@ -4084,8 +4084,11 @@ class Daemon:
 
     def _toggle_watch(self, turn: ToggleTurn, gen: int) -> None:
         """Watch a latched toggle recording: end it at the cap, drop it if it ended elsewhere."""
+        # Wait on the daemon's stop event, not time.sleep: the watcher ends with the daemon
+        # instead of polling forever, and it never spins if something replaces time.sleep.
         while turn.latched and gen == self._toggle_gen:
-            time.sleep(_TOGGLE_POLL_S)
+            if self._stop_event.wait(_TOGGLE_POLL_S):
+                return
             if gen != self._toggle_gen or not turn.latched:
                 return
             recording, _busy = self._toggle_state()
