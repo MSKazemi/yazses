@@ -55,6 +55,8 @@ class CameraConsumer:
     resume: Callable[[], None]
     holders: Callable[[], tuple[str, ...]] = _no_holders
     failure: Callable[[], str] = _no_failure
+    #: Point this owner at another camera index; takes effect at the next open (#924).
+    set_index: Callable[[int], None] | None = None
 
 
 @dataclass(frozen=True)
@@ -65,9 +67,12 @@ class CameraStatus:
     holders: tuple[str, ...]
     failures: dict[str, str] = field(default_factory=dict)
     consumers: tuple[str, ...] = ()
+    #: The camera chosen at runtime with ``yazses camera use``, or None.
+    active: dict[str, object] | None = None
 
     def as_payload(self) -> dict[str, object]:
         return {
+            "active": dict(self.active) if self.active else None,
             "state": "on" if self.on else "off",
             "holders": list(self.holders),
             "failures": dict(self.failures),
@@ -84,6 +89,7 @@ class CameraSwitch:
         self._consumers: list[CameraConsumer] = []
         self._observers: list[Callable[[bool], None]] = []
         self._held_logged: tuple[str, ...] = ()
+        self._active: dict[str, object] | None = None
 
     @property
     def is_on(self) -> bool:
@@ -140,6 +146,39 @@ class CameraSwitch:
         self.note_holders()
         return True
 
+    def use_camera(self, index: int, name: str = "") -> bool:
+        """Point every camera owner at *index*, reopening if the switch is ON (#924).
+
+        OFF -> swap the index -> ON, so the device is never held on the old camera
+        while the new one opens. If the switch was already OFF, the new index is
+        stored and used at the next ``on``. Never raises; a failed reopen shows up in
+        :meth:`status`. Returns True when the switch ended ON.
+        """
+        with self._lock:
+            was_on = self._on
+            consumers = list(self._consumers)
+        if was_on:
+            self.set(False)
+        for consumer in consumers:
+            if consumer.set_index is None:
+                continue
+            try:
+                consumer.set_index(int(index))
+            except Exception:
+                log.warning("Camera feature %s could not switch to camera %d.",
+                            consumer.name, index, exc_info=True)
+        with self._lock:
+            self._active = {"index": int(index), "name": str(name)}
+        log.info("Camera selected: %s (index %d).", name or "unnamed", index)
+        if was_on:
+            self.set(True)
+        return self._on
+
+    @property
+    def active(self) -> dict[str, object] | None:
+        with self._lock:
+            return dict(self._active) if self._active else None
+
     def toggle(self) -> bool:
         """Flip the state; returns the new state (True = ON)."""
         with self._lock:
@@ -189,6 +228,7 @@ class CameraSwitch:
             holders=self.holders(),
             failures=failures,
             consumers=tuple(c.name for c in consumers),
+            active=self.active,
         )
 
     @staticmethod

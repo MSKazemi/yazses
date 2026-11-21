@@ -346,7 +346,9 @@ class SharedPerceptionSource:
         clock: Callable[[], float] = time.monotonic,
         spawn: Spawn | None = None,
         join_timeout_s: float = 2.0,
+        index_setter: Callable[[int], None] | None = None,
     ) -> None:
+        self._index_setter = index_setter
         self._capture_factory = capture_factory
         self._processor_factory = processor_factory
         self._interval_s = max(0.0, float(interval_s))
@@ -510,6 +512,14 @@ class SharedPerceptionSource:
     def suspended(self) -> bool:
         """Whether the camera is switched off: leases are kept, the device is not open."""
         return self._suspended
+
+    def set_camera_index(self, index: int) -> None:
+        """Open camera *index* the next time the device opens (``yazses camera use``).
+
+        A no-op when the source was built without an index setter.
+        """
+        if self._index_setter is not None:
+            self._index_setter(int(index))
 
     def suspend(self) -> None:
         """Close the device now but keep every lease, so :meth:`resume` can reopen it.

@@ -74,6 +74,10 @@ class MediapipeGazeBackend:
             self._camera_off = True
             self.close()
 
+    def set_camera_index(self, index: int) -> None:
+        """Open camera *index* at the next (re)open."""
+        self._camera_index = int(index)
+
     def resume_camera(self) -> None:
         """Reopen the device now, so ``camera status`` is truthful and a failure is reported.
 

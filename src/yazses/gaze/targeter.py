@@ -219,6 +219,11 @@ class GazeTargeter:
         if fn is not None:
             fn()
 
+    def set_camera_index(self, index: int) -> None:
+        fn = getattr(self._backend, "set_camera_index", None)
+        if fn is not None:
+            fn(index)
+
     def resume_camera(self) -> None:
         fn = getattr(self._backend, "resume_camera", None)
         if fn is not None:

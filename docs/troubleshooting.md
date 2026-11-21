@@ -240,6 +240,11 @@ yazses camera off      # release it for every camera feature; dictation keeps wo
 yazses camera on       # take it back after the call
 ```
 
+Wrong camera? `yazses camera list` shows each camera's name and stable path, and
+`yazses camera use "Logitech C920"` (or the index, or the `/dev/v4l/by-id/...` path) moves every
+camera feature onto it without a restart. The choice is not saved; a restarted daemon uses
+`camera_index` from your config again.
+
 The switch takes effect at once, needs no restart, and is not saved: a restarted daemon starts
 with the camera on. If `camera on` cannot reopen the device (another app still has it),
 `yazses camera status` prints the reason and the feature stays off until you run it again.

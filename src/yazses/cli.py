@@ -6674,18 +6674,20 @@ camera_app = typer.Typer(
 app.add_typer(camera_app, rich_help_panel=_SETUP)
 
 
-def _camera_call(action: str) -> dict:
+def _camera_call(action: str, **params: object) -> dict:
     """Ask the running daemon for a camera `action`; exits with a hint when it cannot."""
     platform = get_platform()
     client = platform.ipc_client_factory(platform.paths.ipc_socket)
     try:
-        result = client.call("camera", action=action)
+        result = client.call("camera", action=action, **params)
     except IpcUnreachableError:
         typer.echo("Daemon is not running. Start it with: yazses start", err=True)
         raise typer.Exit(1)
     if not isinstance(result, dict) or not result.get("ok"):
         reason = result.get("reason") if isinstance(result, dict) else None
         typer.echo(f"Camera: {reason or 'failed'}", err=True)
+        if isinstance(result, dict) and result.get("problem") == "ambiguous":
+            typer.echo("Use the index or the /dev/v4l/by-id path to pick one.", err=True)
         raise typer.Exit(1)
     return result
 
@@ -6695,6 +6697,11 @@ def _echo_camera(result: dict) -> None:
     holders = [str(h) for h in (result.get("holders") or [])]
     consumers = result.get("consumers") or []
     typer.echo(f"Camera: {'ON' if on else 'OFF'}")
+    active = result.get("active")
+    if isinstance(active, dict):
+        label = active.get("name") or "unnamed"
+        typer.echo(f"Using: {label} (index {active.get('index')}), chosen with "
+                   "`yazses camera use`; not saved")
     if not consumers:
         typer.echo("No camera feature is running, so nothing holds the camera.")
     elif holders:
@@ -6761,6 +6768,53 @@ def _camera_open_failed(feature: str) -> str:
 def camera_status() -> None:
     """Show whether the camera is on and which YazSes features hold the device."""
     _echo_camera(_camera_call("status"))
+
+
+@camera_app.command(
+    "list",
+    epilog=_examples("yazses camera list    every camera with its index and stable path"),
+)
+def camera_list() -> None:
+    """List the cameras this computer has, with the name and path `camera use` accepts."""
+    from yazses.perception.devices import CameraDevice, default_enumerator, format_devices
+
+    platform = get_platform()
+    client = platform.ipc_client_factory(platform.paths.ipc_socket)
+    devices: list[CameraDevice] = []
+    active = None
+    try:
+        reply = client.call("camera", action="list")
+        if isinstance(reply, dict) and reply.get("ok"):
+            for row in reply.get("devices") or []:
+                devices.append(CameraDevice(
+                    int(row["index"]), str(row["name"]), tuple(row.get("paths") or ())
+                ))
+            active = reply.get("active")
+        else:
+            raise IpcUnreachableError("no usable reply")
+    except (IpcUnreachableError, KeyError, TypeError, ValueError):
+        # No daemon: list locally. (Without a device listing this opens each index
+        # briefly, which is harmless while nothing of ours holds the camera.)
+        devices = default_enumerator()()
+    typer.echo(format_devices(devices))
+    if isinstance(active, dict):
+        typer.echo(f"Using: {active.get('name') or 'unnamed'} (index {active.get('index')})")
+    if devices:
+        typer.echo("Pick one with: yazses camera use <name-or-path>")
+
+
+@camera_app.command(
+    "use",
+    epilog=_examples(
+        "yazses camera use 'Logitech C920'    switch every camera feature to that camera, now",
+        "yazses camera use /dev/v4l/by-id/usb-...-video-index0    the stable path from `camera list`",
+    ),
+)
+def camera_use(
+    target: str = typer.Argument(..., help="Camera name (or part of it), index, or /dev/v4l/by-id path"),
+) -> None:
+    """Switch every camera feature to another camera without restarting. Not saved."""
+    _echo_camera(_camera_call("use", target=target))
 
 
 @camera_app.command(
