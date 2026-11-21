@@ -398,6 +398,22 @@ class LinuxTray:
                 lambda _checked=False, a=entry.action: self._on_meeting(a)
             )
 
+        # Camera switch (#924): a checkable toggle (checked = ON) plus a held/released
+        # line. Absent when no camera feature is enabled; the daemon has the final say.
+        from yazses.tray.camera import camera_entry
+
+        cam = camera_entry(status)
+        if cam is not None:
+            menu.addSeparator()
+            cam_act = menu.addAction(cam.label)
+            cam_act.setCheckable(True)
+            cam_act.setChecked(cam.checked)
+            cam_act.triggered.connect(
+                lambda _checked=False, a=cam.action: self._on_camera(a)
+            )
+            held = menu.addAction(cam.indicator)
+            held.setEnabled(False)
+
         menu.addSeparator()
         menu.addAction("Restart daemon").triggered.connect(self._on_restart)
         menu.addAction("Stop daemon").triggered.connect(self._on_stop_daemon)
@@ -467,6 +483,14 @@ class LinuxTray:
         # The controller does the call (its IPC client is already open); the wording
         # comes from the shared describer, so the same click reads the same on every OS.
         self._notify(*describe(action, res))
+
+    def _on_camera(self, action: str) -> None:
+        """Switch the camera on or off through the daemon and say what it answered (#924)."""
+        from yazses.tray.camera import ON, describe
+
+        if self._controller is None:
+            return
+        self._notify(*describe(action, self._controller.set_camera(action == ON)))
 
     def _on_restart(self) -> None:
         if self._controller is not None:
