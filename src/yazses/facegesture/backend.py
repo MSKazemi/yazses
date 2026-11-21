@@ -122,6 +122,7 @@ class FaceGestureBackend:
         self._idle = threading.Event()  # set while the device is not held
         self._idle.set()
         self._camera_failure = ""
+        self._index_override: int | None = None  # `yazses camera use`, runtime only
         # `.lower()` because `configcheck` validates enum values case-insensitively
         # and then stores what was written: without it `gesture = "Jaw_Open"` passes
         # config validation and is silently replaced by the default here.
@@ -418,6 +419,10 @@ class FaceGestureBackend:
         self._paused.set()
         self._idle.wait(2.0)
 
+    def set_camera_index(self, index: int) -> None:
+        """Open camera *index* at the next (re)open instead of ``[facegesture] camera_index``."""
+        self._index_override = int(index)
+
     def resume_camera(self) -> None:
         """Reopen the device after :meth:`pause_camera`. A failure sets :attr:`camera_failure`."""
         self._paused.clear()
@@ -607,6 +612,8 @@ class FaceGestureBackend:
             self._camera_failure = "opencv is not installed"
             return None, None
         index = int(getattr(self._cfg, "camera_index", 0) or 0)
+        if self._index_override is not None:
+            index = self._index_override
         try:
             cap = cv2.VideoCapture(index)
         except Exception:

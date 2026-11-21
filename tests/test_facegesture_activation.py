@@ -99,7 +99,9 @@ def test_run_releases_a_held_gesture_when_the_camera_loop_ends():
 
     backend._build_landmarker = lambda: _Landmarker()
     backend._open_camera = lambda: (_Cap(), object())
-    backend._loop = lambda *a: None
+    # The real loop returns only on stop or pause; since the camera switch (#922) run()
+    # re-enters it otherwise, so the stub must end the run the way a shutdown does.
+    backend._loop = lambda *a: backend._stop_event.set()
     backend.run()
     assert ended == [1]
 

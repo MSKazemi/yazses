@@ -75,6 +75,7 @@ from yazses.config import Config, load_config
 from yazses.inject.streaming import StreamingInjector
 from yazses.ipc.protocol import Request
 from yazses.mcp.budget import InterruptBudget
+from yazses.perception.devices import default_enumerator, resolve_camera
 from yazses.perception.switch import CameraConsumer, CameraSwitch
 from yazses.platform import Platform, get_platform
 from yazses.platform.base import (
@@ -567,6 +568,9 @@ class Daemon:
         # The runtime camera on/off switch (perception/switch.py, #922/#924). Always built,
         # always starts ON, never persisted; camera features register their owners below.
         self._camera_switch = CameraSwitch()
+        # How `yazses camera list|use` finds cameras (perception/devices.py). Injected so a
+        # test never touches /sys; the real one reads sysfs on Linux and probes elsewhere.
+        self._camera_enumerator = default_enumerator()
         # Verbatim/autoformat mode (ADR-v2-078): a persistent gate toggled by the
         # spoken commands "dictate verbatim" / "resume formatting". Lazily created on
         # first use when [verbatim] enabled; holds mode across bursts. None = feature off.
@@ -3045,6 +3049,7 @@ class Daemon:
                     resume=perception.resume,
                     holders=_shared_holders,
                     failure=_shared_failure,
+                    set_index=perception.set_camera_index,
                 ))
             owners: list[tuple[str, Any]] = [
                 ("facegesture", src) for src in self._extra_activations
@@ -3065,18 +3070,31 @@ class Daemon:
                     resume=owner.resume_camera,
                     holders=_own_holders(name, owner),
                     failure=_own_failure(owner),
+                    set_index=getattr(owner, "set_camera_index", None),
                 ))
         except Exception:
             log.warning("Camera switch registration failed; `yazses camera` will report "
                         "nothing to switch.", exc_info=True)
 
     def _handle_camera(self, request: Request) -> dict[str, object]:
-        """IPC: `status` / `on` / `off` for the camera, for every camera feature at once."""
+        """IPC: `status` / `on` / `off` / `list` / `use` for every camera feature at once."""
         action = str(request.params.get("action", "status"))
         switch = self._camera_switch
-        if action not in ("status", "on", "off"):
+        if action not in ("status", "on", "off", "list", "use"):
             return {"ok": False, "reason": f"unknown action {action!r}"}
         try:
+            if action == "list":
+                devices = self._camera_enumerator()
+                return {"ok": True, "devices": [dev.as_payload() for dev in devices],
+                        **switch.status().as_payload()}
+            if action == "use":
+                target = str(request.params.get("target", ""))
+                found = resolve_camera(self._camera_enumerator(), target)
+                if found.device is None:
+                    return {"ok": False, "reason": found.message(), "problem": found.problem,
+                            "devices": [dev.as_payload() for dev in found.candidates]}
+                switch.use_camera(found.device.index, found.device.name)
+                return {"ok": True, **switch.status().as_payload()}
             if action == "on":
                 switch.set(True)
             elif action == "off":

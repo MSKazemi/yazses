@@ -55,6 +55,10 @@ class L2csGazeBackend:
         self._camera_off = True
         self.close()
 
+    def set_camera_index(self, index: int) -> None:
+        """Open camera *index* at the next (re)open."""
+        self._camera_index = int(index)
+
     def resume_camera(self) -> None:
         """Allow the next estimate to reopen the device (lazily, as before)."""
         self._camera_off = False
