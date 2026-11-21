@@ -157,7 +157,7 @@ def enumerate_v4l(sys_root: Path = V4L_SYS, by_id_root: Path = V4L_BY_ID) -> lis
         except OSError:
             continue
         try:
-            node_index = (entry / "index").read_text().strip()
+            node_index = (entry / "index").read_text(encoding="utf-8").strip()
         except OSError:
             node_index = "0"
         if node_index not in ("", "0"):

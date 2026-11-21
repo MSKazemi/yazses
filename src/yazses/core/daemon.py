@@ -44,6 +44,7 @@ if TYPE_CHECKING:
     from yazses.learning.edit_watch import EditWatcher
     from yazses.meeting.controller import MeetingController
     from yazses.perception import SharedPerceptionSource
+    from yazses.perception.switch import CameraSwitch
     from yazses.pilot.service import PilotService
     from yazses.predict.runtime import PredictRuntime
     from yazses.predict.session import Suggestion
@@ -75,8 +76,6 @@ from yazses.config import Config, load_config
 from yazses.inject.streaming import StreamingInjector
 from yazses.ipc.protocol import Request
 from yazses.mcp.budget import InterruptBudget
-from yazses.perception.devices import default_enumerator, resolve_camera
-from yazses.perception.switch import CameraConsumer, CameraSwitch
 from yazses.platform import Platform, get_platform
 from yazses.platform.base import (
     PRIMARY_MODIFIER_CTRL,
@@ -567,10 +566,12 @@ class Daemon:
         self._extra_activations: list[HotkeyBackend] = []
         # The runtime camera on/off switch (perception/switch.py, #922/#924). Always built,
         # always starts ON, never persisted; camera features register their owners below.
-        self._camera_switch = CameraSwitch()
+        # Built on first use, never at start: the perception package pulls in the gaze
+        # package, which a daemon with no camera feature must not import (budget tests).
+        self._camera_switch_obj: CameraSwitch | None = None
         # How `yazses camera list|use` finds cameras (perception/devices.py). Injected so a
         # test never touches /sys; the real one reads sysfs on Linux and probes elsewhere.
-        self._camera_enumerator = default_enumerator()
+        self._camera_enumerator_fn: Callable[[], Any] | None = None
         # Verbatim/autoformat mode (ADR-v2-078): a persistent gate toggled by the
         # spoken commands "dictate verbatim" / "resume formatting". Lazily created on
         # first use when [verbatim] enabled; holds mode across bursts. None = feature off.
@@ -3024,13 +3025,37 @@ class Daemon:
 
     # ---- Camera on/off switch (perception/switch.py, #922 / #924) --------------------
 
+    @property
+    def _camera_switch(self) -> CameraSwitch:
+        if self._camera_switch_obj is None:
+            from yazses.perception.switch import CameraSwitch
+
+            self._camera_switch_obj = CameraSwitch()
+        return self._camera_switch_obj
+
+    @_camera_switch.setter
+    def _camera_switch(self, value: CameraSwitch) -> None:
+        self._camera_switch_obj = value
+
+    def _camera_enumerator(self) -> Any:
+        if self._camera_enumerator_fn is None:
+            from yazses.perception.devices import default_enumerator
+
+            self._camera_enumerator_fn = default_enumerator()
+        return self._camera_enumerator_fn()
+
     def _register_camera_consumers(self) -> None:
         """Tell the camera switch who owns a device. Never raises; dictation is not in here."""
         try:
+            perception = getattr(self, "_perception", None)
+            if (perception is None and getattr(self, "_gaze_targeter", None) is None
+                    and not any(hasattr(src, "pause_camera") for src in self._extra_activations)):
+                return  # no camera owner: nothing to switch, nothing to import
+            from yazses.perception.devices import default_enumerator  # noqa: F401
             from yazses.perception.source import SourceState
+            from yazses.perception.switch import CameraConsumer
 
             switch = self._camera_switch
-            perception = getattr(self, "_perception", None)
             if perception is not None:
                 def _shared_holders(src=perception) -> tuple[str, ...]:
                     status = src.status()
@@ -3078,6 +3103,8 @@ class Daemon:
 
     def _camera_status_payload(self) -> dict[str, object] | None:
         """The camera switch as a status block, or None -- a status read never fails on it."""
+        if self._camera_switch_obj is None:
+            return None
         try:
             return self._camera_switch.status().as_payload()
         except Exception:  # pragma: no cover - defensive
@@ -3087,10 +3114,12 @@ class Daemon:
     def _handle_camera(self, request: Request) -> dict[str, object]:
         """IPC: `status` / `on` / `off` / `list` / `use` for every camera feature at once."""
         action = str(request.params.get("action", "status"))
-        switch = self._camera_switch
         if action not in ("status", "on", "off", "list", "use"):
             return {"ok": False, "reason": f"unknown action {action!r}"}
         try:
+            from yazses.perception.devices import resolve_camera
+
+            switch = self._camera_switch
             if action == "list":
                 devices = self._camera_enumerator()
                 return {"ok": True, "devices": [dev.as_payload() for dev in devices],

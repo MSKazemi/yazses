@@ -110,10 +110,10 @@ def _v4l_tree(tmp_path):
     for node, name, idx in [("video0", "Logitech C920", "0"), ("video1", "Logitech C920", "1"),
                             ("video2", "Integrated Camera", "0")]:
         (sys_root / node).mkdir(parents=True)
-        (sys_root / node / "name").write_text(name + "\n")
-        (sys_root / node / "index").write_text(idx + "\n")
+        (sys_root / node / "name").write_text(name + "\n", encoding="utf-8")
+        (sys_root / node / "index").write_text(idx + "\n", encoding="utf-8")
         (dev / node).parent.mkdir(exist_ok=True)
-        (dev / node).write_text("")
+        (dev / node).write_text("", encoding="utf-8")
     by_id.mkdir()
     (by_id / "usb-Logitech_C920-video-index0").symlink_to(dev / "video0")
     (by_id / "usb-Logitech_C920-video-index1").symlink_to(dev / "video1")
