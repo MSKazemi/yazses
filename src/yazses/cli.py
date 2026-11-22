@@ -6674,14 +6674,36 @@ camera_app = typer.Typer(
 app.add_typer(camera_app, rich_help_panel=_SETUP)
 
 
+#: Seconds the CLI waits for `camera on|off|use`; the IPC default (2 s) is too short.
+_CAMERA_SWITCH_WAIT_S = 15.0
+
+
 def _camera_call(action: str, **params: object) -> dict:
     """Ask the running daemon for a camera `action`; exits with a hint when it cannot."""
     platform = get_platform()
     client = platform.ipc_client_factory(platform.paths.ipc_socket)
+    # A switch waits for the device to be released and reopened (the face loop alone
+    # may take 2 s to let go), so on/off/use get a longer wait than the 2 s default.
+    if action in ("on", "off", "use"):
+        params["wait_s"] = _CAMERA_SWITCH_WAIT_S
     try:
         result = client.call("camera", action=action, **params)
+    except IpcTimeoutError:
+        typer.echo(
+            "The daemon is still switching the camera and did not answer in time. "
+            "It is running; check the result with: yazses camera status",
+            err=True,
+        )
+        raise typer.Exit(1)
     except IpcUnreachableError:
         typer.echo("Daemon is not running. Start it with: yazses start", err=True)
+        raise typer.Exit(1)
+    except IpcCallError as exc:
+        typer.echo(
+            f"The running daemon could not do that ({exc}). It may be an older version "
+            "without the camera switch; restart it with: yazses restart",
+            err=True,
+        )
         raise typer.Exit(1)
     if not isinstance(result, dict) or not result.get("ok"):
         reason = result.get("reason") if isinstance(result, dict) else None

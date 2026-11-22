@@ -129,9 +129,12 @@ def test_holder_changes_are_logged_once(caplog):
 
 
 def test_the_switch_is_thread_safe_under_concurrent_flips():
-    log: list[str] = []
+    held = {"on": True}
     s = CameraSwitch()
-    s.register(_consumer("a", log))
+    s.register(CameraConsumer(
+        "a", lambda: held.update(on=False), lambda: held.update(on=True),
+        holders=lambda: ("a",) if held["on"] else (),
+    ))
     stop = threading.Event()
 
     def flip():
@@ -149,6 +152,7 @@ def test_the_switch_is_thread_safe_under_concurrent_flips():
             t.join(2.0)
     assert not any(t.is_alive() for t in threads)
     assert s.status().on in (True, False)
+    assert held["on"] == s.is_on  # the owner ends in the state the switch reports
 
 
 # ------------------------------------------------------------------ shared source
@@ -528,7 +532,10 @@ def test_cli_sends_the_action(daemon, word):
     daemon.reply = {"ok": True, "state": "on", "holders": [], "consumers": [], "failures": {}}
     result = runner.invoke(cli.app, ["camera", word])
     assert result.exit_code == 0, result.output
-    assert daemon.calls == [("camera", {"action": word})]
+    expected = {"action": word}
+    if word != "status":
+        expected["wait_s"] = cli._CAMERA_SWITCH_WAIT_S
+    assert daemon.calls == [("camera", expected)]
 
 
 def test_cli_status_names_the_holders_and_the_workaround(daemon):

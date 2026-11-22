@@ -101,6 +101,11 @@ def format_devices(devices: list[CameraDevice]) -> str:
     return "\n".join(lines)
 
 
+def _is_path(q: str) -> bool:
+    """A device path rather than a name: POSIX ``/dev/...`` or a Windows drive or UNC path."""
+    return q.startswith(("/", "\\")) or os.path.isabs(q) or (len(q) > 2 and q[1] == ":" and q[2] in "\\/")
+
+
 def resolve_camera(devices: list[CameraDevice], query: str) -> Resolution:
     """Pick one device by path, index, exact name or unique name fragment.
 
@@ -113,9 +118,10 @@ def resolve_camera(devices: list[CameraDevice], query: str) -> Resolution:
     everyone = tuple(devices)
     if not q:
         return Resolution(None, "empty", everyone, q)
-    if q.startswith("/"):
-        norm = os.path.normpath(q)
-        hits = [d for d in devices if norm in (os.path.normpath(p) for p in d.paths)]
+    if _is_path(q):
+        norm = os.path.normcase(os.path.normpath(q))
+        hits = [d for d in devices
+                if norm in (os.path.normcase(os.path.normpath(p)) for p in d.paths)]
         return _one(hits, everyone, q)
     if q.isdigit():
         hits = [d for d in devices if d.index == int(q)]

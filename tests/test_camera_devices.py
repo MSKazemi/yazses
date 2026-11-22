@@ -364,7 +364,8 @@ def test_cli_use_sends_the_target_and_reports_the_camera(daemon):
                     "active": {"index": 2, "name": "Integrated Camera"}}
     result = runner.invoke(cli.app, ["camera", "use", "integrated"])
     assert result.exit_code == 0, result.output
-    assert daemon.calls == [("camera", {"action": "use", "target": "integrated"})]
+    assert daemon.calls == [("camera", {"action": "use", "target": "integrated",
+                                        "wait_s": cli._CAMERA_SWITCH_WAIT_S})]
     assert "Using: Integrated Camera (index 2)" in result.output
     assert "not saved" in result.output
 

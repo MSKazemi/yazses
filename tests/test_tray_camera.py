@@ -117,7 +117,8 @@ def test_controller_set_camera_calls_the_camera_method():
     ctrl = TrayController(client)
     ctrl.set_camera(False)
     ctrl.set_camera(True)
-    assert client.calls == [("camera", {"action": "off"}), ("camera", {"action": "on"})]
+    assert client.calls == [("camera", {"action": "off", "wait_s": 15.0}),
+                            ("camera", {"action": "on", "wait_s": 15.0})]
 
 
 # ---------------------------------------------------------------- the bridge

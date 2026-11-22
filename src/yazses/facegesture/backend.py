@@ -350,14 +350,17 @@ class FaceGestureBackend:
             return
         cap, cv2 = self._open_camera()
         if cap is None:
-            if hasattr(landmarker, "close"):
-                landmarker.close()
-            return
-
-        log.info(
-            "Face-gesture switch watching %r (hold %.2f / release %.2f).",
-            self._gesture, *self._switch.thresholds,
-        )
+            # A busy or denied camera is not the end of the switch: wait below, so a
+            # later `camera on` (or the other app letting go) can open it. The
+            # landmarker and the loop are released only on stop().
+            log.warning("Face-gesture switch is waiting for a camera it can open "
+                        "(%s); `yazses camera on` retries.",
+                        self._camera_failure or "could not open it")
+        else:
+            log.info(
+                "Face-gesture switch watching %r (hold %.2f / release %.2f).",
+                self._gesture, *self._switch.thresholds,
+            )
         # Normally guaranteed: _build_landmarker imported mediapipe to build the
         # landmarker it just returned. That only holds while the seam is the real
         # one, and an absent optional extra must not skip the shutdown drain in the

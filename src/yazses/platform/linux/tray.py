@@ -488,9 +488,19 @@ class LinuxTray:
         """Switch the camera on or off through the daemon and say what it answered (#924)."""
         from yazses.tray.camera import ON, describe
 
-        if self._controller is None:
+        ctrl = self._controller
+        if ctrl is None:
             return
-        self._notify(*describe(action, self._controller.set_camera(action == ON)))
+
+        def _work() -> None:
+            # The daemon call waits for the device to be released or reopened, which can
+            # take seconds; on the Qt thread that would freeze the menu and the icon.
+            message = describe(action, ctrl.set_camera(action == ON))
+            bridge = self._bridge
+            if bridge is not None:
+                bridge.notified.emit(message)
+
+        threading.Thread(target=_work, name="tray-camera", daemon=True).start()
 
     def _on_restart(self) -> None:
         if self._controller is not None:

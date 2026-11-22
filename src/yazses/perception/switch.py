@@ -85,6 +85,8 @@ class CameraSwitch:
 
     def __init__(self, *, on: bool = True) -> None:
         self._lock = threading.RLock()
+        #: Held for a whole on/off/use transition, never while observers run.
+        self._transition = threading.RLock()
         self._on = bool(on)
         self._consumers: list[CameraConsumer] = []
         self._observers: list[Callable[[bool], None]] = []
@@ -97,11 +99,12 @@ class CameraSwitch:
 
     def register(self, consumer: CameraConsumer) -> None:
         """Add a camera owner. If the switch is already OFF it is paused at once."""
-        with self._lock:
-            self._consumers.append(consumer)
-            off = not self._on
-        if off:
-            self._pause_one(consumer)
+        with self._transition:
+            with self._lock:
+                self._consumers.append(consumer)
+                off = not self._on
+            if off:
+                self._pause_one(consumer)
 
     def subscribe(self, observer: Callable[[bool], None]) -> Callable[[], None]:
         """Call ``observer(is_on)`` after every change. Returns an unsubscribe function."""
@@ -118,16 +121,35 @@ class CameraSwitch:
     def set(self, on: bool) -> bool:
         """Switch ON or OFF. Returns True when the state changed.
 
-        Never raises: a consumer that cannot release or reopen is logged and shows
-        up in :meth:`status` as a failure.
+        The whole transition holds one lock, so concurrent on/off/use calls run one
+        after another and the owners always end in the state :attr:`is_on` reports.
+        Observers run after it is released. Never raises: a consumer that cannot
+        release or reopen is logged and shows up in :meth:`status` as a failure.
         """
         on = bool(on)
+        with self._transition:
+            changed = self._apply(on)
+        if changed:
+            self._announce([on])
+        return changed
+
+    def _apply(self, on: bool) -> bool:
+        """One transition; the caller holds ``_transition``. No observers here."""
         with self._lock:
             if on == self._on:
-                return False
-            self._on = on
+                retry = [c for c in self._consumers if self._failed(c)] if on else []
+                changed = False
+            else:
+                self._on = on
+                retry = []
+                changed = True
             consumers = list(self._consumers)
-            observers = list(self._observers)
+        if not changed:
+            # Already ON: "camera on" is also the retry for an owner whose last
+            # reopen failed (a camera another app held). Healthy owners are untouched.
+            for consumer in retry:
+                self._resume_one(consumer)
+            return False
         if on:
             log.info("Camera switched ON: resuming camera features.")
         else:
@@ -138,41 +160,60 @@ class CameraSwitch:
                 self._resume_one(consumer)
             else:
                 self._pause_one(consumer)
-        for observer in observers:
-            try:
-                observer(on)
-            except Exception:
-                log.debug("camera switch observer raised", exc_info=True)
-        self.note_holders()
         return True
+
+    @staticmethod
+    def _failed(consumer: CameraConsumer) -> bool:
+        try:
+            return bool(consumer.failure())
+        except Exception:
+            return False
+
+    def _announce(self, states: list[bool]) -> None:
+        """Tell observers about each state, outside the transition lock."""
+        with self._lock:
+            observers = list(self._observers)
+        for on in states:
+            for observer in observers:
+                try:
+                    observer(on)
+                except Exception:
+                    log.debug("camera switch observer raised", exc_info=True)
+        self.note_holders()
 
     def use_camera(self, index: int, name: str = "") -> bool:
         """Point every camera owner at *index*, reopening if the switch is ON (#924).
 
         OFF -> swap the index -> ON, so the device is never held on the old camera
         while the new one opens. If the switch was already OFF, the new index is
-        stored and used at the next ``on``. Never raises; a failed reopen shows up in
-        :meth:`status`. Returns True when the switch ended ON.
+        stored and used at the next ``on``. The whole sequence is one transition: a
+        concurrent ``on``/``off`` waits for it. Never raises; a failed reopen shows up
+        in :meth:`status`. Returns True when the switch ended ON.
         """
-        with self._lock:
-            was_on = self._on
-            consumers = list(self._consumers)
-        if was_on:
-            self.set(False)
-        for consumer in consumers:
-            if consumer.set_index is None:
-                continue
-            try:
-                consumer.set_index(int(index))
-            except Exception:
-                log.warning("Camera feature %s could not switch to camera %d.",
-                            consumer.name, index, exc_info=True)
-        with self._lock:
-            self._active = {"index": int(index), "name": str(name)}
-        log.info("Camera selected: %s (index %d).", name or "unnamed", index)
-        if was_on:
-            self.set(True)
-        return self._on
+        states: list[bool] = []
+        with self._transition:
+            with self._lock:
+                was_on = self._on
+                consumers = list(self._consumers)
+            if was_on and self._apply(False):
+                states.append(False)
+            for consumer in consumers:
+                if consumer.set_index is None:
+                    continue
+                try:
+                    consumer.set_index(int(index))
+                except Exception:
+                    log.warning("Camera feature %s could not switch to camera %d.",
+                                consumer.name, index, exc_info=True)
+            with self._lock:
+                self._active = {"index": int(index), "name": str(name)}
+            log.info("Camera selected: %s (index %d).", name or "unnamed", index)
+            if was_on and self._apply(True):
+                states.append(True)
+            ended_on = self._on
+        if states:
+            self._announce(states)
+        return ended_on
 
     @property
     def active(self) -> dict[str, object] | None:
@@ -181,10 +222,13 @@ class CameraSwitch:
 
     def toggle(self) -> bool:
         """Flip the state; returns the new state (True = ON)."""
-        with self._lock:
+        with self._transition:
             target = not self._on
-        self.set(target)
-        return self._on
+            changed = self._apply(target)
+            ended_on = self._on
+        if changed:
+            self._announce([target])
+        return ended_on
 
     def holders(self) -> tuple[str, ...]:
         """Which camera features hold the device right now (sorted, de-duplicated)."""
