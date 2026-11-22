@@ -4481,6 +4481,153 @@ def audio_status() -> None:
             typer.echo(f"               {line}")
 
 
+camera_app = typer.Typer(
+    name="camera",
+    help="See and pick the webcam the gaze / face-gesture features use.",
+    context_settings=CONTEXT_SETTINGS,
+    no_args_is_help=True,
+)
+app.add_typer(camera_app, rich_help_panel=_SETUP)
+
+
+def _list_cameras_or_exit() -> list:
+    """Enumerate cameras (opens none); a backend failure ends the command with exit 1."""
+    from yazses.camera.devices import list_cameras
+    from yazses.platform.factory import get_camera_enumerator
+
+    try:
+        return list_cameras(get_camera_enumerator())
+    except Exception as exc:  # pragma: no cover - OS dependent
+        typer.echo(f"Could not list cameras: {exc}")
+        raise typer.Exit(1) from exc
+
+
+@camera_app.command(
+    "devices",
+    epilog=_examples("yazses camera devices    list cameras (★ = the one chosen in config)"),
+)
+def camera_devices() -> None:
+    """List the cameras the OS reports. Lists only; no camera is opened."""
+    from yazses.camera.devices import resolve_camera
+    from yazses.config import load_config
+
+    platform = get_platform()
+    cfg = load_config(platform.paths.config_file)
+    chosen = (cfg.camera.device or "").strip()
+    devices = _list_cameras_or_exit()
+    if not devices:
+        typer.echo("No cameras found. Is a webcam connected?")
+        return
+    chosen_dev = resolve_camera(chosen, devices).device if chosen else None
+    typer.echo("Cameras:")
+    for dev in devices:
+        mark = "★" if chosen_dev is not None and chosen_dev == dev else " "
+        typer.echo(f"  {mark} [{dev.index}] {dev.name}  ({dev.path})")
+    typer.echo("\n  ★ = chosen with `yazses camera use`")
+    if not chosen:
+        typer.echo("  None chosen — each feature uses its own camera_index. "
+                   "Choose with `yazses camera use <name>`.")
+
+
+@camera_app.command(
+    "use",
+    epilog=_examples(
+        "yazses camera use 'Brio'    choose the webcam by name (substring)",
+        "yazses camera use --clear   forget the choice; features use camera_index 0 again",
+        "yazses restart              apply the change",
+    ),
+)
+def camera_use(
+    name: str = typer.Argument("", help="Camera name or id (case-insensitive substring)."),
+    clear: bool = typer.Option(False, "--clear", help="Forget the choice."),
+) -> None:
+    """Choose the one webcam every camera feature uses.
+
+    Writes ``[camera] device`` and ``index`` and keeps ``camera_index`` under ``[gaze]``,
+    ``[facegesture]`` and ``[perception]`` equal to it, in one atomic edit. It never opens
+    the camera. A name that matches several cameras is refused, never guessed.
+    """
+    from yazses.camera.devices import resolve_camera
+    from yazses.system.configedit import ConfigChange, set_config_keys_atomic
+
+    platform = get_platform()
+    legacy = ("gaze", "facegesture", "perception")
+    if clear:
+        changes = [ConfigChange("camera", "device", ""), ConfigChange("camera", "index", -1)]
+        changes += [ConfigChange(s, "camera_index", 0) for s in legacy]
+        set_config_keys_atomic(platform.paths.config_file, changes)
+        typer.echo("Cleared — camera features use camera_index 0 again "
+                   "(reset in [gaze], [facegesture] and [perception]).")
+        typer.echo("Apply it:  yazses restart")
+        return
+    if not name.strip():
+        typer.echo("Give a camera name (or --clear). See `yazses camera devices`.")
+        raise typer.Exit(2)
+
+    devices = _list_cameras_or_exit()
+    resolution = resolve_camera(name, devices)
+    if resolution.ambiguous:
+        typer.echo(f"{name!r} matches {len(resolution.candidates)} cameras:")
+        for cand in resolution.candidates:
+            typer.echo(f"    {cand.stable_id}  [{cand.index}]")
+        typer.echo("")
+        typer.echo("Choosing one by a name they share would pick whichever the OS lists")
+        typer.echo("first, which can change after a replug. Name one exactly:")
+        typer.echo(f'    yazses camera use "{resolution.candidates[0].stable_id}"')
+        raise typer.Exit(2)
+    dev = resolution.device
+    if dev is None:
+        # Unlike `audio use`, nothing is written for a camera that is not here: the index
+        # to open comes from the enumeration, so there is nothing true to save.
+        typer.echo(f"No camera matches {name!r}. Run `yazses camera devices` to see names.")
+        raise typer.Exit(1)
+
+    changes = [
+        ConfigChange("camera", "device", dev.stable_id),
+        ConfigChange("camera", "index", dev.index),
+    ]
+    changes += [ConfigChange(s, "camera_index", dev.index) for s in legacy]
+    set_config_keys_atomic(platform.paths.config_file, changes)
+    typer.echo(f"Chose camera {dev.name!r} ({dev.path}, index {dev.index}).")
+    typer.echo("Apply it:  yazses restart")
+
+
+@camera_app.command(
+    "status",
+    epilog=_examples("yazses camera status    show the chosen camera and what each feature uses"),
+)
+def camera_status() -> None:
+    """Show the chosen camera and the index each camera feature will open.
+
+    Reads the config and the OS camera list only. It does not ask the daemon, so it cannot
+    say whether a camera is open right now.
+    """
+    from yazses.camera.devices import resolve_camera
+    from yazses.config import load_config
+
+    platform = get_platform()
+    cfg = load_config(platform.paths.config_file)
+    chosen = (cfg.camera.device or "").strip()
+    if not chosen and cfg.camera.index < 0:
+        typer.echo("Chosen camera: (none — each feature uses its own camera_index)")
+    else:
+        typer.echo(f"Chosen camera: {chosen or '(unnamed)'}  [index {cfg.camera.index}]")
+        devices = _list_cameras_or_exit()
+        found = resolve_camera(chosen, devices).device if chosen else None
+        if found is None:
+            typer.echo("Connected:     no — that camera is not in the OS list right now")
+        elif found.index != cfg.camera.index:
+            typer.echo(
+                f"Connected:     yes, but now at index {found.index}, not {cfg.camera.index}. "
+                f"Re-run `yazses camera use \"{found.stable_id}\"`."
+            )
+        else:
+            typer.echo(f"Connected:     yes ({found.path})")
+    typer.echo(f"Opens:         gaze={cfg.gaze.camera_index}  "
+               f"facegesture={cfg.facegesture.camera_index}  "
+               f"perception={cfg.perception.camera_index}")
+
+
 hotkey_app = typer.Typer(
     name="hotkey",
     help="Change the key you hold to talk.",

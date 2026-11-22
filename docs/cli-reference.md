@@ -466,6 +466,7 @@ debugging. This is the entry point `yazses start` supervises in the background.
 | `yazses srs` | Capture facts as flashcards and schedule reviews (SM-2). |
 | `yazses hotkey` | Show or change the key you hold to talk. |
 | `yazses audio` | See and pin the input microphone (fixes a mic that silently switches). |
+| `yazses camera` | See and pick the webcam the gaze / face-gesture features use. |
 | `yazses gaze` | Aim dictation with your gaze — type into whichever pane you look at. |
 | `yazses eye-eval` | Run a scripted eye-control evaluation task and save a privacy-safe result JSON. |
 
@@ -1007,6 +1008,22 @@ See the [voice command reference](#voice-command-reference) below for the phrase
 yazses audio devices                 # which mics exist, and which one is in use
 yazses audio use "AT Translated"     # pin the built-in laptop mic by name
 yazses audio use --clear             # go back to following the OS default
+yazses restart                       # apply
+```
+
+### `yazses camera` — webcam for gaze and face gestures
+
+| Command | Description |
+|---|---|
+| `yazses camera devices` | List the cameras the OS reports (`★` = chosen). Opens none. |
+| `yazses camera use <name>` | Choose the webcam by name or id (substring); refuses a name several cameras share. |
+| `yazses camera use --clear` | Forget the choice; `camera_index` goes back to 0. |
+| `yazses camera status` | Show the chosen camera, whether it is plugged in, and the index each feature opens. |
+
+```bash
+yazses camera devices                # which webcams exist
+yazses camera use "Brio"             # choose one by name
+yazses camera status                 # what gaze / face gestures will open
 yazses restart                       # apply
 ```
 

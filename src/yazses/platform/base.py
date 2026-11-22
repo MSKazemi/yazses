@@ -16,6 +16,8 @@ from yazses.cameraperm.contract import CameraPermission
 from yazses.pointer.base import PointerSink
 
 if TYPE_CHECKING:
+    from yazses.camera.devices import CameraDevice
+
     # Type-only: importing it at module level made every CLI start load the whole `gaze`
     # package (and, through it, `statistics`/`decimal`/`fractions`) for the sake of an annotation.
     from yazses.gaze.clicks import ClickObserver
@@ -461,6 +463,20 @@ class UrlOpener(Protocol):
         registered, the opener missing or failing). "Handed off" is the OS's answer, not
         the client's: whether the client then shows the text is outside this seam.
         """
+        ...
+
+
+@runtime_checkable
+class CameraEnumerator(Protocol):
+    """Lists the cameras the OS reports, without opening any of them (#924).
+
+    One implementation per OS family under ``platform/<os>/camera.py``. It must never
+    import ``cv2``, open a capture device or read a frame: listing a camera is not using
+    it. Returns ``yazses.camera.devices.CameraDevice`` records; an OS that cannot enumerate
+    returns ``[]`` rather than raising.
+    """
+
+    def list_cameras(self) -> list[CameraDevice]:
         ...
 
 

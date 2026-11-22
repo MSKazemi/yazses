@@ -190,6 +190,25 @@ Translate text to Unicode Braille (UEB subset) — fully offline.
 - **Arguments:** `text`
 - `--grade` — UEB grade: 1 (uncontracted) or 2 (contracted).
 
+## `yazses camera`
+
+See and pick the webcam the gaze / face-gesture features use.
+
+### `yazses camera devices`
+
+List the cameras the OS reports. Lists only; no camera is opened.
+
+### `yazses camera status`
+
+Show the chosen camera and the index each camera feature will open.
+
+### `yazses camera use`
+
+Choose the one webcam every camera feature uses.
+
+- **Arguments:** `name`
+- `--clear` — Forget the choice.
+
 ## `yazses case`
 
 Recase text to a naming convention — fully offline.

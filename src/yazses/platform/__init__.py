@@ -1,4 +1,5 @@
 from yazses.platform.base import (
+    CameraEnumerator,
     FileOpener,
     HostBackend,
     HostInfo,
@@ -19,6 +20,7 @@ from yazses.platform.base import (
 )
 from yazses.platform.factory import (
     describe_host,
+    get_camera_enumerator,
     get_file_opener,
     get_paths,
     get_platform,
@@ -27,6 +29,8 @@ from yazses.platform.factory import (
 
 __all__ = [
     "describe_host",
+    "CameraEnumerator",
+    "get_camera_enumerator",
     "FileOpener",
     "get_file_opener",
     "get_url_opener",
