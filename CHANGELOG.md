@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — tests: an autouse socket guard fails any test that makes a real outbound connection
+
+`tests/_net_guard.py`, installed per test by `tests/conftest.py`, makes `socket.connect`, `connect_ex`, `sendto` and `getaddrinfo` raise `NetworkAccessBlocked` (naming the host and pointing at ADR-019) for anything but loopback, `localhost`, AF_UNIX and `socketpair`. It is the runtime half of the egress inventory, which only sees our own modules by AST. `@pytest.mark.allow_network` (registered in `pyproject.toml`) opts one test out; `YAZSES_TEST_NET_GUARD=0` disables it for a local bisect. A prior audit of the whole suite found no test that reached the network. Tests: `tests/test_net_guard.py`.
+
 ### Added — research: a MaixCAM2 text link, recorded as an ADR (research record only) and a research note, not a feature
 
 [ADR-v2-156](design/adr/adr-v2-156-maixcam2-text-link.md) (Accepted as a research record only) records whether a Sipeed MaixCAM2 running Whisper `base` could send recognised text to a desktop over a wired UART: the falsifiable hypothesis, a threat model for text arriving over a wire, the egress statement, exit criteria and the unknowns. `docs/research/maixcam2-text-link.md` is the matching notice: experimental, research only, not part of YazSes. The change also adds a stdlib-only reference codec, simulator and printing reader under `examples/maixcam2-text-link/`, with tests, and a draft wire spec (`design/specs/textlink-wire-protocol.md`). Nothing in `src/` changes and no board has been tested; the ADR-030 breadth freeze applies, so implementation needs a recorded go and a named exception.
