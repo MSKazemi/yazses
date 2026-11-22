@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — docs: validation matrix records a Windows pipx report on 2.51.0 (E43)
+
+The Windows 11 pipx row of `docs/validation-matrix.md` now cites a 2026-11-18 report from [#330](https://github.com/MSKazemi/yazses/issues/330): on 2.51.0 (pipx upgrade from 2.40.1) the daemon started cleanly, a hotkey set with `yazses hotkey set` survived `yazses restart`, and exactly one daemon ran afterwards. The report names no device model or OS build and pastes no raw `doctor` text, so it is graded Reported, the 2.36.0 failure stays as history, and the row does not move to Verified (HW). Refs #388.
+
 ### Added — research: a MaixCAM2 text link, recorded as an ADR (research record only) and a research note, not a feature
 
 [ADR-v2-156](design/adr/adr-v2-156-maixcam2-text-link.md) (Accepted as a research record only) records whether a Sipeed MaixCAM2 running Whisper `base` could send recognised text to a desktop over a wired UART: the falsifiable hypothesis, a threat model for text arriving over a wire, the egress statement, exit criteria and the unknowns. `docs/research/maixcam2-text-link.md` is the matching notice: experimental, research only, not part of YazSes. The change also adds a stdlib-only reference codec, simulator and printing reader under `examples/maixcam2-text-link/`, with tests, and a draft wire spec (`design/specs/textlink-wire-protocol.md`). Nothing in `src/` changes and no board has been tested; the ADR-030 breadth freeze applies, so implementation needs a recorded go and a named exception.
