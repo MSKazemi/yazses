@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — models: one registry of every model, `yazses model list` for all kinds, `model remove` and `model disk` (#929)
+
+New `yazses.models.registry` (pure, imports nothing heavy) describes every model kind (speech-to-text, VAD, SLM, TTS voice, diarization, gaze) with name, approximate size, on-disk state and owning feature, built over the existing sources without changing them. `yazses model list` now shows all kinds; `yazses model remove <id>` (`kind:name` or an unambiguous bare name; asks first, `--yes` skips) and `yazses model disk` are new. `model download` is unchanged. The registry also holds `ensure_model(kind, name, policy, is_cached=, download=)` with policy `auto|ask|never`: a pure function that calls the injected `download` only under `auto` and otherwise returns a message naming what is missing, its size and the manual route. Nothing calls it yet, and the `[stt] download` config key that would set the policy is **not** added: it is an L3 change awaiting owner sign-off (ADR-030). Until then the behaviour is `auto`, exactly as today. No new network path (ADR-019 unchanged).
+
 ### Added — research: a MaixCAM2 text link, recorded as an ADR (research record only) and a research note, not a feature
 
 [ADR-v2-156](design/adr/adr-v2-156-maixcam2-text-link.md) (Accepted as a research record only) records whether a Sipeed MaixCAM2 running Whisper `base` could send recognised text to a desktop over a wired UART: the falsifiable hypothesis, a threat model for text arriving over a wire, the egress statement, exit criteria and the unknowns. `docs/research/maixcam2-text-link.md` is the matching notice: experimental, research only, not part of YazSes. The change also adds a stdlib-only reference codec, simulator and printing reader under `examples/maixcam2-text-link/`, with tests, and a draft wire spec (`design/specs/textlink-wire-protocol.md`). Nothing in `src/` changes and no board has been tested; the ADR-030 breadth freeze applies, so implementation needs a recorded go and a named exception.

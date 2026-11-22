@@ -7526,27 +7526,110 @@ def eye_eval(
 
 @model_app.command(
     "list",
-    epilog=_examples("yazses model list    show speech + intent-router models, and which are present"),
+    epilog=_examples(
+        "yazses model list    show every model (speech, VAD, intent router, voice, diarization, gaze)",
+    ),
 )
 def model_list() -> None:
-    """List available models (speech-to-text and SLM) and their status."""
-    from yazses.commands.model_manager import list_models, local_path
-    from yazses.stt.download import WHISPER_MODELS, hub_cache_dir, is_cached
+    """List every model YazSes can use, grouped by kind, with size and on-disk state."""
+    from yazses.models.registry import KINDS, build_registry
+    from yazses.stt.download import hub_cache_dir
 
-    cache = hub_cache_dir()
-    typer.echo("Speech-to-text (`[stt] model`):\n")
-    for name in sorted(WHISPER_MODELS):
-        state = "downloaded" if is_cached(name, cache) else "not downloaded"
-        typer.echo(f"  {name:<24}  [{state}]")
-    typer.echo(f"\n  Cache: {cache}")
-
-    typer.echo("\nIntent routing (`[commands] slm_model_path`):\n")
-    for info in list_models():
-        path = local_path(info.id)
-        status = f"installed: {path}" if path else f"not downloaded ({info.size_mb} MB)"
-        typer.echo(f"  {info.id:<24}  {info.description}")
-        typer.echo(f"  {'':24}  [{status}]")
+    titles = {
+        "stt": "Speech-to-text (`[stt] model`)",
+        "vad": "Voice activity detection (`[meeting] vad_backend`)",
+        "slm": "Intent routing (`[commands] slm_model_path`)",
+        "tts": "Read-Back voice (`[tts]`)",
+        "diarization": "Speaker diarization (`yazses transcribe --download-models`)",
+        "gaze": "Gaze (`[gaze]`)",
+    }
+    entries = build_registry()
+    for kind in KINDS:
+        typer.echo(f"{titles[kind]}:\n")
+        for e in (x for x in entries if x.kind == kind):
+            size = f" (~{e.size_mb} MB)" if e.size_mb else ""
+            if e.state == "present":
+                where = f": {e.paths[0]}" if kind != "stt" and e.paths else ""
+                state = f"downloaded{where}"
+            elif e.state == "bundled":
+                state = "bundled, no download"
+            else:
+                state = f"not downloaded{size}"
+            typer.echo(f"  {e.name:<24}  [{state}]")
+            if kind == "slm":
+                typer.echo(f"  {'':24}  {e.description}")
+        if kind == "stt":
+            typer.echo(f"\n  Cache: {hub_cache_dir()}")
         typer.echo("")
+
+
+def _remove_target_hint(ident: str, entries) -> str:
+    names = [e for e in entries if e.name == ident]
+    if len(names) > 1:
+        return "That name is ambiguous; use one of: " + ", ".join(e.id for e in names)
+    return "Run `yazses model list` for the names (use kind:name, e.g. stt:base.en)."
+
+
+@model_app.command(
+    "remove",
+    epilog=_examples(
+        "yazses model remove stt:base.en    delete a cached speech model",
+        "yazses model remove qwen2.5-0.5b   delete an intent-routing GGUF",
+        "yazses model remove tts:kokoro -y  skip the confirmation",
+    ),
+)
+def model_remove(
+    model_id: str = typer.Argument(..., help="kind:name, or a bare name (see `yazses model list`)."),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Do not ask for confirmation."),
+) -> None:
+    """Delete a downloaded model from disk to free space.
+
+    Only files YazSes itself downloaded are touched, never a path you set in config. A speech
+    model that has a second name (`large`/`large-v3`, `turbo`/`large-v3-turbo`) shares one
+    cache folder, so removing either removes both.
+    """
+    from yazses.models.registry import build_registry, find_entry, remove_entry
+
+    entries = build_registry()
+    entry = find_entry(entries, model_id)
+    if entry is None:
+        typer.echo(f"Unknown model {model_id!r}. {_remove_target_hint(model_id, entries)}", err=True)
+        raise typer.Exit(1)
+    if entry.state == "bundled":
+        typer.echo(f"{entry.id} ships inside its package wheel; there is nothing to remove.", err=True)
+        raise typer.Exit(1)
+    if not entry.paths:
+        typer.echo(f"{entry.id} is not downloaded — nothing to remove.")
+        return
+    mb = entry.disk_bytes / (1024 * 1024)
+    if not yes and not typer.confirm(f"Delete {entry.id} ({mb:.0f} MB) from disk?"):
+        typer.echo("Left it in place.")
+        return
+    try:
+        removed = remove_entry(entry)
+    except OSError as exc:
+        typer.echo(f"Could not remove {entry.id}: {exc}", err=True)
+        raise typer.Exit(1)
+    for p in removed:
+        typer.echo(f"Removed {p}")
+    if entry.kind == "stt" and _daemon_needs_restart_for_model(entry.name):
+        typer.echo("\nThis is the model `[stt] model` selects; re-download it before the next start.")
+
+
+@model_app.command(
+    "disk",
+    epilog=_examples("yazses model disk    how much disk each kind of model uses"),
+)
+def model_disk() -> None:
+    """Show the disk space the downloaded models use, per kind and in total."""
+    from yazses.models.registry import KINDS, build_registry, disk_usage
+
+    entries = build_registry()
+    usage = disk_usage(entries)
+    for kind in KINDS:
+        have = [e for e in entries if e.kind == kind and e.state == "present"]
+        typer.echo(f"  {kind:<12}  {usage[kind] / (1024 * 1024):>9.1f} MB   {len(have)} downloaded")
+    typer.echo(f"  {'total':<12}  {sum(usage.values()) / (1024 * 1024):>9.1f} MB")
 
 
 @model_app.command(

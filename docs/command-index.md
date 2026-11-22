@@ -666,6 +666,10 @@ Measure your room and your voice, and put the VAD threshold between them.
 
 Manage SLM intent-routing models (download / list).
 
+### `yazses model disk`
+
+Show the disk space the downloaded models use, per kind and in total.
+
 ### `yazses model download`
 
 Download a model: a speech-to-text checkpoint, or a GGUF for intent routing.
@@ -674,7 +678,14 @@ Download a model: a speech-to-text checkpoint, or a GGUF for intent routing.
 
 ### `yazses model list`
 
-List available models (speech-to-text and SLM) and their status.
+List every model YazSes can use, grouped by kind, with size and on-disk state.
+
+### `yazses model remove`
+
+Delete a downloaded model from disk to free space.
+
+- **Arguments:** `model_id`
+- `--yes`, `-y` — Do not ask for confirmation.
 
 ## `yazses outline`
 
