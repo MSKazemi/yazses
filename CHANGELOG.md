@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Removed — the AUR job in publish-channels.yml
+
+`publish-channels.yml` no longer has an `aur` job, `aur` choice or summary row. Every run since v2.48.0 failed at the SSH check with `Permission denied (publickey)`, because no AUR account was available to register the key on and the AUR closed new registrations in June 2026. The other channels are unchanged. `packaging/arch/` is kept for a manual submission and the release-channel checker still reports the AUR; restore the job from git history once an account exists. The `AUR_SSH_KEY` secret is now unused.
+
 ### Added — research: a MaixCAM2 text link, recorded as an ADR (research record only) and a research note, not a feature
 
 [ADR-v2-156](design/adr/adr-v2-156-maixcam2-text-link.md) (Accepted as a research record only) records whether a Sipeed MaixCAM2 running Whisper `base` could send recognised text to a desktop over a wired UART: the falsifiable hypothesis, a threat model for text arriving over a wire, the egress statement, exit criteria and the unknowns. `docs/research/maixcam2-text-link.md` is the matching notice: experimental, research only, not part of YazSes. The change also adds a stdlib-only reference codec, simulator and printing reader under `examples/maixcam2-text-link/`, with tests, and a draft wire spec (`design/specs/textlink-wire-protocol.md`). Nothing in `src/` changes and no board has been tested; the ADR-030 breadth freeze applies, so implementation needs a recorded go and a named exception.
