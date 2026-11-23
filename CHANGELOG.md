@@ -10,11 +10,19 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 The Windows 11 pipx row of `docs/validation-matrix.md` now cites a 2026-11-18 report from [#330](https://github.com/MSKazemi/yazses/issues/330): on 2.51.0 (pipx upgrade from 2.40.1) the daemon started cleanly, a hotkey set with `yazses hotkey set` survived `yazses restart`, and exactly one daemon ran afterwards. The report names no device model or OS build and pastes no raw `doctor` text, so it is graded Reported, the 2.36.0 failure stays as history, and the row does not move to Verified (HW). Refs #388.
 
+### Removed — the AUR job in publish-channels.yml
+
+`publish-channels.yml` no longer has an `aur` job, `aur` choice or summary row. Every run since v2.48.0 failed at the SSH check with `Permission denied (publickey)`, because no AUR account was available to register the key on and the AUR closed new registrations in June 2026. The other channels are unchanged. `packaging/arch/` is kept for a manual submission and the release-channel checker still reports the AUR; restore the job from git history once an account exists. The `AUR_SSH_KEY` secret is now unused.
+
 ### Added — research: a MaixCAM2 text link, recorded as an ADR (research record only) and a research note, not a feature
 
 [ADR-v2-156](design/adr/adr-v2-156-maixcam2-text-link.md) (Accepted as a research record only) records whether a Sipeed MaixCAM2 running Whisper `base` could send recognised text to a desktop over a wired UART: the falsifiable hypothesis, a threat model for text arriving over a wire, the egress statement, exit criteria and the unknowns. `docs/research/maixcam2-text-link.md` is the matching notice: experimental, research only, not part of YazSes. The change also adds a stdlib-only reference codec, simulator and printing reader under `examples/maixcam2-text-link/`, with tests, and a draft wire spec (`design/specs/textlink-wire-protocol.md`). Nothing in `src/` changes and no board has been tested; the ADR-030 breadth freeze applies, so implementation needs a recorded go and a named exception.
 
 The MaixCAM2 example now also records the vendor's answer (Sipeed support, 2026-11-13: one-time online setup, then local recognition, stated by the vendor and not measured here), and its board script can record a WAV the way Sipeed's own example does, still untested on a board.
+
+### Fixed — a burst the speech check could not judge could still type "The app is called YazSes." (#598)
+
+The speech-presence check stops a no-speech burst before it is decoded, but it does not always run. It is skipped in Whisper / Low-Effort mode, Dysfluency-Friendly mode and the sotto-voce command channel, it is off when `[accessibility] speech_presence_check = false`, and it lets the burst through when the detector cannot run. In any of those cases, a silent Right Ctrl press or an eye-gesture burst could still be decoded into the built-in prompt and typed. Now, after decode, a transcript is dropped (`discard_reason = "prompt_echo"`; the log shows its length, never the text) when two things are both true. First, it consists only of a run of three or more consecutive words from the decoder's own `initial_prompt`, ignoring case and punctuation. A word cut short or doubled counts as a match, so "The app is called YazS." and "…YazSeses." are covered. Second, the speech detector did not find speech in the audio. If the detector did find speech, the sentence is typed, so you can still say it. Dictation that only contains the name ("Open YazSes settings", "YazSes.") is never affected. Tested with a stub decoder only. The real model was not run for this change.
 
 ### Fixed — `yazses mcp-server` could not connect to Claude Code: `serverInfo.version` was missing
 
@@ -23,6 +31,10 @@ The MCP `initialize` reply carried `serverInfo.name` and `title` but no `version
 ### Fixed — commands: a spoken repeat count is bounded before any key is sent
 
 A mis-heard "delete the last 1000000 words" made dispatch send a million Ctrl+BackSpace, which deleted the document and blocked the daemon while it typed. `delete_words`, `delete_lines`, `undo_n` and `select_lines` now resolve their count before the first key and refuse anything above 99 (`CommandRefused`: nothing sent, nothing typed), the same ceiling the Mandarin grammar already enforced at parse time. Every producer of a command intent is covered, including the SLM router and the activation pipeline.
+
+### Fixed — CI telemetry: a response cut off mid-body is retried once ([#894](https://github.com/MSKazemi/yazses/issues/894))
+
+The scheduled `CI telemetry` report crashed with `http.client.IncompleteRead` when GitHub dropped a connection while the response body was being read. The GET transport in `scripts/ci-telemetry-report.py` now treats `IncompleteRead`, a remote disconnect or a connection reset like any other dropped connection: the existing single retry, then a sanitized `ApiError` (exit 1) that names only the exception class. The retry budget, the time budget and the rate-limit reserve are unchanged; 4xx and non-JSON bodies are still not retried.
 
 ### Fixed — CI: dispatch inputs no longer expand into shell source
 
