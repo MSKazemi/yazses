@@ -63,7 +63,7 @@ from yazses.audio.device_monitor import DeviceMonitor, SilentStreakTracker, capt
 from yazses.audio.mic_prompt import MicPrompt
 from yazses.audio.padding import PreSpeechRingBuffer
 from yazses.audio.recorder import AudioRecorder
-from yazses.audio.speech_presence import holds_no_speech, speech_check_applies
+from yazses.audio.speech_presence import speech_check_applies, speech_verdict
 from yazses.audio.vad_calibrated import is_silent_calibrated
 from yazses.cmdsafety.classify import ConfirmGate
 from yazses.commands.dispatch import dispatch as cmd_dispatch
@@ -104,6 +104,7 @@ from yazses.stt.factory import build_engine, describe_active_engine
 from yazses.stt.filters.disfluency import filter_transcript
 from yazses.stt.latency import LatencyWindow
 from yazses.stt.streaming import StreamingEngine
+from yazses.stt.vocabulary import is_prompt_echo
 from yazses.system.outcomes import OutcomeWindow, classify_outcome
 from yazses.system.relaunch import Mode, command_for
 from yazses.system.uptime import monotonic_including_suspend
@@ -4457,12 +4458,19 @@ class Daemon:
             # Profiles), not from `acc`: a profile-raised gate is not Whisper Mode and must
             # not exempt the burst from this check.
             wm_cfg = self._config.whispermode
-            if speech_check_applies(
-                enabled=acc.speech_presence_check,
-                whisper_mode=configured_gate != self._config.accessibility.vad_threshold,
-                dysfluency_friendly=acc.dysfluency_friendly,
-                sotto_voce=wm_cfg.enabled and wm_cfg.command_channel,
-            ) and holds_no_speech(padded, sample_rate):
+            # Tri-state, kept for the prompt-echo check after decode: only `False` (speech
+            # positively found) lets a transcript that echoes the prompt be typed.
+            no_speech_verdict = (
+                speech_verdict(padded, sample_rate)
+                if speech_check_applies(
+                    enabled=acc.speech_presence_check,
+                    whisper_mode=configured_gate != self._config.accessibility.vad_threshold,
+                    dysfluency_friendly=acc.dysfluency_friendly,
+                    sotto_voce=wm_cfg.enabled and wm_cfg.command_channel,
+                )
+                else None
+            )
+            if no_speech_verdict is True:
                 # Pitch-Contour Gestures (ADR-v2-103): a hum gets its check before this
                 # discard. No-op while `[contour]` is off.
                 if self._contour_gesture(padded, sample_rate, None, event):
@@ -4687,6 +4695,21 @@ class Daemon:
                 self._note_silent_discard()
                 # Same reasoning as the silent branch: nothing will be typed, and
                 # without a screen that is indistinguishable from a slow decode.
+                self._earcon.play("error")
+                if stream_injector is not None:
+                    stream_injector.cancel()
+                return
+
+            # Prompt echo (#598): the transcript is nothing but a run of the decoder's own
+            # initial_prompt ("The app is called YazSes.") and the speech detector did not
+            # positively hear speech -- it was exempt (Whisper / Dysfluency-Friendly /
+            # sotto-voce), switched off, or could not run. That is Whisper answering
+            # non-speech with what it was primed with, not dictation. A burst the detector
+            # found speech in is typed: the user may really say the sentence.
+            if no_speech_verdict is not False and is_prompt_echo(text, bias_prompt):
+                event["discard_reason"] = "prompt_echo"
+                log.info("Prompt echo -- discarding a %d-char transcript that repeats the "
+                         "initial prompt (no speech confirmed in the audio).", len(text))
                 self._earcon.play("error")
                 if stream_injector is not None:
                     stream_injector.cancel()

@@ -32,6 +32,7 @@ not gate), 1 when the API could not be read, 2 for a usage error.
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
 import os
 import sys
@@ -68,7 +69,12 @@ class ApiError(RuntimeError):
 
 
 def http_get(token: str, *, opener: Callable[..., Any] = urllib.request.urlopen) -> Transport:
-    """A GET-only transport. One retry on a 5xx or a dropped connection, nothing else."""
+    """A GET-only transport. One retry on a 5xx or a dropped connection, nothing else.
+
+    A connection dropped while the body is being read (`IncompleteRead`, or a reset /
+    remote disconnect) counts as a dropped connection: the read is inside the retried
+    block, so it shares the same single retry (#894).
+    """
 
     def get(url: str) -> Response:
         request = urllib.request.Request(
@@ -98,6 +104,15 @@ def http_get(token: str, *, opener: Callable[..., Any] = urllib.request.urlopen)
                     continue
                 reason = getattr(exc, "reason", exc)
                 raise ApiError(f"GET {_redact(url)} failed: {reason}") from None
+            except (http.client.IncompleteRead, ConnectionError) as exc:
+                # The body was cut off mid-read. Name only the exception class: a partial
+                # body is never echoed into the message.
+                if attempt == 1:
+                    time.sleep(2)
+                    continue
+                raise ApiError(
+                    f"GET {_redact(url)} failed: interrupted response ({type(exc).__name__})"
+                ) from None
             except json.JSONDecodeError:
                 raise ApiError(f"GET {_redact(url)} returned something that is not JSON") from None
         raise ApiError(f"GET {_redact(url)} failed")  # pragma: no cover - loop always returns
