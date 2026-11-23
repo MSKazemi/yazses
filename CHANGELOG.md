@@ -24,6 +24,10 @@ The MCP `initialize` reply carried `serverInfo.name` and `title` but no `version
 
 A mis-heard "delete the last 1000000 words" made dispatch send a million Ctrl+BackSpace, which deleted the document and blocked the daemon while it typed. `delete_words`, `delete_lines`, `undo_n` and `select_lines` now resolve their count before the first key and refuse anything above 99 (`CommandRefused`: nothing sent, nothing typed), the same ceiling the Mandarin grammar already enforced at parse time. Every producer of a command intent is covered, including the SLM router and the activation pipeline.
 
+### Fixed — CI telemetry: a response cut off mid-body is retried once ([#894](https://github.com/MSKazemi/yazses/issues/894))
+
+The scheduled `CI telemetry` report crashed with `http.client.IncompleteRead` when GitHub dropped a connection while the response body was being read. The GET transport in `scripts/ci-telemetry-report.py` now treats `IncompleteRead`, a remote disconnect or a connection reset like any other dropped connection: the existing single retry, then a sanitized `ApiError` (exit 1) that names only the exception class. The retry budget, the time budget and the rate-limit reserve are unchanged; 4xx and non-JSON bodies are still not retried.
+
 ### Fixed — CI: dispatch inputs no longer expand into shell source
 
 `apt-repo.yml`, `channel-drift.yml`, `publish-channels.yml` and `snap.yml` interpolated `workflow_dispatch` inputs (`run_id`, `workflow`, `tag`, `grace_hours`, `version`) straight into `run:` scripts, against CI_POLICY section 7 rule 4. They now arrive through `env:` and are quoted. Only someone with write access could dispatch these, so this closes a policy gap rather than an open hole. `tests/test_workflow_run_blocks_take_no_inputs_by_expression.py` scans every workflow and composite action and was red on exactly those four files before the change.
