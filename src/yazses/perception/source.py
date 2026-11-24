@@ -346,7 +346,9 @@ class SharedPerceptionSource:
         clock: Callable[[], float] = time.monotonic,
         spawn: Spawn | None = None,
         join_timeout_s: float = 2.0,
+        index_setter: Callable[[int], None] | None = None,
     ) -> None:
+        self._index_setter = index_setter
         self._capture_factory = capture_factory
         self._processor_factory = processor_factory
         self._interval_s = max(0.0, float(interval_s))
@@ -373,6 +375,7 @@ class SharedPerceptionSource:
         # flight when the camera closed can recognise that its sample is stale
         # instead of publishing it into a source that is dormant.
         self._epoch = 0
+        self._suspended = False
         self._opens = 0
         self._state = SourceState.DORMANT
         self._failure = ""
@@ -503,6 +506,50 @@ class SharedPerceptionSource:
             self._retire_locked()
         self._drain()
 
+    # -- camera on/off switch ------------------------------------------------ #
+
+    @property
+    def suspended(self) -> bool:
+        """Whether the camera is switched off: leases are kept, the device is not open."""
+        return self._suspended
+
+    def set_camera_index(self, index: int) -> None:
+        """Open camera *index* the next time the device opens (``yazses camera use``).
+
+        A no-op when the source was built without an index setter.
+        """
+        if self._index_setter is not None:
+            self._index_setter(int(index))
+
+    def suspend(self) -> None:
+        """Close the device now but keep every lease, so :meth:`resume` can reopen it.
+
+        New leases taken while suspended open nothing. Idempotent.
+        """
+        with self._lock:
+            if self._suspended:
+                return
+            self._suspended = True
+            self._retire_locked()
+        self._drain()
+
+    def resume(self) -> None:
+        """Undo :meth:`suspend`: reopen once if any consumer still holds a lease.
+
+        A reopen that fails leaves the source ``FAILED`` with a reason, as an ordinary
+        first open would; nothing propagates.
+        """
+        with self._lock:
+            if not self._suspended:
+                return
+            self._suspended = False
+            if not self._leases or self._state is not SourceState.DORMANT:
+                return
+            self._epoch += 1
+            token = self._epoch
+            self._state = SourceState.STARTING
+        self._open(token)
+
     # -- internals ---------------------------------------------------------- #
     #
     # Two locks, deliberately. ``_lock`` guards the bookkeeping (leases, state, the
@@ -521,6 +568,10 @@ class SharedPerceptionSource:
                 return
             lease._held = True
             self._leases.add(lease)
+            if self._suspended:
+                # Camera switched off (perception/switch.py): the lease is recorded so
+                # resume() knows who wants it back, but nothing opens.
+                return
             if len(self._leases) > 1 or self._state is not SourceState.DORMANT:
                 # Already open, opening, or failed: sharing one observation is the
                 # entire point, and a retry loop against a camera that just refused is
