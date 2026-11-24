@@ -332,6 +332,13 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `camera_index` | int | `0` |  | which camera the one owner opens |
 | `fps` | int | `15` |  | shared sampling rate, clamped to 1..60 |
 
+## `[camera]`
+
+| Key | Type | Default | Status | Notes |
+|---|---|---|---|---|
+| `device` | str | `""` |  | stable id of the chosen camera; "" = none chosen |
+| `index` | int | `-1` |  | chosen camera index; -1 = not chosen (legacy keys apply) |
+
 ## `[gaze_refine]`
 
 | Key | Type | Default | Status | Notes |

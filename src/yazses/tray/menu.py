@@ -563,6 +563,8 @@ def status_from_model(model: TrayModel) -> dict:
         "engine_model": model.engine_model,
         "engine_fallback": model.engine_fallback,
         "last_error": model.last_error,
+        # The camera switch (#924), read by `tray/camera.py::camera_entry`.
+        "camera": model.camera,
     }
 
 

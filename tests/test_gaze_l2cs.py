@@ -50,6 +50,9 @@ class _FakeCapture:
         self.released = False
         self.reads = 0
 
+    def isOpened(self):
+        return True
+
     def read(self):
         self.reads += 1
         return self.read_result
