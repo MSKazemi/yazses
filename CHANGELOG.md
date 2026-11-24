@@ -23,6 +23,10 @@ With `[facegesture]` on, the daemon held `/dev/video0` for its whole life, so Zo
 
 The gaze backends (`mediapipe`, `l2cs`) now reopen the camera immediately on `camera on`, so `camera status` and its failure reason are accurate at once instead of after the next estimate. `yazses gaze calibrate` and `yazses facegesture calibrate`, which open their own capture, now check the daemon first: if it holds the camera they say so and point at `yazses camera off` / `yazses camera on`, if the switch is OFF they say that, and a camera that will not open names the same workaround.
 
+### Docs — README comparison tables brought up to November 2026 and dated
+
+The README's "Comparison & alternatives" section now matches `docs/comparison.md` as re-checked on 2026-11-20. Handy transcribes files since v0.10.0; OpenWhispr records meetings with local speaker labels and has paid cloud plans; FluidVoice has FluidMeet meetings with speaker labels and Windows and Linux betas (no longer "announced" or a "community port"); VoiceInk is GPLv3, sold one-time from $25, and offers optional cloud models. Speaker-labelled meetings are no longer listed as a YazSes-only difference; the no-cloud egress inventory is. The tables now carry their check date.
+
 ### Removed — the AUR job in publish-channels.yml
 
 `publish-channels.yml` no longer has an `aur` job, `aur` choice or summary row. Every run since v2.48.0 failed at the SSH check with `Permission denied (publickey)`, because no AUR account was available to register the key on and the AUR closed new registrations in June 2026. The other channels are unchanged. `packaging/arch/` is kept for a manual submission and the release-channel checker still reports the AUR; restore the job from git history once an account exists. The `AUR_SSH_KEY` secret is now unused.
@@ -32,6 +36,14 @@ The gaze backends (`mediapipe`, `l2cs`) now reopen the camera immediately on `ca
 [ADR-v2-156](design/adr/adr-v2-156-maixcam2-text-link.md) (Accepted as a research record only) records whether a Sipeed MaixCAM2 running Whisper `base` could send recognised text to a desktop over a wired UART: the falsifiable hypothesis, a threat model for text arriving over a wire, the egress statement, exit criteria and the unknowns. `docs/research/maixcam2-text-link.md` is the matching notice: experimental, research only, not part of YazSes. The change also adds a stdlib-only reference codec, simulator and printing reader under `examples/maixcam2-text-link/`, with tests, and a draft wire spec (`design/specs/textlink-wire-protocol.md`). Nothing in `src/` changes and no board has been tested; the ADR-030 breadth freeze applies, so implementation needs a recorded go and a named exception.
 
 The MaixCAM2 example now also records the vendor's answer (Sipeed support, 2026-11-13: one-time online setup, then local recognition, stated by the vendor and not measured here), and its board script can record a WAV the way Sipeed's own example does, still untested on a board.
+
+### Fixed — Quit stops a daemon that does not answer, and reopening the app replaces one that predates a permission
+
+Two gaps were left after the macOS `before_quit` fix (#578). Quit sent the daemon `shutdown` and, if that failed (no answer, a timeout, an error), did nothing more, so a daemon that was alive but not answering outlived Quit with the permission it had read at start. Quit now gives that daemon the same stop `yazses stop` sends, through the platform lifecycle, and waits up to 3 s for it to go. A daemon that accepts `shutdown` is left to finish on its own. Separately, a newly started daemon replaced only a strictly older one. Now it also replaces one that reports `stale_permissions` (it started before a grant), but only while that daemon is idle or in error and not in a meeting. A lock holder that does not answer is asked again for 3 s, then named in the log by pid and left running: no answer is not proof it is stuck. Verified with fakes only, not on a Mac.
+
+### Fixed — Windows Store (MSIX) build: the microphone and camera checks read the app's own consent entry
+
+The packaged build already skipped the "Let desktop apps access…" (`NonPackaged`) switch, which does not govern it, but read nothing in its place, so a user who had switched YazSes off in the Settings app list still got `doctor` OK, and the camera could never be reported as allowed. It now asks Windows for its package family name (`GetCurrentPackageFamilyName`) and reads `HKCU\…\ConsentStore\<microphone|webcam>\<package family name>`: a `Deny` there is a refusal, and the camera is `GRANTED` only on that entry's own `Allow`. Microsoft documents this per-app layout for `location`; that the microphone and camera use the same one is inferred, and none of it has run on a real MSIX install. With no family name the check falls back to the two broader switches, as before (#653).
 
 ### Fixed — a burst the speech check could not judge could still type "The app is called YazSes." (#598)
 

@@ -5,7 +5,8 @@ It does NOT drive the dictation pipeline itself — the daemon does. On launch:
 
 1. If the daemon isn't reachable, spawn it via :meth:`Lifecycle.start_daemon_detached`.
 2. Poll the daemon's ``status`` RPC every second; map state → tray glyph.
-3. On quit, send ``shutdown`` over IPC.
+3. On quit, send ``shutdown`` over IPC; a daemon that is alive but does not take it is
+   stopped through the lifecycle instead (:func:`stop_daemon_for_quit`).
 4. If the daemon that answers is older than this tray, or started before a permission it
    now has was granted, hand it to ``yazses restart`` once (:class:`StaleDaemonReplacer`).
    A tray that exits because another tray holds the lock asks that once on its way out,
@@ -383,6 +384,73 @@ class StaleDaemonReplacer:
         return reason
 
 
+#: How long Quit waits for a daemon that did not take the IPC ``shutdown`` to be gone
+#: after it has been signalled. Bounded and short: on macOS this runs inside
+#: ``applicationWillTerminate:``, on the main thread, while the menu bar is closing.
+_QUIT_SIGNAL_WAIT_S = 3.0
+_QUIT_POLL_S = 0.1
+
+
+def stop_daemon_for_quit(
+    client,  # noqa: ANN001 - IpcClient
+    lifecycle,  # noqa: ANN001 - LifecycleBackend
+    *,
+    wait_s: float = _QUIT_SIGNAL_WAIT_S,
+    poll_s: float = _QUIT_POLL_S,
+    clock=time.monotonic,  # noqa: ANN001
+    sleep=time.sleep,  # noqa: ANN001
+) -> str:
+    """What Quit does to the daemon; the outcome, for the log and the tests. Never raises.
+
+    * ``"asked"`` -- the daemon acknowledged ``shutdown``. That is the normal path and it
+      is left to finish on its own: a daemon writing up a meeting may take a while, and
+      that is work the user asked for.
+    * ``"not-running"`` -- no answer and no daemon process. Nothing to do.
+    * ``"signalled"`` / ``"still-running"`` -- no acknowledgement, yet the lifecycle (pid
+      file plus its recycled-pid check) says the daemon is alive: wedged IPC, a call that
+      timed out, a reply that failed. Quit used to swallow that silently, and that daemon
+      survived it -- still holding what it read at start, so the next launch exited as a
+      duplicate (#578). It now gets the same stop ``yazses stop`` sends
+      (``LifecycleBackend.stop_daemon``: SIGTERM on Linux and macOS, the RPC then
+      TerminateProcess on Windows), and Quit waits up to ``wait_s`` to see it go.
+
+    Only the daemon recorded in this install's pid file is ever signalled, and only when
+    the user chose Quit -- never as a guess about a daemon nobody asked to stop.
+    """
+    try:
+        client.call("shutdown")
+        return "asked"
+    except IpcUnreachableError:
+        log.debug("Quit: the daemon did not answer shutdown", exc_info=True)
+    except Exception:
+        log.exception("Sending shutdown to daemon failed")
+    try:
+        if not lifecycle.is_running():
+            return "not-running"
+        pid = lifecycle.read_pid()
+        if pid is None:
+            return "not-running"
+        log.warning(
+            "Quit: the daemon (pid %s) did not take the shutdown request; stopping it.", pid
+        )
+        lifecycle.stop_daemon(pid)
+        deadline = clock() + wait_s
+        while clock() < deadline:
+            if not lifecycle.is_running():
+                return "signalled"
+            sleep(poll_s)
+        if not lifecycle.is_running():
+            return "signalled"
+        log.error(
+            "Quit: the daemon (pid %s) is still running after it was told to stop. "
+            "Run: yazses restart", pid,
+        )
+        return "still-running"
+    except Exception:
+        log.exception("Quit: could not stop the daemon")
+        return "still-running"
+
+
 def _replace_a_stale_daemon_once(platform) -> str | None:  # noqa: ANN001
     """One ``status`` call from a tray that is exiting as a duplicate; never raises.
 
@@ -638,12 +706,7 @@ def run() -> None:
 
     def _on_quit() -> None:
         stop_event.set()
-        try:
-            client.call("shutdown")
-        except IpcUnreachableError:
-            pass
-        except Exception:
-            log.exception("Sending shutdown to daemon failed")
+        stop_daemon_for_quit(client, platform.lifecycle)
 
     try:
         tray.run(_on_quit)
