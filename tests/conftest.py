@@ -220,7 +220,8 @@ def _no_test_may_log_into_the_users_real_log():
     before = set(map(id, root.handlers))
     yield
     leaked = [
-        h for h in root.handlers if id(h) not in before and isinstance(h, logging.FileHandler)
+        h for h in root.handlers
+        if id(h) not in before and isinstance(h, logging.FileHandler)
     ]
     for handler in leaked:
         root.removeHandler(handler)
@@ -544,7 +545,9 @@ def _no_test_may_leak_the_injector_env():
     before = {name: os.environ.get(name) for name in _INJECTOR_ENV}
     yield
     leaked = {
-        name: os.environ.get(name) for name in _INJECTOR_ENV if os.environ.get(name) != before[name]
+        name: os.environ.get(name)
+        for name in _INJECTOR_ENV
+        if os.environ.get(name) != before[name]
     }
     for name, value in before.items():
         if value is None:
