@@ -159,13 +159,15 @@ def test_the_camera_and_microphone_read_the_same_three_switches() -> None:
 # the .exe, pip, Scoop, winget and Chocolatey installs. A packaged app is governed by
 # its own per-app entry instead, so on the Store build a ``Deny`` on the desktop-apps
 # switch is evidence about other apps, and reading it gave a false `doctor` FAIL and a
-# start-up notification. The per-app entry's location is not documented by Microsoft,
-# so it is not read: the packaged build learns only from the two broader switches.
-# None of this has run on a real MSIX install.
+# start-up notification. The packaged build reads its own per-app entry instead, at
+# ``HKCU\...\<capability>\<package family name>`` -- the layout Microsoft documents
+# for ``location``, inferred for these two. When the OS names no family, only the two
+# broader switches are read. None of this has run on a real MSIX install.
 
 
-def _packaged(monkeypatch, value: bool) -> None:
+def _packaged(monkeypatch, value: bool, family: str | None = None) -> None:
     monkeypatch.setattr(winhost, "_msix_packaged", lambda: value)
+    monkeypatch.setattr(winhost, "package_family_name", lambda: family)
 
 
 def _recording_winreg(values: dict[str, str], opened: list[str]) -> types.ModuleType:
@@ -301,7 +303,9 @@ def test_unpackaged_the_camera_mapping_is_unchanged(monkeypatch) -> None:
         ((), CameraPermission.NOT_DETERMINED),
     ],
 )
-def test_the_packaged_camera_mapping_never_grants(values, expected) -> None:
+def test_the_packaged_camera_mapping_never_grants_without_its_own_entry(
+    values, expected
+) -> None:
     assert camera_consent_state(values, packaged=True) is expected
 
 
@@ -373,3 +377,174 @@ def test_the_doctor_microphone_row_wording_matches_the_build(monkeypatch, packag
     assert ("Let desktop apps access your microphone" in detail) is not packaged
     assert ("YazSes is switched on in the list of apps" in detail) is packaged
     assert ("unsigned" in detail) is not packaged
+
+
+# ---- #653: the packaged build reads its own per-app entry ---------------------
+
+_FAMILY = "YazSes.YazSes_8wekyb3d8bbwe"
+
+
+@pytest.mark.parametrize("capability", ["microphone", "webcam"])
+def test_a_packaged_build_reads_its_per_app_entry(capability) -> None:
+    reads = winperms._consent_reads(capability, packaged=True, family=_FAMILY)
+    assert [hive for hive, _ in reads] == [
+        "HKEY_LOCAL_MACHINE",
+        "HKEY_CURRENT_USER",
+        "HKEY_CURRENT_USER",
+    ]
+    assert reads[2][1].endswith(rf"\ConsentStore\{capability}\{_FAMILY}")
+    assert all(not path.endswith("NonPackaged") for _, path in reads)
+
+
+def test_an_unpackaged_install_never_asks_for_a_family_name(monkeypatch) -> None:
+    def must_not_ask() -> str:
+        raise AssertionError("an unpackaged install must not ask for a family name")
+
+    monkeypatch.setattr(winhost, "package_family_name", must_not_ask)
+    reads = winperms._consent_reads("microphone", packaged=False)
+    assert reads[-1][1].endswith(r"\microphone\NonPackaged")
+
+
+@pytest.mark.parametrize("bad", ["", "a\\b"])
+def test_an_unusable_family_name_falls_back_to_the_broader_switches(bad) -> None:
+    """A family name is one key name; one with a separator would read another key."""
+    assert len(winperms._consent_reads("microphone", packaged=True, family=bad)) == 2
+
+
+def test_the_default_asks_the_os_for_the_family(monkeypatch) -> None:
+    _packaged(monkeypatch, True, family=_FAMILY)
+    assert winperms._consent_reads("microphone")[-1][1].endswith(_FAMILY)
+    _packaged(monkeypatch, True, family=None)
+    assert len(winperms._consent_reads("microphone")) == 2
+
+
+def test_a_family_probe_that_raises_keeps_the_broader_switches(monkeypatch) -> None:
+    def boom() -> str:
+        raise RuntimeError("no kernel32")
+
+    monkeypatch.setattr(winhost, "_msix_packaged", lambda: True)
+    monkeypatch.setattr(winhost, "package_family_name", boom)
+    assert len(winperms._consent_reads("microphone")) == 2
+
+
+def test_packaged_a_per_app_refusal_is_denied(monkeypatch) -> None:
+    """The half #653 left open: YazSes switched off in the app list, all else on."""
+    registry = {**_ALLOWED, f"HKCU:microphone\\{_FAMILY}": "Deny"}
+    opened: list[str] = []
+    monkeypatch.setitem(sys.modules, "winreg", _recording_winreg(registry, opened))
+    monkeypatch.setitem(sys.modules, "sounddevice", _fake_sounddevice(_MIC))
+    _packaged(monkeypatch, True, family=_FAMILY)
+    assert WindowsPermissions().check_microphone() is PermissionState.DENIED
+    assert opened == ["microphone", "microphone", f"microphone\\{_FAMILY}"]
+
+
+def test_packaged_a_per_app_allow_survives_a_revoked_desktop_app_switch(monkeypatch) -> None:
+    registry = {
+        **_ALLOWED,
+        "HKCU:microphone\\NonPackaged": "Deny",
+        f"HKCU:microphone\\{_FAMILY}": "Allow",
+    }
+    monkeypatch.setitem(sys.modules, "winreg", _fake_winreg(registry))
+    monkeypatch.setitem(sys.modules, "sounddevice", _fake_sounddevice(_MIC))
+    _packaged(monkeypatch, True, family=_FAMILY)
+    assert WindowsPermissions().check_microphone() is PermissionState.OK
+
+
+def test_packaged_a_missing_per_app_entry_lets_the_device_list_decide(monkeypatch) -> None:
+    """An absent entry is not a refusal, the same standard as an absent NonPackaged."""
+    monkeypatch.setitem(sys.modules, "winreg", _fake_winreg(_ALLOWED))
+    monkeypatch.setitem(sys.modules, "sounddevice", _fake_sounddevice(_MIC))
+    _packaged(monkeypatch, True, family=_FAMILY)
+    assert WindowsPermissions().check_microphone() is PermissionState.OK
+
+
+@pytest.mark.parametrize(
+    ("app_value", "expected"),
+    [
+        ("Allow", CameraPermission.GRANTED),
+        ("Deny", CameraPermission.DENIED),
+        (None, CameraPermission.NOT_DETERMINED),
+    ],
+)
+def test_packaged_the_camera_follows_its_per_app_entry(monkeypatch, app_value, expected) -> None:
+    registry = {**_CAMERA_ALLOWED, "HKCU:webcam\\NonPackaged": "Deny"}
+    if app_value is not None:
+        registry[f"HKCU:webcam\\{_FAMILY}"] = app_value
+    monkeypatch.setitem(sys.modules, "winreg", _fake_winreg(registry))
+    _packaged(monkeypatch, True, family=_FAMILY)
+    assert WindowsPermissions().check_camera() is expected
+
+
+def test_packaged_a_broader_camera_refusal_outranks_a_per_app_allow(monkeypatch) -> None:
+    registry = {**_CAMERA_ALLOWED, "HKLM:webcam": "Deny", f"HKCU:webcam\\{_FAMILY}": "Allow"}
+    monkeypatch.setitem(sys.modules, "winreg", _fake_winreg(registry))
+    _packaged(monkeypatch, True, family=_FAMILY)
+    assert WindowsPermissions().check_camera() is CameraPermission.DENIED
+
+
+@pytest.mark.parametrize(
+    ("values", "app_entry", "expected"),
+    [
+        (("Allow", "Allow", "Allow"), "Allow", CameraPermission.GRANTED),
+        ((None, None, "Allow"), "Allow", CameraPermission.GRANTED),
+        (("Deny", "Allow", "Allow"), "Allow", CameraPermission.DENIED),
+        (("Allow", "Allow", "Deny"), "Deny", CameraPermission.DENIED),
+        (("Allow", "Allow", None), None, CameraPermission.NOT_DETERMINED),
+    ],
+)
+def test_the_packaged_camera_mapping_grants_only_on_its_own_entry(
+    values, app_entry, expected
+) -> None:
+    assert camera_consent_state(values, packaged=True, app_entry=app_entry) is expected
+
+
+# ---- the package family name probe (host.py), with a faked kernel32 ------------
+
+
+def test_the_family_name_is_taken_only_from_a_successful_call() -> None:
+    assert winhost.package_family_name(lambda: (0, _FAMILY)) == _FAMILY
+    assert winhost.package_family_name(lambda: (0, "")) is None
+    # APPMODEL_ERROR_NO_PACKAGE: an unpackaged process.
+    assert winhost.package_family_name(lambda: (15700, None)) is None
+    assert winhost.package_family_name(lambda: (122, None)) is None
+
+
+def test_the_family_name_probe_never_raises() -> None:
+    def boom() -> tuple[int, str | None]:
+        raise OSError("no kernel32")
+
+    assert winhost.package_family_name(boom) is None
+
+
+def _fake_windll(monkeypatch, fn) -> None:
+    import ctypes
+
+    kernel32 = types.SimpleNamespace(GetCurrentPackageFamilyName=fn)
+    monkeypatch.setattr(ctypes, "windll", types.SimpleNamespace(kernel32=kernel32), raising=False)
+
+
+def test_the_real_query_asks_for_the_size_then_the_name(monkeypatch) -> None:
+    """`_query_package_family_name` against a kernel32 following the documented
+    contract: no buffer -> ERROR_INSUFFICIENT_BUFFER plus the length; then the name."""
+    buffers: list[object] = []
+
+    def get_current_package_family_name(length_ref, buffer) -> int:
+        length = length_ref._obj
+        buffers.append(buffer)
+        if buffer is None:
+            length.value = len(_FAMILY) + 1
+            return 122
+        assert length.value >= len(_FAMILY) + 1
+        buffer.value = _FAMILY
+        return 0
+
+    _fake_windll(monkeypatch, get_current_package_family_name)
+    assert winhost._query_package_family_name() == (0, _FAMILY)
+    assert buffers[0] is None and len(buffers) == 2
+    assert winhost.package_family_name() == _FAMILY
+
+
+def test_the_real_query_stops_at_no_package(monkeypatch) -> None:
+    _fake_windll(monkeypatch, lambda _length, _buffer: 15700)
+    assert winhost._query_package_family_name() == (15700, None)
+    assert winhost.package_family_name() is None
