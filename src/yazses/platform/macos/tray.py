@@ -22,6 +22,7 @@ from yazses.tray.about import (
     about_lines,
     about_title,
 )
+from yazses.tray.camera import CAMERA_LABEL, camera_entry
 from yazses.tray.menu import (
     ABOUT_LABEL,
     DOCS_LABEL,
@@ -58,6 +59,8 @@ _GLYPH = {
     TrayState.ERROR: "⚠️",
 }
 
+_CAMERA_LINE_KEY = "yazses-camera-status"
+
 # The status lines at the top of the menu: engine, speech-model memory, the top warning
 # (`tray/menu.py::status_lines`). A rumps menu is built once, so the slots exist from the
 # start and each tick retitles them, hiding the ones with nothing to say. rumps keys a
@@ -83,6 +86,11 @@ class MacosTray:
         # last showed, so an unchanged tick does not queue work on the main thread.
         self._status_items: list[Any] = []
         self._shown_lines: list[str] | None = None
+        # The Camera toggle (#924): its two MenuItems, what a click asks for, and the
+        # entry last shown so the menu is only touched when it changed.
+        self._camera_items: list[Any] = []
+        self._camera_action: str | None = None
+        self._shown_camera: Any = None
 
     def run(self, on_quit: Callable[[], None]) -> None:
         try:
@@ -106,6 +114,10 @@ class MacosTray:
                 # Retitled only after they are in the menu (below), because rumps keys
                 # an item by its title at the moment it is added.
                 status_items = [rumps.MenuItem(key) for key in _STATUS_SLOT_KEYS]
+                camera_item = rumps.MenuItem(CAMERA_LABEL)
+                camera_line = rumps.MenuItem(_CAMERA_LINE_KEY)
+                camera_item.hidden = True
+                camera_line.hidden = True
                 # "Settings…" opens the graphical settings window — the same
                 # entry the Linux tray has, so the menu means the same thing
                 # on every OS (#63). Help/About/updates likewise.
@@ -121,6 +133,12 @@ class MacosTray:
                     MEETING_START_LABEL,
                     MEETING_STOP_LABEL,
                     None,
+                    # Camera switch (#924): the toggle (checkmark = ON) and a held/
+                    # released line, both hidden until the daemon reports a camera
+                    # feature. Built once, like the status slots above.
+                    camera_item,
+                    camera_line,
+                    None,
                     "Pause hotkey",
                     [HELP_LABEL, [DOCS_LABEL, TROUBLESHOOTING_LABEL, REPORT_BUG_LABEL]],
                     ABOUT_LABEL,
@@ -132,6 +150,7 @@ class MacosTray:
                     status_items, status_lines({"state": TrayState.LOADING.value})
                 )
                 tray._status_items = status_items
+                tray._camera_items = [camera_item, camera_line]
 
             @rumps.clicked(SETTINGS_LABEL)
             def _on_settings(self_inner, _sender) -> None:
@@ -149,6 +168,11 @@ class MacosTray:
             @rumps.clicked(MEETING_STOP_LABEL)
             def _on_meeting_stop(self_inner, _sender) -> None:
                 _run_meeting("meeting_stop")
+
+            @rumps.clicked(CAMERA_LABEL)
+            def _on_camera(self_inner, _sender) -> None:
+                if tray._camera_action:
+                    _run_camera(tray._camera_action)
 
             @rumps.clicked("Pause hotkey")
             def _on_pause(self_inner, _sender) -> None:
@@ -233,6 +257,11 @@ class MacosTray:
             # The status lines, on the same tick as the glyph. Worked out here, on the
             # poller thread, from the shared helpers; only the AppKit mutation itself
             # goes to the main thread, and only when a line actually changed.
+            entry = camera_entry(status_from_model(model))
+            if entry != self._shown_camera and self._camera_items:
+                self._camera_action = entry.action if entry is not None else None
+                if _on_main_thread(_apply_camera, list(self._camera_items), entry):
+                    self._shown_camera = entry
             items = list(self._status_items)
             if not items:
                 return
@@ -283,6 +312,42 @@ def _apply_status_lines(items: list[Any], lines: list[str]) -> None:
                 item.hidden = False
         except Exception:
             log.debug("tray status line update failed", exc_info=True)
+
+
+def _apply_camera(items: list[Any], entry: Any) -> None:
+    """Show the Camera toggle and its held/released line, or hide both (#924).
+
+    Main thread only (AppKit items). Module-level for the reason ``_apply_status_lines``
+    is: testable without rumps. ``items`` is ``[toggle, line]``.
+    """
+    toggle, line = items
+    try:
+        if entry is None:
+            toggle.hidden = True
+            line.hidden = True
+            return
+        toggle.state = 1 if entry.checked else 0
+        line.title = entry.indicator
+        toggle.hidden = False
+        line.hidden = False
+    except Exception:
+        log.debug("tray camera update failed", exc_info=True)
+
+
+def _run_camera(action: str) -> None:
+    """Switch the camera off the UI thread and report the daemon's answer (#924)."""
+    def _work() -> None:
+        from yazses.tray.camera import run_camera_action
+
+        title, body = run_camera_action(action)
+        try:
+            import rumps  # type: ignore[import-not-found]
+
+            rumps.notification("YazSes", title, body)
+        except Exception:
+            log.debug("tray notification failed", exc_info=True)
+
+    threading.Thread(target=_work, name="tray-camera", daemon=True).start()
 
 
 def _on_main_thread(func: Callable[..., None], *args: Any) -> bool:
