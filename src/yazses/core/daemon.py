@@ -379,6 +379,11 @@ _RECAL_LEAD_S = 1.5
 # daemon is quick, because the loop returns the moment the lock is free.
 _TAKEOVER_WAIT_S = 45.0
 
+# How long a starting daemon keeps asking an unreachable lock holder for its status. The
+# holder takes the lock a moment before it opens its socket, so a first miss is not yet
+# an answer; one that is still silent after this is reported and left alone.
+_INCUMBENT_ANSWER_WAIT_S = 3.0
+
 _TONE_INSTRUCTIONS: dict[str, str] = {
     "casual": "Use a casual, conversational tone.",
     "formal": "Use a formal, professional tone.",
@@ -827,30 +832,40 @@ class Daemon:
         return True
 
     def _replace_older_daemon(self, lock: SingleInstanceLock) -> bool:
-        """Ask a strictly older daemon to stop and take its place. False if not applicable.
+        """Ask a stale daemon to stop and take its place. False if not applicable.
 
-        After an upgrade the previous daemon keeps running with what it read at its own
-        start -- on macOS the keyboard permission, before it was granted -- while the new
-        app exits as a duplicate (#562, #578). Only an *older* version is replaced
-        (`core/takeover.py`); an equal or newer one, or one that will not say, is left
-        alone and the caller reports the duplicate as before.
+        A daemon reads its code and, on macOS, the keyboard permission once, at its own
+        start. After an upgrade, or after the user grants a permission and opens the app
+        again, the old daemon kept running with the old answer while the new one exited
+        as a duplicate (#562, #578). The incumbent is replaced only on its own report
+        (`core/takeover.py::startup_replacement_reason`): it is strictly older, or it is
+        idle (or in error) and says grants arrived after it started. A current, healthy
+        daemon, one that will not say, and one that does not answer are all left alone
+        and the caller reports the duplicate as before.
         """
-        from yazses.core.takeover import is_older
+        from yazses.core.takeover import startup_replacement_reason
 
         platform = self._platform
         try:
             client = platform.ipc_client_factory(platform.paths.ipc_socket)
-            # Not consuming: this reader displays nothing, and the holder's one-shot toast
-            # queue is the only notification channel on Windows and macOS.
-            status = client.call("status", consume_notifications=False)
-            theirs = status.get("version") if isinstance(status, dict) else None
-            mine = _running_version()
-            if not is_older(theirs, mine):
+            status = self._incumbent_status(client)
+            if status is None:
                 return False
-            log.warning(
-                "YazSes %s is still running from before the upgrade; asking it to stop "
-                "so %s can take over.", theirs, mine,
-            )
+            mine = _running_version()
+            reason = startup_replacement_reason(status, mine)
+            if reason is None:
+                return False
+            if reason == "older":
+                log.warning(
+                    "YazSes %s is still running from before the upgrade; asking it to "
+                    "stop so %s can take over.", status.get("version"), mine,
+                )
+            else:
+                log.warning(
+                    "The running daemon started before a permission was granted (%s); "
+                    "asking it to stop so this one, which can see the grant, takes over.",
+                    ", ".join(str(g) for g in status.get("stale_permissions") or []),
+                )
             client.call("shutdown")
         except Exception:
             log.debug("Could not ask the running daemon to stop", exc_info=True)
@@ -862,10 +877,48 @@ class Daemon:
                 return True
             time.sleep(0.25)
         log.error(
-            "The older daemon was asked to stop and still holds the lock after %.0f s. "
+            "The previous daemon was asked to stop and still holds the lock after %.0f s. "
             "Run: yazses restart", _TAKEOVER_WAIT_S,
         )
         return False
+
+    def _incumbent_status(self, client: Any) -> dict[str, Any] | None:
+        """The lock holder's ``status`` reply, or None when it gives none. Never raises.
+
+        A holder that cannot be reached is retried for :data:`_INCUMBENT_ANSWER_WAIT_S`,
+        because one that has only just taken the lock opens its socket a moment later.
+        One that still does not answer is *named* (pid, and what to run) and left
+        running: an unanswered socket is not proof the daemon is stuck, and stopping a
+        healthy one on that guess would be worse than the duplicate it prevents (ADR-021).
+        """
+        from yazses.ipc.client import IpcUnreachableError
+
+        deadline = time.monotonic() + _INCUMBENT_ANSWER_WAIT_S
+        while True:
+            try:
+                # Not consuming: this reader displays nothing, and the holder's one-shot
+                # toast queue is the only notification channel on Windows and macOS.
+                reply = client.call("status", consume_notifications=False)
+            except IpcUnreachableError:
+                if time.monotonic() < deadline:
+                    time.sleep(0.25)
+                    continue
+                pid = None
+                try:
+                    pid = self._platform.lifecycle.read_pid()
+                except Exception:  # noqa: BLE001 - the report must not fail the start
+                    pass
+                log.error(
+                    "A YazSes daemon%s holds the single-instance lock but has not answered "
+                    "for %.0f s. It was left running. If dictation does not work, run: "
+                    "yazses restart",
+                    f" (pid {pid})" if pid is not None else "", _INCUMBENT_ANSWER_WAIT_S,
+                )
+                return None
+            except Exception:
+                log.debug("The running daemon's status call failed", exc_info=True)
+                return None
+            return reply if isinstance(reply, dict) else None
 
     def run(self) -> None:
         self._configure_logging()
