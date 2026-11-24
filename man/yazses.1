@@ -268,7 +268,15 @@ Switch the camera on: every enabled camera feature reopens the device.
 Show whether the camera is on and which YazSes features hold the device.
 .TP
 \fByazses camera use\fR \fITARGET\fR
-Switch every camera feature to another camera without restarting. Not saved.
+Switch every camera feature to another camera without restarting. Add --save to keep it.
+.RS
+.TP
+\fB\-\-save\fR
+Also remember the choice in the config file ([camera]), so it applies after a restart.
+.TP
+\fB\-\-clear\fR
+Forget the saved choice; each feature uses its own camera_index again.
+.RE
 .SS "yazses case"
 Recase text to a naming convention \(em fully offline.
 .br
