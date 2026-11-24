@@ -4,7 +4,7 @@ name: Publish to package channels
 # ---------------
 # A tag already builds every artifact and checks that they all shipped
 # (release-complete.yml). What it did NOT do is hand those artifacts to the
-# package managers -- winget, Chocolatey, Homebrew and the AUR were each updated
+# package managers -- winget, Chocolatey and Homebrew (and then the AUR) were each updated
 # by a person remembering to, which is why at v2.18.2 the repo's own audit found
 # five channels still on an older version or absent entirely.
 #
@@ -31,10 +31,6 @@ name: Publish to package channels
 #                  fine-grained one loses a file that is generated from a public
 #                  release anyway.
 #
-#   AUR_SSH_KEY    Private half of an SSH key registered on the AUR account.
-#                  Generate a DEDICATED key rather than reusing a personal one:
-#                  ssh-keygen -t ed25519 -f ~/.ssh/aur_yazses -N ""
-#
 #   CHOCO_API_KEY  From https://community.chocolatey.org/account
 #
 #   WINGET_TOKEN   Classic PAT with `public_repo`. Fine-grained will not do here:
@@ -53,6 +49,11 @@ name: Publish to package channels
 #              reserved app ID. Once accepted, updates are PRs to its own repo and
 #              can be automated; there is nothing to automate until then.
 #              packaging/flatpak/ + flatpak.yml build and test the manifest today.
+#   AUR      - removed in November 2026. Every push failed at the SSH check ("Permission
+#              denied (publickey)") because no AUR account was available to register the
+#              key on, and the AUR had closed new registrations since June 2026. Restore
+#              the job from git history (this file before that commit) once an account
+#              exists; packaging/arch/ is still maintained for a manual submission.
 #   nixpkgs  - same shape: a reviewed PR to NixOS/nixpkgs. flake.nix exists but has
 #              never been evaluated (no Nix on the authoring machine).
 
@@ -76,7 +77,6 @@ on:
           - winget
           - chocolatey
           - homebrew
-          - aur
 
 permissions:
   contents: read
@@ -359,103 +359,8 @@ jobs:
         if: env.HAVE_SECRET != 'yes'
         run: echo "::warning::TAP_TOKEN is not set -- skipping Homebrew. Add it to publish automatically."
 
-  aur:
-    needs: wait-for-assets
-    if: github.event.inputs.channel == '' || github.event.inputs.channel == 'all' || github.event.inputs.channel == 'aur'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30   # no measured publish yet (CI_POLICY §8)
-    env:
-      HAVE_SECRET: ${{ secrets.AUR_SSH_KEY != '' && 'yes' || 'no' }}
-      VERSION: ${{ needs.wait-for-assets.outputs.version }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        if: env.HAVE_SECRET == 'yes'
-
-      - name: The key must authenticate before 200 MB is hashed
-        # Auth goes first because it is the cheapest thing to check and the
-        # likeliest thing to be wrong. Previously the job spent every run
-        # downloading and hashing every release asset, and only then failed on a
-        # bare `git clone` error — which reads as a packaging problem when it is
-        # a credential one. Checking here costs three seconds and names the fix.
-        #
-        # `Permission denied (publickey)` is matched by text, not by exit code:
-        # the AUR's git shell refuses an interactive session even for a VALID
-        # key, so a non-zero exit cannot tell a working credential from a
-        # rejected one.
-        if: env.HAVE_SECRET == 'yes'
-        env:
-          AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
-        run: |
-          set -uo pipefail
-          mkdir -p ~/.ssh
-          printf '%s\n' "$AUR_SSH_KEY" > ~/.ssh/aur
-          chmod 600 ~/.ssh/aur
-          ssh-keyscan -H aur.archlinux.org >> ~/.ssh/known_hosts 2>/dev/null
-          OUT=$(ssh -T -i ~/.ssh/aur -o IdentitiesOnly=yes -o BatchMode=yes \
-                    -o ConnectTimeout=20 aur@aur.archlinux.org 2>&1 || true)
-          echo "$OUT"
-          if grep -qF "Permission denied (publickey)" <<<"$OUT"; then
-            echo "::error::The AUR rejected AUR_SSH_KEY. The secret is not necessarily wrong: an SSH key only works once its PUBLIC half is registered on an AUR account. Sign in at https://aur.archlinux.org, open My Account, and paste the matching public key into 'SSH Public Key'. No later step in this job can succeed until that is done."
-            exit 1
-          fi
-
-      - name: Push PKGBUILD to the AUR
-        if: env.HAVE_SECRET == 'yes'
-        env:
-          AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
-          # refresh-package-manifests.py shells out to `gh release view` to read
-          # the published assets. Without these it dies with "set the GH_TOKEN
-          # environment variable"; the winget and homebrew jobs already set both.
-          # Supplying them was necessary and not sufficient — it moved the
-          # failure from the manifest step to the SSH auth now checked above,
-          # which is where it had been all along. The comment here used to say
-          # the credential was fine. It was not: the key has been rejected on
-          # every run since the secret was added.
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          # Regenerate from the release first, so a PKGBUILD nobody remembered to
-          # bump does not silently publish the previous version to the AUR. The
-          # guard below then only fires if that regeneration itself failed.
-          python3 scripts/refresh-package-manifests.py --version "$VERSION"
-          # .SRCINFO is what the AUR actually indexes; a push without it, or with
-          # one that disagrees with the PKGBUILD, is rejected.
-          test -f packaging/arch/.SRCINFO
-          grep -q "pkgver = ${VERSION}" packaging/arch/.SRCINFO || {
-            echo "::error::packaging/arch/.SRCINFO is not at ${VERSION} -- refusing to push a stale package."
-            exit 1
-          }
-          mkdir -p ~/.ssh
-          printf '%s\n' "$AUR_SSH_KEY" > ~/.ssh/aur
-          chmod 600 ~/.ssh/aur
-          ssh-keyscan -H aur.archlinux.org >> ~/.ssh/known_hosts 2>/dev/null
-          export GIT_SSH_COMMAND="ssh -i ~/.ssh/aur -o IdentitiesOnly=yes"
-          git clone ssh://aur@aur.archlinux.org/yazses.git aur
-          cp packaging/arch/PKGBUILD packaging/arch/.SRCINFO aur/
-          cp packaging/arch/yazses.install aur/ 2>/dev/null || true
-          cd aur
-          git config user.name  "Mohsen Seyedkazemi Ardebili"
-          git config user.email "mohsen.seyedkazemi@gmail.com"
-          # `git add -A` before comparing, and compare the INDEX. The first publish
-          # clones an empty repo, so PKGBUILD/.SRCINFO arrive untracked -- and
-          # `git diff` ignores untracked files. The previous form therefore reported
-          # "already up to date" and exited 0 having pushed nothing, on the one run
-          # that actually creates the package.
-          git add -A
-          if git diff --cached --quiet; then
-            echo "AUR already at $VERSION -- nothing to push."
-            exit 0
-          fi
-          git commit -m "yazses $VERSION"
-          git push origin HEAD:master
-
-      - name: Explain the skip
-        if: env.HAVE_SECRET != 'yes'
-        run: echo "::warning::AUR_SSH_KEY is not set -- skipping AUR. Add it to publish automatically."
-
   summary:
-    needs: [wait-for-assets, winget, chocolatey, homebrew, aur]
+    needs: [wait-for-assets, winget, chocolatey, homebrew]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10   # slowest of the last 2 runs: 0.1 min (CI_POLICY §8)
@@ -465,7 +370,6 @@ jobs:
           HAVE_WINGET: ${{ secrets.WINGET_TOKEN != '' && 'yes' || 'no' }}
           HAVE_CHOCO: ${{ secrets.CHOCO_API_KEY != '' && 'yes' || 'no' }}
           HAVE_TAP: ${{ secrets.TAP_TOKEN != '' && 'yes' || 'no' }}
-          HAVE_AUR: ${{ secrets.AUR_SSH_KEY != '' && 'yes' || 'no' }}
         run: |
           set -euo pipefail
           {
@@ -480,7 +384,6 @@ jobs:
             row winget      WINGET_TOKEN  "$HAVE_WINGET" "${{ needs.winget.result }}"
             row Chocolatey  CHOCO_API_KEY "$HAVE_CHOCO"  "${{ needs.chocolatey.result }}"
             row Homebrew    TAP_TOKEN     "$HAVE_TAP"    "${{ needs.homebrew.result }}"
-            row AUR         AUR_SSH_KEY   "$HAVE_AUR"    "${{ needs.aur.result }}"
             echo
             echo "Flathub and nixpkgs are not here: both need a first, reviewed submission"
             echo "to a third-party repository before any update can be automated."
