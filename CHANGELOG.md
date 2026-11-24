@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — tests: the collection-id guard tests print the whole child run when they fail
+
+`tests/test_collection_id_guard.py` now includes the subprocess exit code, full stdout and full stderr in every assertion message, so a failure on a CI leg that cannot be reproduced locally (a Windows Python 3.11 flake) is diagnosable. Test-only; no behaviour change.
+
 ### Fixed — runtime camera switch: review findings on #927 (#924)
 
 An independent review of the camera switch found seven defects, all fixed with fakes-only tests (no real webcam was used). (1) The face switch no longer gives up for good when its first camera open fails: it waits, so `yazses camera on` reopens it later. (2) `yazses camera on|off|use` wait up to 15 s instead of 2 s, a slow daemon is reported as "still switching" rather than "Daemon is not running", an older daemon without the `camera` method gets a plain message instead of a traceback, and the Linux tray's Camera click no longer blocks the menu thread. (3) `on`, `off` and `use` now run as one transition under a lock, so concurrent calls cannot leave the switch ON with the camera released; observers run outside the lock. (4) The gaze backends read a frame under the camera lock, so a pause cannot release the device mid-read. (5) A gaze camera that fails to open is retried at most every 5 s instead of on every dictation hold; `camera on` retries at once. (6) `camera on` while already ON retries a feature whose last reopen failed. (7) `camera use` matches Windows device paths. No new config key and no IPC change.
