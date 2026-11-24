@@ -190,6 +190,32 @@ Translate text to Unicode Braille (UEB subset) — fully offline.
 - **Arguments:** `text`
 - `--grade` — UEB grade: 1 (uncontracted) or 2 (contracted).
 
+## `yazses camera`
+
+Switch the camera on or off for every camera feature at once, without restarting.
+
+### `yazses camera list`
+
+List the cameras this computer has, with the name and path `camera use` accepts.
+
+### `yazses camera off`
+
+Switch the camera off: every camera feature releases the device. Dictation keeps working.
+
+### `yazses camera on`
+
+Switch the camera on: every enabled camera feature reopens the device.
+
+### `yazses camera status`
+
+Show whether the camera is on and which YazSes features hold the device.
+
+### `yazses camera use`
+
+Switch every camera feature to another camera without restarting. Not saved.
+
+- **Arguments:** `target`
+
 ## `yazses case`
 
 Recase text to a naming convention — fully offline.
