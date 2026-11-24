@@ -17,6 +17,8 @@ that keeps this module's promise — see :data:`PROMPT_TOKEN_BUDGET`.
 """
 from __future__ import annotations
 
+import re
+
 APP_NAME = "YazSes"
 
 # A short natural sentence primes Whisper better than a bare token (it sees the
@@ -81,3 +83,50 @@ def merge_initial_prompt(*parts: str | None, language: str | None = None) -> str
         chunks.append(BUILTIN_PROMPT)
     merged = " ".join(chunks).strip()
     return merged or None
+
+
+#: The shortest run of prompt words that counts as an echo. Below this a transcript is
+#: just a word the prompt happens to contain -- "YazSes.", "called", a vocabulary term the
+#: user dictates on its own -- and must never be judged by the prompt it shares.
+ECHO_MIN_WORDS = 3
+
+_ECHO_PUNCT = re.compile(r"[^\w\s]")
+
+
+def _echo_words(text: str) -> list[str]:
+    return _ECHO_PUNCT.sub(" ", (text or "").casefold()).split()
+
+
+def _echo_word_matches(heard: str, primed: str) -> bool:
+    # A decode stopped mid-token ("YazS") or one that stuttered the coined name
+    # ("YazSeses") are both the primed word; both forms were measured in #598.
+    if heard == primed:
+        return True
+    return min(len(heard), len(primed)) >= 3 and (
+        heard.startswith(primed) or primed.startswith(heard)
+    )
+
+
+def is_prompt_echo(text: str | None, prompt: str | None) -> bool:
+    """True when *text* is nothing but a run of the decoder's own ``initial_prompt``. Pure.
+
+    Whisper answers non-speech with the tokens it was primed with (#598): the built-in
+    sentence whole or cut short ("The app is called YazS."), or a span of a personal
+    vocabulary. The test is specific and checkable (ADR-021): after folding case and
+    punctuation, every word of *text* must match, in order, a contiguous run of at least
+    :data:`ECHO_MIN_WORDS` words of *prompt*. A sentence that merely *contains* a prompt
+    word ("Open YazSes settings", "YazSes.") is never an echo.
+
+    This says only that the text could have come from the prompt, not that it did -- a
+    user may say the sentence. The caller therefore acts on it only when the audio was not
+    positively found to hold speech.
+    """
+    heard = _echo_words(text or "")
+    primed = _echo_words(prompt or "")
+    n = len(heard)
+    if n < ECHO_MIN_WORDS or n > len(primed):
+        return False
+    return any(
+        all(_echo_word_matches(heard[i], primed[start + i]) for i in range(n))
+        for start in range(len(primed) - n + 1)
+    )
