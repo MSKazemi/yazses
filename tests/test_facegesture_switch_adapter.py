@@ -645,7 +645,7 @@ def test_shutdown_mid_gesture_releases_a_hold_on_every_gesture():
     backend._mapper.handle(_intent("smile", PRESS))
     backend._build_landmarker = lambda: SimpleNamespace(close=lambda: None)
     backend._open_camera = lambda: (SimpleNamespace(release=lambda: None), object())
-    backend._loop = lambda *a: None
+    backend._loop = lambda *a: backend._stop_event.set()  # a real loop returns only on stop/pause
     backend.run()
     assert "talk:release" in calls.log and "command:release" in calls.log
 
