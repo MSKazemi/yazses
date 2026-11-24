@@ -87,3 +87,24 @@ def test_face_switch_busy_camera_warning_says_another_application_holds_it(monke
     text = " ".join(r.getMessage() for r in caplog.records)
     assert "another application holds it" in text
     assert "holding camera" not in text
+
+
+def test_face_switch_release_log_names_the_camera_it_opened(monkeypatch, caplog):
+    # After #924 the index can be overridden at run time (`camera use`), so the release
+    # line must name the index actually opened, not the configured one.
+    cap = _fake_cv2(monkeypatch)
+    backend = FaceGestureBackend(FacegestureConfig(enabled=True, camera_index=3), None)
+    backend.set_camera_index(5)
+    with caplog.at_level(logging.INFO, logger="yazses.facegesture.backend"):
+        opened, _ = backend._open_camera()
+        assert backend._release_camera(opened) is None
+    assert cap.released
+    messages = [r.getMessage() for r in caplog.records]
+    assert messages == [camera_held_message(5), camera_held_message(5, released=True)]
+
+
+def test_face_switch_release_without_a_held_camera_logs_nothing(caplog):
+    backend = FaceGestureBackend(FacegestureConfig(enabled=True), None)
+    with caplog.at_level(logging.INFO, logger="yazses.facegesture.backend"):
+        assert backend._release_camera(None) is None
+    assert not caplog.records

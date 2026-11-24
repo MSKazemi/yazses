@@ -44,6 +44,7 @@ if TYPE_CHECKING:
     from yazses.learning.edit_watch import EditWatcher
     from yazses.meeting.controller import MeetingController
     from yazses.perception import SharedPerceptionSource
+    from yazses.perception.switch import CameraSwitch
     from yazses.pilot.service import PilotService
     from yazses.predict.runtime import PredictRuntime
     from yazses.predict.session import Suggestion
@@ -379,6 +380,11 @@ _RECAL_LEAD_S = 1.5
 # daemon is quick, because the loop returns the moment the lock is free.
 _TAKEOVER_WAIT_S = 45.0
 
+# How long a starting daemon keeps asking an unreachable lock holder for its status. The
+# holder takes the lock a moment before it opens its socket, so a first miss is not yet
+# an answer; one that is still silent after this is reported and left alone.
+_INCUMBENT_ANSWER_WAIT_S = 3.0
+
 _TONE_INSTRUCTIONS: dict[str, str] = {
     "casual": "Use a casual, conversational tone.",
     "formal": "Use a formal, professional tone.",
@@ -564,6 +570,14 @@ class Daemon:
         # Non-keyboard activation sources (EMG squeeze — [emg] device_port).
         # Each is a HotkeyBackend duck-type driving the same hold callbacks.
         self._extra_activations: list[HotkeyBackend] = []
+        # The runtime camera on/off switch (perception/switch.py, #922/#924). Always built,
+        # always starts ON, never persisted; camera features register their owners below.
+        # Built on first use, never at start: the perception package pulls in the gaze
+        # package, which a daemon with no camera feature must not import (budget tests).
+        self._camera_switch_obj: CameraSwitch | None = None
+        # How `yazses camera list|use` finds cameras (perception/devices.py). Injected so a
+        # test never touches /sys; the real one reads sysfs on Linux and probes elsewhere.
+        self._camera_enumerator_fn: Callable[[], Any] | None = None
         # Verbatim/autoformat mode (ADR-v2-078): a persistent gate toggled by the
         # spoken commands "dictate verbatim" / "resume formatting". Lazily created on
         # first use when [verbatim] enabled; holds mode across bursts. None = feature off.
@@ -827,30 +841,40 @@ class Daemon:
         return True
 
     def _replace_older_daemon(self, lock: SingleInstanceLock) -> bool:
-        """Ask a strictly older daemon to stop and take its place. False if not applicable.
+        """Ask a stale daemon to stop and take its place. False if not applicable.
 
-        After an upgrade the previous daemon keeps running with what it read at its own
-        start -- on macOS the keyboard permission, before it was granted -- while the new
-        app exits as a duplicate (#562, #578). Only an *older* version is replaced
-        (`core/takeover.py`); an equal or newer one, or one that will not say, is left
-        alone and the caller reports the duplicate as before.
+        A daemon reads its code and, on macOS, the keyboard permission once, at its own
+        start. After an upgrade, or after the user grants a permission and opens the app
+        again, the old daemon kept running with the old answer while the new one exited
+        as a duplicate (#562, #578). The incumbent is replaced only on its own report
+        (`core/takeover.py::startup_replacement_reason`): it is strictly older, or it is
+        idle (or in error) and says grants arrived after it started. A current, healthy
+        daemon, one that will not say, and one that does not answer are all left alone
+        and the caller reports the duplicate as before.
         """
-        from yazses.core.takeover import is_older
+        from yazses.core.takeover import startup_replacement_reason
 
         platform = self._platform
         try:
             client = platform.ipc_client_factory(platform.paths.ipc_socket)
-            # Not consuming: this reader displays nothing, and the holder's one-shot toast
-            # queue is the only notification channel on Windows and macOS.
-            status = client.call("status", consume_notifications=False)
-            theirs = status.get("version") if isinstance(status, dict) else None
-            mine = _running_version()
-            if not is_older(theirs, mine):
+            status = self._incumbent_status(client)
+            if status is None:
                 return False
-            log.warning(
-                "YazSes %s is still running from before the upgrade; asking it to stop "
-                "so %s can take over.", theirs, mine,
-            )
+            mine = _running_version()
+            reason = startup_replacement_reason(status, mine)
+            if reason is None:
+                return False
+            if reason == "older":
+                log.warning(
+                    "YazSes %s is still running from before the upgrade; asking it to "
+                    "stop so %s can take over.", status.get("version"), mine,
+                )
+            else:
+                log.warning(
+                    "The running daemon started before a permission was granted (%s); "
+                    "asking it to stop so this one, which can see the grant, takes over.",
+                    ", ".join(str(g) for g in status.get("stale_permissions") or []),
+                )
             client.call("shutdown")
         except Exception:
             log.debug("Could not ask the running daemon to stop", exc_info=True)
@@ -862,10 +886,48 @@ class Daemon:
                 return True
             time.sleep(0.25)
         log.error(
-            "The older daemon was asked to stop and still holds the lock after %.0f s. "
+            "The previous daemon was asked to stop and still holds the lock after %.0f s. "
             "Run: yazses restart", _TAKEOVER_WAIT_S,
         )
         return False
+
+    def _incumbent_status(self, client: Any) -> dict[str, Any] | None:
+        """The lock holder's ``status`` reply, or None when it gives none. Never raises.
+
+        A holder that cannot be reached is retried for :data:`_INCUMBENT_ANSWER_WAIT_S`,
+        because one that has only just taken the lock opens its socket a moment later.
+        One that still does not answer is *named* (pid, and what to run) and left
+        running: an unanswered socket is not proof the daemon is stuck, and stopping a
+        healthy one on that guess would be worse than the duplicate it prevents (ADR-021).
+        """
+        from yazses.ipc.client import IpcUnreachableError
+
+        deadline = time.monotonic() + _INCUMBENT_ANSWER_WAIT_S
+        while True:
+            try:
+                # Not consuming: this reader displays nothing, and the holder's one-shot
+                # toast queue is the only notification channel on Windows and macOS.
+                reply = client.call("status", consume_notifications=False)
+            except IpcUnreachableError:
+                if time.monotonic() < deadline:
+                    time.sleep(0.25)
+                    continue
+                pid = None
+                try:
+                    pid = self._platform.lifecycle.read_pid()
+                except Exception:  # noqa: BLE001 - the report must not fail the start
+                    pass
+                log.error(
+                    "A YazSes daemon%s holds the single-instance lock but has not answered "
+                    "for %.0f s. It was left running. If dictation does not work, run: "
+                    "yazses restart",
+                    f" (pid {pid})" if pid is not None else "", _INCUMBENT_ANSWER_WAIT_S,
+                )
+                return None
+            except Exception:
+                log.debug("The running daemon's status call failed", exc_info=True)
+                return None
+            return reply if isinstance(reply, dict) else None
 
     def run(self) -> None:
         self._configure_logging()
@@ -2040,6 +2102,7 @@ class Daemon:
 
         # Optional non-keyboard activation sources (EMG squeeze via [emg]).
         self._extra_activations = self._build_activation_sources(cfg)
+        self._register_camera_consumers()
         # Tier 2 natural-language intent fallback (ADR: commands/slm_router.py).
         # None unless `[commands] slm_model_path` names a usable model.
         self._slm_router = self._build_slm_router(cfg)
@@ -2194,6 +2257,7 @@ class Daemon:
         server.register("headpointer", self._handle_headpointer)
         server.register("handsfree", self._handle_handsfree)
         server.register("facegesture", self._handle_facegesture)
+        server.register("camera", self._handle_camera)
         server.register("gesture", self._handle_gesture)
         server.register("mousegrid", self._handle_mousegrid)
         server.serve_in_thread()
@@ -3012,6 +3076,124 @@ class Daemon:
                 reason = "the face switch is not running (`yazses features enable facegesture`)"
             return {"ok": True, "active": False, "reason": reason}
         return {"ok": True, "active": True, **payload}
+
+    # ---- Camera on/off switch (perception/switch.py, #922 / #924) --------------------
+
+    @property
+    def _camera_switch(self) -> CameraSwitch:
+        if self._camera_switch_obj is None:
+            from yazses.perception.switch import CameraSwitch
+
+            self._camera_switch_obj = CameraSwitch()
+        return self._camera_switch_obj
+
+    @_camera_switch.setter
+    def _camera_switch(self, value: CameraSwitch) -> None:
+        self._camera_switch_obj = value
+
+    def _camera_enumerator(self) -> Any:
+        if self._camera_enumerator_fn is None:
+            from yazses.perception.devices import default_enumerator
+
+            self._camera_enumerator_fn = default_enumerator()
+        return self._camera_enumerator_fn()
+
+    def _register_camera_consumers(self) -> None:
+        """Tell the camera switch who owns a device. Never raises; dictation is not in here."""
+        try:
+            perception = getattr(self, "_perception", None)
+            if (perception is None and getattr(self, "_gaze_targeter", None) is None
+                    and not any(hasattr(src, "pause_camera") for src in self._extra_activations)):
+                return  # no camera owner: nothing to switch, nothing to import
+            from yazses.perception.devices import default_enumerator  # noqa: F401
+            from yazses.perception.source import SourceState
+            from yazses.perception.switch import CameraConsumer
+
+            switch = self._camera_switch
+            if perception is not None:
+                def _shared_holders(src=perception) -> tuple[str, ...]:
+                    status = src.status()
+                    if src.suspended or status.state not in (
+                        SourceState.RUNNING, SourceState.STARTING
+                    ):
+                        return ()
+                    return tuple(status.consumers)
+
+                def _shared_failure(src=perception) -> str:
+                    return "" if src.suspended else str(src.status().failure_reason)
+
+                switch.register(CameraConsumer(
+                    name="shared camera",
+                    pause=perception.suspend,
+                    resume=perception.resume,
+                    holders=_shared_holders,
+                    failure=_shared_failure,
+                    set_index=perception.set_camera_index,
+                ))
+            owners: list[tuple[str, Any]] = [
+                ("facegesture", src) for src in self._extra_activations
+                if hasattr(src, "pause_camera")
+            ]
+            if getattr(self, "_gaze_targeter", None) is not None:
+                owners.append(("gaze", self._gaze_targeter))
+            def _own_holders(name: str, owner: Any) -> Callable[[], tuple[str, ...]]:
+                return lambda: (name,) if owner.camera_held else ()
+
+            def _own_failure(owner: Any) -> Callable[[], str]:
+                return lambda: str(owner.camera_failure)
+
+            for name, owner in owners:
+                switch.register(CameraConsumer(
+                    name=name,
+                    pause=owner.pause_camera,
+                    resume=owner.resume_camera,
+                    holders=_own_holders(name, owner),
+                    failure=_own_failure(owner),
+                    set_index=getattr(owner, "set_camera_index", None),
+                ))
+        except Exception:
+            log.warning("Camera switch registration failed; `yazses camera` will report "
+                        "nothing to switch.", exc_info=True)
+
+    def _camera_status_payload(self) -> dict[str, object] | None:
+        """The camera switch as a status block, or None -- a status read never fails on it."""
+        if self._camera_switch_obj is None:
+            return None
+        try:
+            return self._camera_switch.status().as_payload()
+        except Exception:  # pragma: no cover - defensive
+            log.debug("camera status unavailable", exc_info=True)
+            return None
+
+    def _handle_camera(self, request: Request) -> dict[str, object]:
+        """IPC: `status` / `on` / `off` / `list` / `use` for every camera feature at once."""
+        action = str(request.params.get("action", "status"))
+        if action not in ("status", "on", "off", "list", "use"):
+            return {"ok": False, "reason": f"unknown action {action!r}"}
+        try:
+            from yazses.perception.devices import resolve_camera
+
+            switch = self._camera_switch
+            if action == "list":
+                devices = self._camera_enumerator()
+                return {"ok": True, "devices": [dev.as_payload() for dev in devices],
+                        **switch.status().as_payload()}
+            if action == "use":
+                target = str(request.params.get("target", ""))
+                found = resolve_camera(self._camera_enumerator(), target)
+                if found.device is None:
+                    return {"ok": False, "reason": found.message(), "problem": found.problem,
+                            "devices": [dev.as_payload() for dev in found.candidates]}
+                switch.use_camera(found.device.index, found.device.name)
+                return {"ok": True, **switch.status().as_payload()}
+            if action == "on":
+                switch.set(True)
+            elif action == "off":
+                switch.set(False)
+            return {"ok": True, **switch.status().as_payload()}
+        except Exception as exc:  # pragma: no cover - defensive
+            log.exception("camera %s raised", action)
+            return {"ok": False, "reason": f"failed: {type(exc).__name__}"}
 
     def _build_slm_router(self, cfg):
         """Tier 2 SLM intent router, or None (#164).
@@ -9157,6 +9339,9 @@ class Daemon:
                 "meeting_enabled": self._config.meeting.enabled,
                 "meeting_active": self._meeting_controller is not None,
                 "meeting_finalizing": self._meeting_finalizing,
+                # The camera switch (#924): state, holders, failures. The tray's Camera
+                # toggle and its held/released line read it; None if it cannot be read.
+                "camera": self._camera_status_payload(),
                 # Decode latency over a bounded recent window, per model (#296).
                 # Percentiles, not a mean: decode time is right-skewed and it is
                 # the slow tail you wait through. The count travels with it so a

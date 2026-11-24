@@ -91,6 +91,23 @@ def replacement_reason(status: object, mine: object) -> str | None:
     return None
 
 
+def startup_replacement_reason(status: object, mine: object) -> str | None:
+    """Why a *starting* daemon should replace the one holding the lock, or None. Pure.
+
+    ``"older"`` on :func:`is_older` alone, as it always has been at start-up. Otherwise
+    the tray's rule (:func:`replacement_reason`) for ``"permissions"``: an incumbent that
+    is idle or in error, not in a meeting, and reports grants given after it started.
+    That is the reopened-app case of #578 -- the user fixed the permission and opened
+    YazSes again, and the new daemon used to exit as a duplicate of the one that could
+    not see the fix. A healthy, current incumbent answers None and is never touched.
+    """
+    if not isinstance(status, dict):
+        return None
+    if is_older(status.get("version"), mine):
+        return "older"
+    return "permissions" if replacement_reason(status, mine) == "permissions" else None
+
+
 def may_replace_again(
     last: float | None, now: float, *, silence_s: float = REPLACE_SILENCE_S
 ) -> bool:
