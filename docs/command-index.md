@@ -212,9 +212,11 @@ Show whether the camera is on and which YazSes features hold the device.
 
 ### `yazses camera use`
 
-Switch every camera feature to another camera without restarting. Not saved.
+Switch every camera feature to another camera without restarting. Add --save to keep it.
 
 - **Arguments:** `target`
+- `--save` — Also remember the choice in the config file ([camera]), so it applies after a restart.
+- `--clear` — Forget the saved choice; each feature uses its own camera_index again.
 
 ## `yazses case`
 

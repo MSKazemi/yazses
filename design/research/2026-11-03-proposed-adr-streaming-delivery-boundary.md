@@ -55,3 +55,60 @@ The companion [replay specification](../specs/streaming-commit-replay-protocol.m
 ## Review / acceptance gate
 
 Requires a maintainer's explicit decision, evidence from a synthetic daemon-level staged+streaming reproducer and review of the existing injection/target assumptions. If accepted, allocate a real ADR identifier, update the generated index using its generator, and separately authorize a scoped delivery issue. **Until then, this is a proposed research document, not a statement that runtime behavior changed.**
+
+## Addendum 2026-11-20 — Moonshine v2 bounded-attention partials
+
+**Status:** addendum to this *Proposed* candidate. It does not accept it and authorizes no
+code, dependency, default or delivery change. Source: plan item M1 in the
+[2026-11-19 start plans](2026-11-19-landscape-start-plans.md). Package facts are in the
+[Moonshine v2 upgrade spike](2026-11-20-moonshine-v2-upgrade-spike.md).
+
+**What changes in the design space.** The decision above assumes the only streaming source is
+LocalAgreement-2 over a re-decoded, growing Whisper-style buffer. With that source, CPU cost
+grows with utterance length and prefix retractions are common. Moonshine v2 (the
+`moonshine-voice` `*-streaming` arches, MIT) uses sliding-window encoder attention, so the
+cost per update is bounded and time-to-first-token does not grow with length
+([arXiv:2602.12241](https://arxiv.org/abs/2602.12241), vendor claim). Its native stream reports
+per-line events (`LineStarted`, `LineTextChanged`, `LineCompleted`). Within a line, text is
+expected to grow by appending; across a line boundary, completed lines are not revised.
+**That would remove some of the prefix-retraction cases** the replay specification catalogues.
+It is a hypothesis: the decoder can still rewrite an incomplete line, and only replay can
+show how often.
+
+**What does not change.** Every decision and invariant above stands unchanged:
+
+- **Partials are overlay-only.** A v2 partial is still a provisional hypothesis (decision 2).
+  It may appear in the private local preview or overlay. It never leaves the daemon as
+  keystrokes or clipboard. Append-only text is easier to *display*. It is still not safe to
+  *type*, because I5 (no unproved deletion) and the focus/caret problems do not depend on
+  the model.
+- **Key release commits.** `Stream.stop()` on the physical release is the only finalization
+  (decision 1, I2). v2's built-in VAD may close a *line* during a thinking pause. A closed
+  line is not a finished burst, and the adapter must not treat `LineCompleted` as
+  permission to deliver.
+- **Exactly one final delivery** per burst (decision 3, I3). The text delivered is the
+  stream's final transcript after release, through the same filters, guards and staged
+  policy as batch.
+
+**How to map it, when allowed.** A v2 adapter would feed `StreamingEngine` the native line
+events instead of re-decoding windows through `decode_window`. Alternatively it would sit
+beside `StreamingEngine` behind the same `PartialHypothesis` shape, with
+`is_stable = line completed`. Either way it emits only into the preview path. It needs no new config key: the
+existing `[streaming]` section stays `enabled = false`, and the engine is chosen by
+`[stt] engine` / `[stt] model`.
+
+**Validation before any delivery change.**
+
+1. Record v2 partial sequences with `scripts/bench-moonshine-v2.py run --arch <size>-streaming --streaming`.
+   It reports per-file text changes, **prefix retractions** (any change that is not an
+   append), first-partial time and release-to-final time. Run both `--pace fast` and
+   `--pace realtime`.
+2. Convert representative sequences into synthetic traces for the pure oracle in
+   `src/yazses/stt/streaming_replay.py`
+   ([replay protocol](../specs/streaming-commit-replay-protocol.md)). Include long thinking
+   pauses inside one hold, a VAD-closed line followed by more speech, and late events after
+   `stop()`.
+3. Every trace must pass I1–I7 with partials routed to the overlay only. The retraction count
+   from step 1 is evidence for the preview's UX, not a relaxation of any invariant.
+4. Named hardware and application checks still follow, as in the review gate above.
+   Synthetic replay alone is not desktop validation.
