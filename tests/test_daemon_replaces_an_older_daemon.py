@@ -79,6 +79,7 @@ def start(monkeypatch):
     incumbent reporting `version`. Returns (acquired, rpc methods called)."""
     monkeypatch.setattr(daemon_mod, "_running_version", lambda: "2.43.1")
     monkeypatch.setattr(daemon_mod, "_TAKEOVER_WAIT_S", 0.6)
+    monkeypatch.setattr(daemon_mod, "_INCUMBENT_ANSWER_WAIT_S", 0.05)
     real_sleep = daemon_mod.time.sleep
     monkeypatch.setattr(daemon_mod.time, "sleep", lambda _s: real_sleep(0.01))
 
