@@ -1508,6 +1508,50 @@ nothing more. And the useful cut height is a property of the *recording* rather 
 the dataset, which is why the fix that shipped is two constants rather than one, and why
 even two is a compromise: the right answer is a per-recording estimate that nobody has.
 
+### pyannote 3.1 against community-1 — not yet measured
+
+`[recimport] backend = "pyannote"` loads `pyannote/speaker-diarization-3.1`. Whether it
+should move to `pyannote/speaker-diarization-community-1` has **not been measured**, and
+this section has no numbers in it until someone runs the comparison. The pin stays at
+3.1 until then.
+
+The comparison is public and runs from a clone:
+[`scripts/bench-pyannote-pipelines.py`](https://github.com/MSKazemi/yazses/blob/main/scripts/bench-pyannote-pipelines.py).
+Both pipelines are gated, so you need a Hugging Face account that has accepted the
+conditions of both repos (and of `pyannote/segmentation-3.0`, which 3.1 loads). Download
+once, then measure offline:
+
+```sh
+uv sync --extra diarization-pyannote
+hf auth login
+hf download pyannote/speaker-diarization-3.1
+hf download pyannote/segmentation-3.0
+hf download pyannote/speaker-diarization-community-1
+uv run python scripts/bench-pyannote-pipelines.py FIXTURES \
+    --evidence-class synthetic --corpus-label <name> --json-out n2.json
+```
+
+`FIXTURES` holds `<name>.wav` and a reference `<name>.rttm` for each recording. Use
+synthetic or explicitly consented audio only, for example the meetings that
+`scripts/gen-meeting-corpus.py` generates. The script sets `HF_HUB_OFFLINE=1` unless you
+pass `--allow-download`.
+
+It runs both pipelines on the same files and reports, for each, the DER (mean across
+recordings and time-weighted), JER, miss / false alarm / confusion, speaker-count error,
+wall time and real-time factor, and cold load time. Scoring is `pyannote.metrics`, collar
+0 by default. A pyannote.audio 4.x pipeline returns a regular diarization and an
+`exclusive_speaker_diarization` with one speaker per instant. Both are scored, and the
+row marked *shipped* is the view the adapter would pass to `align.py`; the adapter reads
+the exclusive view when the output has one. The JSON header records the ADR-033 fields:
+commit, snapshot revision and SHA-256 for each pipeline, the revisions of every cached
+`pyannote/*` repo, library versions, CPU, OS, torch threads, corpus label, a hash per
+fixture and the evidence class. A fixture that fails is listed, and the script exits 3
+unless you pass `--allow-partial`.
+
+Changing the pin also needs the model's licence (community-1 is CC-BY-4.0) added to the
+model manifest and the licence notices. A fixture set as small as the synthetic corpus
+may not be able to separate the two pipelines, and a result that says so still counts.
+
 
 ## What is not measured here
 

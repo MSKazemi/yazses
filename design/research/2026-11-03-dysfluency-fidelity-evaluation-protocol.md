@@ -186,6 +186,23 @@ This runner **does not** accept any input declaring itself a real audio corpus. 
 
 **Verification distinction:** the pure evaluator tests were run in an isolated Python environment on 2026-11-03; real-`yazses` CLI integration, repository-wide gates and CI status must be checked on the PR before claiming green. This does not discharge the real-speech rights/consent and preregistration gates above.
 
+## 10. Latency vocabulary: SAPC2 equivalents (added 2026-11-20)
+
+This protocol's primary outcome is semantic fidelity, not speed. When a later real-speech run (R4) or human study (R6) reports latency, it uses the vocabulary of the second Speech Accessibility Project Challenge, so the numbers can be compared with published dysarthric-ASR work. That challenge is SAPC2, the NeurIPS 2026 competition with a streaming dysarthric-ASR track. The measurement points are defined once, in §5.1 of the [streaming commit replay spec](../specs/streaming-commit-replay-protocol.md), and are not redefined here. No existing metric in this protocol is renamed.
+
+**Source, as read on 2026-11-20:** the [SAPC2 website](https://xiuwenz2.github.io/SAPC2-website), the [NeurIPS 2026 competition page](https://neurips.cc/virtual/2026/competition/137691), and `utils/compute_latency.py` in [xiuwenz2/SAPC-template](https://github.com/xiuwenz2/SAPC-template) at commit `43a5e5f074ae7793cc8cd96016048711ec94d9dc`. Re-pin before quoting a number. The definitions may change before the NeurIPS 2026 results.
+
+| SAPC2 metric (exact name) | SAPC2 definition (abridged) | YazSes measurement point | Applies to this protocol |
+| --- | --- | --- | --- |
+| TTFT | first non-empty partial − (audio send start + forced-aligned speech start) | `first_nonempty_hypothesis_ms − speech_onset_ref_ms` (replay spec §5.1) | Streaming runs only. The §9 text-only harness has no audio timeline, so this is not applicable there. |
+| TTFT-stable | first time the first word has settled to its final value − the same speech start | `first_word_settled_ms − speech_onset_ref_ms` (replay spec §5.1) | Streaming runs only. Report it per stratum, because sound and word repetitions are where a first word is most likely to churn. |
+| TTLT | final visible text − (audio send start + audio duration) | `release_to_final_decode_ms` (replay spec §5.1). The decode part is the `decode_ms` summarised by `src/yazses/stt/latency.py`. | Any real-audio run, batch or streaming. TTLT stops at the recognizer's raw final text. The disfluency filter runs after that point, so its cost is reported as a separate filter-time figure and never folded into TTLT. |
+| P50 / P90 | Median ranks; P90 is informational. SAPC2 uses linear-interpolation percentiles. | p50 / p90 of the per-utterance values | State the percentile method. `stt/latency.py` uses nearest rank. |
+| Pareto latency | mean(TTFT-stable P50, TTLT P50); non-streaming = infinity | Same, from the rows above | A batch (`[streaming]` off) configuration is infinite in SAPC2 terms. Report its TTLT, not a Pareto latency. |
+| Real-time factor | Not defined by SAPC2 | Replay spec §5 decode CPU seconds / captured-audio seconds | No SAPC2 equivalent. |
+
+**Data boundary.** This protocol imports SAPC2 *definitions only*. The Speech Accessibility Project corpus, including the gated SAPC2 release, its streaming dev subset and its forced-alignment manifests, sits behind the SAP data use agreement (§2, "Speech Accessibility Project" row). It is not a candidate corpus for the 160-clip pilot, and it must never enter the repository, its fixtures, CI, or a third-party coding agent. The SAPC2 toolkit published no licence at the pinned commit, so its code is not copied either. Under [ADR-v2-150](../adr/adr-v2-150-evaluation-evidence-and-research-consent.md), a synthetic or `community_qa` latency figure may say it uses *SAPC2-equivalent definitions*. It is never an SAPC2 result. Measuring on SAP speech would be `research` evidence under its own named protocol and an institution's signed agreement, and that is out of scope here.
+
 ## References (landing pages, not redistributed PDFs)
 
 - Lea et al. (2023), *From User Perceptions to Technical Improvement: Enabling People Who Stutter to Better Use Speech Recognition*, CHI. [DOI](https://doi.org/10.1145/3544548.3581224).
@@ -195,3 +212,4 @@ This runner **does not** accept any input declaring itself a real audio corpus. 
 - Apple AIML (SEP-28k), [dataset repository and licence](https://github.com/apple-aiml-research/ml-stuttering-events-dataset).
 - University of Toronto, [TORGO dataset landing page](https://www.cs.toronto.edu/~complingweb/data/TORGO/torgo.html).
 - University of Illinois, [UA-Speech terms](https://speechtechnology.web.illinois.edu/uaspeech/) and [Speech Accessibility Project data use](https://speechaccessibilityproject.beckman.illinois.edu/conduct-research-through-the-project).
+- Speech Accessibility Project Challenge 2 (SAPC2), NeurIPS 2026 competition track. [Challenge website](https://xiuwenz2.github.io/SAPC2-website), [NeurIPS competition page](https://neurips.cc/virtual/2026/competition/137691), [reference toolkit repository](https://github.com/xiuwenz2/SAPC-template) (latency definitions read at commit `43a5e5f0`).

@@ -62,6 +62,7 @@ from yazses.facegesture.switches import (
     parse_bindings,
     stuck_consequence,
 )
+from yazses.perception.camera import camera_held_message
 from yazses.perception.mediapipe_backend import DEFAULT_PRESENCE_CONFIDENCE
 from yazses.perception.signals import FacePerceptionSource
 
@@ -119,6 +120,7 @@ class FaceGestureBackend:
         self._paused = threading.Event()
         self._wake = threading.Event()
         self._camera_open = False
+        self._open_index = 0  # the index the held device was opened with (for the release log)
         self._idle = threading.Event()  # set while the device is not held
         self._idle.set()
         self._camera_failure = ""
@@ -405,7 +407,7 @@ class FaceGestureBackend:
             except Exception:
                 log.debug("face-gesture: camera release failed", exc_info=True)
             if self._camera_open:
-                log.info("Face-gesture switch released the camera.")
+                log.info(camera_held_message(self._open_index, released=True))
         self._camera_open = False
         self._idle.set()
         return None
@@ -625,13 +627,15 @@ class FaceGestureBackend:
             return None, None
         if not cap.isOpened():
             log.warning("Face-gesture switch could not open camera %d "
-                        "(in use, or no permission).", index)
+                        "(busy because another application holds it, or no permission).",
+                        index)
             self._camera_failure = f"camera {index} is in use or permission was denied"
             cap.release()
             return None, None
         self._camera_open = True
+        self._open_index = index
         self._idle.clear()
-        log.info("Face-gesture switch is holding camera %d.", index)
+        log.info(camera_held_message(index))
         return cap, cv2
 
     def _loop(self, landmarker, cap, cv2, mp) -> None:

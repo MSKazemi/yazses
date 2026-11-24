@@ -6783,6 +6783,40 @@ def _camera_open_failed(feature: str) -> str:
     )
 
 
+def _camera_save(target: str) -> None:
+    """Write the chosen camera to ``[camera]`` and the three legacy keys, atomically (#924).
+
+    Resolves ``target`` against the cameras the OS lists and writes nothing for a camera
+    that is not there, or that two cameras share a name with, so what is saved is always
+    something that was seen.
+    """
+    from yazses.perception.devices import default_enumerator, resolve_camera
+    from yazses.system.configedit import ConfigChange, set_config_keys_atomic
+
+    resolution = resolve_camera(default_enumerator()(), target)
+    dev = resolution.device
+    if dev is None:
+        typer.echo(f"Camera: {resolution.message()}", err=True)
+        raise typer.Exit(1)
+    stable = dev.paths[0] if dev.paths else dev.name
+    changes = [ConfigChange("camera", "device", stable), ConfigChange("camera", "index", dev.index)]
+    changes += [ConfigChange(sec, "camera_index", dev.index)
+                for sec in ("gaze", "facegesture", "perception")]
+    set_config_keys_atomic(get_platform().paths.config_file, changes)
+    typer.echo(f"Saved camera {dev.name!r} (index {dev.index}) to the config file.")
+
+
+def _camera_clear() -> None:
+    """Forget the saved camera: ``[camera]`` back to unchosen, the three legacy keys back to 0."""
+    from yazses.system.configedit import ConfigChange, set_config_keys_atomic
+
+    changes = [ConfigChange("camera", "device", ""), ConfigChange("camera", "index", -1)]
+    changes += [ConfigChange(sec, "camera_index", 0) for sec in ("gaze", "facegesture", "perception")]
+    set_config_keys_atomic(get_platform().paths.config_file, changes)
+    typer.echo("Cleared the saved camera. Each camera feature uses its own camera_index again "
+               "(reset to 0 in [gaze], [facegesture] and [perception]). Applies at the next start.")
+
+
 @camera_app.command(
     "status",
     epilog=_examples("yazses camera status    is the camera on, and which features hold it"),
@@ -6833,9 +6867,29 @@ def camera_list() -> None:
     ),
 )
 def camera_use(
-    target: str = typer.Argument(..., help="Camera name (or part of it), index, or /dev/v4l/by-id path"),
+    target: str = typer.Argument("", help="Camera name (or part of it), index, or /dev/v4l/by-id path"),
+    save: bool = typer.Option(
+        False, "--save",
+        help="Also remember the choice in the config file ([camera]), so it applies after a restart.",
+    ),
+    clear: bool = typer.Option(
+        False, "--clear", help="Forget the saved choice; each feature uses its own camera_index again.",
+    ),
 ) -> None:
-    """Switch every camera feature to another camera without restarting. Not saved."""
+    """Switch every camera feature to another camera without restarting. Add --save to keep it."""
+    if clear:
+        _camera_clear()
+        return
+    if not target.strip():
+        typer.echo("Give a camera name, index or path (or --clear). See: yazses camera list", err=True)
+        raise typer.Exit(2)
+    if save:
+        _camera_save(target)
+        try:
+            _echo_camera(_camera_call("use", target=target))
+        except typer.Exit:
+            typer.echo("Saved. The daemon was not switched live; it applies at the next start.")
+        return
     _echo_camera(_camera_call("use", target=target))
 
 
