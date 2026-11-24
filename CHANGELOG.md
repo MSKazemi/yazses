@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — face switch: the log now says when YazSes holds the webcam, and why a call app cannot open it (#922)
+
+With `[facegesture]` on, the camera is held from daemon start, and a video-call app saying "camera not available" gave no hint that YazSes was the cause. The daemon now logs one INFO line when it takes the camera and one when it hands it back ("holding camera N: other applications (video calls) cannot use it ... `systemctl --user stop yazses`"), the busy-camera warning names "another application holds it", and `docs/troubleshooting.md` has a section on the symptom. Observability and documentation only: the camera lifecycle, config keys, CLI and IPC are unchanged. Idle release, a tray toggle and camera sharing remain open as #924 and #925. Checked with fake `cv2` handles; not checked against a real webcam or a real call app.
+
 ### Fixed — runtime camera switch: review findings on #927 (#924)
 
 An independent review of the camera switch found seven defects, all fixed with fakes-only tests (no real webcam was used). (1) The face switch no longer gives up for good when its first camera open fails: it waits, so `yazses camera on` reopens it later. (2) `yazses camera on|off|use` wait up to 15 s instead of 2 s, a slow daemon is reported as "still switching" rather than "Daemon is not running", an older daemon without the `camera` method gets a plain message instead of a traceback, and the Linux tray's Camera click no longer blocks the menu thread. (3) `on`, `off` and `use` now run as one transition under a lock, so concurrent calls cannot leave the switch ON with the camera released; observers run outside the lock. (4) The gaze backends read a frame under the camera lock, so a pause cannot release the device mid-read. (5) A gaze camera that fails to open is retried at most every 5 s instead of on every dictation hold; `camera on` retries at once. (6) `camera on` while already ON retries a feature whose last reopen failed. (7) `camera use` matches Windows device paths. No new config key and no IPC change.
