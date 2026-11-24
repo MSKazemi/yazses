@@ -224,7 +224,9 @@ def _claimed_commands() -> list[str]:
 
 
 @pytest.mark.parametrize("command", sorted(set(_claimed_commands())))
-def test_claimed_command_never_raises_unsupported_platform(command, as_platform, tmp_path) -> None:
+def test_claimed_command_never_raises_unsupported_platform(
+    command, as_platform, tmp_path, monkeypatch
+) -> None:
     """Every command the message names must actually run with no backend.
 
     The bug this pins: the error told the user `yazses transcribe` still worked
@@ -245,6 +247,18 @@ def test_claimed_command_never_raises_unsupported_platform(command, as_platform,
 
     as_platform("sunos5")
     if command == "transcribe":
+        # The body builds a real Whisper engine right after the platform lookup this
+        # test is about. With an empty Hugging Face cache that downloads a model --
+        # 106 s on a fast link, past the 300 s per-test timeout on a slow runner -- so
+        # the test's runtime depended on the cache and the network. Stop at the model
+        # step: "model unavailable" is the clean exit the command already has for it,
+        # and it is reached only after `get_platform()` has been (not) called.
+        from yazses.stt.errors import ModelUnavailableError
+
+        def _no_model(*_a, **_k):
+            raise ModelUnavailableError("no model in this test")
+
+        monkeypatch.setattr("yazses.recimport.pipeline._build_engine", _no_model)
         sample = tmp_path / "empty.wav"
         sample.write_bytes(b"")
         args = [command, str(sample)]

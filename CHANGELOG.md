@@ -12,11 +12,31 @@ The speech-presence check (#598) runs Silero on every burst, and Silero was buil
 
 `scripts/bench-decode-latency.py` is the harness behind these numbers: fresh-process cold starts, an interleaved warm grid of decoder settings with every transcript checked against the shipped one, idle gaps and the pre-decode audio work, with load average and ADR-033-style provenance recorded. The results, and the decoder settings that would be faster but change the text, are in `docs/benchmarks.md` ("Release → transcript, stage by stage") and `design/research/2026-11-20-dictation-latency-decode.md`. No default changes.
 
+### Docs — README comparison tables brought up to November 2026 and dated
+
+The README's "Comparison & alternatives" section now matches `docs/comparison.md` as re-checked on 2026-11-20. Handy transcribes files since v0.10.0; OpenWhispr records meetings with local speaker labels and has paid cloud plans; FluidVoice has FluidMeet meetings with speaker labels and Windows and Linux betas (no longer "announced" or a "community port"); VoiceInk is GPLv3, sold one-time from $25, and offers optional cloud models. Speaker-labelled meetings are no longer listed as a YazSes-only difference; the no-cloud egress inventory is. The tables now carry their check date.
+
+### Removed — the AUR job in publish-channels.yml
+
+`publish-channels.yml` no longer has an `aur` job, `aur` choice or summary row. Every run since v2.48.0 failed at the SSH check with `Permission denied (publickey)`, because no AUR account was available to register the key on and the AUR closed new registrations in June 2026. The other channels are unchanged. `packaging/arch/` is kept for a manual submission and the release-channel checker still reports the AUR; restore the job from git history once an account exists. The `AUR_SSH_KEY` secret is now unused.
+
 ### Added — research: a MaixCAM2 text link, recorded as an ADR (research record only) and a research note, not a feature
 
 [ADR-v2-156](design/adr/adr-v2-156-maixcam2-text-link.md) (Accepted as a research record only) records whether a Sipeed MaixCAM2 running Whisper `base` could send recognised text to a desktop over a wired UART: the falsifiable hypothesis, a threat model for text arriving over a wire, the egress statement, exit criteria and the unknowns. `docs/research/maixcam2-text-link.md` is the matching notice: experimental, research only, not part of YazSes. The change also adds a stdlib-only reference codec, simulator and printing reader under `examples/maixcam2-text-link/`, with tests, and a draft wire spec (`design/specs/textlink-wire-protocol.md`). Nothing in `src/` changes and no board has been tested; the ADR-030 breadth freeze applies, so implementation needs a recorded go and a named exception.
 
 The MaixCAM2 example now also records the vendor's answer (Sipeed support, 2026-11-13: one-time online setup, then local recognition, stated by the vendor and not measured here), and its board script can record a WAV the way Sipeed's own example does, still untested on a board.
+
+### Fixed — Quit stops a daemon that does not answer, and reopening the app replaces one that predates a permission
+
+Two gaps were left after the macOS `before_quit` fix (#578). Quit sent the daemon `shutdown` and, if that failed (no answer, a timeout, an error), did nothing more, so a daemon that was alive but not answering outlived Quit with the permission it had read at start. Quit now gives that daemon the same stop `yazses stop` sends, through the platform lifecycle, and waits up to 3 s for it to go. A daemon that accepts `shutdown` is left to finish on its own. Separately, a newly started daemon replaced only a strictly older one. Now it also replaces one that reports `stale_permissions` (it started before a grant), but only while that daemon is idle or in error and not in a meeting. A lock holder that does not answer is asked again for 3 s, then named in the log by pid and left running: no answer is not proof it is stuck. Verified with fakes only, not on a Mac.
+
+### Fixed — Windows Store (MSIX) build: the microphone and camera checks read the app's own consent entry
+
+The packaged build already skipped the "Let desktop apps access…" (`NonPackaged`) switch, which does not govern it, but read nothing in its place, so a user who had switched YazSes off in the Settings app list still got `doctor` OK, and the camera could never be reported as allowed. It now asks Windows for its package family name (`GetCurrentPackageFamilyName`) and reads `HKCU\…\ConsentStore\<microphone|webcam>\<package family name>`: a `Deny` there is a refusal, and the camera is `GRANTED` only on that entry's own `Allow`. Microsoft documents this per-app layout for `location`; that the microphone and camera use the same one is inferred, and none of it has run on a real MSIX install. With no family name the check falls back to the two broader switches, as before (#653).
+
+### Fixed — a burst the speech check could not judge could still type "The app is called YazSes." (#598)
+
+The speech-presence check stops a no-speech burst before it is decoded, but it does not always run. It is skipped in Whisper / Low-Effort mode, Dysfluency-Friendly mode and the sotto-voce command channel, it is off when `[accessibility] speech_presence_check = false`, and it lets the burst through when the detector cannot run. In any of those cases, a silent Right Ctrl press or an eye-gesture burst could still be decoded into the built-in prompt and typed. Now, after decode, a transcript is dropped (`discard_reason = "prompt_echo"`; the log shows its length, never the text) when two things are both true. First, it consists only of a run of three or more consecutive words from the decoder's own `initial_prompt`, ignoring case and punctuation. A word cut short or doubled counts as a match, so "The app is called YazS." and "…YazSeses." are covered. Second, the speech detector did not find speech in the audio. If the detector did find speech, the sentence is typed, so you can still say it. Dictation that only contains the name ("Open YazSes settings", "YazSes.") is never affected. Tested with a stub decoder only. The real model was not run for this change.
 
 ### Fixed — `yazses mcp-server` could not connect to Claude Code: `serverInfo.version` was missing
 
@@ -25,6 +45,10 @@ The MCP `initialize` reply carried `serverInfo.name` and `title` but no `version
 ### Fixed — commands: a spoken repeat count is bounded before any key is sent
 
 A mis-heard "delete the last 1000000 words" made dispatch send a million Ctrl+BackSpace, which deleted the document and blocked the daemon while it typed. `delete_words`, `delete_lines`, `undo_n` and `select_lines` now resolve their count before the first key and refuse anything above 99 (`CommandRefused`: nothing sent, nothing typed), the same ceiling the Mandarin grammar already enforced at parse time. Every producer of a command intent is covered, including the SLM router and the activation pipeline.
+
+### Fixed — CI telemetry: a response cut off mid-body is retried once ([#894](https://github.com/MSKazemi/yazses/issues/894))
+
+The scheduled `CI telemetry` report crashed with `http.client.IncompleteRead` when GitHub dropped a connection while the response body was being read. The GET transport in `scripts/ci-telemetry-report.py` now treats `IncompleteRead`, a remote disconnect or a connection reset like any other dropped connection: the existing single retry, then a sanitized `ApiError` (exit 1) that names only the exception class. The retry budget, the time budget and the rate-limit reserve are unchanged; 4xx and non-JSON bodies are still not retried.
 
 ### Fixed — CI: dispatch inputs no longer expand into shell source
 

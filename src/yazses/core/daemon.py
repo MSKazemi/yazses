@@ -64,9 +64,9 @@ from yazses.audio.mic_prompt import MicPrompt
 from yazses.audio.padding import PreSpeechRingBuffer
 from yazses.audio.recorder import AudioRecorder
 from yazses.audio.speech_presence import (
-    holds_no_speech,
     prime_detector,
     speech_check_applies,
+    speech_verdict,
 )
 from yazses.audio.vad_calibrated import is_silent_calibrated
 from yazses.cmdsafety.classify import ConfirmGate
@@ -108,6 +108,7 @@ from yazses.stt.factory import build_engine, describe_active_engine
 from yazses.stt.filters.disfluency import filter_transcript
 from yazses.stt.latency import LatencyWindow
 from yazses.stt.streaming import StreamingEngine
+from yazses.stt.vocabulary import is_prompt_echo
 from yazses.system.outcomes import OutcomeWindow, classify_outcome
 from yazses.system.relaunch import Mode, command_for
 from yazses.system.uptime import monotonic_including_suspend
@@ -381,6 +382,11 @@ _RECAL_LEAD_S = 1.5
 # exits, leaving no daemon at all, so this errs long: it costs nothing when the old
 # daemon is quick, because the loop returns the moment the lock is free.
 _TAKEOVER_WAIT_S = 45.0
+
+# How long a starting daemon keeps asking an unreachable lock holder for its status. The
+# holder takes the lock a moment before it opens its socket, so a first miss is not yet
+# an answer; one that is still silent after this is reported and left alone.
+_INCUMBENT_ANSWER_WAIT_S = 3.0
 
 _TONE_INSTRUCTIONS: dict[str, str] = {
     "casual": "Use a casual, conversational tone.",
@@ -830,30 +836,40 @@ class Daemon:
         return True
 
     def _replace_older_daemon(self, lock: SingleInstanceLock) -> bool:
-        """Ask a strictly older daemon to stop and take its place. False if not applicable.
+        """Ask a stale daemon to stop and take its place. False if not applicable.
 
-        After an upgrade the previous daemon keeps running with what it read at its own
-        start -- on macOS the keyboard permission, before it was granted -- while the new
-        app exits as a duplicate (#562, #578). Only an *older* version is replaced
-        (`core/takeover.py`); an equal or newer one, or one that will not say, is left
-        alone and the caller reports the duplicate as before.
+        A daemon reads its code and, on macOS, the keyboard permission once, at its own
+        start. After an upgrade, or after the user grants a permission and opens the app
+        again, the old daemon kept running with the old answer while the new one exited
+        as a duplicate (#562, #578). The incumbent is replaced only on its own report
+        (`core/takeover.py::startup_replacement_reason`): it is strictly older, or it is
+        idle (or in error) and says grants arrived after it started. A current, healthy
+        daemon, one that will not say, and one that does not answer are all left alone
+        and the caller reports the duplicate as before.
         """
-        from yazses.core.takeover import is_older
+        from yazses.core.takeover import startup_replacement_reason
 
         platform = self._platform
         try:
             client = platform.ipc_client_factory(platform.paths.ipc_socket)
-            # Not consuming: this reader displays nothing, and the holder's one-shot toast
-            # queue is the only notification channel on Windows and macOS.
-            status = client.call("status", consume_notifications=False)
-            theirs = status.get("version") if isinstance(status, dict) else None
-            mine = _running_version()
-            if not is_older(theirs, mine):
+            status = self._incumbent_status(client)
+            if status is None:
                 return False
-            log.warning(
-                "YazSes %s is still running from before the upgrade; asking it to stop "
-                "so %s can take over.", theirs, mine,
-            )
+            mine = _running_version()
+            reason = startup_replacement_reason(status, mine)
+            if reason is None:
+                return False
+            if reason == "older":
+                log.warning(
+                    "YazSes %s is still running from before the upgrade; asking it to "
+                    "stop so %s can take over.", status.get("version"), mine,
+                )
+            else:
+                log.warning(
+                    "The running daemon started before a permission was granted (%s); "
+                    "asking it to stop so this one, which can see the grant, takes over.",
+                    ", ".join(str(g) for g in status.get("stale_permissions") or []),
+                )
             client.call("shutdown")
         except Exception:
             log.debug("Could not ask the running daemon to stop", exc_info=True)
@@ -865,10 +881,48 @@ class Daemon:
                 return True
             time.sleep(0.25)
         log.error(
-            "The older daemon was asked to stop and still holds the lock after %.0f s. "
+            "The previous daemon was asked to stop and still holds the lock after %.0f s. "
             "Run: yazses restart", _TAKEOVER_WAIT_S,
         )
         return False
+
+    def _incumbent_status(self, client: Any) -> dict[str, Any] | None:
+        """The lock holder's ``status`` reply, or None when it gives none. Never raises.
+
+        A holder that cannot be reached is retried for :data:`_INCUMBENT_ANSWER_WAIT_S`,
+        because one that has only just taken the lock opens its socket a moment later.
+        One that still does not answer is *named* (pid, and what to run) and left
+        running: an unanswered socket is not proof the daemon is stuck, and stopping a
+        healthy one on that guess would be worse than the duplicate it prevents (ADR-021).
+        """
+        from yazses.ipc.client import IpcUnreachableError
+
+        deadline = time.monotonic() + _INCUMBENT_ANSWER_WAIT_S
+        while True:
+            try:
+                # Not consuming: this reader displays nothing, and the holder's one-shot
+                # toast queue is the only notification channel on Windows and macOS.
+                reply = client.call("status", consume_notifications=False)
+            except IpcUnreachableError:
+                if time.monotonic() < deadline:
+                    time.sleep(0.25)
+                    continue
+                pid = None
+                try:
+                    pid = self._platform.lifecycle.read_pid()
+                except Exception:  # noqa: BLE001 - the report must not fail the start
+                    pass
+                log.error(
+                    "A YazSes daemon%s holds the single-instance lock but has not answered "
+                    "for %.0f s. It was left running. If dictation does not work, run: "
+                    "yazses restart",
+                    f" (pid {pid})" if pid is not None else "", _INCUMBENT_ANSWER_WAIT_S,
+                )
+                return None
+            except Exception:
+                log.debug("The running daemon's status call failed", exc_info=True)
+                return None
+            return reply if isinstance(reply, dict) else None
 
     def run(self) -> None:
         self._configure_logging()
@@ -4428,12 +4482,19 @@ class Daemon:
             # Profiles), not from `acc`: a profile-raised gate is not Whisper Mode and must
             # not exempt the burst from this check.
             wm_cfg = self._config.whispermode
-            if speech_check_applies(
-                enabled=acc.speech_presence_check,
-                whisper_mode=configured_gate != self._config.accessibility.vad_threshold,
-                dysfluency_friendly=acc.dysfluency_friendly,
-                sotto_voce=wm_cfg.enabled and wm_cfg.command_channel,
-            ) and holds_no_speech(padded, sample_rate):
+            # Tri-state, kept for the prompt-echo check after decode: only `False` (speech
+            # positively found) lets a transcript that echoes the prompt be typed.
+            no_speech_verdict = (
+                speech_verdict(padded, sample_rate)
+                if speech_check_applies(
+                    enabled=acc.speech_presence_check,
+                    whisper_mode=configured_gate != self._config.accessibility.vad_threshold,
+                    dysfluency_friendly=acc.dysfluency_friendly,
+                    sotto_voce=wm_cfg.enabled and wm_cfg.command_channel,
+                )
+                else None
+            )
+            if no_speech_verdict is True:
                 # Pitch-Contour Gestures (ADR-v2-103): a hum gets its check before this
                 # discard. No-op while `[contour]` is off.
                 if self._contour_gesture(padded, sample_rate, None, event):
@@ -4658,6 +4719,21 @@ class Daemon:
                 self._note_silent_discard()
                 # Same reasoning as the silent branch: nothing will be typed, and
                 # without a screen that is indistinguishable from a slow decode.
+                self._earcon.play("error")
+                if stream_injector is not None:
+                    stream_injector.cancel()
+                return
+
+            # Prompt echo (#598): the transcript is nothing but a run of the decoder's own
+            # initial_prompt ("The app is called YazSes.") and the speech detector did not
+            # positively hear speech -- it was exempt (Whisper / Dysfluency-Friendly /
+            # sotto-voce), switched off, or could not run. That is Whisper answering
+            # non-speech with what it was primed with, not dictation. A burst the detector
+            # found speech in is typed: the user may really say the sentence.
+            if no_speech_verdict is not False and is_prompt_echo(text, bias_prompt):
+                event["discard_reason"] = "prompt_echo"
+                log.info("Prompt echo -- discarding a %d-char transcript that repeats the "
+                         "initial prompt (no speech confirmed in the audio).", len(text))
                 self._earcon.play("error")
                 if stream_injector is not None:
                     stream_injector.cancel()

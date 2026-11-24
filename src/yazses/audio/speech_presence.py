@@ -76,6 +76,24 @@ def speech_check_applies(
     return enabled and not (whisper_mode or dysfluency_friendly or sotto_voce)
 
 
+def speech_verdict(
+    audio: Any, sample_rate: int, *, detector: Detector | None = None
+) -> bool | None:
+    """The detector's answer as a tri-state. Never raises.
+
+    ``True``: it positively found no speech. ``False``: it positively found speech.
+    ``None``: it could not tell (unavailable, wrong sample rate, raised, or answered
+    something that is not a bool). The daemon needs all three: ``True`` drops the burst
+    before decode, and only ``False`` lets a transcript that echoes the decoder's own
+    prompt be typed (:func:`yazses.stt.vocabulary.is_prompt_echo`).
+    """
+    try:
+        verdict = (detector or _default_detector)(audio, sample_rate)
+    except Exception:  # noqa: BLE001 - a gate must never break dictation
+        return None
+    return verdict if isinstance(verdict, bool) else None
+
+
 def holds_no_speech(
     audio: Any, sample_rate: int, *, detector: Detector | None = None
 ) -> bool:
@@ -84,11 +102,7 @@ def holds_no_speech(
     ``None`` from the detector (unavailable, wrong sample rate) and any exception both
     read as "cannot tell", which is ``False``: the burst is decoded.
     """
-    try:
-        verdict = (detector or _default_detector)(audio, sample_rate)
-    except Exception:  # noqa: BLE001 - a gate must never break dictation
-        return False
-    return verdict is True
+    return speech_verdict(audio, sample_rate, detector=detector) is True
 
 
 #: Seconds of silence :func:`prime_detector` runs the detector on.
