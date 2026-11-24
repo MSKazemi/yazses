@@ -465,6 +465,25 @@ and they are why typing remains the default: Ctrl+V is literal in most terminals
 dictation into a terminal stops working, and applications that refuse paste (some
 password fields) receive nothing.
 
+## A video-call app says "camera not available"
+
+With `[facegesture] enabled = true` (or `[perception]` on), YazSes opens the webcam when the daemon starts and holds it until the feature stops. Zoom, Teams, Meet and similar apps then report that the camera is unavailable, because most webcams can be opened by only one program at a time.
+
+Confirm who holds it, and look for YazSes's own log line, which names the camera it took:
+
+```sh
+fuser -v /dev/video0        # Linux: which process has the device open
+yazses logs | grep "holding camera"
+```
+
+To free the camera for a call without restarting, run `yazses camera off` (and `yazses camera on` afterwards; `yazses camera status` shows what holds it). Or turn the feature off in `config.toml` (`[facegesture] enabled = false`) and run `yazses restart`, or stop the daemon for the call:
+
+```sh
+systemctl --user stop yazses
+```
+
+Sharing the camera with a call app is tracked in #925; until it lands, the camera belongs to whichever program opened it first.
+
 ## Dictation stops after connecting a USB-C monitor or headset
 
 Some monitors, docks, and headsets register an audio input and become the operating system's default microphone. When that input is silent or very quiet, YazSes can keep running but stop writing dictated text because each recording is discarded as silence.
