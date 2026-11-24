@@ -138,6 +138,10 @@ class TrayModel:
     engine: str | None = None
     engine_model: str | None = None
     engine_fallback: dict[str, Any] | None = field(default=None, hash=False)
+    # The camera switch (#924): the daemon's `camera` block (state, holders, failures,
+    # consumers), or None on an older daemon. `tray/camera.py::camera_entry` turns it into
+    # the menu's Camera toggle. Left out of the hash for the reason `stt_residency` is.
+    camera: dict[str, Any] | None = field(default=None, hash=False)
 
 
 @dataclass(frozen=True)

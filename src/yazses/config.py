@@ -731,6 +731,24 @@ class PerceptionConfig:
 
 
 @dataclass
+class CameraConfig:
+    """Which camera every camera feature uses (#924) -- the one shared choice.
+
+    Written by ``yazses camera use``. Dormant by default: with ``index = -1`` (not chosen)
+    nothing changes and each of ``[gaze]``, ``[facegesture]`` and ``[perception]`` keeps
+    using its own ``camera_index``. Once ``index`` is 0 or more it overrides all three at
+    load time, so they cannot disagree. Turning the camera off is deliberately **not** a
+    setting here: it is a session-only action, never persisted.
+
+    ``device`` is the stable handle of the chosen camera (the Linux ``/dev/v4l/by-id``
+    name, otherwise the camera name) so a later release can re-find it after a replug;
+    ``index`` is the number it had when chosen and is what is opened today.
+    """
+    device: str = ""                  # stable id of the chosen camera; "" = none chosen
+    index: int = -1                   # chosen camera index; -1 = not chosen (legacy keys apply)
+
+
+@dataclass
 class CocktailConfig:
     """v2 — Cocktail Filter (spec-cocktail-filter), P1 personal-VAD gate (§3.2).
 
@@ -2413,6 +2431,7 @@ class Config:
     gaze: GazeConfig = field(default_factory=GazeConfig)
     facegesture: FacegestureConfig = field(default_factory=FacegestureConfig)
     perception: PerceptionConfig = field(default_factory=PerceptionConfig)
+    camera: CameraConfig = field(default_factory=CameraConfig)
     gaze_refine: GazeRefineConfig = field(default_factory=GazeRefineConfig)
     cocktail: CocktailConfig = field(default_factory=CocktailConfig)
     personalize: PersonalizeConfig = field(default_factory=PersonalizeConfig)
@@ -2677,6 +2696,7 @@ def load_config_checked(path: Path | None = None) -> LoadedConfig:
     problems.extend(_switch_problems(config))
     problems.extend(_biosignal_problems(config))
     config = _apply_presets(config)
+    config = _apply_shared_camera(config)
     # After the presets, so the pair judged is the one the daemon will build (#515).
     problems.extend(language_pairing_problems(config))
     return LoadedConfig(config, problems, path)
@@ -2827,6 +2847,20 @@ def load_config(path: Path | None = None) -> Config:
     for problem in loaded.problems:
         log.warning("config.toml: %s", problem)
     return loaded.config
+
+
+def _apply_shared_camera(cfg: Config) -> Config:
+    """Let ``[camera] index`` (when chosen, >= 0) set every feature's camera (#924).
+
+    Unset (-1, the default) leaves the three legacy ``camera_index`` keys exactly as
+    written, so an install that never ran ``yazses camera use`` is unchanged.
+    """
+    from yazses.perception.devices import effective_camera_index
+
+    shared = cfg.camera.index
+    for section in (cfg.gaze, cfg.facegesture, cfg.perception):
+        section.camera_index = effective_camera_index(shared, section.camera_index)
+    return cfg
 
 
 def _apply_presets(cfg: Config) -> Config:

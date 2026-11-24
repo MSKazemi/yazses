@@ -109,6 +109,11 @@ def test_an_uncached_model_is_not_accused_of_lacking_int8_weights(monkeypatch, c
     monkeypatch.setitem(sys.modules, "onnx_asr", fake)
     monkeypatch.delenv("HF_HUB_OFFLINE", raising=False)
     monkeypatch.delenv("TRANSFORMERS_OFFLINE", raising=False)
+    # The hub's import-time copy of HF_HUB_OFFLINE: a shell that exported it makes
+    # `offline_requested()` true and the cache-first pass is (correctly) skipped.
+    constants = sys.modules.get("huggingface_hub.constants")
+    if constants is not None:
+        monkeypatch.setattr(constants, "HF_HUB_OFFLINE", False, raising=False)
 
     from yazses.stt.parakeet import ParakeetEngine
 
