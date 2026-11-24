@@ -250,6 +250,7 @@ def test_linux_reader_resolves_own_cwd(tmp_path, monkeypatch):
     assert process_cwd(2**22 + 12345) is None
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="needs POSIX symlinks and a /proc-shaped tree")
 def test_linux_reader_follows_youngest_descendant(tmp_path):
     from yazses.platform.linux.focused_cwd import focused_cwd
 
@@ -271,8 +272,9 @@ def test_linux_reader_follows_youngest_descendant(tmp_path):
     make(100, term_dir, 1, children=(200, 300))
     make(200, old_dir, 5)
     make(300, repo_dir, 9)  # started later: the tab the user just opened
-    assert focused_cwd(100, proc) == repo_dir
-    assert focused_cwd(200, proc) == old_dir
+    # Windows resolves the temp dir to its \\?\ long form; compare real paths.
+    assert focused_cwd(100, proc).resolve() == repo_dir.resolve()
+    assert focused_cwd(200, proc).resolve() == old_dir.resolve()
     assert focused_cwd(None, proc) is None
 
 
