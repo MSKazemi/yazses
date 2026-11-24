@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Docs — README comparison tables brought up to November 2026 and dated
+
+The README's "Comparison & alternatives" section now matches `docs/comparison.md` as re-checked on 2026-11-20. Handy transcribes files since v0.10.0; OpenWhispr records meetings with local speaker labels and has paid cloud plans; FluidVoice has FluidMeet meetings with speaker labels and Windows and Linux betas (no longer "announced" or a "community port"); VoiceInk is GPLv3, sold one-time from $25, and offers optional cloud models. Speaker-labelled meetings are no longer listed as a YazSes-only difference; the no-cloud egress inventory is. The tables now carry their check date.
+
 ### Removed — the AUR job in publish-channels.yml
 
 `publish-channels.yml` no longer has an `aur` job, `aur` choice or summary row. Every run since v2.48.0 failed at the SSH check with `Permission denied (publickey)`, because no AUR account was available to register the key on and the AUR closed new registrations in June 2026. The other channels are unchanged. `packaging/arch/` is kept for a manual submission and the release-channel checker still reports the AUR; restore the job from git history once an account exists. The `AUR_SSH_KEY` secret is now unused.
