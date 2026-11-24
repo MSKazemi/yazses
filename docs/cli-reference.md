@@ -1011,22 +1011,6 @@ yazses audio use --clear             # go back to following the OS default
 yazses restart                       # apply
 ```
 
-### `yazses camera` — webcam for gaze and face gestures
-
-| Command | Description |
-|---|---|
-| `yazses camera devices` | List the cameras the OS reports (`★` = chosen). Opens none. |
-| `yazses camera use <name>` | Choose the webcam by name or id (substring); refuses a name several cameras share. |
-| `yazses camera use --clear` | Forget the choice; `camera_index` goes back to 0. |
-| `yazses camera status` | Show the chosen camera, whether it is plugged in, and the index each feature opens. |
-
-```bash
-yazses camera devices                # which webcams exist
-yazses camera use "Brio"             # choose one by name
-yazses camera status                 # what gaze / face gestures will open
-yazses restart                       # apply
-```
-
 **Why pin a mic.** By default capture follows the OS **default input device**. Plugging
 in a USB-C monitor, a dock, or a headset can make the OS silently re-pick that as the
 default input — often a dead or very quiet endpoint — and dictation "stops working" with
@@ -1149,6 +1133,26 @@ yazses gaze calibrate    # fit the webcam gaze → screen-zone mapping
 yazses gaze status       # deps, X11/xdotool, and whether a calibration exists
 yazses gaze rollback     # undo an implicit refinement, restoring the previous calibration exactly
 yazses gaze measure --camera-class integrated   # derived-numbers-only field report for issue #104
+```
+
+### `yazses camera` — switch the camera on or off at runtime
+
+| Command | Description |
+|---|---|
+| `yazses camera status` | Whether the camera is ON or OFF, which YazSes features hold the device right now, and why a reopen failed, if it did. |
+| `yazses camera off` | Release the camera for every camera feature (face switch, gaze, Head-Pointer) so a video-call app can open it. Dictation keeps working. |
+| `yazses camera on` | Let the enabled camera features reopen the camera. |
+| `yazses camera list` | Every camera with its index, name and stable `/dev/v4l/by-id/...` path. Works without the daemon. |
+| `yazses camera use <name-or-path>` | Move every camera feature to that camera now (name, part of a name, index or by-id path); not saved. A missing or ambiguous name changes nothing and lists the cameras. |
+| `yazses camera use <name-or-path> --save` | The same, and also remember it in the config file (`[camera]`) so it applies after a restart. With no daemon running it only saves. |
+| `yazses camera use --clear` | Forget the saved choice; every feature goes back to its own `camera_index`. |
+
+A runtime state, not a config key: nothing is saved and a restarted daemon starts with the
+camera on. It never turns a feature on that you did not enable.
+
+```bash
+yazses camera off      # before a video call
+yazses camera on       # after it
 ```
 
 ### `yazses facegesture` — face-gesture switch calibration

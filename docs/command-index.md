@@ -192,22 +192,31 @@ Translate text to Unicode Braille (UEB subset) — fully offline.
 
 ## `yazses camera`
 
-See and pick the webcam the gaze / face-gesture features use.
+Switch the camera on or off for every camera feature at once, without restarting.
 
-### `yazses camera devices`
+### `yazses camera list`
 
-List the cameras the OS reports. Lists only; no camera is opened.
+List the cameras this computer has, with the name and path `camera use` accepts.
+
+### `yazses camera off`
+
+Switch the camera off: every camera feature releases the device. Dictation keeps working.
+
+### `yazses camera on`
+
+Switch the camera on: every enabled camera feature reopens the device.
 
 ### `yazses camera status`
 
-Show the chosen camera and the index each camera feature will open.
+Show whether the camera is on and which YazSes features hold the device.
 
 ### `yazses camera use`
 
-Choose the one webcam every camera feature uses.
+Switch every camera feature to another camera without restarting. Add --save to keep it.
 
-- **Arguments:** `name`
-- `--clear` — Forget the choice.
+- **Arguments:** `target`
+- `--save` — Also remember the choice in the config file ([camera]), so it applies after a restart.
+- `--clear` — Forget the saved choice; each feature uses its own camera_index again.
 
 ## `yazses case`
 

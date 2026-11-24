@@ -253,20 +253,29 @@ Arguments: \fItext\fR
 UEB grade: 1 (uncontracted) or 2 (contracted).
 .RE
 .SS "yazses camera"
-See and pick the webcam the gaze / face-gesture features use.
+Switch the camera on or off for every camera feature at once, without restarting.
 .TP
-\fByazses camera devices\fR
-List the cameras the OS reports. Lists only; no camera is opened.
+\fByazses camera list\fR
+List the cameras this computer has, with the name and path `camera use` accepts.
+.TP
+\fByazses camera off\fR
+Switch the camera off: every camera feature releases the device. Dictation keeps working.
+.TP
+\fByazses camera on\fR
+Switch the camera on: every enabled camera feature reopens the device.
 .TP
 \fByazses camera status\fR
-Show the chosen camera and the index each camera feature will open.
+Show whether the camera is on and which YazSes features hold the device.
 .TP
-\fByazses camera use\fR \fINAME\fR
-Choose the one webcam every camera feature uses.
+\fByazses camera use\fR \fITARGET\fR
+Switch every camera feature to another camera without restarting. Add --save to keep it.
 .RS
 .TP
+\fB\-\-save\fR
+Also remember the choice in the config file ([camera]), so it applies after a restart.
+.TP
 \fB\-\-clear\fR
-Forget the choice.
+Forget the saved choice; each feature uses its own camera_index again.
 .RE
 .SS "yazses case"
 Recase text to a naming convention \(em fully offline.

@@ -98,7 +98,7 @@ _USER_TEXT = frozenset({"preview"})
 #: never carries pointer or window content -- `gaze/clicks.py`). None while the feature is
 #: off. No coordinate, timestamp or window ever enters it.
 _MACHINE_FACTS = frozenset({
-    "acoustic", "audio_level", "biosignal", "bursts", "command_mode", "commands_enabled", "confidence_enabled",
+    "acoustic", "audio_level", "biosignal", "bursts", "camera", "command_mode", "commands_enabled", "confidence_enabled",
     "decode_latency", "enabled", "engine", "engine_fallback", "engine_model", "gaze_refine", "handsfree", "headpointer", "hotkey", "injection_backend", "input_device",
     "last_error", "last_good_device", "latency_residency", "low_confidence_last", "meeting_active",
     "meeting_enabled", "meeting_finalizing", "modality_roles", "model", "morse", "mouthswitch",

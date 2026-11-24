@@ -6,7 +6,6 @@ import sys
 from functools import lru_cache
 
 from yazses.platform.base import (
-    CameraEnumerator,
     FileOpener,
     HostInfo,
     PackRuntime,
@@ -111,27 +110,6 @@ def get_file_opener() -> FileOpener:
     if sys.platform == "win32":
         from yazses.platform.windows.fileopen import WindowsFileOpener
         return WindowsFileOpener()
-    raise NotImplementedError(f"Unsupported platform: {sys.platform}")
-
-
-def get_camera_enumerator() -> CameraEnumerator:
-    """The camera lister for this OS (#924), a seam of its own like :func:`get_file_opener`.
-
-    Listing cameras needs no hotkey, injector or IPC stack. Opens no device. The BSDs
-    share the Linux lister (it reports ``[]`` where V4L2 sysfs is absent). macOS and
-    Windows listers are unverified on real hardware.
-    """
-    from yazses.platform.bsd import is_bsd
-
-    if sys.platform.startswith("linux") or is_bsd():
-        from yazses.platform.linux.camera import LinuxCameraEnumerator
-        return LinuxCameraEnumerator()
-    if sys.platform == "darwin":
-        from yazses.platform.macos.camera import MacosCameraEnumerator
-        return MacosCameraEnumerator()
-    if sys.platform == "win32":
-        from yazses.platform.windows.camera import WindowsCameraEnumerator
-        return WindowsCameraEnumerator()
     raise NotImplementedError(f"Unsupported platform: {sys.platform}")
 
 

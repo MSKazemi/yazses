@@ -2852,7 +2852,7 @@ def _apply_shared_camera(cfg: Config) -> Config:
     Unset (-1, the default) leaves the three legacy ``camera_index`` keys exactly as
     written, so an install that never ran ``yazses camera use`` is unchanged.
     """
-    from yazses.camera.devices import effective_camera_index
+    from yazses.perception.devices import effective_camera_index
 
     shared = cfg.camera.index
     for section in (cfg.gaze, cfg.facegesture, cfg.perception):
