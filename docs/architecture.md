@@ -525,7 +525,7 @@ are written once against the interfaces and never branch on the operating system
 
 These are the core seven. `platform/base.py` defines seven more. Four are built on
 demand by functions in `platform/factory.py`, with one implementation per OS family:
-`HostBackend`, `FileOpener`, `UrlOpener` (the "send to" hand-off) and `PackRuntime`
+`HostBackend`, `FileOpener`, `CameraEnumerator` (lists cameras without opening one; `yazses camera`), `UrlOpener` (the "send to" hand-off) and `PackRuntime`
 (the add-on pack loader). Three are optional fields of the platform bundle, left
 `None` where an OS has no implementation yet: `FocusedAppProvider` (macOS and Windows
 only), `UpdateLauncher` (Windows only) and `AccessibilityBackend` (Linux only).

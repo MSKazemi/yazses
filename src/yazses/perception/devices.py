@@ -241,3 +241,17 @@ def _cv2_probe(index: int) -> bool:
         return bool(cap.isOpened())
     finally:
         cap.release()
+
+
+def effective_camera_index(shared_index: int, legacy_index: int) -> int:
+    """The index a camera feature should open.
+
+    ``[camera] index`` (``-1`` = not chosen) wins when set; otherwise the feature's own
+    legacy ``camera_index`` applies, so an install that never saved a choice behaves
+    exactly as before.
+    """
+    try:
+        shared = int(shared_index)
+    except (TypeError, ValueError):
+        return legacy_index
+    return shared if shared >= 0 else legacy_index
