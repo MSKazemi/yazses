@@ -9,11 +9,6 @@ import pytest
 
 from tests._net_guard import ADR, NetGuard, NetworkAccessBlocked, is_local_host
 
-# Captured at import (collection), before any test's guard is installed.
-_ORIGINAL_CONNECT = socket.socket.connect
-_ORIGINAL_SENDTO = socket.socket.sendto
-_ORIGINAL_GETADDRINFO = socket.getaddrinfo
-
 
 def test_the_guard_is_active_by_default() -> None:
     with pytest.raises(NetworkAccessBlocked):
@@ -45,9 +40,10 @@ def test_connect_ex_and_udp_send_are_blocked() -> None:
 
 
 def test_name_lookup_of_an_external_host_is_blocked() -> None:
+    external = "example.com"
     with pytest.raises(NetworkAccessBlocked) as exc:
-        socket.getaddrinfo("example.com", 443)
-    assert "example.com" in str(exc.value)
+        socket.getaddrinfo(external, 443)
+    assert external in exc.value.args[0]
 
 
 def test_the_error_is_not_an_oserror() -> None:
