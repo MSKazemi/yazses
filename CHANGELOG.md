@@ -9,6 +9,14 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added — tests: an autouse socket guard fails any test that makes a real outbound connection
 
 `tests/_net_guard.py`, installed per test by `tests/conftest.py`, makes `socket.connect`, `connect_ex`, `sendto` and `getaddrinfo` raise `NetworkAccessBlocked` (naming the host and pointing at ADR-019) for anything but loopback, `localhost`, AF_UNIX and `socketpair`. It is the runtime half of the egress inventory, which only sees our own modules by AST. `@pytest.mark.allow_network` (registered in `pyproject.toml`) opts one test out; `YAZSES_TEST_NET_GUARD=0` disables it for a local bisect. A prior audit of the whole suite found no test that reached the network. Tests: `tests/test_net_guard.py`.
+### Added — a script to compare pyannote 3.1 with community-1; the pyannote adapter reads exclusive diarization
+
+`scripts/bench-pyannote-pipelines.py` runs `pyannote/speaker-diarization-3.1` and `pyannote/speaker-diarization-community-1` on the same RTTM-labelled fixtures. It reports DER, JER, speaker-count error and wall time, with the ADR-033 provenance fields (commit, snapshot revision and hash, versions, machine, corpus hashes). It runs offline by default. Nobody has run it yet: both models are gated, so a person with access has to. `docs/benchmarks.md` explains how. The default pipeline is still 3.1.
+
+`[recimport] backend = "pyannote"` now reads `exclusive_speaker_diarization` when the pipeline output has it (pyannote.audio 4.x `DiarizeOutput`). That view gives one speaker per instant, so `align.py` does not have to settle an overlap by tie-break. Otherwise the adapter reads `speaker_diarization`, or a bare legacy `Annotation`, as before.
+### Fixed — face switch: the log now says when YazSes holds the webcam, and why a call app cannot open it (#922)
+
+With `[facegesture]` on, the camera is held from daemon start, and a video-call app saying "camera not available" gave no hint that YazSes was the cause. The daemon now logs one INFO line when it takes the camera and one when it hands it back ("holding camera N: other applications (video calls) cannot use it ... `systemctl --user stop yazses`"), the busy-camera warning names "another application holds it", and `docs/troubleshooting.md` has a section on the symptom. Observability and documentation only: the camera lifecycle, config keys, CLI and IPC are unchanged. Idle release, a tray toggle and camera sharing remain open as #924 and #925. Checked with fake `cv2` handles; not checked against a real webcam or a real call app.
 
 ### Fixed — runtime camera switch: review findings on #927 (#924)
 

@@ -308,7 +308,8 @@ def _versions() -> dict:
 
     found: dict[str, str | None] = {"python": platform.python_version()}
     for dist in ("yazses", "numpy", "jiwer", "faster-whisper", "ctranslate2",
-                 "onnxruntime", "whisper-normalizer", "av"):
+                 "onnxruntime", "whisper-normalizer", "av", "useful-moonshine-onnx",
+                 "moonshine-voice"):
         try:
             found[dist] = metadata.version(dist)
         except metadata.PackageNotFoundError:
