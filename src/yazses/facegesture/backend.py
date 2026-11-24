@@ -62,6 +62,7 @@ from yazses.facegesture.switches import (
     parse_bindings,
     stuck_consequence,
 )
+from yazses.perception.camera import camera_held_message
 from yazses.perception.mediapipe_backend import DEFAULT_PRESENCE_CONFIDENCE
 from yazses.perception.signals import FacePerceptionSource
 
@@ -114,6 +115,16 @@ class FaceGestureBackend:
         self._on_hold_start = on_hold_start
         self._on_hold_end = on_hold_end
         self._stop_event = threading.Event()
+        # Camera on/off switch (#922, #924): `pause_camera` asks the own-capture loop to
+        # release the device; `_wake` ends the wait for `resume_camera` (or stop).
+        self._paused = threading.Event()
+        self._wake = threading.Event()
+        self._camera_open = False
+        self._open_index = 0  # the index the held device was opened with (for the release log)
+        self._idle = threading.Event()  # set while the device is not held
+        self._idle.set()
+        self._camera_failure = ""
+        self._index_override: int | None = None  # `yazses camera use`, runtime only
         # `.lower()` because `configcheck` validates enum values case-insensitively
         # and then stores what was written: without it `gesture = "Jaw_Open"` passes
         # config validation and is silently replaced by the default here.
@@ -341,14 +352,17 @@ class FaceGestureBackend:
             return
         cap, cv2 = self._open_camera()
         if cap is None:
-            if hasattr(landmarker, "close"):
-                landmarker.close()
-            return
-
-        log.info(
-            "Face-gesture switch watching %r (hold %.2f / release %.2f).",
-            self._gesture, *self._switch.thresholds,
-        )
+            # A busy or denied camera is not the end of the switch: wait below, so a
+            # later `camera on` (or the other app letting go) can open it. The
+            # landmarker and the loop are released only on stop().
+            log.warning("Face-gesture switch is waiting for a camera it can open "
+                        "(%s); `yazses camera on` retries.",
+                        self._camera_failure or "could not open it")
+        else:
+            log.info(
+                "Face-gesture switch watching %r (hold %.2f / release %.2f).",
+                self._gesture, *self._switch.thresholds,
+            )
         # Normally guaranteed: _build_landmarker imported mediapipe to build the
         # landmarker it just returned. That only holds while the seam is the real
         # one, and an absent optional extra must not skip the shutdown drain in the
@@ -359,21 +373,75 @@ class FaceGestureBackend:
             mp = None
 
         try:
-            self._loop(landmarker, cap, cv2, mp)
+            while not self._stop_event.is_set():
+                if cap is not None and not self._paused.is_set():
+                    self._loop(landmarker, cap, cv2, mp)
+                    continue
+                # Paused (camera switched off) or the last reopen failed: hold nothing,
+                # then wait for resume_camera() or stop().
+                self._drain()
+                cap = self._release_camera(cap)
+                self._wake.wait()
+                self._wake.clear()
+                if self._stop_event.is_set():
+                    break
+                if not self._paused.is_set():
+                    cap, cv2 = self._open_camera()
         finally:
             # A hold open at shutdown would leave the daemon RECORDING with no key
             # to release, so every switch is drained before the camera goes away.
             self._drain()
-            try:
-                cap.release()
-            except Exception:
-                log.debug("face-gesture: camera release failed", exc_info=True)
+            self._release_camera(cap)
             if hasattr(landmarker, "close"):
                 try:
                     landmarker.close()
                 except Exception:
                     log.debug("face-gesture: landmarker close failed", exc_info=True)
             log.info("Face-gesture switch stopped.")
+
+    def _release_camera(self, cap):
+        """Release the device if held; always returns None (the new ``cap``)."""
+        if cap is not None:
+            try:
+                cap.release()
+            except Exception:
+                log.debug("face-gesture: camera release failed", exc_info=True)
+            if self._camera_open:
+                log.info(camera_held_message(self._open_index, released=True))
+        self._camera_open = False
+        self._idle.set()
+        return None
+
+    # -- camera on/off switch (perception/switch.py) ---------------------------
+
+    def pause_camera(self) -> None:
+        """Release the device and stop watching until :meth:`resume_camera` (#922).
+
+        Waits (bounded) for the loop to let go, so the device is free when this
+        returns. A no-op on the shared-camera path, where the shared source is
+        suspended instead.
+        """
+        self._paused.set()
+        self._idle.wait(2.0)
+
+    def set_camera_index(self, index: int) -> None:
+        """Open camera *index* at the next (re)open instead of ``[facegesture] camera_index``."""
+        self._index_override = int(index)
+
+    def resume_camera(self) -> None:
+        """Reopen the device after :meth:`pause_camera`. A failure sets :attr:`camera_failure`."""
+        self._paused.clear()
+        self._wake.set()
+
+    @property
+    def camera_held(self) -> bool:
+        """Whether this backend holds its own capture device right now."""
+        return self._camera_open
+
+    @property
+    def camera_failure(self) -> str:
+        """Why the last (re)open failed, or ``""``."""
+        return self._camera_failure
 
     @property
     def bound_actions(self) -> frozenset[str]:
@@ -383,6 +451,7 @@ class FaceGestureBackend:
     def stop(self) -> None:
         """Signal run() to exit at the next frame."""
         self._stop_event.set()
+        self._wake.set()
 
     def _discard_pending(self) -> None:
         """The gate stopped or re-armed this source: no half-made gesture may finish (#417)."""
@@ -539,30 +608,41 @@ class FaceGestureBackend:
             return None
 
     def _open_camera(self):
+        self._camera_failure = ""
         try:
             import cv2  # noqa: PLC0415 - optional dependency, probed at run time
         except ImportError as exc:
             log.warning("Face-gesture switch is enabled but opencv is not installed "
                         "(%s); run: yazses features enable facegesture", exc)
+            self._camera_failure = "opencv is not installed"
             return None, None
         index = int(getattr(self._cfg, "camera_index", 0) or 0)
+        if self._index_override is not None:
+            index = self._index_override
         try:
             cap = cv2.VideoCapture(index)
         except Exception:
             log.warning("Face-gesture switch could not open camera %d.", index, exc_info=True)
+            self._camera_failure = f"could not open camera {index}"
             return None, None
         if not cap.isOpened():
             log.warning("Face-gesture switch could not open camera %d "
-                        "(in use, or no permission).", index)
+                        "(busy because another application holds it, or no permission).",
+                        index)
+            self._camera_failure = f"camera {index} is in use or permission was denied"
             cap.release()
             return None, None
+        self._camera_open = True
+        self._open_index = index
+        self._idle.clear()
+        log.info(camera_held_message(index))
         return cap, cv2
 
     def _loop(self, landmarker, cap, cv2, mp) -> None:
         # Every heavy handle is injected rather than imported here: it keeps the
         # frame plumbing testable with fakes, which is the only way a mistake in
         # the three-deep MediaPipe result shape gets caught before a user's face.
-        while not self._stop_event.is_set():
+        while not self._stop_event.is_set() and not self._paused.is_set():
             started = time.monotonic()
             try:
                 self._step(landmarker, cap, cv2, mp)

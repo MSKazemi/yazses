@@ -99,7 +99,7 @@ def test_run_releases_a_held_gesture_when_the_camera_loop_ends():
 
     backend._build_landmarker = lambda: _Landmarker()
     backend._open_camera = lambda: (_Cap(), object())
-    backend._loop = lambda *a: None
+    backend._loop = lambda *a: backend._stop_event.set()  # a real loop returns only on stop/pause
     backend.run()
     assert ended == [1]
 
