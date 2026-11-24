@@ -6,7 +6,7 @@ description: >-
 # Proposed ADR — Learn a corrected word from any accessible app, not only Neovim
 
 **Status:** Proposed for maintainer decision (2026-11-20); **NOT accepted**
-**Issue:** none yet. Item M6 of the [November 2026 start plans](2026-11-19-landscape-start-plans.md#m6-learn-vocabulary-from-corrections-in-any-app)
+**Issue:** none yet. Item M6 of the [November 2026 start plans](2026-11-19-landscape-start-plans.md#m6--learn-vocabulary-from-corrections-in-any-app)
 **Research:** [Offline voice tech landscape, November 2026](2026-11-19-offline-voice-tech-landscape.md) (row M6), [GNOME and KDE Wayland assistive-tech limits](2026-11-05-gnome-kde-wayland-assistive-tech-limits.md)
 **Governing records:** [ADR-011](../adr/adr-011.md), [ADR-012](../adr/adr-012-self-improvement-loop.md), [ADR-019](../adr/adr-019-egress-inventory-and-escalation.md), [ADR-021](../adr/adr-021-invest-in-error-cost.md), [ADR-v2-079](../adr/adr-v2-079-self-learning-correction-dictionary.md)
 **Scope:** design only during the [ADR-030 breadth freeze](../adr/adr-030-agent-era-direction.md)

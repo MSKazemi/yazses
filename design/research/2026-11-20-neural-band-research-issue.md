@@ -7,7 +7,7 @@ description: >-
 
 **Status:** Draft issue text (2026-11-20). **The GitHub issue has not been created.** A
 maintainer files it, if at all. It proposes no code, dependency, config key or default.
-**Source:** item M7 of the [November 2026 start plans](2026-11-19-landscape-start-plans.md#m7-meta-neural-band-gesture-adapter) and the [landscape note](2026-11-19-offline-voice-tech-landscape.md#the-meta-neural-band-is-the-first-mass-market-wrist-switch-reachable-only-unofficially)
+**Source:** item M7 of the [November 2026 start plans](2026-11-19-landscape-start-plans.md#m7--meta-neural-band-gesture-adapter) and the [landscape note](2026-11-19-offline-voice-tech-landscape.md#the-meta-neural-band-is-the-first-mass-market-wrist-switch-reachable-only-unofficially)
 **Governing records:** [ADR-030 freeze and its 2026-11-01 amendment](../adr/adr-030-agent-era-direction.md) (new device families stay frozen), [ADR-019](../adr/adr-019-egress-inventory-and-escalation.md), [ADR-v2-152](../adr/adr-v2-152-biosignal-artifact-switches.md), [ADR-v2-153](../adr/adr-v2-153-biosignal-false-positive-governor.md)
 
 Everything below the line is the proposed issue: title, labels and body.
