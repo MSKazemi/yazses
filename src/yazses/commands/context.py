@@ -1,7 +1,8 @@
 """Context-Primed Dictation & Commanding core (v2.0.0 Wave A, ADR-v2-004).
 
 Pure logic that turns transient, already-consented desktop signals (active window
-title, current selection, clipboard, editor LSP symbols) into a compact term list
+title, current selection, clipboard, editor LSP symbols, and -- with ``use_git`` -- the
+focused repository's name and branch) into a compact term list
 for Whisper's ``initial_prompt``, and helps resolve deictic command references.
 Reading the signals is platform-specific and lives in ``platform/*``; this module
 only processes strings handed to it, and NEVER stores them.
@@ -29,6 +30,8 @@ class ContextSources:
     selection: str = ""
     clipboard: str = ""
     lsp_symbols: list[str] = field(default_factory=list)
+    # Repository name, branch and the branch's words (`commands/git_hint.py`).
+    git_terms: list[str] = field(default_factory=list)
 
 
 def _salience(term: str) -> int:
@@ -66,11 +69,12 @@ def compose_context_prompt(
     use_selection: bool = True,
     use_clipboard: bool = False,
     use_lsp: bool = True,
+    use_git: bool = False,
 ) -> str:
     """Build a comma-joined prompt fragment from the enabled context sources.
 
-    LSP symbols (already structured) come first, then salient terms mined from the
-    enabled text sources. De-duplicated case-insensitively and capped at ``max_terms``.
+    LSP symbols (already structured) come first, then the git terms when ``use_git``
+    (also structured, and few), then salient terms mined from the enabled text sources. De-duplicated case-insensitively and capped at ``max_terms``.
     """
     ordered: list[str] = []
     seen: set[str] = set()
@@ -84,6 +88,9 @@ def compose_context_prompt(
     if use_lsp:
         for sym in sources.lsp_symbols:
             add(sym)
+    if use_git:
+        for term in sources.git_terms:
+            add(term)
     blob_parts = []
     if use_window_title:
         blob_parts.append(sources.window_title)

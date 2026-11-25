@@ -63,9 +63,12 @@ jobs:
 
       - name: Resolve the release to check
         id: target
+        env:
+          # A dispatch input reaches the shell as data, not as source (CI_POLICY.md section 7).
+          TAG_INPUT: ${{ inputs.tag }}
         run: |
           set -euo pipefail
-          TAG="${{ inputs.tag }}"
+          TAG="$TAG_INPUT"
           if [ -z "$TAG" ]; then
             TAG=$(gh release view --json tagName -q .tagName)
           fi
@@ -86,9 +89,10 @@ jobs:
 
       - name: Is it still in flight?
         id: age
+        env:
+          GRACE: ${{ inputs.grace_hours || '24' }}
         run: |
           set -euo pipefail
-          GRACE="${{ inputs.grace_hours || '24' }}"
           PUBLISHED_TS=$(date -u -d "${{ steps.target.outputs.published }}" +%s)
           AGE_H=$(( ( $(date -u +%s) - PUBLISHED_TS ) / 3600 ))
           echo "age_hours=$AGE_H" >> "$GITHUB_OUTPUT"

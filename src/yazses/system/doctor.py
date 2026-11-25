@@ -444,7 +444,23 @@ def _version_check() -> _Check:
         return ("Version", "WARN", "yazses version metadata not found")
 
 
-def _update_check_check(enabled: bool) -> _Check:
+def _update_managed_by() -> str:
+    """Who updates this install when it is not YazSes itself ("" for everyone else).
+
+    Asks the same question ``check_update`` does, so the row and `yazses update` cannot
+    disagree. Never raises: a failed probe is "not packaged".
+    """
+    try:
+        from yazses.system import updater
+
+        if updater.detect_install_method() in updater.MSIX_METHODS:
+            return updater.MSIX_MANAGED_BY
+    except Exception:  # noqa: BLE001 - a doctor row must never fail the report
+        pass
+    return ""
+
+
+def _update_check_check(enabled: bool, *, managed_by: str = "") -> _Check:
     """Is the release watcher on — and when it is not, say how to turn it on.
 
     This is the only feature in YazSes that opens an outbound connection, so it
@@ -465,6 +481,15 @@ def _update_check_check(enabled: bool) -> _Check:
     costs far more than this line gains. SKIP renders dim, so it informs without
     competing with a real failure.
     """
+    if managed_by:
+        # A packaged (Microsoft Store) build never checks or installs updates itself, so
+        # the watcher setting changes nothing and the enable-it advice would not apply.
+        return (
+            "Update check",
+            "SKIP",
+            f"managed by {managed_by} — YazSes does not check for or install updates "
+            "itself; nothing reaches the network for it",
+        )
     if enabled:
         return (
             "Update check",
@@ -2475,7 +2500,8 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     # anything newer" are one question to the user, and the second half was
     # unanswerable from anywhere in the product.
     checks.append(_update_check_check(
-        bool(getattr(getattr(cfg, "general", None), "update_check", False))
+        bool(getattr(getattr(cfg, "general", None), "update_check", False)),
+        managed_by=_update_managed_by(),
     ))
     daemon_row, daemon_info = _daemon_check(platform)
     checks.append(daemon_row)

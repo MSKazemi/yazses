@@ -109,6 +109,9 @@ def _get(url: str, headers: dict[str, str] | None = None) -> tuple[int, bytes]:
     absent, and three retries a moment later all returned 200.
 
     Transient failures are retried before giving up, because most of them are.
+    When it does give up, the body is `<ExceptionType>: <message>` of the last
+    attempt: the type is what tells a timeout from a DNS or TLS failure, and a bare
+    `TimeoutError()` has no message at all (issue #872 read "HTTP 0" for weeks).
     """
     req = urllib.request.Request(url, headers=headers or {})
     last = b""
@@ -119,20 +122,60 @@ def _get(url: str, headers: dict[str, str] | None = None) -> tuple[int, bytes]:
         except urllib.error.HTTPError as e:
             return e.code, e.read() if e.fp else b""
         except Exception as e:  # network/DNS/TLS
-            last = str(e).encode()
+            last = f"{type(e).__name__}: {e}".encode(errors="replace")
             if attempt + 1 < RETRIES:
                 time.sleep(RETRY_BACKOFF_S * (attempt + 1))
     return 0, last
 
 
 def _json(url: str, headers: dict[str, str] | None = None):
+    status, data, _ = _json_body(url, headers)
+    return status, data
+
+
+def _json_body(url: str, headers: dict[str, str] | None = None):
+    """Like `_json`, but also returns the raw body, which carries the reason on status 0."""
     status, body = _get(url, headers)
     if status != 200:
-        return status, None
+        return status, None, body
     try:
-        return status, json.loads(body)
+        return status, json.loads(body), body
     except ValueError:
-        return status, None
+        return status, None, body
+
+
+_WHY_LIMIT = 160
+
+
+def _why(body: bytes) -> str:
+    """The failure reason from a status-0 `_get` body, safe for a one-line table cell.
+
+    Collapses whitespace (a newline or `|` would break the markdown table the detail
+    lands in) and caps the length so a verbose exception cannot flood the issue.
+    """
+    text = " ".join(body.decode(errors="replace").replace("|", "/").split())
+    if len(text) > _WHY_LIMIT:
+        text = text[: _WHY_LIMIT - 3] + "..."
+    return text or "no error text"
+
+
+def _http_detail(status: int, body: bytes, label: str = "") -> str:
+    """The detail for a request that did not succeed: `<label> HTTP <n>`, or the reason.
+
+    Status 0 means the request never completed, and "HTTP 0" says nothing about why
+    (issue #872: a timeout, a DNS failure and a TLS failure all read the same). So
+    for 0 the detail is `<label> unreachable (<ExceptionType>: <message>)` instead.
+    Every check goes through here, so the wording lives in one place.
+
+    It must never take the form `<label>=<version>`: `_SERVING_RE` reads that as the
+    channel serving a version, and `regressions` acts on it. `<label>` is a fixed
+    string written in this file, and the text after it starts with a space, so no
+    exception message can produce a match -- `test_every_channel_says_why_it_was_
+    unreachable` feeds messages that contain `=` to prove it.
+    """
+    if status == 0:
+        return f"{label} unreachable ({_why(body)})".lstrip()
+    return f"{label} HTTP {status}".lstrip()
 
 
 # --------------------------------------------------------------------------
@@ -143,11 +186,11 @@ def _json(url: str, headers: dict[str, str] | None = None):
 
 def check_release_assets(version: str) -> dict[str, tuple[bool | None, str]]:
     """The three binaries attached to the GitHub Release, in one API call."""
-    status, data = _json(f"https://api.github.com/repos/{REPO}/releases/tags/v{version}")
+    status, data, body = _json_body(f"https://api.github.com/repos/{REPO}/releases/tags/v{version}")
     if status != 200 or not data:
         miss = f"release v{version} not found (HTTP {status})"
         if status == 0:
-            miss = "github.com unreachable"
+            miss = _http_detail(status, body, "github.com")
         return {k: (_verdict(status, False), miss) for k in ("deb", "dmg", "exe")}
     names = [a["name"] for a in data.get("assets", [])]
     out = {}
@@ -181,17 +224,17 @@ def check_release_assets(version: str) -> dict[str, tuple[bool | None, str]]:
 
 
 def check_pypi(version: str) -> tuple[bool | None, str]:
-    status, _ = _get(f"https://pypi.org/pypi/yazses/{version}/json")
-    return _verdict(status, status == 200), f"HTTP {status}"
+    status, body = _get(f"https://pypi.org/pypi/yazses/{version}/json")
+    return _verdict(status, status == 200), _http_detail(status, body)
 
 
 def check_snap(version: str) -> tuple[bool | None, str]:
-    status, data = _json(
+    status, data, body = _json_body(
         "https://api.snapcraft.io/v2/snaps/info/yazses?fields=version",
         {"Snap-Device-Series": "16"},
     )
     if status != 200 or not data:
-        return _verdict(status, False), f"snapcraft API HTTP {status}"
+        return _verdict(status, False), _http_detail(status, body, "snapcraft API")
     stable = [
         c.get("version")
         for c in data.get("channel-map", [])
@@ -230,7 +273,7 @@ def check_apt(version: str) -> tuple[bool | None, str]:
         f"https://raw.githubusercontent.com/{REPO}/gh-pages/apt/Packages"
     )
     if status != 200:
-        return _verdict(status, False), f"Packages HTTP {status}"
+        return _verdict(status, False), _http_detail(status, body, "Packages")
     found = re.findall(r"^Version:\s*(\S+)", body.decode("utf-8", "replace"), re.M)
     return version in found, _evidence("apt", found, version, limit=3)
 
@@ -240,17 +283,17 @@ def check_homebrew(version: str) -> tuple[bool | None, str]:
         "https://raw.githubusercontent.com/MSKazemi/homebrew-yazses/main/Casks/yazses.rb"
     )
     if status != 200:
-        return _verdict(status, False), f"cask HTTP {status}"
+        return _verdict(status, False), _http_detail(status, body, "cask")
     m = re.search(r'^\s*version\s+"([^"]+)"', body.decode("utf-8", "replace"), re.M)
     return (m is not None and m.group(1) == version), f"cask={m.group(1) if m else '?'}"
 
 
 def check_scoop(version: str) -> tuple[bool | None, str]:
-    status, data = _json(
+    status, data, body = _json_body(
         f"https://raw.githubusercontent.com/{REPO}/main/bucket/yazses.json"
     )
     if status != 200 or not data:
-        return _verdict(status, False), f"bucket HTTP {status}"
+        return _verdict(status, False), _http_detail(status, body, "bucket")
     return data.get("version") == version, f"bucket={data.get('version')}"
 
 
@@ -261,8 +304,8 @@ def check_winget(version: str) -> tuple[bool | None, str]:
         "https://api.github.com/repos/microsoft/winget-pkgs/contents/"
         f"manifests/m/MSKazemi/YazSes/{version}"
     )
-    status, _ = _get(url)
-    return _verdict(status, status == 200), f"winget-pkgs HTTP {status}"
+    status, body = _get(url)
+    return _verdict(status, status == 200), _http_detail(status, body, "winget-pkgs")
 
 
 def check_chocolatey(version: str) -> tuple[bool | None, str]:
@@ -276,17 +319,27 @@ def check_chocolatey(version: str) -> tuple[bool | None, str]:
     url = f"https://community.chocolatey.org/api/v2/Packages()?$filter={flt}"
     status, body = _get(url)
     if status != 200:
-        return _verdict(status, False), f"HTTP {status}"
+        return _verdict(status, False), _http_detail(status, body)
     text = body.decode("utf-8", "replace")
-    return f"<d:Version>{version}</d:Version>" in text, (
-        "listed" if "<entry>" in text else "not listed"
-    )
+    if f"<d:Version>{version}</d:Version>" not in text:
+        return False, "not listed"
+    # The feed also serves versions that are merely *submitted*: moderation has not
+    # approved them, `choco install` cannot fetch them, and the entry still carries
+    # the exact version. v2.51.0 sat like that from 2026-11-07 while this check said
+    # "published". Only an explicit IsApproved=true counts.
+    approved = re.search(r"<d:IsApproved[^>]*>\s*(true|false)\s*</d:IsApproved>", text)
+    if approved is None:
+        return UNKNOWN, "feed does not say whether this version is approved"
+    if approved.group(1) == "true":
+        return True, "listed"
+    status = re.search(r"<d:PackageStatus>([^<]*)</d:PackageStatus>", text)
+    return False, f"not approved (status {status.group(1) if status else 'unknown'})"
 
 
 def check_aur(version: str) -> tuple[bool | None, str]:
-    status, data = _json("https://aur.archlinux.org/rpc/v5/info?arg[]=yazses")
+    status, data, body = _json_body("https://aur.archlinux.org/rpc/v5/info?arg[]=yazses")
     if status != 200 or not data:
-        return _verdict(status, False), f"AUR RPC HTTP {status}"
+        return _verdict(status, False), _http_detail(status, body, "AUR RPC")
     results = data.get("results", [])
     if not results:
         return False, "not in AUR"
@@ -296,17 +349,17 @@ def check_aur(version: str) -> tuple[bool | None, str]:
 
 def check_flathub(version: str) -> tuple[bool | None, str]:
     # The API answers honestly; flathub.org itself returns 200 for missing apps.
-    status, _ = _get(f"https://flathub.org/api/v2/appstream/{FLATPAK_ID}")
-    return _verdict(status, status == 200), f"appstream HTTP {status}"
+    status, body = _get(f"https://flathub.org/api/v2/appstream/{FLATPAK_ID}")
+    return _verdict(status, status == 200), _http_detail(status, body, "appstream")
 
 
 def check_nix(version: str) -> tuple[bool | None, str]:
     # search.nixos.org is an SPA and lies. A raw path in nixpkgs does not.
-    status, _ = _get(
+    status, body = _get(
         "https://raw.githubusercontent.com/NixOS/nixpkgs/master/"
         "pkgs/by-name/ya/yazses/package.nix"
     )
-    return _verdict(status, status == 200), f"nixpkgs HTTP {status}"
+    return _verdict(status, status == 200), _http_detail(status, body, "nixpkgs")
 
 
 # Every manifest media type GHCR may hold for a tag; a multi-arch tag is an index.
@@ -371,16 +424,16 @@ def check_docker(version: str) -> tuple[bool | None, str]:
     """
     owner, image = REPO.split("/")
     base = f"https://ghcr.io/v2/{owner.lower()}/{image}"
-    status, tok = _json(
+    status, tok, tok_body = _json_body(
         f"https://ghcr.io/token?scope=repository:{owner.lower()}/{image}:pull&service=ghcr.io"
     )
     if status != 200 or not tok or "token" not in tok:
         # A token endpoint that is down says nothing about the image.
         if status == 429 or status >= 500:
-            return UNKNOWN, f"token HTTP {status}"
-        return _verdict(status, False), f"token HTTP {status}"
+            return UNKNOWN, _http_detail(status, tok_body, "token")
+        return _verdict(status, False), _http_detail(status, tok_body, "token")
     headers = {"Authorization": f"Bearer {tok['token']}"}
-    status, _ = _get(
+    status, body = _get(
         f"{base}/manifests/{urllib.parse.quote(version, safe='')}",
         {**headers, "Accept": _MANIFEST_ACCEPT},
     )
@@ -389,7 +442,7 @@ def check_docker(version: str) -> tuple[bool | None, str]:
     # mean the registry failed to answer, and reporting that as "missing" is how a
     # blip becomes a false alarm or a demotion.
     if status != 200 and status not in (401, 403, 404):
-        return UNKNOWN, f"manifest HTTP {status}"
+        return UNKNOWN, _http_detail(status, body, "manifest")
     # `sha256-…` entries are the attestation/referrer artifacts the attest step
     # pushes alongside the image. They are tags as far as the registry is concerned
     # and noise as far as a human reading "is 2.22.0 published?" is concerned, so
@@ -403,7 +456,7 @@ def check_docker(version: str) -> tuple[bool | None, str]:
             readable.append(version)
         return True, _evidence("tags", readable, version)
     if not readable:
-        return False, f"manifest HTTP {status}"
+        return False, _http_detail(status, body, "manifest")
     return False, _evidence("tags", readable, version)
 
 

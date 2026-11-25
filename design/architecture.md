@@ -200,6 +200,18 @@ one INFO line on a tick that released something. The `status` reply carries `lat
 at `0`), which `yazses status` prints as one `memory:` line when an extra model is loaded. Only the governor's extra model
 is affected; the dictation engine keeps its `[stt] idle_unload_s` behaviour.
 
+**What residency has and has not shown (ADR-029, *Implementation status*).** Both keys are
+off at `0`, so a default install is unchanged. Neither has been measured for the thing the ADR
+is about: **how much RSS a release or an eviction actually returns is UNMEASURED**
+(CTranslate2 may keep its arena after a model is dropped; no run has checked). The only figures
+in the repository are the baseline loaded sizes in `residency.MEASURED_FA058766_MB`, taken on one
+Linux x86_64 build. The RSS budget gate (`scripts/check_runtime_budget.py`, ceilings in
+`scripts/runtime_budget.json`) checks a measured-results file and measures nothing itself, and no
+nightly workflow feeds it yet (no file under `.github/workflows/` references it); only the `stt`
+and `latency` rows carry a ceiling, every other unit's is `null`. `ResidencyBudget`
+and the out-of-process table (`WORKER_UNITS`) are policy code with no caller outside
+`system/residency.py`, and `[residency] max_resident` is not a config key yet.
+
 **DICTATE-path post-process chain (`core/daemon.py::_on_hold_end`).** After `clean_dictation`,
 the cleaned transcript flows through a chain of **opt-in, OFF-by-default** text transforms, each
 guarded by its own config flag (`if self._config.<x>.enabled: text = transform(text)`). Order:
@@ -277,7 +289,7 @@ a guard that silently stops protecting on a whole display server is worse than n
 
 | File | Role |
 |---|---|
-| `base.py` | Protocol interfaces: `HotkeyBackend`, `InjectorBackend`, `LifecycleBackend`, `IpcServer`, `IpcClient`, `PermissionsBackend`, `TrayBackend`, `FileOpener` (opens a file with the default app; one per OS family, the BSDs share Linux's), `UrlOpener` (hands a custom-scheme URL to its registered program for "send to", [ADR-031](adr/adr-031-send-to-prefill-handoff.md): on Linux and the BSDs the xdg-desktop-portal `OpenURI` over the session bus via `jeepney`, falling back to `xdg-open` only when no portal received the URL, or once after the portal's `Response` 2 / `NSWorkspace` / `os.startfile`, in the same `platform/<os>/fileopen.py`; `require_local_scheme` refuses web, file and script schemes before anything starts). Also `Platform.injection_backends` — the `[injection] backend` values an OS acts on (`None` = all; Windows names `auto` and `clipboard`), which the settings window lists instead of offering Linux tools the OS ignores. Also `Platform.pointer_factory` — the optional `PointerSinkFactory` a bundle registers, `None` on an OS with no pointer backend yet (a factory, so nothing is constructed and no permission asked until a pointer consumer is enabled). And `Platform.accessibility_factory` (#164) — the optional `AccessibilityFactory` building an `AccessibilityBackend` (`snapshot()` = ADR-v2-151's `SemanticSource.snapshot` over the focused window, plus `perform(entity_id, action)` on a node of the latest snapshot only); `None` with `accessibility_unavailable_reason` where it cannot work, and `None` on every OS but Linux (`NO_ACCESSIBILITY_BACKEND_REASON`). And `Platform.primary_modifier` — the modifier the OS's application shortcuts use (`PRIMARY_MODIFIER_CTRL` by default, `PRIMARY_MODIFIER_CMD` on macOS); `commands/dispatch.py` and `commands/profiles.py` pick their macOS keymaps from it, so neither branches on the OS. And `Platform.focused_app_factory` — the optional `FocusedAppFactory` building a `FocusedAppProvider` whose `app_id()` names the focused application and nothing else (an identifier, never a title or path): macOS `macos/focused_app.py` (NSWorkspace frontmost app's bundle id, AppKit imported lazily, the factory raises with its reason without it), Windows `windows/focused_app.py` (foreground window's process image name via `QueryFullProcessImageNameW`, basename only); `None` on Linux and the BSDs, where the text-target detector answers instead, with `focused_app_unavailable_reason` for a platform that knows it cannot |
+| `base.py` | Protocol interfaces: `HotkeyBackend`, `InjectorBackend`, `LifecycleBackend`, `IpcServer`, `IpcClient`, `PermissionsBackend`, `TrayBackend`, `FileOpener` (opens a file with the default app; one per OS family, the BSDs share Linux's), `UrlOpener` (hands a custom-scheme URL to its registered program for "send to", [ADR-031](adr/adr-031-send-to-prefill-handoff.md): on Linux and the BSDs the xdg-desktop-portal `OpenURI` over the session bus via `jeepney`, falling back to `xdg-open` only when no portal received the URL, or once after the portal's `Response` 2 / `NSWorkspace` / `os.startfile`, in the same `platform/<os>/fileopen.py`; `require_local_scheme` refuses web, file and script schemes before anything starts). Also `Platform.injection_backends` — the `[injection] backend` values an OS acts on (`None` = all; Windows names `auto` and `clipboard`), which the settings window lists instead of offering Linux tools the OS ignores. Also `Platform.pointer_factory` — the optional `PointerSinkFactory` a bundle registers, `None` on an OS with no pointer backend yet (a factory, so nothing is constructed and no permission asked until a pointer consumer is enabled). And `Platform.accessibility_factory` (#164) — the optional `AccessibilityFactory` building an `AccessibilityBackend` (`snapshot()` = ADR-v2-151's `SemanticSource.snapshot` over the focused window, plus `perform(entity_id, action)` on a node of the latest snapshot only); `None` with `accessibility_unavailable_reason` where it cannot work, and `None` on every OS but Linux (`NO_ACCESSIBILITY_BACKEND_REASON`). And `Platform.primary_modifier` — the modifier the OS's application shortcuts use (`PRIMARY_MODIFIER_CTRL` by default, `PRIMARY_MODIFIER_CMD` on macOS); `commands/dispatch.py` and `commands/profiles.py` pick their macOS keymaps from it, so neither branches on the OS. And `Platform.focused_app_factory` — the optional `FocusedAppFactory` building a `FocusedAppProvider` whose `app_id()` names the focused application and nothing else (an identifier, never a title or path): macOS `macos/focused_app.py` (NSWorkspace frontmost app's bundle id, AppKit imported lazily, the factory raises with its reason without it), Windows `windows/focused_app.py` (foreground window's process image name via `QueryFullProcessImageNameW`, basename only); `None` on Linux and the BSDs, where the text-target detector answers instead, with `focused_app_unavailable_reason` for a platform that knows it cannot. And `Platform.focused_cwd_factory` — the optional `FocusedCwdFactory` building a `FocusedCwdProvider` whose `cwd()` is the focused window's process working directory, for `[context] use_git`: Linux `linux/focused_cwd.py` on an X11 session only (xdotool `getwindowpid`, then `/proc/<pid>/cwd` of the youngest descendant); `None` on Wayland and every other OS |
 | `factory.py` | `get_platform()` — detects `sys.platform`, returns `Platform` dataclass. `get_file_opener()` — the `FileOpener` for this OS, without building a `Platform` (`yazses fileopen`). `get_url_opener()` — the `UrlOpener` likewise (`sendto/handoff.py`) |
 | `*/permissions.py` | Keyboard capture, microphone and (ADR-v2-145 / #414) **camera**. `check_camera()` returns a `CameraPermission`, never a bare boolean, and returns `NOT_DETERMINED` — never `GRANTED` — when it cannot answer |
 | `emg/backend.py` | `EMGBackend` — `HotkeyBackend` over USB CDC serial YESP protocol (v0.4.0); requires `pyserial` optional dep |
@@ -504,10 +516,21 @@ is pure orchestration with injected backends, so every stage is unit-testable wi
 | `pipeline.py` | `transcribe_file()` — orchestrates decode → STT words → optional diarize → align → name → render |
 | `audio_io.py` | `load_audio()` — PyAV via `faster_whisper.decode_audio` (any format → 16 kHz mono), ffmpeg-CLI fallback; **no new dep** |
 | `diarizer.py` | `SherpaDiarizer` (sherpa-onnx int8 ONNX); `factory.build_diarizer()` returns `None` when dormant |
+| `pyannote_backend.py` | `PyannoteDiarizer`, the optional accuracy backend (`[recimport] backend = "pyannote"` / `[meeting] backend = "pyannote"`, `diarization-pyannote` extra; torch plus a gated Hugging Face download). Same contract as `SherpaDiarizer`, speaker ids normalised to `speaker_N`. Sets `PYANNOTE_METRICS_ENABLED=false` *before* importing pyannote, whose usage tracking is otherwise on by default; its one network access is the one-time gated model download (ADR-019 dependency fetch), with the token read from the environment or the Hugging Face cache and deliberately not a config key |
+| `factory.py` | `build_diarizer()`, `diarization_status()` / `diarization_advice()` (readiness per backend without importing the heavy one) and `speaker_count_advice()` |
+| `plausibility.py` | `attribution_problem()`: after a run, does the diarization look like people or like fragments? Judges the *shape* of per-label speaking time, not the speaker count; advisory and one-directional, it never edits or suppresses a transcript ([ADR-v2-133](adr/adr-v2-133-diarization-clustering-default.md)) |
+| `subtitles.py` | Pure word-timestamp segmentation and SRT/VTT formatting, CJK-aware (ADR-v2-083) |
 | `align.py` | Pure-numpy max-overlap word↔turn assignment + `merge_utterances()` |
 | `naming.py` | Speaker naming: `--names`/`--rename` > enrolled voiceprint (`voiceprint/` centroid + `nearest_profile`, gated ≥`min_speaker_seconds`/≥`name_threshold`) > "Speaker N" |
 | `render.py` | txt / md / srt / vtt / json writers (reuses `subtitles.py`, `diarize/labels.py`) |
 | `download.py` | Fetches the ~15 MB sherpa segmentation + embedding models |
+
+**Evidence and limits.** The sherpa clustering defaults were re-set by
+[ADR-v2-133](adr/adr-v2-133-diarization-clustering-default.md) (Accepted) after being scored on the
+AMI test split and VoxConverse: `[recimport] cluster_threshold` is `1.0` and `[meeting]
+cluster_threshold` is `1.2` in `config.py`. The ADR records that no single value is best across
+domains, so the speaker count is advisory, which is why `plausibility.py` exists. The ADR's
+measurements cover only those two public corpora; any other audio is unmeasured.
 
 Privacy (ADR-011/012): fully offline; diarization labels are transient; voiceprint naming is
 opt-in, consent-gated, on-device, and never auto-enrolls third parties. Cloud escalation is
@@ -629,7 +652,8 @@ a person signs it. The runtime does not re-check licences.
 | `grammar.py` | `classify(text, profile, slm_router=None, macro_table=None)` — Tier 0: user macros (whole-utterance exact match); Tier 1: 28+ regex rules → `CommandIntent`; optional Tier 2: SLMRouter fallback |
 | `macros.py` | Say-Macro (spec-say-macro): `MacroTable`/`load_macros`/`expand`/`build_macro_table` — user-defined trigger→`text`/`snippet` expansions from `macros.toml`; `None` (dormant) unless `[macros] enabled` |
 | `revise.py` | Mid-Thought Undo (spec-mid-thought-undo): `parse_revise` (whole-utterance "scratch that" family) + `DictationLedger` (LIFO of injected-burst char counts **and text** via `last_text()`/`replace_last()` — the latter feeds Punch-In); daemon backspaces the last burst |
-| `slm_router.py` | `SLMRouter` — Tier 2 llama-cpp-python classifier (v0.4.0); disabled when `slm_model_path` unset |
+| `slm_router.py` | `SLMRouter` — Tier 2 llama-cpp-python classifier (v0.4.0); disabled when `slm_model_path` unset; decodes under the `slm_schema` grammar when the binding has one |
+| `slm_schema.py` | Pure. The Tier 2 output contract built from the English Tier 1 rule table, filtered by the `TIER2_ACTIONS` allow-list (22 actions, no keystroke actions such as `press_enter`): action table, JSON Schema, prompt catalogue, and `validate()`, which re-checks every decoded answer (known action, typed and bounded args, free text grounded in the utterance) |
 | `lsp_context.py` | `LspContextProvider` — reads editor context via `EditorBridge` (NeovimBridge, NullBridge); 50 ms timeout |
 | `dispatch.py` | Routes `DICTATE` to `inject()`, `MACRO` to expand-and-inject (+caret `Left`), all others to `inject_key_sequence()` via `DEFAULT_KEYMAP` (`ACTION_KEYS` + the `LEAD_KEYS` that open structured actions). An optional `keymap=` (an editor profile) overrides per action; an override of `None` raises `CommandRefused` before any key is sent, and nothing is typed |
 | `profiles.py` | Editor command profiles (pure): built-in `jetbrains`/`sublime`/`vscode`/`default` key overrides, `match_app(app_class)` (exact `APP_IDENTIFIERS` — macOS bundle ids, Windows image names — then keywords), `ProfileRegistry.choose(app_class) -> ProfileChoice`, `load_profiles(CommandsConfig)`. **Wired** only when `[commands] editor_profiles`: `Daemon._build_command_profiles` builds the registry at start; `_command_keymap` reads the focused app at dispatch time through the platform's `FocusedAppProvider` (macOS, Windows) or else the text-target guard's detector (AT-SPI / X11 xdotool; none on Wayland-without-AT-SPI → default keys, reason logged once) and passes the profile to all three `cmd_dispatch` call sites |
@@ -902,7 +926,18 @@ EMG/BrainFlow sources and the face-gesture switch: events feed the same `on_mode
 [ADR-v2-153](adr/adr-v2-153-biosignal-false-positive-governor.md); how the numbers get measured on real
 hardware is [`specs/biosignal-validation-protocol.md`](specs/biosignal-validation-protocol.md). Thought,
 motor-imagery, SSVEP and P300 decoding stays rejected (ADR-v2-129); blink and jaw clench are artifacts,
-and the thresholds are unmeasured. Validation is synthetic only; no field-test result exists yet.
+and the thresholds are unmeasured. Validation is synthetic or fake-transport only: **no part of the
+pipeline, and none of the device parsers (ThinkGear, BITalino, Myo), has been run against real
+hardware**, and no field-test result exists yet (ADR-v2-155, *Context*). ADR-v2-152 and ADR-v2-153 are
+still **Proposed**; the code shipped on `main` under the owner's 2026-11-01 exception to the ADR-030
+breadth freeze (ADR-030, *Amendment 2026-11-01*), which lifts nothing else. Two further records
+bound what may be built next, and **neither authorises code**: [ADR-v2-154](adr/adr-v2-154-eeg-eog-evidence-gates.md)
+(Proposed, research-only: the evidence gates for EEG/EOG) and
+[ADR-v2-155](adr/adr-v2-155-thinkgear-transport-safety.md) (Proposed, awaiting maintainer review:
+a fail-closed ThinkGear source-health veto, with `POOR_SIGNAL` freshness and rearm thresholds that are
+untested engineering values). Until it is decided, the `thinkgear:` source feeds `IntegrityGuard`
+and the quality gate only; the ThinkGear contact value is not a veto, and `biosignal field-test` does
+not compose the same guards as the daemon and `monitor` (ADR-v2-155, *Context*).
 
 | File | Role |
 |---|---|
@@ -1013,6 +1048,7 @@ from the tree, so a method added to the daemon, or a caller added or removed, fa
 | `ask_human` | MCP server | Ask the person out loud and return what they say (`[mcp] ask_human`) |
 | `headpointer` | CLI | Head-Pointer controls, chosen by an `action` param: `status`, `recenter`, `pause`, `resume`, `clutch`, `dwell` (`yazses headpointer ...`) |
 | `handsfree` | settings window, CLI | Global hands-free stop, chosen by an `action` param: `pause` (every source at once; Head-Pointer only when `[handsfree_safety]` is off) or `resume` (explicit re-arm; refuses while a source is stale or faulted). Takes no pointer position (`yazses handsfree ...`) |
+| `camera` | CLI | Runtime camera switch (`perception/switch.py`, #922/#924), `action` param: `status` (default), `on`, `off`, `list` (cameras via `perception/devices.py`), `use` (`target`: name, index or by-id path; off, re-point every owner's index, on; runtime only). `off` releases the webcam for every camera feature (face switch, gaze, shared-source leases) without a restart and leaves dictation untouched; `on` reopens them. Reply: `state`, `holders`, `consumers`, per-feature reopen `failures`. A runtime state, not a config key (`yazses camera status\|on\|off`) |
 | `facegesture` | CLI | Face-switch action outcomes, `action` param: `status` only. Lists each bound `select` / `confirm` / `cancel` with its last outcome (done, refused with a reason, no-op) and counts. Read-only; names, words and ages, never a score (`yazses facegesture status`) |
 | `gesture` | CLI | Gesture Chords controls, chosen by an `action` param: `status`, `pause`, `resume` (`yazses gesture ...`) |
 | `mousegrid` | overlay | Voice Mouse Grid (`[mousegrid]`), chosen by an `action` param: `status` (active flag, grid size, the current cell rectangle, depth — no transcript), `open`, `say` (runs `text` through the spoken grid grammar), `cancel`, and `screen` (the overlay reports its screen rectangle for sessions where the daemon cannot read the display layout). Replies `ok: false` while the feature is off |
@@ -1095,6 +1131,31 @@ key_file = ""
 
 ---
 
+## Release and distribution
+
+A tag matching `v*` starts independent workflows rather than one pipeline, and nothing orders
+them; each of the following is read from `.github/workflows/`.
+
+| Workflow | What it does on a tag |
+|---|---|
+| `release.yml` | Runs the test job, then builds and attaches the Linux artifacts and creates the GitHub Release (`release-linux`); publishes to PyPI by OIDC trusted publishing (`publish-pypi`); publishes the MCP-registry entry (`publish-mcp-registry`, owner-gated, after PyPI) |
+| `build-windows.yml`, `build-macos.yml`, `snap.yml` | Build and attach the Windows installer and the macOS `.dmg`; build the snap once per architecture and, on the canonical repository, a tagged release without the store credentials **fails** rather than skipping (`snap.yml`). They run separately from `release.yml` |
+| `checksums.yml` | Waits for the assets that actually arrived and derives `SHA256SUMS.txt` from them (the installer updater of ADR-027 verifies against it) |
+| `publish-channels.yml` | Hands the artifacts to the package managers. A channel whose credential secret is unset **skips with a warning** instead of failing, so a missing secret never turns every release red |
+| `release-complete.yml` | Verifies that every expected artifact exists and demotes an incomplete release from "Latest"; it runs at the one moment the slow channels must answer no, so it is not a verdict on them |
+| `channel-drift.yml` | Daily, and after a grace period, asks whether each channel has caught up with the newest tag, which is the question `release-complete.yml` cannot answer |
+
+In-repo packaging inputs live under `packaging/` (APT, Chocolatey, Homebrew, Scoop, winget,
+Arch, Flatpak, Nix, Docker, the Windows and macOS builds, the Microsoft Store, the `.mcpb`
+bundle, the MCP registry and the feature packs of ADR-028); procedures for the signing and
+store channels are in `packaging/README.md` and `design/packaging/`.
+**This document does not record which channels are live or at what version**, because that
+changes on each channel's own clock and several (winget, Chocolatey, AUR, the Store) wait on
+a human. The authority is `scripts/check-release-channels.py --version <v>`, which queries
+each channel's own API; the dated table in `packaging/README.md` is hand-written and carries
+the date it was checked. Workflow lanes, cancellation, permissions and retry policy are in
+`.github/CI_POLICY.md`.
+
 ## Adding a new platform
 
 1. Create `src/yazses/platform/<os>/` with implementations of all Protocol interfaces.
@@ -1136,9 +1197,31 @@ would reverse it.
 |---|---|
 | ADR-017 | Intel macOS support is built on `macos-15-intel`, advisory — and its **end date is GitHub's**: the last x86_64 image, until Aug 2027. `macos-13` was retired 2025-12-04 |
 | ADR-018 | Show a capability's **marginal** download cost before installing it; **no third-party plug-ins** — supersedes ADR-009's trust position, whose safety rested on a Rust build-time gate that was never built |
-| ADR-019 | The **egress inventory**: every outbound path enumerated and enforced by a test. Five *fetch*, exactly two *send*. Escalation rules generalised from ADR-v2-126 to any feature; three categories may never escalate |
+| ADR-019 | The **egress inventory**: every outbound path enumerated and enforced by `tests/test_egress_inventory.py`; exactly two can *send* user content (`postprocess/llm_cleanup.py`, confined to loopback, and `remote/local_proxy.py`, to the SSH host the user named). The fetch and dependency-fetch rows are counted in that test, not here, because a count written by hand in prose drifts. Escalation rules generalised from ADR-v2-126 to any feature; three categories may never escalate |
 | ADR-020 | **MCP server yes** (stdio, two tools) · **FastAPI no** — it would trade an `AF_UNIX` structural guarantee for a configuration one on a process holding a live microphone · **A2A no** — YazSes has no goals |
 | ADR-021 | Invest in **carrying error cost through the pipeline** (scored 24/25 against three alternatives). First step shipped: `checkdigit` |
+
+### 2026-08 to 2026-11 — accessibility, contribution, update, residency, agent-era direction
+
+Status is each ADR's own **Status** line (the generated index in
+[`adr/README.md`](adr/README.md) is the authority); "Proposed" here means *awaiting the
+maintainer*, not *unbuilt* — several Proposed ADRs below have shipped code.
+
+| ADR | Status | Decision |
+|---|---|---|
+| ADR-022 | Proposed | A confirmation a voice user cannot give: two daemon-initiated states have no voice-only exit (the mic-change guard and destructive gaze deixis). The ADR recommends option A (a callback on the shared `ConfirmGate`) over B (a second pending slot); it is Proposed because the path could not be exercised where it was written |
+| ADR-023 | Accepted | Agent-first contribution pipeline: bounded, verifiable task contracts (`campaign/`) before any agent or human implements; its sample wording on AI-assistance disclosure is superseded by ADR-026 |
+| ADR-024 | Proposed | A distributed coding-agent worker model that extends ADR-023 |
+| ADR-025 | Proposed | A grounded interaction kernel before any new agent, spatial or robot stack; maintainer review required before implementation |
+| ADR-026 | Accepted | Remote coding agents use the existing task contract; tool identity is not authorship |
+| ADR-027 | Accepted | One-click Windows update: verify, hand off, relaunch (`system/installer_update.py`; an ADR-019 FETCH row whose download then runs) |
+| ADR-028 | Proposed | Feature add-on packs: a frozen install fetches a feature's libraries when it is turned on (`packs/`, Windows installer build first) |
+| ADR-029 | Accepted | Runtime residency: RAM and CPU proportional to what is enabled (`system/residency.py`). Partly implemented: the dictation engine's idle unload and the latency governor's pool eviction; the rest is open, and what a release returns is **unmeasured** (see the residency paragraphs under the state machine) |
+| ADR-030 | Accepted | Direction: the offline microphone for the agent era, and a **breadth freeze** (no new ADR waves or registry capabilities outside its four pillars); one named exception, the biosignal pipeline (amendment 2026-11-01) |
+| ADR-031 | Accepted | "Send to": hand dictated text to a desktop AI client, pre-filled and never sent (`sendto/`, off by default). Its §5 validation record has **no verified row**: no hand-off has been tried against a real client |
+| ADR-032 | Accepted | Make the MCP server discoverable (`.mcpb` bundle, MCP-registry entry) and let `ask_human` stop when the user stops speaking |
+| ADR-033 | Proposed | A reproducibility gate for offline ASR comparisons; no runtime, default or publication authorisation. Not ADR-v2-033 (wake word) |
+| ADR-034 | Proposed | Whether to recommend Parakeet where it loads; awaiting the maintainer, and changing `[stt] engine`'s default is L3 work |
 
 ### v0.4.0 Configuration reference additions
 
@@ -1176,7 +1259,7 @@ an internal design note.
 |---|---|---|
 | `postprocess/confidence.py` | Confidence Ink — low-confidence words from token probs | v2-001 |
 | `commands/edit_ops.py` | Spoken Edit Mode — voice edits of the last dictation | v2-003 |
-| `commands/context.py`, `system/context_read.py` | Context-Primed Dictation | v2-004 |
+| `commands/context.py`, `commands/git_hint.py`, `system/context_read.py` | Context-Primed Dictation (`git_hint.py`: repo name and branch from `.git` files, pure) | v2-004 |
 | `personalize/prompt_builder.py` (mine_ngrams/mine_personal) | Personal Adapter P1 | v2-009 |
 | `recall/` (query, scratch) | Spoken Recall & Ambient Scratch | v2-005 |
 | `polyglot/router.py` | True Code-Switch routing decision (not wired — nothing calls `should_route`) | v2-008 |

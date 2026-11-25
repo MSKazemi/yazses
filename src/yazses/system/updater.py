@@ -77,6 +77,17 @@ MACOS_METHODS = ("macos-app",)
 # Installer for a sideloaded package), so it gets steps that say so and no one-click.
 MSIX_METHODS = ("msix",)
 
+# Who updates a packaged build. The Store replaces the package (the install folder under
+# WindowsApps is read-only to the app, so YazSes could not replace its own files there even
+# if it tried), so for an MSIX the update check is a no-op: no network call, no hand-off, and
+# every surface says whose job it is instead of "could not check". UNTESTED on a real Store
+# install -- this is the documented contract, not an observed one.
+MSIX_MANAGED_BY = "the Microsoft Store"
+MSIX_MANAGED_NOTE = (
+    f"updates for this build are managed by {MSIX_MANAGED_BY} (or App Installer when "
+    "sideloaded); YazSes does not check for or install them itself"
+)
+
 # Methods whose version comes from the GitHub release rather than PyPI, because the
 # artifact *is* a release asset. Keep this separate from WINDOWS_METHODS: that tuple
 # also selects Windows-specific prose, and folding the two together is how the .app
@@ -98,6 +109,10 @@ class UpdateStatus:
     # (nothing to shell out to) and a blocked/absent network (nothing to check
     # against). Always populated, so a caller never has to invent guidance.
     steps: list[str] = field(default_factory=list)
+    # Non-empty when something else owns updating this install and YazSes must neither check
+    # nor install ("the Microsoft Store"). Callers read it BEFORE `latest is None`, which
+    # otherwise means "the network check failed".
+    managed_by: str = ""
 
 
 # ---- install-method detection ----------------------------------------------
@@ -455,6 +470,13 @@ def check_update(
 ) -> UpdateStatus:
     """Resolve the install method, find the latest version, decide if newer."""
     method = method or detect_install_method()
+    if method in MSIX_METHODS:
+        # No network call at all: the Store knows what it has published, GitHub does not.
+        return UpdateStatus(
+            method=method, current=current, latest=None, available=False,
+            command=None, note=MSIX_MANAGED_NOTE,
+            steps=manual_update_steps(method, package), managed_by=MSIX_MANAGED_BY,
+        )
     latest = _latest_for_method(method, package)
     if latest is None:
         return UpdateStatus(

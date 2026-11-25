@@ -114,14 +114,21 @@ def test_speech_range_scores_below_the_hold_threshold_never_start_anything(monke
     assert events == []
 
 
-def test_a_camera_that_will_not_open_ends_run_and_closes_the_model(monkeypatch):
+def test_a_camera_that_will_not_open_waits_and_closes_the_model_on_stop(monkeypatch):
+    import threading
+
     monkeypatch.setitem(sys.modules, "mediapipe", _FakeMediapipe())
     order: list[str] = []
     backend = FaceGestureBackend(FacegestureConfig(enabled=True))
     backend._build_landmarker = lambda: SimpleNamespace(close=lambda: order.append("lm.close"))
     backend._open_camera = lambda: (None, None)
-    backend.run()
-    assert order == ["lm.close"]
+    t = threading.Thread(target=backend.run, daemon=True)
+    t.start()
+    t.join(0.3)
+    assert t.is_alive() and order == []  # waiting for a camera-on, model still loaded
+    backend.stop()
+    t.join(3.0)
+    assert not t.is_alive() and order == ["lm.close"]
 
 
 def test_the_camera_index_is_the_facegesture_sections_own(monkeypatch):

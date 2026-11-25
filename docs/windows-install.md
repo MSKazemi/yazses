@@ -275,8 +275,9 @@ What to expect:
   button uses the same code as the tray and `yazses update`, but it has not yet been
   tried on a real Windows machine.
 - **Microsoft Store / MSIX package:** it updates through the Store (Library → Get
-  updates), or by opening the newer `.msix`. Never run the `.exe` over it; that installs
-  a second copy.
+  updates), or by opening the newer `.msix`. YazSes does not check for or install updates
+  itself there (`yazses update` and `yazses doctor` say "managed by the Microsoft Store"
+  and make no network call). Never run the `.exe` over it; that installs a second copy.
 - **Not code-signed yet.** The checksum proves the file is exactly the one the release
   published. It does not prove who built it; signing is the remaining step. SmartScreen
   may warn for the same reason.
