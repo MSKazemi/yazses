@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — research: a consumer for Apple's BCI HID switch protocol, recorded as a Proposed ADR (research record only), not a feature
+
+[ADR-v2-157](design/adr/adr-v2-157-bci-hid-switch-consumer.md) (Proposed, research record only) records Apple's BCI HID report layout from Apple's reference page: usage page `0x60`, 32 buttons, pointer with the `-128` absent-axis sentinel, item selection, signal quality, and the host's scan-information report, which never reveals a focused keyboard key. It also records how such a device could become a YazSes switch on macOS, Linux and Windows by reusing the biosignal event types and the false-positive governor, and what nobody has measured yet. `examples/bci-hid-switch/` adds a stdlib-only parser for synthetic report bytes, with tests. Nothing in `src/` changes and no device has been tested. The ADR-030 freeze on new device families applies.
+
 ### Changed — dictation: the speech-presence detector loads at start-up, not on the first dictation
 
 The speech-presence check (#598) runs Silero on every burst, and Silero was built on its first call — the first dictation after the daemon started. The daemon now runs it once on half a second of silence while it is still loading, only when the check will run (it is on by default; off, Dysfluency-Friendly mode and the sotto-voce channel skip it). Measured on a 4-thread i7-6500U in 15 fresh processes per arm: the first check took 48 ms (median) and every later one 13 ms; with the prime the first took 13 ms. No transcript, verdict or config key changes. A decode warm-up was measured too and is **not** shipped: it cost 1.9 s of start-up (median) and did not make the first decode measurably faster.
