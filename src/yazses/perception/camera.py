@@ -28,6 +28,22 @@ __all__ = ["STALL_TIMEOUT_S", "OpenCVFrameCapture", "opencv_capture_factory"]
 
 log = logging.getLogger(__name__)
 
+
+def camera_held_message(index: int, *, released: bool = False) -> str:
+    """The one-line log text for a camera YazSes has taken or handed back.
+
+    Pure, so the wording lives in one place for every module that holds the device.
+    While held, a video-call app reports "camera not available" and nothing else
+    says why; the line names the cause and the way out (issue #922).
+    """
+    if released:
+        return f"camera {int(index)} released; other applications can use it again"
+    return (
+        f"holding camera {int(index)}: other applications (video calls) cannot use it "
+        "until YazSes releases it - turn off [facegesture], or run "
+        "`systemctl --user stop yazses`"
+    )
+
 #: Seconds without a single good frame before the camera is declared gone.
 #: PROVISIONAL -- chosen, not measured. It has to outlast a webcam's warm-up (auto
 #: exposure and focus settle in ~1-2 s on the cameras in common use) and still be short
@@ -116,6 +132,7 @@ class OpenCVFrameCapture:
             )
         self._capture = capture
         self._last_good = self._clock()
+        log.info(camera_held_message(self._index))
 
     def _why(self, fallback: str) -> str:
         """The OS-aware reason after a failure, or *fallback* when nothing could be learned.
@@ -165,6 +182,7 @@ class OpenCVFrameCapture:
         self._last_good = 0.0
         if capture is not None:
             _release(capture)
+            log.info(camera_held_message(self._index, released=True))
 
 
 def opencv_capture_factory(index: int) -> OpenCVFrameCapture:

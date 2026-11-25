@@ -412,6 +412,15 @@ class DisfluencyConfig:
     # HTTP endpoint above. Mirrors the Rust v1.0 [cleanup] feature for the
     # Python path (kept in parity until v1.0 GA).
     llm_model: str = ""
+    # The model name sent to the `llm_endpoint` server (e.g. "llama3.2:3b" for
+    # Ollama). Empty keeps the historical "qwen2.5:1.5b", so an install that never
+    # set it sends exactly what it sent before this key existed.
+    llm_endpoint_model: str = ""
+    # The request shape `llm_endpoint` speaks: "ollama" (POST /api/generate) or
+    # "openai" (POST /v1/chat/completions -- llama-server, LM Studio, vLLM, and
+    # Ollama's own compatibility route). Either way the endpoint must be loopback
+    # unless `llm_allow_remote_endpoint` is set; this key does not change that.
+    llm_api: str = "ollama"
     llm_system_prompt: str = (
         "Reformat only. Do not add facts and do not remove information. "
         "Preserve every proper noun, number, code identifier, and URL exactly "
@@ -737,6 +746,24 @@ class PerceptionConfig:
 
 
 @dataclass
+class CameraConfig:
+    """Which camera every camera feature uses (#924) -- the one shared choice.
+
+    Written by ``yazses camera use``. Dormant by default: with ``index = -1`` (not chosen)
+    nothing changes and each of ``[gaze]``, ``[facegesture]`` and ``[perception]`` keeps
+    using its own ``camera_index``. Once ``index`` is 0 or more it overrides all three at
+    load time, so they cannot disagree. Turning the camera off is deliberately **not** a
+    setting here: it is a session-only action, never persisted.
+
+    ``device`` is the stable handle of the chosen camera (the Linux ``/dev/v4l/by-id``
+    name, otherwise the camera name) so a later release can re-find it after a replug;
+    ``index`` is the number it had when chosen and is what is opened today.
+    """
+    device: str = ""                  # stable id of the chosen camera; "" = none chosen
+    index: int = -1                   # chosen camera index; -1 = not chosen (legacy keys apply)
+
+
+@dataclass
 class CocktailConfig:
     """v2 — Cocktail Filter (spec-cocktail-filter), P1 personal-VAD gate (§3.2).
 
@@ -989,13 +1016,16 @@ class ContextConfig:
     Compose Whisper's initial_prompt from already-consented, transient desktop
     signals (active window title, selection, clipboard, editor LSP symbols) and
     resolve deictic commands against them. OFF by default; content is read at decode
-    time and NEVER stored or logged.
+    time and NEVER stored or logged. ``use_git`` adds the focused window's git
+    repository name and branch, read from ``.git`` files (no ``git`` binary); it is a
+    new signal, so it stays off even when ``enabled`` is on.
     """
     enabled: bool = False
     use_window_title: bool = True
     use_selection: bool = True
     use_clipboard: bool = False       # clipboard is the broadest signal; opt-in separately
     use_lsp: bool = True
+    use_git: bool = False             # focused repo's name + branch words; off even with [context] on
     max_terms: int = 48
 
 
@@ -2416,6 +2446,7 @@ class Config:
     gaze: GazeConfig = field(default_factory=GazeConfig)
     facegesture: FacegestureConfig = field(default_factory=FacegestureConfig)
     perception: PerceptionConfig = field(default_factory=PerceptionConfig)
+    camera: CameraConfig = field(default_factory=CameraConfig)
     gaze_refine: GazeRefineConfig = field(default_factory=GazeRefineConfig)
     cocktail: CocktailConfig = field(default_factory=CocktailConfig)
     personalize: PersonalizeConfig = field(default_factory=PersonalizeConfig)
@@ -2680,6 +2711,7 @@ def load_config_checked(path: Path | None = None) -> LoadedConfig:
     problems.extend(_switch_problems(config))
     problems.extend(_biosignal_problems(config))
     config = _apply_presets(config)
+    config = _apply_shared_camera(config)
     # After the presets, so the pair judged is the one the daemon will build (#515).
     problems.extend(language_pairing_problems(config))
     return LoadedConfig(config, problems, path)
@@ -2830,6 +2862,20 @@ def load_config(path: Path | None = None) -> Config:
     for problem in loaded.problems:
         log.warning("config.toml: %s", problem)
     return loaded.config
+
+
+def _apply_shared_camera(cfg: Config) -> Config:
+    """Let ``[camera] index`` (when chosen, >= 0) set every feature's camera (#924).
+
+    Unset (-1, the default) leaves the three legacy ``camera_index`` keys exactly as
+    written, so an install that never ran ``yazses camera use`` is unchanged.
+    """
+    from yazses.perception.devices import effective_camera_index
+
+    shared = cfg.camera.index
+    for section in (cfg.gaze, cfg.facegesture, cfg.perception):
+        section.camera_index = effective_camera_index(shared, section.camera_index)
+    return cfg
 
 
 def _apply_presets(cfg: Config) -> Config:

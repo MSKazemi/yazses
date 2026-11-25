@@ -81,6 +81,53 @@ def has_package_identity(query: Callable[[], int] | None = None) -> bool:
         return False
 
 
+#: Identity constants (Microsoft Learn, "Identity constants"): a package family name is
+#: at most 64 characters plus the terminator. The buffer is sized from the first call's
+#: answer anyway; this only caps what a misbehaving answer could make us allocate.
+_PACKAGE_FAMILY_NAME_MAX = 65
+
+
+def _query_package_family_name() -> tuple[int, str | None]:
+    """``GetCurrentPackageFamilyName`` asked the documented way: size, then name.
+
+    Microsoft Learn (appmodel.h, "GetCurrentPackageFamilyName function"): with no buffer
+    a packaged process answers ``ERROR_INSUFFICIENT_BUFFER`` and the required length; the
+    second call fills the buffer and answers ``ERROR_SUCCESS``. Raises off Windows, which
+    the caller reads as "no family name". Imported here, never at module top level.
+    """
+    import ctypes
+
+    kernel32 = getattr(ctypes, "windll").kernel32
+    length = ctypes.c_uint32(0)
+    rc = int(kernel32.GetCurrentPackageFamilyName(ctypes.byref(length), None))
+    if rc != _ERROR_INSUFFICIENT_BUFFER:
+        return rc, None
+    size = min(int(length.value) or _PACKAGE_FAMILY_NAME_MAX, _PACKAGE_FAMILY_NAME_MAX)
+    length = ctypes.c_uint32(size)
+    buffer = ctypes.create_unicode_buffer(size)
+    rc = int(kernel32.GetCurrentPackageFamilyName(ctypes.byref(length), buffer))
+    return rc, buffer.value
+
+
+def package_family_name(
+    query: Callable[[], tuple[int, str | None]] | None = None,
+) -> str | None:
+    """This process's package family name (``Name_PublisherId``), or None. Never raises.
+
+    None for an unpackaged process (``APPMODEL_ERROR_NO_PACKAGE``), off Windows, and for
+    any error or empty answer: only a successful second call names a family. ``query``
+    returns ``(return code, name)`` and exists so tests can supply one on any OS.
+    UNTESTED on a real packaged install.
+    """
+    try:
+        rc, name = (query or _query_package_family_name)()
+    except Exception:  # noqa: BLE001 - describing the host must never fail a run
+        return None
+    if rc != _ERROR_SUCCESS or not name:
+        return None
+    return str(name)
+
+
 def _msix_packaged(*, identity: Callable[[], bool] | None = None) -> bool:
     """A frozen executable that is the MSIX build.
 

@@ -40,14 +40,12 @@ _CP = re.compile(r"^\s*cp\s+(.*)$")
 _CLONE = re.compile(r"\bgit\s+clone\b")
 _PUSH = re.compile(r"\bgit\s+push\b")
 
-# .SRCINFO is the single exemption, and it is a property of the FORMAT, not a
-# decision about the channel: pacman's .SRCINFO grammar is `key = value` lines only
-# and has no comment syntax, so the marker cannot be written there at all. It is
-# also machine-rendered (`scripts/refresh-package-manifests.py::render_srcinfo`)
-# from PKGBUILD, which does carry the marker. `test_every_exemption_is_still_copied`
-# fails if this stops being a file we actually copy, so it cannot rot into a
-# blanket excuse.
-EXEMPT = {"packaging/arch/.SRCINFO"}
+# No file is exempt now. The only exemption was packaging/arch/.SRCINFO (a format with no
+# comment syntax, so it cannot carry the marker), and it left with the AUR publish job in
+# November 2026. If a future downstream file genuinely cannot carry the marker, add it here
+# with the reason; `test_every_exemption_is_still_copied` fails if the entry stops being
+# a file we copy.
+EXEMPT: set[str] = set()
 
 
 def _downstream_copied_files() -> dict[str, set[str]]:
