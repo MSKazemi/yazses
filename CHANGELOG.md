@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — docs: validation matrix records a Windows pipx report on 2.51.0 (E43)
+
+The Windows 11 pipx row of `docs/validation-matrix.md` now cites a 2026-11-18 report from [#330](https://github.com/MSKazemi/yazses/issues/330): on 2.51.0 (pipx upgrade from 2.40.1) the daemon started cleanly, a hotkey set with `yazses hotkey set` survived `yazses restart`, and exactly one daemon ran afterwards. The report names no device model or OS build and pastes no raw `doctor` text, so it is graded Reported, the 2.36.0 failure stays as history, and the row does not move to Verified (HW). Refs #388.
+
 ### Added — a script to compare pyannote 3.1 with community-1; the pyannote adapter reads exclusive diarization
 
 `scripts/bench-pyannote-pipelines.py` runs `pyannote/speaker-diarization-3.1` and `pyannote/speaker-diarization-community-1` on the same RTTM-labelled fixtures. It reports DER, JER, speaker-count error and wall time, with the ADR-033 provenance fields (commit, snapshot revision and hash, versions, machine, corpus hashes). It runs offline by default. Nobody has run it yet: both models are gated, so a person with access has to. `docs/benchmarks.md` explains how. The default pipeline is still 3.1.
