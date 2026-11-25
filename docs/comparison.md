@@ -1,6 +1,6 @@
 ---
 title: YazSes vs Handy, OpenWhispr, Talon, Dragon & Wispr Flow — offline dictation compared
-description: "An honest comparison of offline voice dictation tools for Linux, macOS and Windows: YazSes vs Handy, OpenWhispr, FluidVoice, VoiceInk, Dragon NaturallySpeaking, Talon Voice, nerd-dictation, Vocalinux, TalkType, VOXD, Speech Note, Wispr Flow, Google and Apple dictation — which runs offline, which does voice commands, which supports Wayland, and which is free."
+description: "An honest comparison of offline dictation tools for Linux, macOS and Windows: YazSes vs Handy, OpenWhispr, FluidVoice, VoiceInk, Dragon, Talon, nerd-dictation, Vocalinux, TuxTalk (ex-TalkType), Speech Note, Wispr Flow, Ubuntu Myna and OS dictation — which is offline, has voice commands, supports Wayland, and is free."
 ---
 
 # YazSes vs. other dictation tools
@@ -15,12 +15,16 @@ wins.
 
 ## At a glance
 
+Rows describe each tool **as of November 2026**, checked on 2026-11-20 against the project's own
+releases and README or the vendor's support pages. Competitor tools change monthly, so verify a
+row before relying on it.
+
 | Tool | Runs offline | Voice commands | Linux | macOS / Windows | Cost | Open source |
 |---|---|---|---|---|---|---|
 | **YazSes** | **Yes** (on-device faster-whisper; Parakeet/Moonshine optional) | **Yes** (regex grammar) | **Yes** (X11 & Wayland) | **Yes** (preview) | **Free** | **Yes (Apache-2.0)** |
-| **Handy** | Yes (whisper.cpp) | No | Yes | Yes | Free | Yes (MIT) |
-| **OpenWhispr** | Yes (Whisper/Parakeet; cloud optional) | Spoken instructions | Yes | Yes | Free | Yes (MIT) |
-| **FluidVoice** | Yes (Parakeet) | Yes (Command Mode) | Announced | macOS (Windows community port) | Free | Yes (GPLv3) |
+| **Handy** | Yes (Whisper or Parakeet, via transcribe.cpp) | No | Yes | Yes | Free | Yes (MIT) |
+| **OpenWhispr** | Yes (Whisper/Parakeet; cloud optional) | Spoken instructions, AI agent | Yes | Yes | Free; paid cloud plans | Yes (MIT) |
+| **FluidVoice** | Yes (Parakeet and others) | Yes (Command Mode) | Early beta | macOS (Windows beta) | Free | Yes (GPLv3) |
 | Dragon (Nuance) | Yes | Yes | No | Windows | Paid (commercial) | No |
 | Talon Voice | Yes | Yes (advanced scripting) | Yes | Yes | Freemium | No (free tier + paid beta) |
 | nerd-dictation | Yes (VOSK) | Via Python config | Yes | No | Free | Yes (GPL-3.0) |
@@ -29,8 +33,9 @@ wins.
 | Willow Voice | No (cloud) | Limited | No | Yes (+ iOS) | Subscription | No |
 | Voice In | No (browser engine) | No | Via browser | Via browser | Freemium | No |
 | Google Voice Typing | No (cloud) | No | Via browser | Yes | Free | No |
-| Windows Voice Typing | No (cloud) | Limited | No | Windows only | Free | No |
-| Apple Dictation | Partial | Limited | No | macOS only | Free | No |
+| Windows voice typing / voice access | Partial: voice typing uses online recognition; voice access runs on-device after a one-time download, with fluid dictation on Copilot+ PCs (English) | Yes (voice access) | No | Windows only | Free | No |
+| Apple Dictation | Partial: on-device for general text on supported Macs; macOS 27 adds an on-device model (English, M3 or later with 12 GB) | Limited | No | macOS only | Free | No |
+| Ubuntu Myna (tech preview) | Yes | No (dictation only) | Ubuntu 24.04, 26.04, 26.10; GNOME on Wayland | No | Free | Yes (AGPL-3.0) |
 | Whisper + DIY scripts | Yes | No (you build it) | Yes | Yes | Free | Yes |
 
 YazSes on macOS and Windows is in *preview*: supported and installable, not yet verified on
@@ -51,7 +56,7 @@ future.
 
 **1. Nothing you say leaves the machine — and the exceptions are enumerated, not
 asserted.** Wispr Flow and Willow Voice send your audio to a server; that is their
-design, not a flaw. Handy, TalkType and nerd-dictation are genuinely offline — but
+design, not a flaw. Handy, TuxTalk and nerd-dictation are genuinely offline — but
 "offline" is a claim you have to believe. YazSes publishes the list instead: five
 distinct *mechanisms* by which bytes could leave (importing a socket, spawning a
 program, handing a URL to your browser, asking a library to load a model **by
@@ -105,8 +110,11 @@ redacted config and a metadata-only log tail — locally; nothing is uploaded.
 **6. One install, three jobs.** The same package and the same downloaded model do
 live dictation, offline transcription of recordings you already have
 (`yazses transcribe`), and whole-meeting capture with speaker labels
-(`yazses meeting`). Handy and TalkType are dictation tools, as their own sections below say;
-Otter-style meeting tools do meetings and are cloud services.
+(`yazses meeting`). This is no longer rare, so to be exact about who else does it:
+Handy (since v0.10.0) and TuxTalk add file transcription to dictation but do not record
+meetings; FluidVoice records meetings with speaker labels on macOS; OpenWhispr covers all
+three jobs, with an optional cloud path and paid cloud plans. Otter-style meeting tools do
+meetings and are cloud services.
 *Check it:* `uv run yazses transcribe --help` and `uv run yazses meeting --help`.
 
 **7. Built for the people a hotkey excludes.** Against every tool in the table:
@@ -118,9 +126,10 @@ default, not yet verified on hardware).
 *Check it:* `uv run yazses mic-level`, `src/yazses/stt/filters/disfluency.py`,
 `src/yazses/platform/emg/`.
 
-**8. Dictation and voice commands from one grammar.** Handy has no voice commands;
-Voice In and Google voice typing have none; Windows, Apple and Wispr Flow dictation
-have a limited set (see the table above). Here, the same burst can type
+**8. Dictation and voice commands from one grammar.** Handy and Ubuntu Myna have no
+voice commands; Voice In and Google voice typing have none; Apple and Wispr Flow dictation
+have a limited set, and Windows voice access has a full set but only on Windows (see the
+table above). Here, the same burst can type
 prose or fire *"undo that"*, *"save file"*, *"go to line 42"* as real key
 sequences, with opt-in per-editor key profiles (JetBrains IDEs, Sublime Text;
 experimental) and a personal dictionary for words
@@ -345,19 +354,21 @@ on-device learning loop.
 YazSes deliberately targets **CPU int8** rather than GPU, so it runs on modest
 hardware; if you have the GPU, a whisper.cpp-based tool will transcribe faster.
 
-### YazSes vs TalkType
+### YazSes vs TuxTalk (formerly TalkType)
 
-[TalkType](https://github.com/ronb1964/TalkType) is the closest thing to YazSes on
-Linux: it is offline, Whisper-based, Wayland-first, and uses the **same
-hold-to-talk gesture** — press a key to talk, release to type. It ships as a
-zero-config AppImage with optional GPU acceleration.
+[TuxTalk](https://github.com/ronb1964/TuxTalk), which was called TalkType until its
+rename, is the closest thing to YazSes on Linux: it is MIT-licensed, offline, runs
+Parakeet or Whisper, works on Wayland and X11, and uses the **same hold-to-talk
+gesture** — press a key to talk, release to type. It ships as an AppImage (also on the
+AUR) with optional GPU acceleration, can transcribe an existing audio or video file, and
+offers optional local AI cleanup of slips such as "no wait".
 
-**Choose TalkType** if you want a single-file AppImage with nothing to configure,
+**Choose TuxTalk** if you want a polished Linux desktop app with little to configure,
 and Linux is the only machine you dictate on.
 
-**Choose YazSes** if you also work on macOS or Windows (in preview), if you want the same
-install to transcribe existing recordings and capture meetings with speaker
-labels, or if you need the accessibility and voice-command layers.
+**Choose YazSes** if you also work on macOS or Windows (in preview), if you want
+whole-meeting capture with speaker labels from the same install, or if you need the
+accessibility layers and a documented voice-command grammar.
 
 ### YazSes vs Wispr Flow
 
@@ -421,13 +432,28 @@ when the extension itself stores nothing), and it does not do voice commands.
 ### YazSes vs Google / Apple / Windows built-in dictation
 
 **Use the built-in** if it is already good enough and you are comfortable with
-cloud processing (Google), a walled ecosystem (Apple), or Windows-only
-(Windows Speech Recognition). They cost nothing and need no setup.
+cloud processing (Google), a walled ecosystem (Apple), or Windows only. They cost
+nothing and need no setup, and the offline picture has improved:
+
+- **Windows:** voice access runs speech recognition on the device once its language
+  files are downloaded, and on Copilot+ PCs its *fluid dictation* cleans up grammar and
+  filler words with on-device small language models, in English locales
+  ([Microsoft Support](https://support.microsoft.com/en-gb/accessibility/windows/voice-access/history-of-voice-access-updates)).
+  Plain voice typing (Win+H) still uses online speech recognition.
+- **Apple:** general text dictation can be processed on the device on supported Macs,
+  and macOS 27 adds an on-device Apple Intelligence model for spelling and punctuation,
+  in English, on Macs with M3 or later and at least 12 GB of unified memory
+  ([Apple Support](https://support.apple.com/guide/mac-help/use-dictation-mh40584/mac)).
+- **Ubuntu:** Canonical's **Myna** is a local speech-to-text technology preview for
+  Ubuntu 24.04 LTS, 26.04 LTS and 26.10 on GNOME on Wayland. It is not preinstalled, and
+  it does dictation only — no voice commands
+  ([Ubuntu blog](https://ubuntu.com/blog/myna-speech-to-text-technology-preview-available)).
 
 **Choose YazSes** if you want the same dictation behaviour across all three
-operating systems, need it to work with no network, or want voice commands that
-the built-ins largely do not offer. Note that Linux has no comparable built-in at
-all — that gap is the reason this project exists.
+operating systems, need it to work with no network on hardware the vendors' newest
+features skip, or want voice commands that the built-ins largely do not offer. Outside
+Ubuntu's GNOME-on-Wayland preview — on KDE, on X11, on other distributions — Linux still
+has no comparable built-in, and that gap is the reason this project exists.
 
 ### YazSes vs Whisper + your own scripts
 
@@ -443,7 +469,12 @@ APT/Snap/PyPI.
 
 VS Code, Cursor and several AI coding assistants ship their own voice input, and
 for typing a prompt into that tool's own box they are the path of least
-resistance. The limitation is structural rather than a matter of quality:
+resistance. VS Code's built-in dictation (experimental since 1.131) runs on-device:
+it uses an offline Nemotron model, multilingual Nemotron 3.5 by default since 1.132,
+and works in chat, text editors and the integrated terminal
+([1.131 release notes](https://code.visualstudio.com/updates/v1_131),
+[1.132 release notes](https://code.visualstudio.com/updates/v1_132)). So privacy is no
+longer the difference. The limitation is structural rather than a matter of quality:
 **in-application dictation only reaches what the application owns.**
 
 YazSes types at the **operating-system level** — `ydotool` on Wayland, `xdotool`
@@ -457,8 +488,8 @@ tend to notice it first:
 | Typing target | In-app dictation | YazSes |
 |---|---|---|
 | That tool's own prompt box | ✅ | ✅ |
-| **VS Code / Cursor Remote-SSH editor pane** | often not | ✅ |
-| **Integrated terminal running a remote shell** | often not | ✅ |
+| **VS Code / Cursor Remote-SSH editor pane** | often not (VS Code's built-in dictation covers its own editors) | ✅ |
+| **Integrated terminal running a remote shell** | often not (VS Code's built-in dictation covers its own terminal) | ✅ |
 | A separate terminal with `ssh` / `tmux` / `mosh` | ❌ | ✅ |
 | A shell inside a Docker container or VM | ❌ | ✅ |
 | Any other window you alt-tab to | ❌ | ✅ |
@@ -475,16 +506,15 @@ Details and the forwarding case (text typed on a *remote host's own display*):
 [Handy](https://github.com/cjpais/Handy) is the closest thing to a direct
 comparison: MIT-licensed, free, genuinely cross-platform (Linux, macOS, Windows),
 on-device, and built around the same hold-a-key-and-speak loop. It is popular for
-good reason.
+good reason. Since v0.10.0 (November 2026) it also transcribes existing audio files.
 
-**Choose Handy** if you want dictation and nothing else, with the smallest install
-and the least to configure. It does one job and does not ask you to care about
-anything else.
+**Choose Handy** if you want dictation, plus the occasional file, with the smallest
+install and the least to configure.
 
-**Choose YazSes** if you also want the things that are not dictation: a documented
-voice-command grammar, whole-meeting capture with speaker labels, offline
-transcription of existing recordings, and a configuration surface deep enough to
-tune the silence gate, the disfluency filter and per-application tone.
+**Choose YazSes** if you also want the things Handy does not do: a documented
+voice-command grammar, whole-meeting capture with speaker labels, and a configuration
+surface deep enough to tune the silence gate, the disfluency filter and
+per-application tone.
 
 The four adjectives people reach for — open source, local, cross-platform, free —
 describe both. They are not a differentiator, and this page would be dishonest if
@@ -494,8 +524,10 @@ it implied otherwise.
 
 [OpenWhispr](https://github.com/OpenWhispr/openwhispr) is MIT-licensed, runs on
 macOS, Windows and Linux, and transcribes locally with Whisper, Parakeet or
-Nemotron models. It also accepts spoken instructions such as "clean this up", and
-can optionally use a cloud model with your own API key.
+Nemotron models. It also accepts spoken instructions such as "clean this up", has an
+AI assistant that can draft and type replies, records meetings with local speaker
+diarization, and imports existing audio and video. It can optionally use a cloud model
+with your own API key, and offers paid cloud plans for sync and more meeting hours.
 
 **Choose OpenWhispr** if you want a polished desktop app and regard an optional
 cloud fallback as a feature rather than a dealbreaker.
@@ -503,24 +535,26 @@ cloud fallback as a feature rather than a dealbreaker.
 **Choose YazSes** if "offline" needs to mean *there is no cloud path at all* —
 YazSes ships no remote inference of any kind, and the one place a local LLM
 endpoint can be configured refuses a non-loopback address unless you explicitly
-opt out. Also if you want speaker-labelled meeting transcripts, or published
-benchmark numbers with a method attached.
+opt out. Also if you want published benchmark numbers with a method attached.
 
 ### YazSes vs FluidVoice
 
 [FluidVoice](https://github.com/altic-dev/FluidVoice) is GPLv3, macOS-first, built
-on Parakeet, and has both a Write Mode and a Command Mode that can drive the OS
-itself — launching apps and running Shortcuts.
+on Parakeet and its own on-device models, and has both a Write Mode and a Command Mode
+that can drive the OS itself — launching apps and running Shortcuts. Its **FluidMeet**
+records meetings locally with live captions and speaker labels, and lets coding agents
+such as Claude Code and Codex read the transcripts. Windows is in beta and Linux in
+early beta.
 
 **Choose FluidVoice** if you are on macOS and want voice control of the *machine*,
 which is broader than what YazSes's editor-oriented command grammar does.
 
-**Choose YazSes** if you are on Linux (FluidVoice announces it but does not ship
-it) or want the same experience across all three desktops.
+**Choose YazSes** if you are on Linux and want a released tool rather than an early
+beta, or want the same experience across all three desktops.
 
 ### Others in this space
 
-[Whispering](https://github.com/epicenter-so/epicenter),
+[Whispering](https://github.com/EpicenterHQ/epicenter),
 [VoiceInk](https://github.com/Beingpax/VoiceInk) (macOS, paid) and
 [VOXD](https://github.com/jakovius/voxd) are also active open-source offline
 dictation projects, mostly built on whisper.cpp.
@@ -568,9 +602,10 @@ srt, vtt, or json, with `--diarize` for who-said-what speaker tags.
 
 **What is the best open-source dictation tool for Linux?** It depends on what you
 weight. nerd-dictation is the most minimal, Vocalinux has GPU acceleration, Talon
-is the most powerful for voice *control*, and YazSes is the one that is
-cross-platform and covers dictation, file transcription and meeting capture from a
-single install. All four are free and run offline; the sections above lay out the
+is the most powerful for voice *control*, and YazSes covers dictation, voice
+commands, file transcription and meeting capture from a single install with no cloud
+path at all. All four are free and run offline. OpenWhispr also does dictation, file
+transcription and meetings, with an optional cloud path; the sections above lay out the
 trade-offs honestly.
 
 **Does YazSes work on Wayland?** Yes. It probes the session at runtime and injects

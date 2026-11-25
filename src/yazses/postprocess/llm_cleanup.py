@@ -7,8 +7,10 @@ fully optional and OFF by default (honours ADR-011: no behaviour change unless
 
 1. **Local GGUF** via ``llama-cpp-python`` when ``llm_model`` points at a file
    (the offline-first path, mirroring :class:`~yazses.commands.slm_router.SLMRouter`).
-2. **Ollama HTTP** at ``llm_endpoint`` via the standard library (no extra dep)
-   when no local model is configured.
+2. **A local HTTP model server** at ``llm_endpoint`` via the standard library (no
+   extra dep) when no local model is configured: Ollama's ``/api/generate``, or with
+   ``llm_api = "openai"`` the ``/v1/chat/completions`` route that llama-server,
+   LM Studio and vLLM serve. Both go through one loopback gate.
 
 Every call returns the input text unchanged on: disabled, missing backend,
 empty input, timeout, backend error, or a failed output guard. The guards
@@ -32,6 +34,10 @@ if TYPE_CHECKING:  # pragma: no cover - type hints only
     from llama_cpp import Llama  # type: ignore[import-untyped]
 
 logger = logging.getLogger(__name__)
+
+#: Sent when ``[filters.disfluency] llm_endpoint_model`` is empty — the name every
+#: install sent before that key existed.
+DEFAULT_ENDPOINT_MODEL = "qwen2.5:1.5b"
 
 
 # ---------------------------------------------------------------------------
@@ -165,6 +171,26 @@ def _tokens_preserved(input_text: str, output: str) -> bool:
     return all(_token_present(tok, output) for tok in _critical_tokens(input_text))
 
 
+_THINK_BLOCK = re.compile(r"\A\s*<think>.*?</think>", re.DOTALL | re.IGNORECASE)
+
+
+def _strip_think(output: str) -> str:
+    """Drop a leading ``<think>…</think>`` reasoning block. Pure.
+
+    A thinking model served over an OpenAI-compatible route often has no switch to turn
+    the trace off, and inlines it ahead of the answer. Typed as-is it would be the
+    model's reasoning, not the user's sentence. An *unclosed* leading block -- the token
+    budget ran out mid-thought -- holds no answer at all, so it becomes ``""``, which
+    the caller rejects like any other empty output.
+    """
+    match = _THINK_BLOCK.match(output)
+    if match:
+        return output[match.end():]
+    if output.lstrip()[:7].lower() == "<think>":
+        return ""
+    return output
+
+
 # ---------------------------------------------------------------------------
 # Cleaner
 # ---------------------------------------------------------------------------
@@ -228,6 +254,8 @@ class LlmCleaner:
                 # and this is the only place the text would actually leave.
                 self._warn_remote_endpoint_once()
                 return None
+            if self._config.llm_api.strip().lower() == "openai":
+                return self._complete_openai(text, custom_prompt)
             return self._complete_ollama(text, custom_prompt)
         return None
 
@@ -286,23 +314,81 @@ class LlmCleaner:
             return None
         return self._model
 
+    def _endpoint_model(self) -> str:
+        """The model name sent to the HTTP endpoint.
+
+        It used to be hardcoded, so anyone whose Ollama held a different model got a
+        404 on every burst and a silent fallback to raw text. Empty keeps the old name
+        so an existing install sends the same request it always did.
+        """
+        return self._config.llm_endpoint_model.strip() or DEFAULT_ENDPOINT_MODEL
+
     def _complete_ollama(self, text: str, custom_prompt: str | None) -> str | None:
+        body = self._post_json(
+            "/api/generate",
+            {
+                "model": self._endpoint_model(),
+                "prompt": self._prompt(text, custom_prompt),
+                "stream": False,
+                # A thinking model (Qwen3, DeepSeek-R1, ...) would otherwise spend the
+                # token budget and the timeout on its reasoning. Ollama answers 400 only
+                # for `think: true` on a model without thinking; `false` is accepted by
+                # every model, and older servers ignore the unknown field.
+                "think": False,
+                "options": {"temperature": 0.0, "num_predict": self._config.llm_max_tokens},
+            },
+        )
+        if body is None:
+            return None
+        response = body.get("response")
+        return _strip_think(response) if isinstance(response, str) else None
+
+    def _complete_openai(self, text: str, custom_prompt: str | None) -> str | None:
+        """The OpenAI chat-completions shape, as llama-server, LM Studio and vLLM serve it.
+
+        ``max_tokens`` rather than OpenAI's newer ``max_completion_tokens``: the old name
+        is the one every local server implements, and the new one is not yet universal.
+        ``stream`` is sent explicitly because not every server defaults it to false.
+        """
+        prompt = custom_prompt if custom_prompt is not None else self._config.llm_system_prompt
+        body = self._post_json(
+            "/v1/chat/completions",
+            {
+                "model": self._endpoint_model(),
+                "messages": [
+                    {"role": "system", "content": prompt},
+                    {"role": "user", "content": text},
+                ],
+                "temperature": 0,
+                "max_tokens": self._config.llm_max_tokens,
+                "stream": False,
+            },
+        )
+        if body is None:
+            return None
+        try:
+            content = body["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError) as exc:
+            logger.debug("LLM cleanup: unexpected chat-completion structure (%s)", exc)
+            return None
+        return _strip_think(content) if isinstance(content, str) else None
+
+    def _post_json(self, path: str, payload: dict[str, Any]) -> dict[str, Any] | None:
+        """POST ``payload`` to ``llm_endpoint + path``; the decoded JSON object, or None.
+
+        The one place cleanup opens a socket. Callers are reached only through
+        `_complete`, which has already applied `endpoint_is_permitted`.
+        """
         # Imported here, not at module scope: the daemon imports this module on every
         # start to build a cleaner that is disabled by default, and `urllib.request`
         # drags in http.client, ssl and email (~13 ms) for a backend nobody enabled.
         import urllib.error
         import urllib.request
 
-        payload = json.dumps(
-            {
-                "model": "qwen2.5:1.5b",
-                "prompt": self._prompt(text, custom_prompt),
-                "stream": False,
-                "options": {"temperature": 0.0, "num_predict": self._config.llm_max_tokens},
-            }
-        ).encode()
-        url = self._config.llm_endpoint.rstrip("/") + "/api/generate"
-        req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
+        url = self._config.llm_endpoint.rstrip("/") + path
+        req = urllib.request.Request(
+            url, data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"}
+        )
         timeout_s = max(0.1, self._config.llm_timeout_ms / 1000.0)
         try:
             # S310: the scheme/host is not arbitrary — `_complete` gates this call on
@@ -312,10 +398,9 @@ class LlmCleaner:
             with urllib.request.urlopen(req, timeout=timeout_s) as resp:  # noqa: S310
                 body = json.loads(resp.read().decode())
         except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
-            logger.debug("LLM cleanup Ollama backend unavailable (%s)", exc)
+            logger.debug("LLM cleanup endpoint %s unavailable (%s)", path, exc)
             return None
-        response = body.get("response")
-        return str(response) if isinstance(response, str) else None
+        return body if isinstance(body, dict) else None
 
 
 def build_cleaner(config: DisfluencyConfig) -> LlmCleaner | None:

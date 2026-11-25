@@ -47,7 +47,7 @@ _SETTING_KEYS = frozenset({
     "accent", "backend", "chinese_script", "clone_backend", "compute_type", "confirm",
     "delimiter", "device", "embed_model", "engine", "evdev_device", "flavor", "format",
     "gesture",
-    "language", "lid", "light_model", "llm_model", "log_level",
+    "language", "lid", "light_model", "llm_api", "llm_model", "log_level",
     "lora_base_model", "lsp_editor",
     "mode", "model", "notes_model", "output_format", "pair", "partial_marker",
     "position", "preset", "read_back", "reduced_motion", "scheme", "source", "style",

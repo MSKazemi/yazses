@@ -66,7 +66,11 @@ from yazses.audio.device_monitor import DeviceMonitor, SilentStreakTracker, capt
 from yazses.audio.mic_prompt import MicPrompt
 from yazses.audio.padding import PreSpeechRingBuffer
 from yazses.audio.recorder import AudioRecorder
-from yazses.audio.speech_presence import speech_check_applies, speech_verdict
+from yazses.audio.speech_presence import (
+    prime_detector,
+    speech_check_applies,
+    speech_verdict,
+)
 from yazses.audio.vad_calibrated import is_silent_calibrated
 from yazses.cmdsafety.classify import ConfirmGate
 from yazses.commands.dispatch import dispatch as cmd_dispatch
@@ -823,6 +827,9 @@ class Daemon:
         # The platform's "will the window in front take our input?" check, asked again
         # just before typing (see `_recheck_input_block`). None when the guard is off.
         self._input_block_probe: Callable[[], str | None] | None = None
+        # The hold-end hotkey key-up while it runs alongside the decode; joined before
+        # any keystroke (`_await_hotkey_release`). None when nothing is in flight.
+        self._hotkey_release_thread: threading.Thread | None = None
         # True once we've auto-healed for the current silent streak, so a device that
         # is genuinely gone doesn't re-trigger the switch on every subsequent clip.
         self._healed_this_streak = False
@@ -1662,6 +1669,25 @@ class Daemon:
         self._idle_unload_engine = wrapped
         return wrapped
 
+    def _prime_speech_detector(self) -> None:
+        """Load the speech-presence detector during start-up, not on the first burst.
+
+        Only when the check is on and no mode at start-up exempts it, so a daemon that
+        never runs the check never loads Silero. Never raises: a detector that cannot
+        load fails open on every burst exactly as it would have without this.
+        """
+        acc = self._config.accessibility
+        wm = self._config.whispermode
+        if not speech_check_applies(
+            enabled=acc.speech_presence_check,
+            dysfluency_friendly=acc.dysfluency_friendly,
+            sotto_voce=wm.enabled and wm.command_channel,
+        ):
+            return
+        took = prime_detector(int(self._config.audio.sample_rate))
+        if took is not None:
+            log.debug("Speech-presence detector ready in %.0f ms.", took)
+
     def _start_stt_idle_unloader(self) -> None:
         """Run the idle-unload tick beside the portal reaper. Dormant at the default.
 
@@ -1946,6 +1972,7 @@ class Daemon:
         self._announce_model_download(cfg)
         self._engine = self._with_idle_unload(build_engine(cfg.stt))
         self._remember_engine_info()
+        self._prime_speech_detector()
 
         # [injection] backend selects the Linux injector (type | ydotool |
         # clipboard | wtype | auto), and fallback_to_clipboard the runtime fallback.
@@ -4370,6 +4397,44 @@ class Daemon:
         except Exception:  # pragma: no cover - best-effort, environment dependent
             log.debug("hotkey-modifier release (best-effort) failed", exc_info=True)
 
+    def _release_hotkey_modifier_overlapped(self) -> None:
+        """Run `_release_hotkey_modifier` alongside the decode instead of before it.
+
+        On a ydotool session the release is a process spawn plus ydotool's 12 ms key
+        delay per key-up, and it used to sit in series in front of transcription on
+        every burst. Nothing in the non-streaming pipeline sends a keystroke before the
+        decode has produced text, so the release can run while the decode does, as
+        long as every keystroke waits for it: `_await_hotkey_release` is called from
+        `_active_injector` (which every post-hold-end injection path goes through),
+        right after the decode, and when `_on_hold_end` returns. The ordering the
+        release exists for -- key-up *before* any typed text -- is therefore kept.
+
+        With streaming partials on screen it stays synchronous: an early return
+        cancels them with backspaces through a `StreamingInjector` that does not go
+        through `_active_injector`, and those must not race a held Alt.
+        """
+        if getattr(self, "_stream_injector", None) is not None:
+            self._release_hotkey_modifier()
+            return
+        thread = threading.Thread(
+            target=self._release_hotkey_modifier, name="hotkey-release", daemon=True
+        )
+        self._hotkey_release_thread = thread
+        thread.start()
+
+    def _await_hotkey_release(self) -> None:
+        """Block until the hold-end hotkey release (if one is running) has finished.
+
+        Bounded: `release_keycodes` has its own 3 s timeout, which is no longer than the
+        synchronous call this replaced could already take.
+        """
+        thread = getattr(self, "_hotkey_release_thread", None)
+        if thread is None or thread is threading.current_thread():
+            return
+        thread.join()
+        if getattr(self, "_hotkey_release_thread", None) is thread:
+            self._hotkey_release_thread = None
+
     def _on_hold_end(self) -> None:
         if self._autostop is not None and self._autostop_defer_end():
             return  # a tap: keep recording until the speaker stops
@@ -4390,7 +4455,8 @@ class Daemon:
         # (slow) transcription, and regardless of whether this burst ends in an
         # injection or a silent discard. Fixes stuck right_alt → Alt+Space window
         # menu / screenshots on GNOME Wayland. Best-effort; never breaks dictation.
-        self._release_hotkey_modifier()
+        # Overlapped with the decode; every keystroke below waits for it to finish.
+        self._release_hotkey_modifier_overlapped()
 
         # Consume the dedicated-command-key flag for this burst (reset for next).
         command_mode = self._command_mode
@@ -4419,11 +4485,13 @@ class Daemon:
             self._stream_engine.request_stop()
 
         if self._recorder is None or self._engine is None or self._injector is None:
+            self._await_hotkey_release()
             return
         if not in_burst and not getattr(self._recorder, "has_clip", True):
             # The unpaired release: no burst, nothing captured. Not a silent clip either --
             # counting it as one would feed the adaptive VAD a 0.0 and the silent streak a
             # miss. (A recorder that cannot say whether it holds a clip is treated as before.)
+            self._await_hotkey_release()
             return
         with self._lock:
             # `[stt] idle_unload_s` (ADR-029): when the model is still coming back from
@@ -4767,6 +4835,9 @@ class Daemon:
                         task=stt_task,
                     )
             decode_ms = (time.monotonic() - t_decode) * 1000.0
+            # The hotkey key-up ran alongside the decode; from here on keystrokes may
+            # follow, so it must have landed. Normally long finished, so this is free.
+            self._await_hotkey_release()
             # Keep this burst's audio + word timings so "play that back" has something
             # to play. One burst only, in RAM, replaced by the next: it is the audio of
             # what the user just said, and ADR-011 says the machine keeps nothing it
@@ -5708,6 +5779,10 @@ class Daemon:
                 except Exception:
                     pass
         finally:
+            # A burst that was discarded never reached an injector, so nothing has
+            # waited for the overlapped hotkey release yet: wait here, so a hold-end
+            # never leaves a ydotool running into the next hold.
+            self._await_hotkey_release()
             # Every burst passes through here exactly once, whatever became of it, so
             # this is the one place the outcome can be counted without threading a
             # return value through each early return. The per-burst result was always
@@ -9092,7 +9167,11 @@ class Daemon:
         INJECTING, so checking it sent all dictation to the local machine. The remote
         injector exists exactly while a session does (`_handle_remote_start` sets it,
         `_handle_remote_stop` clears it).
+
+        Waits first for an overlapped hold-end hotkey release (see
+        `_release_hotkey_modifier_overlapped`), so no keystroke can overtake it.
         """
+        self._await_hotkey_release()
         with self._lock:
             remote = self._remote_injector
         if remote is not None:
