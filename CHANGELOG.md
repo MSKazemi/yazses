@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — Meeting Mode's Silero VAD backend crashed on its first chunk; `silero-vad` floor raised to 6.2.3
+
+`[meeting] vad_backend = "silero"` passed a numpy slice to silero-vad's ONNX wrapper, which calls `x.dim()` first and so needs a torch tensor: the first voiced chunk raised `AttributeError`. Each 512-sample window is now wrapped with `torch.from_numpy`, and `tests/test_meeting_silero_contract.py` pins what the backend expects from the package (bundled ONNX via `load_silero_vad(onnx=True)`, 512 samples at 16 kHz in, a `(1, 1)` probability out), so a future upstream change fails in CI. The `silero` and `all` extras now require `silero-vad>=6.2.3` (was `>=5.1.2`; the lock already resolved 6.2.3). Upstream reports the v6 model makes 16% fewer errors on noisy real-life data and 11% fewer on multi-domain validation; YazSes has not measured that. YazSes's own `silero_threshold` (0.5) is unchanged. The backend stays off by default and still pulls torch (~3 GB).
+
 ### Changed — Wayland dictation returns ~0.3 s sooner per burst; nothing typed changes
 
 After typing, the ydotool flood guard sent a key-up for 60 fixed keys, and ydotool waits 12 ms after each one. That added about 730 ms to every burst. It now releases the keys that burst's `ydotool type` can have pressed (ydotool 1.x maps text through a fixed US keycode table, so that set is known exactly), plus the shifts, left Ctrl/Alt, Space and the hotkey modifiers. The pacing is the same, and no key-up is sent that the old sweep did not send. A failed `type` or a control character still gets the full sweep. Measured with a stand-in ydotool that sleeps the documented pacing: 730 → 360–420 ms. The hold-end hotkey key-up (~18 ms) now runs alongside the decode, and every keystroke waits for it, so it still lands before any typed character. The post-processing chain was re-measured at 0.13 ms for 40 words, which leaves keystroke pacing (12 ms per character) as the real cost. The recommendations for that, none of them applied, are in `design/research/2026-11-20-dictation-latency-inject.md`.

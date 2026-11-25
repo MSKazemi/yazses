@@ -351,7 +351,7 @@ notes = [
 # segmentation in noisier rooms; imported lazily only when `[meeting] vad_backend =
 # "silero"`. ONNX path (no torch). Absent → the calibrated RMS gate is used instead.
 silero = [
-    "silero-vad>=5.1.2",
+    "silero-vad>=6.2.3",
     "onnxruntime>=1.27.0; sys_platform != 'darwin' or platform_machine != 'x86_64'",
     # Intel macOS: onnxruntime stopped publishing an x86_64 wheel after 1.23.0
     # (1.24 through 1.28 are macosx_14_0_arm64 only; 1.23.2 is the last with
@@ -442,7 +442,7 @@ all = [
     "noisereduce>=3.0.3",
     "useful-moonshine-onnx>=20251121",
     "pyannote.audio>=4.0.7; sys_platform != 'darwin' or platform_machine != 'x86_64'",
-    "silero-vad>=5.1.2",
+    "silero-vad>=6.2.3",
     "mcp>=1.28.1",
 ]
 

@@ -211,7 +211,7 @@ _BUNDLED = {
         "load_silero_vad",
         "silero-vad ships its ONNX inside the wheel (`silero_vad/data/silero_vad.onnx`) "
         "and `load_silero_vad` resolves it through `importlib.resources` -- verified "
-        "2026-08-23 against 6.2.1. No hub, so nothing to revalidate and nothing to hang.",
+        "2026-08-23 against 6.2.1, re-checked 2026-11-20 in the 6.2.3 wheel. No hub, so nothing to revalidate and nothing to hang.",
     ),
 }
 
