@@ -27,6 +27,10 @@ on your machine. None of them installs YazSes for you. If you have not installed
 with [Get started](../get-started.md), and check that `yazses --version` works in a
 terminal.
 
+**Which clients work.** [MCP client compatibility](../mcp-compatibility.md) is a dated table
+of the protocol revision each major client asks for, and whether it still opens with the
+`initialize` handshake that YazSes expects.
+
 ## Route 1: the one-click bundle (`.mcpb`)
 
 An MCP Bundle is a single file a desktop client installs by double-click or drag-and-drop.
