@@ -538,9 +538,13 @@ def test_the_v1_success_sequence_is_exactly_type_then_one_release(monkeypatch):
 
     yd.YdotoolInjector().inject("hello")
 
+    # The release names every key "hello" pressed (h e l o) plus the always-released
+    # modifiers and Space -- not the whole 60-key sweep, which cost ~720 ms of
+    # ydotool's per-key delay on every burst (see `release_tokens_after_typing`).
     assert run.argvs == [
         ["ydotool", "type", "-d", "6", "-H", "6", "--", "hello"],
-        _RELEASE_ALL,
+        ["ydotool", "key", "18:0", "24:0", "29:0", "35:0", "38:0", "42:0", "54:0",
+         "56:0", "57:0", "97:0", "100:0", "125:0", "126:0"],
     ]
     assert run.calls[1][1]["timeout"] == 5
 

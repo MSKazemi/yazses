@@ -413,6 +413,11 @@ _ENUMS: Mapping[str, tuple[str, ...]] = _ClosedSets({
     # bottom_center for everything else, so a typo moves the overlay somewhere the
     # user did not ask for rather than reporting anything.
     "overlay.position": ("cursor", "bottom_center", "top_center", "corner"),
+    # `postprocess/llm_cleanup.py` takes the OpenAI chat-completions path on an exact
+    # `"openai"` and the Ollama path otherwise, so `llm_api = "opneai"` would POST an
+    # Ollama body to a server that 404s it, and every burst would fall back to raw
+    # text with only a debug line to say why. Nested section, so the key is dotted.
+    "filters.disfluency.llm_api": ("ollama", "openai"),
 })
 
 
