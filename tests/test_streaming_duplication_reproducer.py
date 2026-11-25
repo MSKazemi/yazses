@@ -18,7 +18,7 @@ long text is typed once by the killed xdotool and again by the clipboard paste, 
 the commit's selection runs past the partials into text the user had already
 written. The last two tests pin exactly that, so the model cannot quietly stop
 charging for keystrokes. The long-dictation test is green since that commit and goes
-red again if `xdotool._timeout_for` is put back to a fixed 10 s.
+red again if the xdotool timeouts (`_timeout_for`, `pacing.typing_timeout`) are put back to a fixed 10 s.
 
 The model is deliberately small: one line, a cursor, a shift-selection anchor, and a
 clipboard. It does not model the literal `DDDD` flood, which #153 records as still
@@ -164,6 +164,12 @@ def test_long_dictation_is_neither_duplicated_nor_eats_the_prefix(x11_linux_inje
 def _fixed_ten_second_timeout(monkeypatch):
     """Put `XdotoolInjector` back to the fixed `timeout=10` it had before `e0debe7e`."""
     monkeypatch.setattr("yazses.inject.xdotool._timeout_for", lambda _n: 10.0)
+    # `type` text is timed by `pacing.typing_timeout` since `[injection] type_delay_ms`;
+    # patching only `_timeout_for` would leave the typed text on the scaled timeout, and
+    # this "red half" would silently stop reproducing the bug.
+    monkeypatch.setattr(
+        "yazses.inject.xdotool.typing_timeout", lambda _chars, _delay, **_kw: 10.0
+    )
 
 
 def test_the_model_types_twice_under_a_fixed_timeout(x11_linux_injector, monkeypatch):
