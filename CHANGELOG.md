@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Docs — comparison pages corrected to what is true as of November 2026
+
+`docs/comparison.md` and `docs/compare/yazses-vs-handy.md` no longer claim differentiators peers have matched, and are dated. Handy transcribes files since v0.10.0; TalkType is now TuxTalk (old name kept); FluidVoice has FluidMeet meetings and Windows and Linux betas; OpenWhispr records meetings with local speaker labels and has paid cloud plans; Windows voice access, macOS 27 and Ubuntu's Myna preview offer on-device dictation within stated limits; VS Code's built-in dictation runs on-device; the Whispering link points to `EpicenterHQ/epicenter`. Each claim was re-checked on 2026-11-20 against the project's releases or README or the vendor's support page. The 2026-08-15 adjacent-projects note gains a dated Handy star count.
+
 ### Fixed — Meeting Mode's Silero VAD backend crashed on its first chunk; `silero-vad` floor raised to 6.2.3
 
 `[meeting] vad_backend = "silero"` passed a numpy slice to silero-vad's ONNX wrapper, which calls `x.dim()` first and so needs a torch tensor: the first voiced chunk raised `AttributeError`. Each 512-sample window is now wrapped with `torch.from_numpy`, and `tests/test_meeting_silero_contract.py` pins what the backend expects from the package (bundled ONNX via `load_silero_vad(onnx=True)`, 512 samples at 16 kHz in, a `(1, 1)` probability out), so a future upstream change fails in CI. The `silero` and `all` extras now require `silero-vad>=6.2.3` (was `>=5.1.2`; the lock already resolved 6.2.3). Upstream reports the v6 model makes 16% fewer errors on noisy real-life data and 11% fewer on multi-domain validation; YazSes has not measured that. YazSes's own `silero_threshold` (0.5) is unchanged. The backend stays off by default and still pulls torch (~3 GB).
