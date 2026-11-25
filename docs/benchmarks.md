@@ -719,6 +719,65 @@ repetitions each:
 That is roughly **0.02 %** of `base.en` decode time. All latency is the speech model;
 optimising anything else would be pointless.
 
+### …except typing it
+
+Re-measured on 2026-11-20, the default post-processing chain still costs **0.13 ms** for 40
+words and **0.36 ms** for 150. Once the text exists, the time goes to **keystroke pacing**:
+`xdotool type --delay 12` on X11 and `ydotool type -d 6 -H 6` on Wayland both spend about
+12 ms per character, so a 150-word dictation takes ~9 s to type. That is a default, and
+changing it is an owner decision. The measurements and recommendations are in
+[the injection latency note](https://github.com/MSKazemi/yazses/blob/main/design/research/2026-11-20-dictation-latency-inject.md).
+
+Two fixed costs on Wayland ydotool sessions were cut without changing what is typed:
+
+| Per burst | Before | After |
+|---|---|---|
+| Flood-guard key-ups after typing (ydotool waits 12 ms after each) | 60 keys, ~730 ms | the burst's own keys, ~360–420 ms |
+| Hold-end hotkey key-up | ~18 ms, in front of the decode | runs alongside the decode |
+
+These come from a stand-in `ydotool` that sleeps the documented pacing around real
+process spawns. They are not a uinput measurement.
+
+### Release → transcript, stage by stage
+
+Measured 2026-11-20 with `scripts/bench-decode-latency.py` on an Intel i7-6500U
+(2 cores / 4 threads), faster-whisper 1.2.1, ctranslate2 4.8.1, `base.en` int8
+(rev `3d3d5dee`), the shipped decode settings (built-in prompt, 300 ms lead-in), on
+`jfk.wav` cut at silences into 2.5 s, 5 s and 11 s bursts. 15 repetitions per cell,
+variants interleaved; the machine was shared, and the load average is given with each
+number. Full method, provenance and every cell:
+[the research note](https://github.com/MSKazemi/yazses/blob/main/design/research/2026-11-20-dictation-latency-decode.md).
+
+| Stage (warm, load ≈ 3.5) | 2.5 s burst | 5 s burst | 11 s burst |
+|---|---|---|---|
+| Pre-decode audio work (Silero speech check: 11 ms; everything else: < 0.5 ms) | 11 ms | 11 ms | 11 ms |
+| Log-mel features | 9 ms | 6 ms | 7 ms |
+| Encoder | 1 279 ms | 1 118 ms | 1 060 ms |
+| Decoder (beam 5) | 322 ms | 325 ms | 623 ms |
+| **Decode total, median (p95)** | **1 645 (1 912) ms** | **1 418 (2 171) ms** | **1 678 (2 191) ms** |
+
+**The encoder is a constant.** Whisper encodes a fixed 30-second window, so a two-word
+burst pays the same ~1.1 s of encoder as a full sentence; only the decoder grows with what
+was said. That constant is why no setting below moves the total by more than about a
+fifth.
+
+**The first dictation after a start.** In 15 fresh processes per arm (load ≈ 5.6), the
+model loaded from the local cache in 1.5 s (median). The first decode was not measurably
+slower than the second (+74 ms paired median, interquartile range −63 to +283), and a
+throw-away warm-up decode did not change that while costing 1.9 s of start-up, so there
+is no warm-up. Silero's first call *was* slower — 48 ms against 13 ms — and the daemon now
+runs it once on silence while it is still loading, which removes the difference. A model
+left resident for 10 or 30 s decoded as fast as a hot one (1 367 / 1 298 ms against
+1 310 ms).
+
+**Faster settings change the text.** `beam_size = 2` saved 0–20 % and `beam_size = 1`
+13–27 %, `without_timestamps` 0–8 %; each changed the transcript of at least one of the
+three bursts (mostly punctuation). `cpu_threads = 2` — one thread per physical core here
+— was 5–13 % faster in one run and −11 to +3 % in another, with identical text; `1` was
+17–37 % slower, and the default (`0`) behaved like `4`. None of these is changed: a
+default that alters transcripts needs the paired accuracy evidence of ADR-033 first. On a
+two-core laptop, `[stt] cpu_threads = 2` is a safe thing to try.
+
 ## Speech end → text: what you actually wait for
 
 The table above measures the model. This measures **you**: from the moment you stop
