@@ -25,6 +25,7 @@ caller (:func:`speech_check_applies`).
 """
 from __future__ import annotations
 
+import time
 from collections.abc import Callable
 from typing import Any
 
@@ -75,6 +76,24 @@ def speech_check_applies(
     return enabled and not (whisper_mode or dysfluency_friendly or sotto_voce)
 
 
+def speech_verdict(
+    audio: Any, sample_rate: int, *, detector: Detector | None = None
+) -> bool | None:
+    """The detector's answer as a tri-state. Never raises.
+
+    ``True``: it positively found no speech. ``False``: it positively found speech.
+    ``None``: it could not tell (unavailable, wrong sample rate, raised, or answered
+    something that is not a bool). The daemon needs all three: ``True`` drops the burst
+    before decode, and only ``False`` lets a transcript that echoes the decoder's own
+    prompt be typed (:func:`yazses.stt.vocabulary.is_prompt_echo`).
+    """
+    try:
+        verdict = (detector or _default_detector)(audio, sample_rate)
+    except Exception:  # noqa: BLE001 - a gate must never break dictation
+        return None
+    return verdict if isinstance(verdict, bool) else None
+
+
 def holds_no_speech(
     audio: Any, sample_rate: int, *, detector: Detector | None = None
 ) -> bool:
@@ -83,8 +102,35 @@ def holds_no_speech(
     ``None`` from the detector (unavailable, wrong sample rate) and any exception both
     read as "cannot tell", which is ``False``: the burst is decoded.
     """
+    return speech_verdict(audio, sample_rate, detector=detector) is True
+
+
+#: Seconds of silence :func:`prime_detector` runs the detector on.
+PRIME_SECONDS = 0.5
+
+
+def prime_detector(
+    sample_rate: int = 16000, *, detector: Detector | None = None
+) -> float | None:
+    """Run the detector once on silence so the first burst does not load it. Never raises.
+
+    Silero is built on its first call (an ONNX session behind ``functools.lru_cache`` in
+    ``faster_whisper.vad``), and that call is the first dictation after the daemon starts.
+    Measured on a 4-thread i7-6500U, 15 fresh processes each: the first check took
+    **48 ms** (median) against **13 ms** for the second, and a primed process's first
+    check took 13 ms -- 36 ms paired, removed (``docs/benchmarks.md``). The daemon calls
+    this once while it is still loading. Silence is the input, so the verdict is
+    thrown away; it returns how long the call took in ms, or ``None`` if it raised.
+    """
+    import numpy as np
+
+    started = time.perf_counter()
     try:
-        verdict = (detector or _default_detector)(audio, sample_rate)
-    except Exception:  # noqa: BLE001 - a gate must never break dictation
-        return False
-    return verdict is True
+        holds_no_speech(
+            np.zeros(int(sample_rate * PRIME_SECONDS), dtype=np.float32),
+            sample_rate,
+            detector=detector,
+        )
+    except Exception:  # noqa: BLE001 - holds_no_speech never raises; belt and braces
+        return None
+    return (time.perf_counter() - started) * 1000.0

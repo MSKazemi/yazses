@@ -229,6 +229,30 @@ only describe the sender:
 Without the desktop extra (PySide6) or a graphical session there is no check window; the command
 says so and falls back to typing into the focused window, with arrival **not** checked.
 
+## A video-call app says "camera not available"
+
+A YazSes camera feature (the face switch, gaze, the Head-Pointer) keeps the webcam open, and a
+UVC webcam can be opened by only one program at a time. Release it before the call:
+
+```sh
+yazses camera status   # is the camera on, and which YazSes features hold it?
+yazses camera off      # release it for every camera feature; dictation keeps working
+yazses camera on       # take it back after the call
+```
+
+Wrong camera? `yazses camera list` shows each camera's name and stable path, and
+`yazses camera use "Logitech C920"` (or the index, or the `/dev/v4l/by-id/...` path) moves every
+camera feature onto it without a restart. The choice is not saved; a restarted daemon uses
+`camera_index` from your config again.
+
+The switch takes effect at once, needs no restart, and is not saved: a restarted daemon starts
+with the camera on. If `camera on` cannot reopen the device (another app still has it),
+`yazses camera status` prints the reason and the feature stays off until you run it again.
+
+The tray menu has the same switch: a **Camera** entry (checked while on) and, under it, a line
+saying whether YazSes holds the camera right now and which features do. It only appears while a
+camera feature is enabled.
+
 ## It works, but not after I reboot
 
 YazSes is a daemon, so it should already be running when you sit down:
@@ -440,6 +464,25 @@ Your previous clipboard contents are put back afterwards. Two trade-offs come wi
 and they are why typing remains the default: Ctrl+V is literal in most terminals, so
 dictation into a terminal stops working, and applications that refuse paste (some
 password fields) receive nothing.
+
+## A video-call app says "camera not available"
+
+With `[facegesture] enabled = true` (or `[perception]` on), YazSes opens the webcam when the daemon starts and holds it until the feature stops. Zoom, Teams, Meet and similar apps then report that the camera is unavailable, because most webcams can be opened by only one program at a time.
+
+Confirm who holds it, and look for YazSes's own log line, which names the camera it took:
+
+```sh
+fuser -v /dev/video0        # Linux: which process has the device open
+yazses logs | grep "holding camera"
+```
+
+To free the camera for a call without restarting, run `yazses camera off` (and `yazses camera on` afterwards; `yazses camera status` shows what holds it). Or turn the feature off in `config.toml` (`[facegesture] enabled = false`) and run `yazses restart`, or stop the daemon for the call:
+
+```sh
+systemctl --user stop yazses
+```
+
+Sharing the camera with a call app is tracked in #925; until it lands, the camera belongs to whichever program opened it first.
 
 ## Dictation stops after connecting a USB-C monitor or headset
 
