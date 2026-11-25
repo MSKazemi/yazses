@@ -352,12 +352,14 @@ nav:
       - "'Silent audio -- discarding'": how-to/silent-audio-discarding.md
       - The tray icon does not appear: how-to/tray-icon-missing.md
       - Running fully air-gapped: how-to/air-gapped.md
+      - Use your own local model server for cleanup: how-to/local-model-server.md
       - Dictation types into the wrong window: how-to/wrong-window.md
       - Stop a misheard command from running: how-to/command-safety.md
       - After a distro upgrade: how-to/after-a-distro-upgrade.md
       - The update did not change the version: how-to/update-did-nothing.md
       - Over SSH and Remote-SSH editors: how-to/ssh-and-remote.md
       - Connect an MCP client: how-to/connect-mcp-client.md
+      - MCP client compatibility: mcp-compatibility.md
       - Remote dictation: how-to/remote-dictation.md
       - Performance tuning: how-to/performance-tuning.md
       - Per-app tone profiles: how-to/app-profiles.md

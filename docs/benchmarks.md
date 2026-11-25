@@ -748,6 +748,10 @@ fast, and 0 is the worst case. Try 4–6 ms, dictate a long paragraph into the a
 and only go lower if every character arrives. A value outside -1..200 is reported by
 `yazses doctor` and the default is used.
 
+12 ms per character, so a 150-word dictation takes ~9 s to type. That is a default, and
+changing it is an owner decision. The measurements and recommendations are in
+[the injection latency note](https://github.com/MSKazemi/yazses/blob/main/design/research/2026-11-20-dictation-latency-inject.md).
+
 Two fixed costs on Wayland ydotool sessions were cut without changing what is typed:
 
 | Per burst | Before | After |
@@ -757,6 +761,48 @@ Two fixed costs on Wayland ydotool sessions were cut without changing what is ty
 
 These come from a stand-in `ydotool` that sleeps the documented pacing around real
 process spawns. They are not a uinput measurement.
+
+
+
+### Release → transcript, stage by stage
+
+Measured 2026-11-20 with `scripts/bench-decode-latency.py` on an Intel i7-6500U
+(2 cores / 4 threads), faster-whisper 1.2.1, ctranslate2 4.8.1, `base.en` int8
+(rev `3d3d5dee`), the shipped decode settings (built-in prompt, 300 ms lead-in), on
+`jfk.wav` cut at silences into 2.5 s, 5 s and 11 s bursts. 15 repetitions per cell,
+variants interleaved; the machine was shared, and the load average is given with each
+number. Full method, provenance and every cell:
+[the research note](https://github.com/MSKazemi/yazses/blob/main/design/research/2026-11-20-dictation-latency-decode.md).
+
+| Stage (warm, load ≈ 3.5) | 2.5 s burst | 5 s burst | 11 s burst |
+|---|---|---|---|
+| Pre-decode audio work (Silero speech check: 11 ms; everything else: < 0.5 ms) | 11 ms | 11 ms | 11 ms |
+| Log-mel features | 9 ms | 6 ms | 7 ms |
+| Encoder | 1 279 ms | 1 118 ms | 1 060 ms |
+| Decoder (beam 5) | 322 ms | 325 ms | 623 ms |
+| **Decode total, median (p95)** | **1 645 (1 912) ms** | **1 418 (2 171) ms** | **1 678 (2 191) ms** |
+
+**The encoder is a constant.** Whisper encodes a fixed 30-second window, so a two-word
+burst pays the same ~1.1 s of encoder as a full sentence; only the decoder grows with what
+was said. That constant is why no setting below moves the total by more than about a
+fifth.
+
+**The first dictation after a start.** In 15 fresh processes per arm (load ≈ 5.6), the
+model loaded from the local cache in 1.5 s (median). The first decode was not measurably
+slower than the second (+74 ms paired median, interquartile range −63 to +283), and a
+throw-away warm-up decode did not change that while costing 1.9 s of start-up, so there
+is no warm-up. Silero's first call *was* slower — 48 ms against 13 ms — and the daemon now
+runs it once on silence while it is still loading, which removes the difference. A model
+left resident for 10 or 30 s decoded as fast as a hot one (1 367 / 1 298 ms against
+1 310 ms).
+
+**Faster settings change the text.** `beam_size = 2` saved 0–20 % and `beam_size = 1`
+13–27 %, `without_timestamps` 0–8 %; each changed the transcript of at least one of the
+three bursts (mostly punctuation). `cpu_threads = 2` — one thread per physical core here
+— was 5–13 % faster in one run and −11 to +3 % in another, with identical text; `1` was
+17–37 % slower, and the default (`0`) behaved like `4`. None of these is changed: a
+default that alters transcripts needs the paired accuracy evidence of ADR-033 first. On a
+two-core laptop, `[stt] cpu_threads = 2` is a safe thing to try.
 
 ## Speech end → text: what you actually wait for
 
@@ -1506,6 +1552,50 @@ is most likely to overfit is the one being tuned — so it is now a regression f
 nothing more. And the useful cut height is a property of the *recording* rather than of
 the dataset, which is why the fix that shipped is two constants rather than one, and why
 even two is a compromise: the right answer is a per-recording estimate that nobody has.
+
+### pyannote 3.1 against community-1 — not yet measured
+
+`[recimport] backend = "pyannote"` loads `pyannote/speaker-diarization-3.1`. Whether it
+should move to `pyannote/speaker-diarization-community-1` has **not been measured**, and
+this section has no numbers in it until someone runs the comparison. The pin stays at
+3.1 until then.
+
+The comparison is public and runs from a clone:
+[`scripts/bench-pyannote-pipelines.py`](https://github.com/MSKazemi/yazses/blob/main/scripts/bench-pyannote-pipelines.py).
+Both pipelines are gated, so you need a Hugging Face account that has accepted the
+conditions of both repos (and of `pyannote/segmentation-3.0`, which 3.1 loads). Download
+once, then measure offline:
+
+```sh
+uv sync --extra diarization-pyannote
+hf auth login
+hf download pyannote/speaker-diarization-3.1
+hf download pyannote/segmentation-3.0
+hf download pyannote/speaker-diarization-community-1
+uv run python scripts/bench-pyannote-pipelines.py FIXTURES \
+    --evidence-class synthetic --corpus-label <name> --json-out n2.json
+```
+
+`FIXTURES` holds `<name>.wav` and a reference `<name>.rttm` for each recording. Use
+synthetic or explicitly consented audio only, for example the meetings that
+`scripts/gen-meeting-corpus.py` generates. The script sets `HF_HUB_OFFLINE=1` unless you
+pass `--allow-download`.
+
+It runs both pipelines on the same files and reports, for each, the DER (mean across
+recordings and time-weighted), JER, miss / false alarm / confusion, speaker-count error,
+wall time and real-time factor, and cold load time. Scoring is `pyannote.metrics`, collar
+0 by default. A pyannote.audio 4.x pipeline returns a regular diarization and an
+`exclusive_speaker_diarization` with one speaker per instant. Both are scored, and the
+row marked *shipped* is the view the adapter would pass to `align.py`; the adapter reads
+the exclusive view when the output has one. The JSON header records the ADR-033 fields:
+commit, snapshot revision and SHA-256 for each pipeline, the revisions of every cached
+`pyannote/*` repo, library versions, CPU, OS, torch threads, corpus label, a hash per
+fixture and the evidence class. A fixture that fails is listed, and the script exits 3
+unless you pass `--allow-partial`.
+
+Changing the pin also needs the model's licence (community-1 is CC-BY-4.0) added to the
+model manifest and the licence notices. A fixture set as small as the synthetic corpus
+may not be able to separate the two pipelines, and a result that says so still counts.
 
 
 ## What is not measured here

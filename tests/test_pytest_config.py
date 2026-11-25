@@ -53,6 +53,13 @@ def test_the_strict_flags_are_on() -> None:
     assert ini["xfail_strict"] is True
 
 
+def test_the_allow_network_marker_is_registered(request: pytest.FixtureRequest) -> None:
+    """The socket guard's opt-out must exist in the file and in the live session."""
+    assert any(m.startswith("allow_network:") for m in _ini()["markers"])
+    live = request.config.getini("markers")
+    assert any(m.startswith("allow_network:") for m in live)
+
+
 def test_the_running_session_has_the_timeout_armed(request: pytest.FixtureRequest) -> None:
     """Read from the live config, not just the file: a `-p no:timeout` in someone's
     environment, or a plugin that failed to load, would leave the file correct and the
