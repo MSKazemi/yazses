@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Docs — which MCP clients still talk to `yazses mcp-server` under MCP 2026-07-28
+
+The MCP 2026-07-28 revision removes the `initialize` handshake that `yazses mcp-server` expects. The new [MCP client compatibility](docs/mcp-compatibility.md) page records, with a date and a source per row, which revision Claude Code, Claude Desktop, Codex CLI, Cursor, VS Code and Gemini CLI ask for and whether they still send `initialize`. All six do, as of 2026-11-20. Claude Code 2.1.329 was observed: it probes `server/discover` at 2026-07-28, then falls back to `initialize` and lists the tools. Codex, VS Code and Gemini CLI come from their source code and Cursor from a forum reply, none of them run here. Claude Desktop is not determined. No migration is needed yet, and the server's behaviour does not change. Replay fixtures for each client are under `tests/fixtures/mcp/`, and new tests check that every recorded client reaches `tools/list` and that an `initialize` asking for an unsupported revision (2026-07-28) is answered with 2025-06-18, not an error.
+
 ### Changed — docs: validation matrix records a Windows pipx report on 2.51.0 (E43)
 
 The Windows 11 pipx row of `docs/validation-matrix.md` now cites a 2026-11-18 report from [#330](https://github.com/MSKazemi/yazses/issues/330): on 2.51.0 (pipx upgrade from 2.40.1) the daemon started cleanly, a hotkey set with `yazses hotkey set` survived `yazses restart`, and exactly one daemon ran afterwards. The report names no device model or OS build and pastes no raw `doctor` text, so it is graded Reported, the 2.36.0 failure stays as history, and the row does not move to Verified (HW). Refs #388.
