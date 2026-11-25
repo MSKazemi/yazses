@@ -6,6 +6,12 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — dictation: the speech-presence detector loads at start-up, not on the first dictation
+
+The speech-presence check (#598) runs Silero on every burst, and Silero was built on its first call — the first dictation after the daemon started. The daemon now runs it once on half a second of silence while it is still loading, only when the check will run (it is on by default; off, Dysfluency-Friendly mode and the sotto-voce channel skip it). Measured on a 4-thread i7-6500U in 15 fresh processes per arm: the first check took 48 ms (median) and every later one 13 ms; with the prime the first took 13 ms. No transcript, verdict or config key changes. A decode warm-up was measured too and is **not** shipped: it cost 1.9 s of start-up (median) and did not make the first decode measurably faster.
+
+`scripts/bench-decode-latency.py` is the harness behind these numbers: fresh-process cold starts, an interleaved warm grid of decoder settings with every transcript checked against the shipped one, idle gaps and the pre-decode audio work, with load average and ADR-033-style provenance recorded. The results, and the decoder settings that would be faster but change the text, are in `docs/benchmarks.md` ("Release → transcript, stage by stage") and `design/research/2026-11-20-dictation-latency-decode.md`. No default changes.
+
 ### Added — tests: an autouse socket guard fails any test that makes a real outbound connection
 
 `tests/_net_guard.py`, installed per test by `tests/conftest.py`, makes `socket.connect`, `connect_ex`, `sendto` and `getaddrinfo` raise `NetworkAccessBlocked` (naming the host and pointing at ADR-019) for anything but loopback, `localhost`, AF_UNIX and `socketpair`. It is the runtime half of the egress inventory, which only sees our own modules by AST. `@pytest.mark.allow_network` (registered in `pyproject.toml`) opts one test out; `YAZSES_TEST_NET_GUARD=0` disables it for a local bisect. A prior audit of the whole suite found no test that reached the network. Tests: `tests/test_net_guard.py`.
