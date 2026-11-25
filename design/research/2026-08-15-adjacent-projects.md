@@ -19,6 +19,11 @@ read from the GitHub API on 2026-08-15, not from memory.
 | [dictation-toolbox/Caster](https://github.com/dictation-toolbox/Caster) | 358 | 2026-05-16 | Voice programming toolkit on Dragonfly |
 | **MSKazemi/yazses** | **10** | — | This project, created 2026-06-22 |
 
+> **Update, 2026-11-20.** The table above is a 2026-08-15 snapshot and is left as measured.
+> On 2026-11-20 the GitHub API reported **39,329** stars for cjpais/Handy, and Handy
+> v0.10.0 (2026-11-02) added transcription of existing audio files, so "file transcription"
+> no longer separates YazSes from Handy.
+
 **The uncomfortable number is the first row.** Handy is 18 months old, does roughly what
 YazSes's core does, and has ~3,000× the stars. Two honest readings, and both are true:
 this space has real demand, and visibility here is not won by having more features.

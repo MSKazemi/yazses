@@ -1,0 +1,16 @@
+{
+  "client": "OpenAI Codex CLI (feature mcp_2026_07_28 on)",
+  "client_version": "rust-v0.170.0",
+  "recorded": "2026-11-20",
+  "evidence": "source",
+  "how": "Not run. The mcp_2026_07_28 feature is UnderDevelopment and off by default (codex-rs/features/src/lib.rs). With it on, a stdio server opts in with CODEX_MCP_PROTOCOL_VERSION=2026-07-28 and the client uses ClientLifecycleMode::Auto: a server/discover probe at 2026-07-28, then initialize at 2025-06-18 if the reply is not a DiscoverResult (local_stdio_transport.rs, DiscoveryOutcome::RetryLegacy). Only methods and versions are taken from source; the other fields are illustrative.",
+  "source": "https://github.com/openai/codex/blob/rust-v0.170.0/codex-rs/rmcp-client/src/protocol_mode.rs",
+  "era": "dual",
+  "accepts_versions": null,
+  "frames": [
+    {"jsonrpc": "2.0", "id": 0, "method": "server/discover", "params": {"_meta": {"io.modelcontextprotocol/protocolVersion": "2026-07-28", "io.modelcontextprotocol/clientInfo": {"name": "codex", "version": "0.170.0"}, "io.modelcontextprotocol/clientCapabilities": {}}}},
+    {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "codex", "version": "0.170.0"}}},
+    {"jsonrpc": "2.0", "method": "notifications/initialized"},
+    {"jsonrpc": "2.0", "id": 2, "method": "tools/list"}
+  ]
+}
