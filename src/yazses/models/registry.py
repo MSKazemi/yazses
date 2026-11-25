@@ -16,8 +16,9 @@ Two halves, both pure:
   never touches the network itself; the egress inventory (ADR-019) is unchanged because the
   only code that can fetch stays in the modules it already lists.
 
-The ``[stt] download`` config key that would feed *policy* is an L3 change awaiting owner
-sign-off (ADR-030); until then callers pass ``"auto"``, which is today's behaviour.
+A config key for the download policy (proposed, not yet in ``config.py``) would feed
+*policy*; adding it is an L3 change awaiting owner sign-off (ADR-030). Until then callers
+pass ``"auto"``, which is today's behaviour.
 """
 from __future__ import annotations
 
