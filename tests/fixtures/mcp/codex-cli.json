@@ -1,0 +1,15 @@
+{
+  "client": "OpenAI Codex CLI (default)",
+  "client_version": "rust-v0.170.0",
+  "recorded": "2026-11-20",
+  "evidence": "source",
+  "how": "Not run. Read codex-rs/rmcp-client/src/protocol_mode.rs at tag rust-v0.170.0 and main ead489ac: McpProtocolMode defaults to Legacy, whose lifecycle is ClientLifecycleMode::Initialize at ProtocolVersion::V_2025_06_18. Only method and protocolVersion are taken from source; the other fields are illustrative.",
+  "source": "https://github.com/openai/codex/blob/rust-v0.170.0/codex-rs/rmcp-client/src/protocol_mode.rs",
+  "era": "legacy",
+  "accepts_versions": null,
+  "frames": [
+    {"jsonrpc": "2.0", "id": 0, "method": "initialize", "params": {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "codex", "version": "0.170.0"}}},
+    {"jsonrpc": "2.0", "method": "notifications/initialized"},
+    {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
+  ]
+}

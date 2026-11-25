@@ -35,6 +35,12 @@ def _clean_env(monkeypatch):
     """Neither variable set, whatever the developer's shell says."""
     monkeypatch.delenv("HF_HUB_OFFLINE", raising=False)
     monkeypatch.delenv("TRANSFORMERS_OFFLINE", raising=False)
+    # The hub copies HF_HUB_OFFLINE into a module constant at import, and
+    # `offline_requested()` reads that too. A shell that exported HF_HUB_OFFLINE=1
+    # before the first import left it True and failed the two load tests below.
+    constants = sys.modules.get("huggingface_hub.constants")
+    if constants is not None:
+        monkeypatch.setattr(constants, "HF_HUB_OFFLINE", False, raising=False)
 
 
 def test_the_hub_is_forbidden_inside_the_context():
@@ -205,7 +211,7 @@ _BUNDLED = {
         "load_silero_vad",
         "silero-vad ships its ONNX inside the wheel (`silero_vad/data/silero_vad.onnx`) "
         "and `load_silero_vad` resolves it through `importlib.resources` -- verified "
-        "2026-08-23 against 6.2.1. No hub, so nothing to revalidate and nothing to hang.",
+        "2026-08-23 against 6.2.1, re-checked 2026-11-20 in the 6.2.3 wheel. No hub, so nothing to revalidate and nothing to hang.",
     ),
 }
 
