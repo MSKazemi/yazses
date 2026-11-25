@@ -22,7 +22,7 @@ The speech-presence check (#598) runs Silero on every burst, and Silero was buil
 
 ### Added — tests: an autouse socket guard fails any test that makes a real outbound connection
 
-`tests/_net_guard.py`, installed per test by `tests/conftest.py`, makes `socket.connect`, `connect_ex`, `sendto` and `getaddrinfo` raise `NetworkAccessBlocked` (naming the host and pointing at ADR-019) for anything but loopback, `localhost`, AF_UNIX and `socketpair`. It is the runtime half of the egress inventory, which only sees our own modules by AST. `@pytest.mark.allow_network` (registered in `pyproject.toml`) opts one test out; `YAZSES_TEST_NET_GUARD=0` disables it for a local bisect. A prior audit of the whole suite found no test that reached the network. Tests: `tests/test_net_guard.py`.
+`tests/_net_guard.py`, installed per test by `tests/conftest.py`, makes `socket.connect`, `connect_ex`, `sendto`, `sendmsg` (where it exists) and `getaddrinfo` raise `NetworkAccessBlocked` (naming the host and pointing at ADR-019) for anything but loopback, `localhost`, AF_UNIX and `socketpair`. It is the runtime half of the egress inventory, which only sees our own modules by AST. `@pytest.mark.allow_network` (registered in `pyproject.toml`) opts one test out; `YAZSES_TEST_NET_GUARD=0` disables it for a local bisect. A prior audit of the whole suite found no test that reached the network. Tests: `tests/test_net_guard.py`.
 
 ### Changed — tests: the collection-id guard tests print the whole child run when they fail
 

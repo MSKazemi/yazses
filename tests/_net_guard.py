@@ -5,6 +5,9 @@ runtime half: while a test runs, ``socket.socket.connect`` / ``connect_ex`` / ``
 refuse any address that is not loopback or AF_UNIX, and ``socket.getaddrinfo`` refuses
 any host name that is not ``localhost``. ``socket.socketpair`` makes AF_UNIX (or, on
 Windows, a loopback TCP pair) and never reaches a remote address, so it is unaffected.
+``sendmsg`` with an explicit address is checked like ``sendto``. The wildcard hosts
+``0.0.0.0`` and ``::`` are deliberately allowed: connecting to them reaches this machine
+(Linux, macOS) or fails outright (Windows), so they are never an outbound path.
 ``create_connection`` resolves then connects, so both hooks cover it.
 
 A test that genuinely needs the network (none today) opts out with
@@ -105,6 +108,8 @@ class NetGuard:
             "sendto": cls.sendto,
             "getaddrinfo": socket.getaddrinfo,
         }
+        if hasattr(cls, "sendmsg"):  # absent on Windows
+            saved["sendmsg"] = cls.sendmsg
         self._saved = saved
 
         def connect(self_: socket.socket, address: Any) -> Any:
@@ -122,6 +127,13 @@ class NetGuard:
                 _check_address(self_, args[-1], "send")
             return saved["sendto"](self_, data, *args)
 
+        def sendmsg(self_: socket.socket, buffers: Any, *args: Any) -> Any:
+            # sendmsg(buffers[, ancdata[, flags[, address]]]): only the 4th argument is a
+            # destination, and without one the socket is already connected (and checked).
+            if self.enabled and len(args) >= 3 and args[2] is not None:
+                _check_address(self_, args[2], "send")
+            return saved["sendmsg"](self_, buffers, *args)
+
         def getaddrinfo(host: Any, *args: Any, **kwargs: Any) -> Any:
             if self.enabled and not is_local_host(host):
                 raise _block("name lookup", host)
@@ -130,6 +142,8 @@ class NetGuard:
         cls.connect = connect  # type: ignore[method-assign,assignment]
         cls.connect_ex = connect_ex  # type: ignore[method-assign,assignment]
         cls.sendto = sendto  # type: ignore[method-assign,assignment]
+        if "sendmsg" in saved:
+            cls.sendmsg = sendmsg  # type: ignore[method-assign,assignment]
         socket.getaddrinfo = getaddrinfo  # type: ignore[assignment]
 
     def uninstall(self) -> None:
@@ -140,6 +154,8 @@ class NetGuard:
         cls.connect = saved["connect"]  # type: ignore[method-assign]
         cls.connect_ex = saved["connect_ex"]  # type: ignore[method-assign]
         cls.sendto = saved["sendto"]  # type: ignore[method-assign]
+        if "sendmsg" in saved:
+            cls.sendmsg = saved["sendmsg"]  # type: ignore[method-assign]
         socket.getaddrinfo = saved["getaddrinfo"]
 
 
