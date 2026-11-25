@@ -528,6 +528,11 @@ required_plugins = [
 # --strict-config: an unknown key in this table is an error rather than a setting that
 #   quietly does nothing.
 addopts = ["--strict-markers", "--strict-config"]
+# `allow_network` opts one test out of the autouse socket guard in `tests/conftest.py`
+# (see `tests/_net_guard.py` and ADR-019). Registered here because markers are strict.
+markers = [
+    "allow_network: let this test make real non-loopback connections (skips the offline socket guard)",
+]
 # An `xfail` that starts passing fails the run: either the bug was fixed and the
 # marker should go, or the test no longer reaches the bug. Both xfails in the suite
 # already say `strict=True`; this makes it the default for the next one.

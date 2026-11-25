@@ -1,0 +1,15 @@
+{
+  "client": "Gemini CLI",
+  "client_version": "v0.70.0",
+  "recorded": "2026-11-20",
+  "evidence": "source",
+  "how": "Not run. packages/core/package.json at v0.70.0 (and main d4cb1713) pins @modelcontextprotocol/sdk 1.32.2, whose Client.connect sends initialize with LATEST_PROTOCOL_VERSION = '2025-11-25' and rejects a reply outside SUPPORTED_PROTOCOL_VERSIONS (src/types.ts, src/client/index.ts at tag 1.32.2). No server/discover in either repository. Only method and protocolVersion are taken from source; the other fields are illustrative.",
+  "source": "https://github.com/modelcontextprotocol/typescript-sdk/blob/1.32.2/src/client/index.ts",
+  "era": "legacy",
+  "accepts_versions": ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05", "2024-10-07"],
+  "frames": [
+    {"jsonrpc": "2.0", "id": 0, "method": "initialize", "params": {"protocolVersion": "2025-11-25", "capabilities": {}, "clientInfo": {"name": "gemini-cli-mcp-client", "version": "0.70.0"}}},
+    {"jsonrpc": "2.0", "method": "notifications/initialized"},
+    {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
+  ]
+}
