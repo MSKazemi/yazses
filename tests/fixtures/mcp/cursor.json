@@ -1,0 +1,15 @@
+{
+  "client": "Cursor",
+  "client_version": "3.21.16 (as reported in the forum thread)",
+  "recorded": "2026-11-20",
+  "evidence": "docs",
+  "how": "Not run, and closed source. A Cursor forum reply (2026-09-21, from an account that writes 'our client'; not confirmed as staff) says the client speaks 2025-11-25 and earlier and opens with initialize; no later update as of 2026-11-20. The changelog (latest entry 2026-11-06) states no revision. Only method and protocolVersion follow that statement; the other fields are illustrative.",
+  "source": "https://forum.cursor.com/t/mcp-client-cannot-connect-to-modern-only-2026-07-28-streamable-http-servers-legacy-initialize-rejected/172536",
+  "era": "legacy",
+  "accepts_versions": ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"],
+  "frames": [
+    {"jsonrpc": "2.0", "id": 0, "method": "initialize", "params": {"protocolVersion": "2025-11-25", "capabilities": {}, "clientInfo": {"name": "cursor", "version": "3.21.16"}}},
+    {"jsonrpc": "2.0", "method": "notifications/initialized"},
+    {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
+  ]
+}
