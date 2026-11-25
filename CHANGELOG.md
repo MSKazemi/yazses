@@ -6,6 +6,14 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — LLM cleanup can use any OpenAI-compatible server on this machine
+
+`[filters.disfluency] llm_api = "openai"` sends cleanup to `{llm_endpoint}/v1/chat/completions`, the route llama-server, LM Studio and vLLM serve, instead of Ollama's `/api/generate`. It sends the system prompt as a `system` message, `temperature = 0`, `max_tokens` and `stream = false`, and reads `choices[0].message.content`. The default stays `"ollama"`, and cleanup itself stays off by default. Both API styles go through the same loopback-only check, timeout, and length and number checks, so a remote URL is still refused unless `llm_allow_remote_endpoint` is set. Thinking models are kept from typing their reasoning: the Ollama request sends `"think": false`, and a leading `<think>…</think>` block is removed from the answer. A reply that is only reasoning counts as a rejection. A misspelt `llm_api` falls back to `"ollama"`, and `doctor` reports it. New how-to: [Use your own local model server for cleanup](docs/how-to/local-model-server.md). Tested against an in-process fake server only. No real llama-server, LM Studio or vLLM has been tried, and no model is recommended yet.
+
+### Fixed — LLM cleanup sent a hardcoded model name to Ollama
+
+`[filters.disfluency]` LLM cleanup always asked the endpoint for `qwen2.5:1.5b`, so anyone whose Ollama held a different model got a 404 on every burst and the raw text back, with nothing but a debug log line to say why. The new `llm_endpoint_model` key names the model to request. It defaults to empty, which keeps `qwen2.5:1.5b`, so an install that never sets it sends the same request as before.
+
 ### Docs — comparison pages corrected to what is true as of November 2026
 
 `docs/comparison.md` and `docs/compare/yazses-vs-handy.md` no longer claim differentiators peers have matched, and are dated. Handy transcribes files since v0.10.0; TalkType is now TuxTalk (old name kept); FluidVoice has FluidMeet meetings and Windows and Linux betas; OpenWhispr records meetings with local speaker labels and has paid cloud plans; Windows voice access, macOS 27 and Ubuntu's Myna preview offer on-device dictation within stated limits; VS Code's built-in dictation runs on-device; the Whispering link points to `EpicenterHQ/epicenter`. Each claim was re-checked on 2026-11-20 against the project's releases or README or the vendor's support page. The 2026-08-15 adjacent-projects note gains a dated Handy star count.
