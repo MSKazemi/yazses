@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — tests: an autouse socket guard fails any test that makes a real outbound connection
+
+`tests/_net_guard.py`, installed per test by `tests/conftest.py`, makes `socket.connect`, `connect_ex`, `sendto` and `getaddrinfo` raise `NetworkAccessBlocked` (naming the host and pointing at ADR-019) for anything but loopback, `localhost`, AF_UNIX and `socketpair`. It is the runtime half of the egress inventory, which only sees our own modules by AST. `@pytest.mark.allow_network` (registered in `pyproject.toml`) opts one test out; `YAZSES_TEST_NET_GUARD=0` disables it for a local bisect. A prior audit of the whole suite found no test that reached the network. Tests: `tests/test_net_guard.py`.
+
 ### Changed — tests: the collection-id guard tests print the whole child run when they fail
 
 `tests/test_collection_id_guard.py` now includes the subprocess exit code, full stdout and full stderr in every assertion message, so a failure on a CI leg that cannot be reproduced locally (a Windows Python 3.11 flake) is diagnosable. Test-only; no behaviour change.
