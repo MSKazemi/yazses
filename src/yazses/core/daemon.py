@@ -26,6 +26,8 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     # All imported lazily at runtime (in _build_gaze_targeter and the other builders
     # below) so the optional/heavy dependencies stay dormant; the names exist here only
     # so the `X | None` attribute annotations resolve for the type checker.
@@ -479,6 +481,11 @@ class Daemon:
     #: Returns the focused application's identifier (an X11 class / AT-SPI name, a macOS
     #: bundle id, a Windows image name) for the profile lookup, or None when nothing can. Injected, so a test hands in a lambda instead of a desktop.
     _focused_app_class: Callable[[], str] | None = None
+    #: Returns the focused window's working directory for `[context] use_git`, or None.
+    #: Built lazily from `Platform.focused_cwd_factory` on the first decode that needs
+    #: it; injected in tests. Holds a callable only -- never a path or a branch.
+    _focused_cwd_source: Callable[[], Path | None] | None = None
+    _focused_cwd_built: bool = False
     #: True once `_announce_model_download` has told the user a first-run download is
     #: under way. The one signal `_announce_ready_after_download` fires on. Class-level
     #: so a daemon whose announcement is stubbed (most of the suite) stays silent.
@@ -7246,6 +7253,9 @@ class Daemon:
                 sources = read_sources(
                     ctx.use_window_title, ctx.use_selection, ctx.use_clipboard
                 )
+                use_git = bool(getattr(ctx, "use_git", False))
+                if use_git:
+                    sources.git_terms = self._git_hint_terms(ctx.max_terms)
                 extra = compose_context_prompt(
                     sources,
                     max_terms=ctx.max_terms,
@@ -7253,6 +7263,7 @@ class Daemon:
                     use_selection=ctx.use_selection,
                     use_clipboard=ctx.use_clipboard,
                     use_lsp=False,
+                    use_git=use_git,
                 )
                 if extra:
                     base = f"{base}. {extra}" if base else extra
@@ -7276,6 +7287,34 @@ class Daemon:
         # language, the English sentence would condition that decode (see
         # `builtin_prompt_applies`); the user's own prompt and vocabulary are unaffected.
         return merge_initial_prompt(base, language=self._config.stt.language)
+
+    def _git_hint_terms(self, max_terms: int) -> list[str]:
+        """The focused repository's name, branch and branch words (`[context] use_git`).
+
+        Read now, for this decode, and dropped: the directory, the repo name and the
+        branch are never stored on the daemon and never logged -- a failure is swallowed
+        without a message, because an exception's text could carry the path.
+        """
+        if not self._focused_cwd_built:
+            self._focused_cwd_built = True
+            platform = getattr(self, "_platform", None)
+            factory = getattr(platform, "focused_cwd_factory", None)
+            if factory is not None:
+                try:
+                    provider = factory()
+                    cwd = getattr(provider, "cwd", None)
+                    self._focused_cwd_source = cwd if callable(cwd) else None
+                except Exception:
+                    self._focused_cwd_source = None
+        source = self._focused_cwd_source
+        if source is None:
+            return []
+        try:
+            from yazses.commands.git_hint import git_hint, hint_terms
+
+            return hint_terms(git_hint(source()), max_terms)
+        except Exception:
+            return []
 
     def _build_governor(self) -> None:
         """Stand up the Adaptive Latency Governor, or say why it cannot run.
