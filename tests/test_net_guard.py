@@ -74,6 +74,28 @@ def test_loopback_server_is_reachable() -> None:
     assert got == [b"ping"]
 
 
+@pytest.mark.skipif(not hasattr(socket.socket, "sendmsg"), reason="no sendmsg on this platform")
+def test_sendmsg_to_a_remote_address_is_blocked() -> None:
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        with pytest.raises(NetworkAccessBlocked):
+            s.sendmsg([b"x"], [], 0, ("198.51.100.7", 53))
+
+
+@pytest.mark.skipif(not hasattr(socket.socket, "sendmsg"), reason="no sendmsg on this platform")
+def test_loopback_sendmsg_is_allowed() -> None:
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as rx, socket.socket(
+        socket.AF_INET, socket.SOCK_DGRAM
+    ) as tx:
+        rx.bind(("127.0.0.1", 0))
+        tx.sendmsg([b"u"], [], 0, rx.getsockname())
+        assert rx.recv(8) == b"u"
+
+
+@pytest.mark.parametrize("host", ["0.0.0.0", "::"])  # noqa: S104
+def test_wildcard_hosts_are_deliberately_local(host: str) -> None:
+    assert is_local_host(host)
+
+
 def test_loopback_udp_sendto_is_allowed() -> None:
     rx = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     rx.bind(("127.0.0.1", 0))
@@ -171,6 +193,7 @@ def test_install_and_uninstall_restore_the_originals() -> None:
         socket.socket.connect,
         socket.socket.connect_ex,
         socket.socket.sendto,
+        getattr(socket.socket, "sendmsg", None),
         socket.getaddrinfo,
     )
     guard.install()
@@ -183,6 +206,7 @@ def test_install_and_uninstall_restore_the_originals() -> None:
         socket.socket.connect,
         socket.socket.connect_ex,
         socket.socket.sendto,
+        getattr(socket.socket, "sendmsg", None),
         socket.getaddrinfo,
     )
     assert after == before
