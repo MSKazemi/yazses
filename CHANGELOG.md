@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — Wayland dictation returns ~0.3 s sooner per burst; nothing typed changes
+
+After typing, the ydotool flood guard sent a key-up for 60 fixed keys, and ydotool waits 12 ms after each one. That added about 730 ms to every burst. It now releases the keys that burst's `ydotool type` can have pressed (ydotool 1.x maps text through a fixed US keycode table, so that set is known exactly), plus the shifts, left Ctrl/Alt, Space and the hotkey modifiers. The pacing is the same, and no key-up is sent that the old sweep did not send. A failed `type` or a control character still gets the full sweep. Measured with a stand-in ydotool that sleeps the documented pacing: 730 → 360–420 ms. The hold-end hotkey key-up (~18 ms) now runs alongside the decode, and every keystroke waits for it, so it still lands before any typed character. The post-processing chain was re-measured at 0.13 ms for 40 words, which leaves keystroke pacing (12 ms per character) as the real cost. The recommendations for that, none of them applied, are in `design/research/2026-11-20-dictation-latency-inject.md`.
+
 ### Added — research: a consumer for Apple's BCI HID switch protocol, recorded as a Proposed ADR (research record only), not a feature
 
 [ADR-v2-157](design/adr/adr-v2-157-bci-hid-switch-consumer.md) (Proposed, research record only) records Apple's BCI HID report layout from Apple's reference page: usage page `0x60`, 32 buttons, pointer with the `-128` absent-axis sentinel, item selection, signal quality, and the host's scan-information report, which never reveals a focused keyboard key. It also records how such a device could become a YazSes switch on macOS, Linux and Windows by reusing the biosignal event types and the false-positive governor, and what nobody has measured yet. `examples/bci-hid-switch/` adds a stdlib-only parser for synthetic report bytes, with tests. Nothing in `src/` changes and no device has been tested. The ADR-030 freeze on new device families applies.
