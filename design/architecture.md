@@ -503,6 +503,12 @@ outstanding for both.
 | `decoder_settings.py` | Pure: `file_decoder_settings(stt, section)` -> frozen `DecoderSettings` (model, language, task, device, compute_type, threads, beam, conditioning, `chinese_script`, `persian_normalisation`, warnings) for every **file** decode — `yazses transcribe`, `meeting recover`, the meeting post-pass without an engine, and the MCP `transcribe` tool. An empty `[recimport]`/`[meeting] model` inherits `[stt] model` (never another engine's checkpoint); the section's `language` is authoritative. `require_section()` raises `TypeError` on a whole `Config` where a section belongs — the substitution that made the MCP tool decode `small.en` English silently |
 | `faster_whisper.py` | `FasterWhisperEngine.transcribe` (fast path) + `transcribe_words()` — opt-in word-timestamp path returning `(text, list[Word])`, used by Prosody Ink (`[prosody]`) and by Diarized Recording Import (`recimport/pipeline.py`, `yazses transcribe <file>`) |
 
+### `src/yazses/models/` (#929, epic #928 — one model registry)
+
+| Module | Role |
+|---|---|
+| `registry.py` | Pure, lazily-importing read model over `stt/download.py`, `commands/model_manager.py`, `tts/download.py`, `recimport/download.py` and `gaze/download.py`: `build_registry()` lists every model kind (stt, vad, slm, tts, diarization, gaze) with size, on-disk state and owning feature; `remove_entry`/`disk_usage` back `yazses model remove|disk`; `ensure_model(kind, name, policy, is_cached=, download=)` (`auto`/`ask`/`never`) decides without ever touching the network itself. The `[stt] download` key that would feed the policy is not yet added (ADR-030, L3). |
+
 ### `src/yazses/recimport/` (Wave O, ADR-v2-125 — Diarized Recording Import)
 
 Reached from `yazses transcribe <file>`, `yazses meeting recover`, the meeting post-pass

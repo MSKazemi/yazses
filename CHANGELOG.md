@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — models: one registry of every model, `yazses model list` for all kinds, `model remove` and `model disk` (#929)
+
+New `yazses.models.registry` (pure, imports nothing heavy) describes every model kind (speech-to-text, VAD, SLM, TTS voice, diarization, gaze) with name, approximate size, on-disk state and owning feature, built over the existing sources without changing them. `yazses model list` now shows all kinds; `yazses model remove <id>` (`kind:name` or an unambiguous bare name; asks first, `--yes` skips) and `yazses model disk` are new. `model download` is unchanged. The registry also holds `ensure_model(kind, name, policy, is_cached=, download=)` with policy `auto|ask|never`: a pure function that calls the injected `download` only under `auto` and otherwise returns a message naming what is missing, its size and the manual route. Nothing calls it yet, and the `[stt] download` config key that would set the policy is **not** added: it is an L3 change awaiting owner sign-off (ADR-030). Until then the behaviour is `auto`, exactly as today. No new network path (ADR-019 unchanged).
+
 ### Added — `[injection] type_delay_ms`: make dictation appear faster by typing faster
 
 Keystroke pacing is nearly all of the time after the decode: at ~12 ms per character a 150-word dictation takes ~9 s to type. `[injection] type_delay_ms` sets the milliseconds per typed character for the typing backends: xdotool `type --delay N`; ydotool 1.x `-d ⌈N/2⌉ -H ⌊N/2⌋`; ydotool 0.1.x `--key-delay ⌈N/2⌉`; wtype `-d N` (0 sends no `-d`, which wtype refuses). The default, `-1`, keeps each backend's own pacing (`--delay 12`, `-d 6 -H 6`, `--key-delay 6`, no `-d`), so an install that does not set it types exactly as before. Values outside -1..200 are reported and fall back to the default. Some apps drop keys when they arrive too fast, worst at 0; try 4–6 ms. Timeouts scale with a slower setting so a long burst cannot time out mid-string and be pasted a second time. See `docs/benchmarks.md` ("…except typing it").
