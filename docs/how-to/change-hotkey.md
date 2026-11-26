@@ -74,6 +74,26 @@ yazses hotkey command off
 yazses restart
 ```
 
+## Press once instead of holding (toggle mode)
+
+If holding a key is hard or painful, make the dictation key a toggle: press once to
+start, press again to stop and type.
+
+```toml
+[hotkey]
+mode = "toggle"   # default "hold"
+```
+
+Run `yazses restart` afterwards. Holding the key in toggle mode does not start and stop
+repeatedly, a press while the previous dictation is still being transcribed is ignored,
+and `[audio] max_record_seconds` still ends a recording left running.
+
+Use a key that types nothing and that you do not use in shortcuts, such as `right_ctrl`
+or the platform default. A quick tap of one counts on every platform. `space` is the
+exception: a tap of it has to keep typing a space, so each toggle press on space has to
+be held for `hold_threshold_ms` (500 ms by default), and `yazses doctor` warns about it. The details are in
+[Accessibility, RSI and hands-free use](../use-cases/accessibility-rsi-hands-free.md#press-once-to-start-press-again-to-stop).
+
 ## Under the hood
 
 `yazses hotkey set` writes `[hotkey] key` and `yazses hotkey command` writes

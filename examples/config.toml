@@ -44,6 +44,7 @@ auto_heal_device = true # switch back to the last working mic if capture goes si
 backend = "auto"               # auto | type | clipboard | wtype
 target_guard = "clipboard"     # what to do when the focused element accepts no text
 continuation_window_ms = 30000 # gap under which a new burst continues the last sentence
+type_delay_ms = -1             # ms per typed character; -1 = backend default (~12), try 4-6 to type faster
 
 # Speech and hearing accommodations
 [accessibility]
