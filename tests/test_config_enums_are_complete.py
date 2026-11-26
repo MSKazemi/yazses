@@ -256,8 +256,14 @@ def test_the_rejection_message_names_the_values_readably():
 @pytest.mark.parametrize("key", sorted(_ENUMS))
 def test_every_enforced_default_is_itself_a_valid_value(key):
     """A typo in the table would reject the shipped default on every machine."""
-    section, field = key.split(".", 1)
-    default = getattr(getattr(C.Config(), section), field)
+    # A nested section (`filters.disfluency.llm_api`) has more than one dot, so walk the
+    # whole path rather than assume `section.field`.
+    *path, field = key.split(".")
+    node = C.Config()
+    for part in path:
+        node = getattr(node, part)
+    default = getattr(node, field)
+    section = ".".join(path)
     assert default in _ENUMS[key], (
         f"the default for [{section}] {field} is {default!r}, which the table rejects"
     )

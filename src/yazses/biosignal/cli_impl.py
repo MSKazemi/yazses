@@ -22,6 +22,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import logging
+import math
 import os
 import random
 import sys
@@ -1624,16 +1625,48 @@ def run_boards(*, as_json: bool = False) -> int:
 _DURATION_FIELDS = ("duration_s", "seconds", "duration")
 
 
+class ProtocolTooShort(ValueError):
+    """``--minutes`` asks for a test shorter than the gesture cues can fit in.
+
+    ``minimum`` is the shortest accepted ``--minutes`` value for the same switches.
+    """
+
+    def __init__(self, minutes: float, minimum: float) -> None:
+        super().__init__(
+            f"--minutes {minutes:g} is too short: every gesture phase must still fit its "
+            f"cues, each followed by its full response window. The shortest test for these "
+            f"switches is --minutes {minimum:.2f} (or 0 for the standard length).")
+        self.minutes = minutes
+        self.minimum = minimum
+
+
+def _cue_floor(phase: Any, duration: float) -> float:
+    """The smallest factor ``duration`` can be multiplied by and still fit the phase's cues
+    (``Phase.__post_init__``: ``(duration - lead_in) / cues >= response_window``); 0 for a
+    phase without cues."""
+    cues = getattr(phase, "cues", 0)
+    if not isinstance(cues, int) or cues <= 0 or duration <= 0:
+        return 0.0
+    lead = float(getattr(phase, "lead_in_s", 0.0) or 0.0)
+    window = float(getattr(phase, "response_window_s", 0.0) or 0.0)
+    return (lead + cues * window) / duration
+
+
 def _scaled_protocol(fieldtest: Any, minutes: float,
                      switches: Any = None) -> tuple[Any, float, str]:
     """The default protocol stretched or shrunk to ``minutes`` (0 = as designed).
 
     Returns ``(protocol or None, total_seconds, note)``. ``None`` means "use the module's
-    own default"; ``note`` is non-empty when the length could not be changed.
+    own default" and is returned only when no switch filter applies, so the filter is never
+    dropped on the way; ``note`` is non-empty when the length could not be changed.
 
     ``switches`` limits the deliberate-gesture phases to the detectors that are on: a switch
     that is off can never fire, and cueing it would count misses against a feature the user
     did not enable (dragging the verdict toward "do not enable" for no reason).
+
+    Raises :class:`ProtocolTooShort` when ``minutes`` would squeeze a gesture phase below
+    what its cues need. It used to fall back to the full, unfiltered default protocol there
+    (#888), silently running the standard length and cueing switches that were off.
     """
     kwargs: dict[str, Any] = {}
     if switches is not None:
@@ -1661,6 +1694,13 @@ def _scaled_protocol(fieldtest: Any, minutes: float,
         # Hand the session the protocol built for these switches, not its own default.
         return (phases if kwargs else None), total, ""
     factor = minutes * 60.0 / total
+    floor = max((_cue_floor(p, length(p)) for p in phases), default=0.0)
+    # Rounded up to the 0.01 min the message names, so the value it names is accepted.
+    minimum = math.ceil(floor * total / 60.0 * 100.0 - 1e-9) / 100.0
+    if minimum * 60.0 / total < floor:
+        minimum = round(minimum + 0.01, 2)
+    if factor < floor:
+        raise ProtocolTooShort(minutes, minimum)
     try:
         scaled = []
         for phase in phases:
@@ -1668,9 +1708,13 @@ def _scaled_protocol(fieldtest: Any, minutes: float,
                                                                    (int, float)))
             scaled.append(dataclasses.replace(phase, **{name: getattr(phase, name) * factor}))
         return scaled, total * factor, ""
+    except ValueError as exc:
+        # Within float rounding of the floor a phase can still refuse: the same answer.
+        raise ProtocolTooShort(minutes, max(minimum, round(minutes + 0.01, 2))) from exc
     except Exception:
-        return None, total, ("This build cannot change the length of the test; running the "
-                             "standard one.")
+        # Keep the switch filter even when the length cannot be changed.
+        return (phases if kwargs else None), total, (
+            "The length of this test could not be changed; running the standard one.")
 
 
 def run_field_test(
@@ -1696,12 +1740,19 @@ def run_field_test(
         _warn(f"{out_path} already exists; not overwriting. Choose another --out.")
         return UNUSABLE
     narrate = _warn if as_json else _say          # keep stdout pure JSON when asked
+    sw = switches_from(bio)
+    # Judged before the source is opened: a length the cues cannot fit is refused with the
+    # minimum, never replaced by the standard protocol (#888).
+    try:
+        protocol, total, note = _scaled_protocol(fieldtest, minutes, sw)
+    except ProtocolTooShort as exc:
+        _warn(str(exc))
+        return UNUSABLE
     try:
         src = _open(spec, realtime=True)
     except (ValueError, FileNotFoundError, ImportError) as exc:
         _warn(f"Cannot open source {spec!r}: {exc}")
         return UNUSABLE
-    sw = switches_from(bio)
     # The same guarded source and event gate the daemon and monitor build (source_gates,
     # ADR-v2-155), so the test scores only what the daemon would admit: a block the stream
     # guard or the source's own health refuses is BAD, which FieldTestSession leaves out of
@@ -1721,7 +1772,6 @@ def run_field_test(
             parts.quality = source_gates.compose_quality_gate(guard, parts.quality, spec)
             return pipeline
 
-        protocol, total, note = _scaled_protocol(fieldtest, minutes, sw)
         session_kwargs: dict[str, Any] = {}
         if protocol is not None:
             session_kwargs["protocol"] = protocol

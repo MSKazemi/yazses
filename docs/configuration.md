@@ -13,7 +13,7 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 
 **Match the Type column exactly.** In TOML only `str` values take quotes; `int`, `float` and `bool` must be bare. Writing `vad_threshold = "0.004"` instead of `vad_threshold = 0.004` loads without complaint and then fails at runtime, because the value stays a string where a number is expected. See [Troubleshooting](troubleshooting.md#dictation-stopped-working-right-after-i-edited-configtoml).
 
-**63 of these 554 keys are inert**, and they are marked ⚠️ inert in the Status column. The loader accepts them, `configcheck` validates them and they have a documented default — but nothing acts on them, so setting one loads without complaint and changes nothing. Most belong to capabilities that are registered but not yet wired; see [`yazses features`](cli-reference.md) for what is actually switchable. Both numbers here are counted at generation time, and the list of inert keys is the same one the test suite gates on, so neither can quietly fall out of date.
+**63 of these 561 keys are inert**, and they are marked ⚠️ inert in the Status column. The loader accepts them, `configcheck` validates them and they have a documented default — but nothing acts on them, so setting one loads without complaint and changes nothing. Most belong to capabilities that are registered but not yet wired; see [`yazses features`](cli-reference.md) for what is actually switchable. Both numbers here are counted at generation time, and the list of inert keys is the same one the test suite gates on, so neither can quietly fall out of date.
 
 This has bitten before: `[injection] fallback_to_clipboard` was documented in seventeen places and defaulted to `true` while nothing read it, so anyone who turned it off was silently overruled.
 
@@ -50,6 +50,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `source` | str | `"default"` | ⚠️ inert |  |
 | `evdev_device` | str | `""` | ⚠️ inert |  |
 | `command_key` | str | `""` |  | Optional dedicated *command* key. Empty = single-key mode (commands are auto-detected on the dictation key). When set to a different key, holding it forces command mode: whatever you say is parsed as a command and never typed as literal text (an unrecognised phrase is ignored, not inserted). |
+| `mode` | str | `"hold"` |  | hold \| toggle |
 
 ## `[audio]`
 
@@ -80,6 +81,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `fallback_to_clipboard` | bool | `true` |  |  |
 | `continuation_window_ms` | int | `30000` |  | Successive hold-to-talk bursts within this window are treated as one continuous dictation: a separating space is prepended to the next burst so words don't glue together at the boundary (postprocess/spacing.py). 0 disables continuation spacing entirely. |
 | `target_guard` | str | `"clipboard"` |  | "No text target" guard: what to do when you dictate with no editable field focused (so the text would be typed into the wrong place / nowhere). "clipboard" (default) — copy the transcript to the clipboard + notify instead of typing; "warn" — notify but still type; "off" — no guard. Detection is AT-SPI when available (precise; needs python3-pyatspi), else a best-effort X11 focus check. Only acts on a *confident* "no target", so it never drops normal dictation. |
+| `type_delay_ms` | int | `-1` |  | Typing speed: milliseconds per typed character for the keystroke backends. -1 (default) keeps each backend's own pacing, which is what every install had before this key: xdotool `--delay 12`, ydotool 1.x `-d 6 -H 6`, ydotool 0.1.x `--key-delay 6`, wtype no `-d` (its own 0). A value 0-200 replaces it: xdotool `type --delay N`; ydotool 1.x splits N into key delay + hold (`-d ceil(N/2) -H floor(N/2)`, so 12 is today's 6/6); ydotool 0.1.x, which has no hold, gets `--key-delay ceil(N/2)`; wtype `-d N` (wtype refuses `-d 0`, so 0 sends no `-d`, its own unpaced default). Applies to typed text only -- key combos, backspaces and the clipboard paste keep their pacing -- and the portal and Windows/macOS backends ignore it. Pacing is nearly all of the time after the decode: at 12 ms a 150-word dictation takes ~9 s to appear, and halving the delay halves that. The trade-off: some applications, toolkits and remote sessions drop or reorder keys when they arrive too fast, worst at 0. Try 4-6 and check that a long dictation arrives intact before going lower. Outside -1..200 -> a warning and the default. |
 
 ## `[general]`
 
@@ -113,6 +115,8 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `disfluency.llm_endpoint` | str | `"http://localhost:11434"` |  |  |
 | `disfluency.llm_allow_remote_endpoint` | bool | `false` |  | Refuse an `llm_endpoint` that is not loopback. Cleanup sends *transcribed text* to the endpoint, so a remote host here would carry dictation off the machine — which AGENTS.md rule 1 ("nothing leaves the machine") forbids by default. Setting this true is the deliberate, documented opt-out; the daemon warns on every start while it is on. |
 | `disfluency.llm_model` | str | `""` |  | Local GGUF model path for offline cleanup; empty falls back to the Ollama HTTP endpoint above. Mirrors the Rust v1.0 [cleanup] feature for the Python path (kept in parity until v1.0 GA). |
+| `disfluency.llm_endpoint_model` | str | `""` |  | The model name sent to the `llm_endpoint` server (e.g. "llama3.2:3b" for Ollama). Empty keeps the historical "qwen2.5:1.5b", so an install that never set it sends exactly what it sent before this key existed. |
+| `disfluency.llm_api` | str | `"ollama"` |  | The request shape `llm_endpoint` speaks: "ollama" (POST /api/generate) or "openai" (POST /v1/chat/completions -- llama-server, LM Studio, vLLM, and Ollama's own compatibility route). Either way the endpoint must be loopback unless `llm_allow_remote_endpoint` is set; this key does not change that. |
 | `disfluency.llm_system_prompt` | str | `"Reformat only. Do not add facts and do not remove information. Preserve every proper noun, number, code identifier, and URL exactly as given. Fix capitalization, punctuation, and paragraph breaks; do not change word choices. Output ONLY the reformatted text with no preamble, no explanation, and no markdown fences."` |  |  |
 | `disfluency.llm_max_tokens` | int | `256` |  |  |
 | `disfluency.llm_timeout_ms` | int | `2000` |  |  |
@@ -330,6 +334,13 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `camera_index` | int | `0` |  | which camera the one owner opens |
 | `fps` | int | `15` |  | shared sampling rate, clamped to 1..60 |
 
+## `[camera]`
+
+| Key | Type | Default | Status | Notes |
+|---|---|---|---|---|
+| `device` | str | `""` |  | stable id of the chosen camera; "" = none chosen |
+| `index` | int | `-1` |  | chosen camera index; -1 = not chosen (legacy keys apply) |
+
 ## `[gaze_refine]`
 
 | Key | Type | Default | Status | Notes |
@@ -408,6 +419,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `use_selection` | bool | `true` |  |  |
 | `use_clipboard` | bool | `false` |  | clipboard is the broadest signal; opt-in separately |
 | `use_lsp` | bool | `true` | ⚠️ inert |  |
+| `use_git` | bool | `false` |  | focused repo's name + branch words; off even with [context] on |
 | `max_terms` | int | `48` | ⚠️ inert |  |
 
 ## `[recall]`
