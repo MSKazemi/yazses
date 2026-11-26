@@ -59,6 +59,36 @@ def normalise_mode(value: object) -> str:
     return text if text in MODES else DEFAULT_MODE
 
 
+#: Hotkeys that also type a character. Every backend must let a quick tap of one of these
+#: type normally, so it reports a press only once the key has been held for
+#: ``[hotkey] hold_threshold_ms``; a modifier types nothing on its own, so every backend
+#: reports its press the moment it goes down. Held equal to each backend's own
+#: ``_CHARACTER_KEYS`` by ``tests/test_toggle_short_tap.py``.
+CHARACTER_KEYS: frozenset[str] = frozenset({"space"})
+
+
+def toggle_key_note(mode: object, key: str, hold_threshold_ms: int) -> str | None:
+    """Why a quick tap of this key will not toggle dictation, or None when it will. Pure.
+
+    In toggle mode a tap of a modifier key (Right Ctrl, Right Alt/Option, ...) counts on
+    every backend. A key that also types (``space``) cannot work that way without
+    swallowing the character the user meant to type, so the backends keep waiting
+    ``hold_threshold_ms`` before they report the press: every toggle press on it has to
+    be that long. ``doctor`` and the daemon log say so and name a key that taps.
+    """
+    if normalise_mode(mode) != "toggle":
+        return None
+    name = (key or "").strip().lower()
+    if name not in CHARACTER_KEYS:
+        return None
+    return (
+        f"toggle mode on the {name!r} key: a quick tap types a {name} as usual, so each "
+        f"toggle press must be held for hold_threshold_ms ({int(hold_threshold_ms)} ms). "
+        "For a quick tap, use a key that types nothing, e.g. "
+        "`yazses hotkey set right_ctrl` and `yazses restart`"
+    )
+
+
 class Press(str, Enum):
     """What the daemon does with one key-down."""
 

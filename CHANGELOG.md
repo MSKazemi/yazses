@@ -26,6 +26,18 @@ left running. The command key stays hold-to-talk and is ignored while a toggle d
 open; `[autostop]` is not used in toggle mode. The default stays `mode = "hold"`, so an
 existing install is unchanged. The latch is a pure module, `yazses.hotkeys.toggle`.
 
+A quick tap of a key that types nothing (Right Ctrl, Right Alt / Option and the other
+modifiers) now counts on every hotkey backend. The X11 key-grab backend (snap, BSD) and the
+macOS backend used to wait `[hotkey] hold_threshold_ms` (500 ms) before they reported any
+press, so in toggle mode every press had to last half a second. The threshold is only
+needed for a key that also types, where a tap must keep typing; both backends now start a
+modifier on key-down, as evdev and Windows already did. That also changes hold-to-talk on
+those two backends: a modifier hold starts at once instead of clipping the first half
+second of speech, and on macOS a modifier hold could not start at all before, since its
+`flagsChanged` events never repeat (read from the code, not yet seen on a Mac). `space`
+keeps the guard, so toggle mode on space still needs each press held that long;
+`yazses doctor` and the daemon log now say so and suggest `right_ctrl`.
+
 ### Added — `[context] use_git`: the focused repository's name and branch as recognition hints
 
 With `[context] enabled = true` and the new `use_git = true` (off by default, and off even when `[context]` is on), the git repository behind the focused window lends its name, its branch and the branch's words (`fix-tray-crash` → "fix", "tray", "crash") to Whisper's `initial_prompt`, within `max_terms`. The repository is found by reading `.git`, `HEAD` and `gitdir:`/`commondir` pointer files (detached HEAD, linked worktrees and submodules handled); no `git` binary runs. The branch is split with the same spoken-separator table `gitvoice` uses. The focused directory comes from a new `FocusedCwdProvider` platform seam: Linux on an X11 session (the focused window's PID via `xdotool`, then `/proc/<pid>/cwd`, following the youngest child so a terminal answers for its shell); Wayland, macOS, Windows and the BSDs have no provider yet and the setting does nothing there. The path, repository name and branch are used for one decode and never stored or logged.
