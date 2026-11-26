@@ -17,8 +17,8 @@
     },
     {
       "type": "file",
-      "url": "https://files.pythonhosted.org/packages/27/3a/204dbfc3e08eb4cdc6e6ff57be02150bc44523ebdb50182d10025792ebd9/av-18.1.0-cp311-abi3-manylinux_2_28_x86_64.whl",
-      "sha256": "8a032e8d8ebc73dec079364b9b4a6837638a2d106e8472314e685ffbf163e700",
+      "url": "https://files.pythonhosted.org/packages/3c/9f/a189b28e331bbe2e97a6151258ef7dfeecf1e41ef409f336303dbed01c5c/av-18.1.1-cp311-abi3-manylinux_2_28_x86_64.whl",
+      "sha256": "99c8f12ad952f86376b80e3d3dbb792d76036018d3e25233c34d5f225faf55e1",
       "only-arches": [
         "x86_64"
       ]

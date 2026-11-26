@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — PyAV raised to 18.1.1: 18.1.0 was withdrawn for memory corruption when decoding some audio
+
+The lock file, and so the Windows build, and the Flatpak module list pinned PyAV (`av`) 18.1.0, which PyPI has yanked: "Memory corruption (double free) when decoding audio with custom channel layouts. Upgrade to 18.1.1". PyAV decodes the files that `yazses transcribe` and the MCP transcribe tool read. The floor is now `av>=18.1.1` (still below 19), and both pins moved to 18.1.1. The reason for the yank is upstream's; the crash was not reproduced here.
+
 ### Fixed — tests: `test_a_hung_test_comes_back_as_a_failure` no longer fails when a full `-n auto` run starves its child pytest
 
 The test starts a child pytest and gave it a 60 s hang with a 90 s subprocess ceiling. The child's own startup is the slow part: on a busy machine it was seen at 55 s, 65 s and past 90 s, so the `xdist-thread` case raised `subprocess.TimeoutExpired` and the `serial-signal` case failed its `elapsed < hang` check although pytest-timeout had worked. The hang is now 180 s (it is cut at 2 s whenever the config works, so this costs nothing) and the test's own ceiling 240 s. Test-only; no product change.

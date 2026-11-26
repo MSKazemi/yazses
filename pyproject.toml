@@ -79,7 +79,9 @@ dependencies = [
     # TypeError, so every file decode fails (`yazses transcribe`, the MCP transcribe tool).
     # Live dictation and meeting capture hand the model arrays and are unaffected. The lockfile already
     # holds 18.x. Raise the ceiling once a faster-whisper release works with PyAV 19.
-    "av>=18,<19",
+    # The floor is 18.1.1 because 18.1.0 is yanked (double free while decoding audio
+    # with a custom channel layout).
+    "av>=18.1.1,<19",
     "sounddevice>=0.5.5",
     "numpy>=2.4.6",
     "typer>=0.26.8",
