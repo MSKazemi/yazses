@@ -846,11 +846,22 @@ Write the recommended vad_threshold to config.
 .SS "yazses model"
 Manage SLM intent-routing models (download / list).
 .TP
+\fByazses model disk\fR
+Show the disk space the downloaded models use, per kind and in total.
+.TP
 \fByazses model download\fR \fIMODEL_ID\fR
 Download a model: a speech-to-text checkpoint, or a GGUF for intent routing.
 .TP
 \fByazses model list\fR
-List available models (speech-to-text and SLM) and their status.
+List every model YazSes can use, grouped by kind, with size and on-disk state.
+.TP
+\fByazses model remove\fR \fIMODEL_ID\fR
+Delete a downloaded model from disk to free space.
+.RS
+.TP
+\fB\-\-yes, \-y\fR
+Do not ask for confirmation.
+.RE
 .SS "yazses outline"
 Build a nested outline incrementally and render it to Markdown/OPML \(em offline.
 .TP

@@ -128,7 +128,9 @@ your app. It is optional and off by default in current releases. The full explan
 ## Does it support accessibility / hands-free use?
 
 Yes. YazSes includes VAD calibration, mic-level tuning, a **dysfluency-friendly
-mode** for stuttered or dysarthric speech. An optional, **experimental EMG
+mode** for stuttered or dysarthric speech. If holding the hotkey is hard, set
+`[hotkey] mode = "toggle"`: press once to start dictating, press again to stop
+([details](use-cases/accessibility-rsi-hands-free.md#press-once-to-start-press-again-to-stop)). An optional, **experimental EMG
 muscle-sensor trigger** also exists as a hands-free alternative to holding a key; it is
 off by default and has no real-device evidence yet (see the
 [known limits](roadmap.md#known-limits)).

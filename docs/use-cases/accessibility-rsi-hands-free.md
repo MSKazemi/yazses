@@ -27,8 +27,40 @@ you work.
 - **Voice commands cover the repetitive keystrokes** that hurt most: *"undo
   that"*, *"save file"*, *"go to line 42"*.
 
-If holding a key is itself the problem, see [non-keyboard
-triggers](#triggers-that-are-not-a-keyboard) below.
+If holding a key is itself the problem, switch the key to **toggle mode**: press it
+once to start dictating and press it again to stop, like "toggle run" next to "hold to
+run" in a game. See [Press once to start, press again to stop](#press-once-to-start-press-again-to-stop)
+below, and [non-keyboard triggers](#triggers-that-are-not-a-keyboard) for not using a key at all.
+
+## Press once to start, press again to stop
+
+Add this to `config.toml` and run `yazses restart`:
+
+```toml
+[hotkey]
+mode = "toggle"   # the default is "hold"
+```
+
+- **First press** starts recording (the tray turns to *recording* and the start earcon
+  plays, if `[earcon]` is on). Letting go of the key does nothing; the recording stays open.
+- **Second press** stops it, and the text is transcribed and typed exactly as on a
+  hold-to-talk release.
+- **Holding the key is harmless.** Key auto-repeat never stops or restarts a recording;
+  only a fresh press counts.
+- **A press while the last dictation is still being transcribed or typed is ignored.**
+  Wait for the tray to go back to idle and press again.
+- **`[audio] max_record_seconds`** (300 s by default) is the safety cut-off: a recording
+  you forgot to stop is ended and typed at that age. `0` removes the limit.
+- **There is no spoken "stop"** for an open recording: speech is only transcribed after the
+  recording ends, so the second press and the cut-off are the ways out.
+- It applies to the dictation key only. A dedicated command key stays hold-to-talk and is
+  ignored while a toggle dictation is open. [Hands-Free Auto-Stop](#triggers-that-are-not-a-keyboard)
+  is not used in toggle mode: with `mode = "toggle"` a pause in your speech never ends the
+  recording.
+- With the default modifier hotkeys a quick tap counts on Linux and Windows. Where the
+  hotkey backend waits for `[hotkey] hold_threshold_ms` before it reports a press (the
+  `space` key, the X11 key-grab backend, macOS), each press has to last that long; lower
+  `hold_threshold_ms` if quick taps are not picked up.
 
 ## Dysfluent speech — stutter and dysarthria
 

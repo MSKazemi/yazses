@@ -39,6 +39,7 @@ if TYPE_CHECKING:
     from yazses.gaze.refine_runtime import RefinementRuntime
     from yazses.gaze.targeter import GazeTargeter
     from yazses.hesitation.stream import HesitationMonitor
+    from yazses.hotkeys.toggle import ToggleTurn
     from yazses.inject.replace import InjectionTally, ReplacementOutcome, ReplacementSteps, Wording
     from yazses.inject.target import TargetDetector
     from yazses.latency.pool import EnginePool
@@ -140,6 +141,16 @@ _MORSE_QUIET_STATES = frozenset({TrayState.IDLE, TrayState.TRANSCRIBING, TraySta
 #: How often the ask_human listener reads the mic level: the hands-free watcher's
 #: cadence (`_autostop_watch`), well under the 0.3 s silence floor.
 _ASK_HUMAN_POLL_S = 0.05
+#: How often a latched toggle recording (`[hotkey] mode = "toggle"`, #869) is checked
+#: against the `max_record_seconds` cap and for having ended some other way.
+_TOGGLE_POLL_S = 0.1
+#: States in which a toggle-mode press neither starts nor stops anything: the previous
+#: dictation is still being transcribed or typed, or the microphone belongs to enrollment.
+#: READBACK and MEETING are absent on purpose: a press there starts dictation (and barges
+#: in on read-back) exactly as a hold-to-talk press does.
+_TOGGLE_BUSY_STATES = frozenset(
+    {TrayState.TRANSCRIBING, TrayState.INJECTING, TrayState.LOADING, TrayState.ENROLLING}
+)
 
 
 class _SilentEarcon:
@@ -541,6 +552,14 @@ class Daemon:
     #: Class-level for the same partial-daemon reason as the attributes above; while it is
     #: None the two hold handlers behave exactly as they always have.
     _autostop: AutoStopTurn | None = None
+    #: Toggle dictation (`[hotkey] mode = "toggle"`, #869): the press-to-start,
+    #: press-to-stop latch on the dictation key, or None -- the default, hold-to-talk.
+    _toggle: ToggleTurn | None = None
+    #: Bumped on every toggle start, so a cap watcher left from an earlier turn exits.
+    _toggle_gen: int = 0
+    #: A command-key press refused because a toggle recording is latched open; its
+    #: release must then be refused too, or it would end the dictation as a command.
+    _command_press_ignored: bool = False
     #: True from a hold-start whose microphone failed to open until the next hold-start.
     #: Read by `_autostop_defer_end`: a tap on a burst that never began must not latch.
     _hold_start_failed: bool = False
@@ -2078,17 +2097,30 @@ class Daemon:
         key_id = cfg.hotkey.key
         if key_id == "auto":
             key_id = self._platform.default_hotkey
+        # `[hotkey] mode = "toggle"` (#869): the same key, as a press-on / press-off latch.
+        self._toggle = self._build_toggle(cfg)
+        if self._toggle is not None:
+            on_key_down, on_key_up = self._on_toggle_press, self._on_toggle_release
+        else:
+            on_key_down, on_key_up = self._on_hold_start, self._on_hold_end
         self._hotkey = self._platform.hotkey_factory(
             key_id,
             cfg.hotkey.hold_threshold_ms,
-            self._on_hold_start,
-            self._on_hold_end,
+            on_key_down,
+            on_key_up,
         )
 
         # Optional dedicated command key: a second listener that forces command
         # mode while held. Ignored if unset or the same as the dictation key.
         self._command_hotkey = self._make_command_hotkey(cfg, key_id)
-        self._autostop = self._build_autostop(cfg)
+        if self._toggle is not None and cfg.autostop.enabled:
+            # Both latch the recording open; two latches on one key would fight over every
+            # release. Toggle is the explicit choice of how the key behaves, so it wins.
+            log.info("[autostop] is not used while [hotkey] mode = \"toggle\": the second "
+                     "press ends the recording instead of trailing silence.")
+            self._autostop = None
+        else:
+            self._autostop = self._build_autostop(cfg)
 
         # ADR-v2-145: one camera owner per daemon, so gaze, the Head-Pointer and the
         # face switch cannot each open the webcam and meet "device already busy".
@@ -4198,13 +4230,111 @@ class Daemon:
                 self._on_hold_end()
                 return
 
+    def _build_toggle(self, cfg) -> ToggleTurn | None:
+        """The toggle latch for `[hotkey] mode = "toggle"` (#869), or None for hold-to-talk.
+
+        The import sits behind the mode check, so a default start loads nothing new.
+        """
+        raw = getattr(cfg.hotkey, "mode", "hold")
+        if isinstance(raw, str) and raw.strip().lower() in ("", "hold"):
+            return None
+        from yazses.hotkeys.toggle import MODES, ToggleTurn, normalise_mode
+
+        if normalise_mode(raw) != "toggle":
+            log.warning("[hotkey] mode = %r is not one of %s; using hold-to-talk.",
+                        raw, ", ".join(repr(m) for m in MODES))
+            return None
+        turn = ToggleTurn(max_seconds=cfg.audio.max_record_seconds)
+        if turn.max_seconds:
+            log.info("Toggle dictation: press the hotkey to start, press it again to stop "
+                     "(a recording left running ends after %d s).", int(turn.max_seconds))
+        else:
+            log.info("Toggle dictation: press the hotkey to start, press it again to stop "
+                     "(max_record_seconds = 0: no time limit).")
+        return turn
+
+    def _toggle_state(self) -> tuple[bool, bool]:
+        """(recording, busy) for a toggle-mode press, read under the lock."""
+        with self._lock:
+            state = self._state.state
+        return state == TrayState.RECORDING, state in _TOGGLE_BUSY_STATES
+
+    def _on_toggle_press(self, leaked: int) -> None:
+        """Dictation key down in toggle mode: start a recording, or end the latched one."""
+        from yazses.hotkeys.toggle import Press
+
+        turn = self._toggle
+        if turn is None:  # pragma: no cover - only wired while toggle mode is on
+            self._on_hold_start(leaked)
+            return
+        recording, busy = self._toggle_state()
+        action = turn.press(time.monotonic(), recording=recording, busy=busy)
+        if action is Press.STOP:
+            log.info("Toggle dictation: second press, stopping.")
+            self._on_hold_end()
+            return
+        if action is Press.IGNORE:
+            log.info("Toggle dictation: press ignored (%s).",
+                     "still transcribing the last one" if busy else "a recording is already open")
+            if leaked > 0 and self._injector is not None:
+                # A character hotkey typed something before the press was recognised.
+                try:
+                    self._injector.inject_backspaces(leaked)
+                except Exception as exc:
+                    log.warning("Failed to clean %d leaked char(s): %s", leaked, exc)
+            return
+        self._on_hold_start(leaked)
+        if self._hold_start_failed:
+            turn.cancel()  # the microphone did not open: nothing is latched
+            return
+        self._toggle_gen += 1
+        threading.Thread(
+            target=self._toggle_watch, args=(turn, self._toggle_gen),
+            daemon=True, name="toggle-watch",
+        ).start()
+
+    def _on_toggle_release(self) -> None:
+        """Dictation key up in toggle mode: never starts or ends anything."""
+        turn = self._toggle
+        if turn is not None:
+            turn.release(time.monotonic())
+
+    def _toggle_watch(self, turn: ToggleTurn, gen: int) -> None:
+        """Watch a latched toggle recording: end it at the cap, drop it if it ended elsewhere."""
+        # Wait on the daemon's stop event, not time.sleep: the watcher ends with the daemon
+        # instead of polling forever, and it never spins if something replaces time.sleep.
+        while turn.latched and gen == self._toggle_gen:
+            if self._stop_event.wait(_TOGGLE_POLL_S):
+                return
+            if gen != self._toggle_gen or not turn.latched:
+                return
+            recording, _busy = self._toggle_state()
+            if not recording:
+                turn.cancel()  # the recording ended another way (mic lost, shutdown)
+                return
+            if turn.expired(time.monotonic()):
+                log.warning("Toggle dictation: the recording reached max_record_seconds "
+                            "(%d s) and was stopped.", int(turn.max_seconds))
+                self._on_hold_end()
+                return
+
     def _on_command_hold_start(self, leaked: int) -> None:
         """Hold-start for the dedicated command key — arm force-command mode."""
+        if self._toggle is not None and self._toggle.latched:
+            # A toggle dictation is open: this hold would turn it into a command and its
+            # release would end it. The dictation key ends it; this press does nothing.
+            self._command_press_ignored = True
+            log.info("Command key ignored: a toggle dictation is open; press the "
+                     "dictation key to stop it.")
+            return
         self._command_mode = True
         self._on_hold_start(leaked)
 
     def _on_command_hold_end(self) -> None:
         """Hold-end for the command key. `_on_hold_end` consumes _command_mode."""
+        if self._command_press_ignored:
+            self._command_press_ignored = False
+            return
         self._on_hold_end()
 
     def _on_hold_start(self, leaked: int) -> None:

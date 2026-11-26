@@ -10,6 +10,26 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ADR-v2-155 is now Accepted (maintainer, 2026-11-13, G0 [#827](https://github.com/MSKazemi/yazses/issues/827)). The opt-in `thinkgear:` source now judges every serial read with a pure, standard-library state machine (`biosignal/thinkgear_health.py`) and keeps the verdict beside the block that read produced (`ThinkGearSource.health_for(block)`; unknown blocks get none). A read is untrusted when it holds any nonzero `POOR_SIGNAL` (even if a later report in the same read is 0), any rejected packet or skipped framing byte, when the last contact report is older than 3.0 s, or when the monotonic clock goes back. Until the first explicit `POOR_SIGNAL=0` nothing is trusted. Recovery needs two separate zero reports and 1.0 s (512 samples) of contiguous clean raw samples, and the read that completes it is still untrusted. Lost packets are never filled in and the clock is never moved for them. Stopping, a lost port and a fresh start clear all trust. One serial read is now capped at 64 KiB, and a packet carrying several `POOR_SIGNAL` rows reports the largest. This change only records the verdict: no gate reads it yet ([#829](https://github.com/MSKazemi/yazses/issues/829) adds that), so event behaviour is unchanged. Checked with fake serial ports and a fake clock only (TG-01..TG-11). No headset was used. The thresholds are engineering choices, not measured values, and this is not a claim that any device is supported.
 
+### Added — models: one registry of every model, `yazses model list` for all kinds, `model remove` and `model disk` (#929)
+
+New `yazses.models.registry` (pure, imports nothing heavy) describes every model kind (speech-to-text, VAD, SLM, TTS voice, diarization, gaze) with name, approximate size, on-disk state and owning feature, built over the existing sources without changing them. `yazses model list` now shows all kinds; `yazses model remove <id>` (`kind:name` or an unambiguous bare name; asks first, `--yes` skips) and `yazses model disk` are new. `model download` is unchanged. The registry also holds `ensure_model(kind, name, policy, is_cached=, download=)` with policy `auto|ask|never`: a pure function that calls the injected `download` only under `auto` and otherwise returns a message naming what is missing, its size and the manual route. Nothing calls it yet, and the `[stt] download` config key that would set the policy is **not** added: it is an L3 change awaiting owner sign-off (ADR-030). Until then the behaviour is `auto`, exactly as today. No new network path (ADR-019 unchanged).
+
+### Added — `[injection] type_delay_ms`: make dictation appear faster by typing faster
+
+Keystroke pacing is nearly all of the time after the decode: at ~12 ms per character a 150-word dictation takes ~9 s to type. `[injection] type_delay_ms` sets the milliseconds per typed character for the typing backends: xdotool `type --delay N`; ydotool 1.x `-d ⌈N/2⌉ -H ⌊N/2⌋`; ydotool 0.1.x `--key-delay ⌈N/2⌉`; wtype `-d N` (0 sends no `-d`, which wtype refuses). The default, `-1`, keeps each backend's own pacing (`--delay 12`, `-d 6 -H 6`, `--key-delay 6`, no `-d`), so an install that does not set it types exactly as before. Values outside -1..200 are reported and fall back to the default. Some apps drop keys when they arrive too fast, worst at 0; try 4–6 ms. Timeouts scale with a slower setting so a long burst cannot time out mid-string and be pasted a second time. See `docs/benchmarks.md` ("…except typing it").
+
+### Added — toggle dictation: press once to start, press again to stop (#869)
+
+Holding the hotkey for a whole sentence is hard or painful for some people with motor
+disabilities. `[hotkey] mode = "toggle"` makes the dictation key a latch: the first press
+starts recording, the second press stops it and the text is typed as on a hold-to-talk
+release. Key auto-repeat never stops or restarts a recording, a press while the previous
+dictation is still being transcribed or typed is ignored, a recording that ends some other
+way (microphone lost) resets the latch, and `[audio] max_record_seconds` ends a recording
+left running. The command key stays hold-to-talk and is ignored while a toggle dictation is
+open; `[autostop]` is not used in toggle mode. The default stays `mode = "hold"`, so an
+existing install is unchanged. The latch is a pure module, `yazses.hotkeys.toggle`.
+
 ### Added — `[context] use_git`: the focused repository's name and branch as recognition hints
 
 With `[context] enabled = true` and the new `use_git = true` (off by default, and off even when `[context]` is on), the git repository behind the focused window lends its name, its branch and the branch's words (`fix-tray-crash` → "fix", "tray", "crash") to Whisper's `initial_prompt`, within `max_terms`. The repository is found by reading `.git`, `HEAD` and `gitdir:`/`commondir` pointer files (detached HEAD, linked worktrees and submodules handled); no `git` binary runs. The branch is split with the same spoken-separator table `gitvoice` uses. The focused directory comes from a new `FocusedCwdProvider` platform seam: Linux on an X11 session (the focused window's PID via `xdotool`, then `/proc/<pid>/cwd`, following the youngest child so a terminal answers for its shell); Wayland, macOS, Windows and the BSDs have no provider yet and the setting does nothing there. The path, repository name and branch are used for one decode and never stored or logged.
@@ -33,6 +53,8 @@ With `[context] enabled = true` and the new `use_git = true` (off by default, an
 ### Changed — Wayland dictation returns ~0.3 s sooner per burst; nothing typed changes
 
 After typing, the ydotool flood guard sent a key-up for 60 fixed keys, and ydotool waits 12 ms after each one. That added about 730 ms to every burst. It now releases the keys that burst's `ydotool type` can have pressed (ydotool 1.x maps text through a fixed US keycode table, so that set is known exactly), plus the shifts, left Ctrl/Alt, Space and the hotkey modifiers. The pacing is the same, and no key-up is sent that the old sweep did not send. A failed `type` or a control character still gets the full sweep. Measured with a stand-in ydotool that sleeps the documented pacing: 730 → 360–420 ms. The hold-end hotkey key-up (~18 ms) now runs alongside the decode, and every keystroke waits for it, so it still lands before any typed character. The post-processing chain was re-measured at 0.13 ms for 40 words, which leaves keystroke pacing (12 ms per character) as the real cost. The recommendations for that, none of them applied, are in `design/research/2026-11-20-dictation-latency-inject.md`.
+
+
 
 ### Added — research: a consumer for Apple's BCI HID switch protocol, recorded as a Proposed ADR (research record only), not a feature
 
