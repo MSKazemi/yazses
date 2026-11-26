@@ -64,9 +64,12 @@ today. Re-run the checker rather than reading this table.
 > endpoint returns at most 100 tags a page (the `sha256-…` attestation tags count), so a
 > published release on page two looks absent — issue #844 reported 2.48.1 missing for that
 > reason while it pulled fine.
-> **Do not hand-check any of this.** `scripts/check-release-channels.py --version <v>`
-> queries every channel in this table the correct way and prints it as a table;
-> `release-complete.yml` runs it on every tag.
+> **Do not hand-check the published channels.** `scripts/check-release-channels.py
+> --version <v>` queries them the correct way and prints a table;
+> `release-complete.yml` runs it on every tag. Since 2026-11-26 it does **not** check
+> **AUR, Flathub or nixpkgs**: none has accepted a first submission. Their recipes stay
+> here (`arch/`, `flatpak/`, `../flake.nix`). When a submission is accepted, restore that
+> channel's check from the script's git history. It does not check Fedora/COPR either.
 
 ### Two dead files kept only as history
 

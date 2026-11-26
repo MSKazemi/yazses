@@ -1158,9 +1158,10 @@ Arch, Flatpak, Nix, Docker, the Windows and macOS builds, the Microsoft Store, t
 bundle, the MCP registry and the feature packs of ADR-028); procedures for the signing and
 store channels are in `packaging/README.md` and `design/packaging/`.
 **This document does not record which channels are live or at what version**, because that
-changes on each channel's own clock and several (winget, Chocolatey, AUR, the Store) wait on
+changes on each channel's own clock and several (winget, Chocolatey, the Store) wait on
 a human. The authority is `scripts/check-release-channels.py --version <v>`, which queries
-each channel's own API; the dated table in `packaging/README.md` is hand-written and carries
+the API of each channel the project publishes to (not AUR, Flathub or nixpkgs, which have
+no accepted submission); the dated table in `packaging/README.md` is hand-written and carries
 the date it was checked. Workflow lanes, cancellation, permissions and retry policy are in
 `.github/CI_POLICY.md`.
 

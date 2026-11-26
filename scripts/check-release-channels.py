@@ -14,12 +14,16 @@ Policy (owner, 2026-08-13): the newest version must carry a package on every
 channel. Older versions need not -- a superseded release being incomplete is
 history, not a live problem.
 
+Amended 2026-11-26: AUR, Flathub and nixpkgs are not checked. None has accepted a
+first submission, so no tag could publish to them and the check stayed red
+whatever shipped. Add each one back when its first submission is accepted; the
+removed checks are in this file's git history.
+
 Verification gotcha this encodes
 --------------------------------
-`curl -o /dev/null -w '%{http_code}'` LIES about Flathub and search.nixos.org:
-they are single-page apps that return HTTP 200 for pages that do not exist. Every
-check below therefore queries a real API or a raw file path whose absence is a
-genuine 404 -- never a rendered page.
+`curl -o /dev/null -w '%{http_code}'` can LIE: a single-page app returns HTTP 200
+for pages that do not exist. Every check below therefore queries a real API or a
+raw file path whose absence is a genuine 404 -- never a rendered page.
 
 Deliberately stdlib-only, like refresh-package-manifests.py, so it runs under a
 bare /usr/bin/python3 in a CI job with nothing installed.
@@ -47,14 +51,6 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 
 REPO = "MSKazemi/yazses"
-# Must match the manifest, the metainfo and .github/workflows/flatpak.yml, all of
-# which use com.mskazemi.YazSes (a domain the maintainer controls, as Flathub
-# requires). This read io.github.mskazemi.YazSes until 2026-08-14. Both IDs 404
-# today because the app is not on Flathub yet, so the gate looked healthy — it
-# would have started reporting a published app as missing, forever, on the day
-# the submission landed. A check against the wrong identifier does not fail; it
-# lies quietly.
-FLATPAK_ID = "com.mskazemi.YazSes"
 TIMEOUT = 20
 RETRIES = 3
 RETRY_BACKOFF_S = 2
@@ -336,32 +332,6 @@ def check_chocolatey(version: str) -> tuple[bool | None, str]:
     return False, f"not approved (status {status.group(1) if status else 'unknown'})"
 
 
-def check_aur(version: str) -> tuple[bool | None, str]:
-    status, data, body = _json_body("https://aur.archlinux.org/rpc/v5/info?arg[]=yazses")
-    if status != 200 or not data:
-        return _verdict(status, False), _http_detail(status, body, "AUR RPC")
-    results = data.get("results", [])
-    if not results:
-        return False, "not in AUR"
-    got = results[0].get("Version", "")
-    return got.split("-")[0] == version, f"aur={got}"
-
-
-def check_flathub(version: str) -> tuple[bool | None, str]:
-    # The API answers honestly; flathub.org itself returns 200 for missing apps.
-    status, body = _get(f"https://flathub.org/api/v2/appstream/{FLATPAK_ID}")
-    return _verdict(status, status == 200), _http_detail(status, body, "appstream")
-
-
-def check_nix(version: str) -> tuple[bool | None, str]:
-    # search.nixos.org is an SPA and lies. A raw path in nixpkgs does not.
-    status, body = _get(
-        "https://raw.githubusercontent.com/NixOS/nixpkgs/master/"
-        "pkgs/by-name/ya/yazses/package.nix"
-    )
-    return _verdict(status, status == 200), _http_detail(status, body, "nixpkgs")
-
-
 # Every manifest media type GHCR may hold for a tag; a multi-arch tag is an index.
 _MANIFEST_ACCEPT = ", ".join(
     (
@@ -468,9 +438,6 @@ CHECKS = [
     ("scoop", "Scoop bucket", check_scoop),
     ("winget", "winget-pkgs", check_winget),
     ("chocolatey", "Chocolatey", check_chocolatey),
-    ("aur", "AUR", check_aur),
-    ("flathub", "Flathub", check_flathub),
-    ("nix", "nixpkgs", check_nix),
     ("docker", "Docker (GHCR)", check_docker),
 ]
 
@@ -511,8 +478,8 @@ def run(version: str, core_only: bool, ci_only: bool = False) -> list[Result]:
 
 
 # A detail of the form "<label>=<version>" is a channel telling us what it is
-# actually serving right now; anything else ("HTTP 404", "not listed", "not in
-# AUR", "cask HTTP 404") is a channel that has nothing to serve. That format is
+# actually serving right now; anything else ("HTTP 404", "not listed",
+# "cask HTTP 404") is a channel that has nothing to serve. That format is
 # produced by the checks in this same module -- `_evidence` and its siblings --
 # so reading it back is an internal contract rather than prose-parsing, and
 # `test_every_versioned_channel_reports_what_it_serves` fails the build if a
@@ -547,10 +514,10 @@ def regressions(new: list[Result], old: list[Result]) -> list[Result]:
     """Channels that have gone backwards: they should carry this release and do not.
 
     "Missing" and "regressed" are different findings and only the second one is
-    actionable on a schedule. Several of this project's channels (Flathub,
-    nixpkgs, winget, Chocolatey) have no credential wired up, so they are absent
-    for EVERY version -- a daily watcher reporting them would file the same
-    standing issue forever and teach its reader to close it unread.
+    actionable on a schedule. A channel with no credential wired up, or one
+    never published to, is absent for EVERY version -- a daily watcher reporting
+    it would file the same standing issue forever and teach its reader to close
+    it unread.
 
     A channel qualifies as regressed two ways, and the second one exists because
     the first has a blind spot that hid a real fault for seventeen releases:
@@ -574,7 +541,7 @@ def regressions(new: list[Result], old: list[Result]) -> list[Result]:
 
     Note the two rules use different evidence on purpose: (1) is historical and
     (2) is present-tense. A channel that reports no version at all ("HTTP 404",
-    "not in AUR") is never called stale by (2) -- absence is not staleness.
+    "not listed") is never called stale by (2) -- absence is not staleness.
 
     A channel that is UNREACHABLE now is never called a regression by either
     rule: not being able to ask is not an answer (see ``_get``). It is reported

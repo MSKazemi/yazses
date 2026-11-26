@@ -8,11 +8,8 @@ These tests are **fully offline**, like the rest of the suite. Every HTTP call g
 through one `_get` seam, so stubbing that is enough to drive each channel through
 its success and failure paths without touching the network.
 
-Two traps get their own tests because both have already been made for real:
+One trap gets its own test because it has already been made for real:
 
-- **Flathub and search.nixos.org return HTTP 200 for pages that do not exist**, so a
-  naive check reports them published forever. The checks must query an API, and
-  `test_flathub_uses_the_api_not_the_website` asserts the URL, not just the verdict.
 - **GHCR rejects unauthenticated reads whether or not the image exists.** A bare
   request returns 401/404 for a published image, which is how `packaging/README.md`
   came to record Docker as unpublished while it was live.
@@ -169,18 +166,6 @@ def test_scoop_bucket_version(crc, responses):
     assert crc.check_scoop("2.18.1")[0] is False
 
 
-def test_aur_strips_the_pkgrel(crc, responses):
-    """AUR reports `2.18.2-1`; the trailing pkgrel is not part of our version."""
-    responses({"aur.archlinux.org": (200, _body({"results": [{"Version": "2.18.2-1"}]}))})
-    assert crc.check_aur("2.18.2")[0] is True
-
-
-def test_aur_absent(crc, responses):
-    responses({"aur.archlinux.org": (200, _body({"resultcount": 0, "results": []}))})
-    ok, detail = crc.check_aur("2.18.2")
-    assert ok is False and "not in AUR" in detail
-
-
 def _choco_entry(version: str, *, approved: bool | None = True, status: str = "Approved") -> bytes:
     """One OData entry shaped like the real feed (captured 2026-11-12).
 
@@ -216,28 +201,8 @@ def test_winget_checks_upstream_not_our_own_copy(crc, responses):
 
 
 # --------------------------------------------------------------------------
-# The two verification traps
+# The verification trap
 # --------------------------------------------------------------------------
-
-
-def test_flathub_uses_the_api_not_the_website(crc, responses):
-    """flathub.org is a SPA that answers 200 for apps that do not exist."""
-    requested = responses({"flathub.org/api/v2/appstream": (200, b"{}")})
-    assert crc.check_flathub("2.18.2")[0] is True
-    assert requested, "no request was made"
-    assert all("/api/v2/appstream/" in u for u in requested), requested
-
-
-def test_flathub_absent_is_a_real_404(crc, responses):
-    responses({})
-    assert crc.check_flathub("2.18.2")[0] is False
-
-
-def test_nix_uses_a_raw_nixpkgs_path_not_the_search_site(crc, responses):
-    """search.nixos.org is also a SPA; a raw file path 404s honestly."""
-    requested = responses({"raw.githubusercontent.com/NixOS/nixpkgs": (200, b"{}")})
-    assert crc.check_nix("2.18.2")[0] is True
-    assert all("search.nixos.org" not in u for u in requested), requested
 
 
 def test_ghcr_gets_a_pull_token_before_listing_tags(crc, responses):
@@ -498,7 +463,7 @@ def test_core_only_returns_exactly_the_channels_ci_builds(crc, responses):
 def test_core_only_does_not_touch_the_other_channels(crc, responses):
     requested = responses({"api.github.com": (200, _body({"assets": []})), "pypi.org": (200, b"{}")})
     crc.run("2.18.2", core_only=True)
-    for host in ("snapcraft", "flathub", "ghcr.io", "aur.archlinux"):
+    for host in ("snapcraft", "chocolatey.org", "ghcr.io", "microsoft/winget-pkgs"):
         assert not any(host in u for u in requested), f"core-only queried {host}"
 
 
@@ -508,6 +473,19 @@ def test_full_run_covers_every_declared_channel(crc, responses):
     keys = {r.key for r in results}
     assert keys == {"deb", "dmg", "exe"} | {k for k, _, _ in crc.CHECKS}
     assert not any(r.ok for r in results)
+
+
+def test_full_run_leaves_out_the_channels_with_no_accepted_submission(crc, responses):
+    """AUR, Flathub and nixpkgs have never accepted a submission.
+
+    No tag can publish to them, so checking them kept the release gate red whatever
+    shipped. Their recipes stay in the repository.
+    """
+    requested = responses({}, default=(404, b""))
+    keys = {r.key for r in crc.run("9.9.9", core_only=False)}
+    assert keys.isdisjoint({"aur", "flathub", "nix"}), keys
+    for host in ("aur.archlinux.org", "flathub.org", "NixOS/nixpkgs"):
+        assert not any(host in u for u in requested), f"a full run queried {host}"
 
 
 # --------------------------------------------------------------------------
@@ -524,7 +502,7 @@ def test_unreachable_host_is_unknown_not_absent(crc, responses):
     repair -- publishing a package that is already there.
     """
     responses({}, default=(0, b"Connection reset"))
-    for fn in (crc.check_aur, crc.check_pypi, crc.check_flathub, crc.check_snap):
+    for fn in (crc.check_scoop, crc.check_pypi, crc.check_winget, crc.check_snap):
         ok, _ = fn("2.18.2")
         assert ok is crc.UNKNOWN, f"{fn.__name__} reported {ok!r} for an unreachable host"
 
@@ -532,7 +510,7 @@ def test_unreachable_host_is_unknown_not_absent(crc, responses):
 def test_a_real_404_is_still_absent(crc, responses):
     """The tri-state must not turn genuine absence into 'cannot tell'."""
     responses({}, default=(404, b""))
-    assert crc.check_flathub("2.18.2")[0] is False
+    assert crc.check_winget("2.18.2")[0] is False
     assert crc.check_pypi("2.18.2")[0] is False
 
 
@@ -888,9 +866,9 @@ def test_a_channel_that_carried_the_previous_release_and_not_this_one_is_a_regre
 
 
 def test_a_channel_that_never_carried_anything_is_not_reported(crc):
-    """Flathub, nixpkgs and the AUR are absent for every version by design."""
-    new = [_r(crc, "flathub", False), _r(crc, "nix", False)]
-    old = [_r(crc, "flathub", False), _r(crc, "nix", False)]
+    """A channel nobody has published to is absent for every version."""
+    new = [_r(crc, "winget", False), _r(crc, "chocolatey", False)]
+    old = [_r(crc, "winget", False), _r(crc, "chocolatey", False)]
     assert crc.regressions(new, old) == []
 
 
@@ -900,8 +878,8 @@ def test_an_unreachable_channel_is_never_called_a_regression(crc):
     A dropped connection to the AUR once made this script report an unpublished
     package; the repair for that is not "publish it again".
     """
-    new = [_r(crc, "aur", crc.UNKNOWN)]
-    old = [_r(crc, "aur", True)]
+    new = [_r(crc, "snap", crc.UNKNOWN)]
+    old = [_r(crc, "snap", True)]
     assert crc.regressions(new, old) == []
 
 
@@ -953,13 +931,10 @@ def test_a_channel_frozen_since_before_the_comparison_window_is_still_a_regressi
 
 
 def test_a_channel_that_serves_nothing_is_still_not_reported(crc):
-    """Absence is not staleness -- the six unwired channels stay suppressed."""
+    """Absence is not staleness -- a channel serving nothing stays suppressed."""
     new = [
-        _rd(crc, "flathub", False, "appstream HTTP 404"),
-        _rd(crc, "nix", False, "nixpkgs HTTP 404"),
         _rd(crc, "winget", False, "winget-pkgs HTTP 404"),
         _rd(crc, "choco", False, "not listed"),
-        _rd(crc, "aur", False, "not in AUR"),
     ]
     assert crc.regressions(new, new) == []
 
@@ -1000,7 +975,6 @@ def test_every_versioned_channel_reports_what_it_serves(crc, responses):
             "homebrew-yazses": (200, b'cask "yazses" do\n  version "2.18.2"\nend\n'),
             "bucket/yazses.json": (200, _body({"version": "2.18.2"})),
             "gh-pages/apt/Packages": (200, b"Package: yazses\nVersion: 2.18.2\n"),
-            "aur.archlinux.org": (200, _body({"results": [{"Version": "2.18.2-1"}]})),
             "api.snapcraft.io": (
                 200,
                 _body(
@@ -1013,7 +987,6 @@ def test_every_versioned_channel_reports_what_it_serves(crc, responses):
         ("homebrew", crc.check_homebrew),
         ("scoop", crc.check_scoop),
         ("apt", crc.check_apt),
-        ("aur", crc.check_aur),
         ("snap", crc.check_snap),
     ):
         ok, detail = fn("2.35.0")

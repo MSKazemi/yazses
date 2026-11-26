@@ -146,11 +146,12 @@ jobs:
             packcheck/*-packs.json | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Report every channel, and fail if any lacks this version
-        # Owner policy, 2026-08-13: maximum coverage -- every channel is checked,
-        # not just the ones CI builds. Some (winget, Chocolatey, Flathub, nixpkgs)
-        # are not published yet, so this step will fail until they are. That is
-        # the intent: a standing, itemised statement of what is still missing,
-        # rather than a green tick that only ever covered four of fourteen.
+        # Owner policy, 2026-08-13: every channel this project publishes to is
+        # checked, not just the ones CI builds, so a channel that waits on a
+        # person or a moderator (winget, Chocolatey, Scoop) fails this step until
+        # it has the version. Amended 2026-11-26: AUR, Flathub and nixpkgs are
+        # left out until each accepts a first submission, because no tag could
+        # publish to them.
         run: |
           set -euo pipefail
           python3 scripts/check-release-channels.py --version "$VERSION" \
@@ -184,9 +185,10 @@ jobs:
             exit 0
           fi
           # Demote only when a CHANNEL CI CONTROLS is missing, i.e. the release is
-          # actually broken for somebody on that OS. An unpublished Flathub or
-          # nixpkgs entry is a gap in reach, not a broken download -- failing the
-          # build says so loudly enough without relabelling a release that works.
+          # actually broken for somebody on that OS. A winget or Chocolatey entry
+          # that is not there yet is a gap in reach, not a broken download --
+          # failing the build says so loudly enough without relabelling a release
+          # that works.
           if python3 scripts/check-release-channels.py --version "$VERSION" --core-only >/dev/null; then
             echo "::warning::$TAG is missing some distribution channels, but every artifact CI builds is present -- not demoting."
             exit 0

@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — release checks: AUR, Flathub and nixpkgs are no longer checked
+
+`scripts/check-release-channels.py`, which the release completeness check and the daily channel drift watch run, no longer asks AUR, Flathub or nixpkgs for the new version. None of the three has accepted a first submission, so no tag could publish to them and the completeness check stayed red whatever shipped. Their recipes (`packaging/arch/`, `packaging/flatpak/`, `flake.nix`) are unchanged, and each check can be restored from git history when its channel accepts a submission. The check still fails while a channel the project does publish to lacks the version.
+
 ## [2.52.0] - 2026-11-26
 
 ### Fixed — PyAV raised to 18.1.1: 18.1.0 was withdrawn for memory corruption when decoding some audio
