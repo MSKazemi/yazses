@@ -145,7 +145,7 @@ Then **hold the hotkey, speak, and release**:
 | macOS | ++right-option++ |
 | Windows | ++right-ctrl++ |
 
-The text appears in the focused app one to two seconds after you let go (a median of 1.6 s on a laptop CPU with the default model). The hotkey is a
+The text appears in the focused app one to two seconds after you let go (the speech model alone took a median of 1.6 s to decode an utterance with the default model on the one laptop we measured). The hotkey is a
 modifier you rarely use, so it does not interfere with normal typing. You can also
 [choose a different key](how-to/change-hotkey.md).
 

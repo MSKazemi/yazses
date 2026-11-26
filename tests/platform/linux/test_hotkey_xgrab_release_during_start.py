@@ -90,9 +90,10 @@ def test_release_during_recorder_start_does_not_leave_a_live_stream(monkeypatch)
 
 def test_stale_timer_cannot_start_a_recording_after_release():
     """A Timer whose press was already released (``cancel`` cannot stop a callback that
-    has begun) must not start a recording that nothing will ever end."""
+    has begun) must not start a recording that nothing will ever end. ``space``, because
+    only a key that types waits for the threshold; a modifier starts on key-down (#869)."""
     starts: list[int] = []
-    hk = X11GrabHotkey("right_alt", 10_000, starts.append, lambda: None)
+    hk = X11GrabHotkey("space", 10_000, starts.append, lambda: None)
     hk._handle_press()
     stale_gen = hk._press_gen
     hk._handle_release()
@@ -111,11 +112,30 @@ def test_stale_timer_cannot_start_a_recording_after_release():
 def test_release_before_timer_fires_never_starts():
     starts: list[int] = []
     ends: list[int] = []
-    hk = X11GrabHotkey("right_alt", 10_000, starts.append, lambda: ends.append(1))
+    hk = X11GrabHotkey("space", 10_000, starts.append, lambda: ends.append(1))
     hk._handle_press()
     hk._handle_release()
     assert starts == [] and ends == []
     assert hk._press_time is None
+
+
+def test_a_modifier_tap_released_before_its_timer_ran_still_counts():
+    """A modifier's start is a zero-delay Timer. A key-up that beats it must not lose the
+    tap -- in toggle mode (#869) that is the press -- so the release runs the start, then
+    the end, in that order, and the late Timer does nothing."""
+    order: list[str] = []
+    hk = X11GrabHotkey("right_alt", 10_000, lambda n: order.append(f"start:{n}"),
+                       lambda: order.append("end"))
+    hk._cancel_timer = lambda: None  # type: ignore[method-assign]  # the Timer is "late"
+    hk._handle_press()
+    gen = hk._press_gen
+    timer = hk._timer
+    if timer is not None:
+        timer.cancel()
+    hk._handle_release()
+    hk._fire_hold_start(gen)
+    assert order == ["start:0", "end"]
+    assert not hk._recording
 
 
 def test_normal_hold_still_starts_then_ends():
