@@ -4,6 +4,12 @@ import subprocess
 from collections.abc import Iterable, Sequence
 
 from yazses.inject.keycodes import KEYCODES
+from yazses.inject.pacing import (
+    type_delay_ms,
+    typing_timeout,
+    ydotool_v0_key_delay,
+    ydotool_v1_pacing,
+)
 from yazses.inject.payload import describe_argv, hide_payload
 
 log = logging.getLogger(__name__)
@@ -455,12 +461,20 @@ class YdotoolInjector:
     _KEY_HOLD_MS = 6
 
     def _type_argv(self, text: str, dialect: str) -> list[str]:
+        # `[injection] type_delay_ms` (inject/pacing.py) is a per-character budget:
+        # 1.x splits it into -d/-H, 0.1.x gets the -d half. Unset keeps 6/6 and 6.
+        configured = type_delay_ms()
+        if configured is None:
+            key_delay, key_hold = self._KEY_DELAY_MS, self._KEY_HOLD_MS
+        else:
+            key_delay, key_hold = ydotool_v1_pacing(configured)
         if dialect == DIALECT_V0:
             # 0.1.x has --key-delay and no hold time; -d and -H are both refused.
-            return ["ydotool", "type", "--key-delay", str(self._KEY_DELAY_MS), "--", text]
+            v0_delay = self._KEY_DELAY_MS if configured is None else ydotool_v0_key_delay(configured)
+            return ["ydotool", "type", "--key-delay", str(v0_delay), "--", text]
         return [
-            "ydotool", "type", "-d", str(self._KEY_DELAY_MS),
-            "-H", str(self._KEY_HOLD_MS), "--", text,
+            "ydotool", "type", "-d", str(key_delay),
+            "-H", str(key_hold), "--", text,
         ]
 
     def _type_ascii_run(self, run: str) -> None:
@@ -469,7 +483,7 @@ class YdotoolInjector:
         # timeout looks like a failure to LinuxInjector and triggers the clipboard
         # fallback, which re-injects the WHOLE text — the "typed twice" bug. Budget
         # 30 ms/char (~2.5x the real ~12 ms) plus a base.
-        timeout = 10.0 + len(run) * 0.03
+        timeout = typing_timeout(len(run), type_delay_ms(), default_s_per_char=0.03)
         dialect = ydotool_dialect()
         try:
             run_ydotool(self._type_argv(run, dialect), timeout=timeout)
