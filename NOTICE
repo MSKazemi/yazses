@@ -40,7 +40,19 @@ libraries below. All are OSI-approved open source; none is proprietary.
 | Pillow | MIT-CMU | https://github.com/python-pillow/Pillow |
 | pywin32 (Windows) | PSF | https://github.com/mhammond/pywin32 |
 | **pystray (Windows)** | **LGPL-3.0** | https://github.com/moses-palmer/pystray |
+| **PySide6 / Qt for Python (Windows and macOS bundles)** | **LGPL-3.0-only** (offered as `LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only`; YazSes uses it under the LGPL) | https://code.qt.io/cgit/pyside/pyside-setup.git |
 | whisper-normalizer (ported to Kotlin, `:core:bench`) | MIT | https://github.com/kurianbenoy/whisper_normalizer |
+
+### A note on PySide6 (Qt) and the LGPL
+
+The Windows `.exe` and the macOS `.dmg` are built with the `desktop` extra, which is
+**PySide6** (Qt for Python). It draws the voice-activity overlay, the tray and the
+Settings window, and it is redistributed inside both bundles. Qt for Python is offered
+under `LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only`; YazSes uses it under the
+**LGPL-3.0**. The same two asks apply as for `pystray` below, and the same route to the
+second: YazSes is a Python application, so `pipx install "yazses[desktop]"` (or running
+from this repository) uses whichever PySide6 you install, and you may replace it with
+your own build. Headless installs do not include it; it is an optional extra.
 
 ### A note on pystray and the LGPL
 

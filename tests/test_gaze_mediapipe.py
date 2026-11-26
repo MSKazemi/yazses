@@ -56,6 +56,9 @@ class _FakeCapture:
         self.read_result = (True, object())
         self.released = False
 
+    def isOpened(self):
+        return True
+
     def read(self):
         return self.read_result
 

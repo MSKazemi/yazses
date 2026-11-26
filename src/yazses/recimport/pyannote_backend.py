@@ -51,6 +51,13 @@ whose conditions must be accepted once. The token is read from the environment
 or the standard Hugging Face cache and is **deliberately not a config key** —
 ``yazses report`` bundles the config, and a credential in ``config.toml`` is a
 credential that ends up in diagnostic bundles.
+
+**Which turns are read.** pyannote.audio 4.x pipelines return a ``DiarizeOutput``
+whose ``exclusive_speaker_diarization`` resolves overlapping speech to one
+speaker per instant; :func:`select_annotation` prefers it, then
+``speaker_diarization``, then a bare legacy ``Annotation``. The pinned pipeline
+stays 3.1 until ``scripts/bench-pyannote-pipelines.py`` has been run against
+community-1 on a reference machine (see ``docs/benchmarks.md``).
 """
 from __future__ import annotations
 
@@ -167,6 +174,92 @@ def _gated_model_error(cause: str = "") -> RuntimeError:
     )
 
 
+# The two attributes of pyannote.audio 4.x's ``DiarizeOutput`` dataclass that
+# carry turns (pyannote.audio CHANGELOG 4.0.0 and
+# ``pipelines/speaker_diarization.py``). ``exclusive_speaker_diarization`` is
+# the same diarization with overlapping speech resolved to one speaker per
+# instant; ``speaker_diarization`` keeps the overlaps. A pipeline constructed
+# with ``legacy=True`` returns the bare ``Annotation`` instead, which is the
+# shape this adapter was first written against.
+_EXCLUSIVE_ATTR = "exclusive_speaker_diarization"
+_REGULAR_ATTR = "speaker_diarization"
+
+
+def select_annotation(output) -> tuple[object, str]:
+    """Pick the annotation to read turns from, and say which one it was. Pure.
+
+    Preference order:
+
+    1. ``output.exclusive_speaker_diarization`` -- one speaker per instant, so
+       ``align.py`` never has to break an overlap tie and a word cannot be
+       credited to two people. Community-1 provides it.
+    2. ``output.speaker_diarization`` -- a ``DiarizeOutput`` without the
+       exclusive view (or with it set to ``None``).
+    3. ``output`` itself -- a legacy pipeline that returns the ``Annotation``.
+
+    Returns ``(annotation, kind)`` where ``kind`` is ``"exclusive"``,
+    ``"regular"`` or ``"legacy"``; the benchmark script records it so a row
+    says which view was scored.
+    """
+    exclusive = getattr(output, _EXCLUSIVE_ATTR, None)
+    if exclusive is not None and hasattr(exclusive, "itertracks"):
+        return exclusive, "exclusive"
+    regular = getattr(output, _REGULAR_ATTR, None)
+    if regular is not None and hasattr(regular, "itertracks"):
+        return regular, "regular"
+    return output, "legacy"
+
+
+def turns_from_pipeline_output(output) -> list[DiarTurn]:
+    """Map a pyannote pipeline result to ``DiarTurn``s sorted by start. Pure.
+
+    Accepts every shape :func:`select_annotation` does. No torch, no model:
+    the same function serves :meth:`PyannoteDiarizer.diarize` and
+    ``scripts/bench-pyannote-pipelines.py``, so the benchmark scores exactly
+    the turns the product would hand to ``align.py``.
+    """
+    annotation, _ = select_annotation(output)
+    return annotation_to_turns(annotation, source=output)
+
+
+def annotation_to_turns(annotation, *, source=None) -> list[DiarTurn]:
+    """Map one pyannote ``Annotation`` to ``DiarTurn``s sorted by start. Pure.
+
+    ``source`` is only used to name the type in the error when ``annotation``
+    turns out not to be an annotation at all.
+    """
+    # pyannote's base `Pipeline.__call__` is typed as returning either the
+    # pipeline's own result or an iterator, because it also accepts an iterable
+    # of files. `SpeakerDiarization` returns an `Annotation` (or a
+    # `DiarizeOutput` holding them), and `itertracks` is what makes it one -- so
+    # narrow on that rather than casting the type checker into silence, and say
+    # so plainly if a future pyannote hands back something else. This runs
+    # inside a meeting's post-pass, which happens after the recording has been
+    # consumed and long after the user walked away; a named failure there is
+    # worth much more than an `AttributeError` from the middle of a loop.
+    itertracks = getattr(annotation, "itertracks", None)
+    if itertracks is None:
+        shown = type(annotation if source is None else source).__name__
+        raise RuntimeError(
+            f"pyannote returned {shown}, not an Annotation with itertracks(); "
+            "this adapter cannot read speaker turns from it."
+        )
+
+    # pyannote labels are arbitrary strings (SPEAKER_00, SPEAKER_01, …) and
+    # are not guaranteed to be dense or ordered. Map them to the dense
+    # speaker_<n> ids the rest of the pipeline expects, in first-appearance
+    # order so the numbering is stable and reads naturally in a transcript.
+    ids: dict[str, int] = {}
+    turns: list[DiarTurn] = []
+    for segment, _, label in itertracks(yield_label=True):
+        index = ids.setdefault(label, len(ids))
+        turns.append(
+            DiarTurn(float(segment.start), float(segment.end), f"speaker_{index}")
+        )
+    turns.sort(key=lambda t: t.start)
+    return turns
+
+
 class PyannoteDiarizer:
     """Speaker diarization via pyannote.audio's pretrained pipeline."""
 
@@ -228,36 +321,9 @@ class PyannoteDiarizer:
         waveform = self._torch.from_numpy(buf)
 
         with self._torch.no_grad():
-            annotation = self._pipeline(
+            output = self._pipeline(
                 {"waveform": waveform, "sample_rate": int(sample_rate)},
                 **self._speaker_bounds(),
             )
 
-        # pyannote's base `Pipeline.__call__` is typed as returning either the
-        # pipeline's own result or an iterator, because it also accepts an iterable
-        # of files. `SpeakerDiarization` returns an `Annotation`, and `itertracks`
-        # is what makes it one -- so narrow on that rather than casting the type
-        # checker into silence, and say so plainly if a future pyannote hands back
-        # something else. This runs inside a meeting's post-pass, which happens
-        # after the recording has been consumed and long after the user walked
-        # away; a named failure there is worth much more than an `AttributeError`
-        # from the middle of a loop.
-        if not hasattr(annotation, "itertracks"):
-            raise RuntimeError(
-                f"pyannote returned {type(annotation).__name__}, not an Annotation "
-                "with itertracks(); this adapter cannot read speaker turns from it."
-            )
-
-        # pyannote labels are arbitrary strings (SPEAKER_00, SPEAKER_01, …) and
-        # are not guaranteed to be dense or ordered. Map them to the dense
-        # speaker_<n> ids the rest of the pipeline expects, in first-appearance
-        # order so the numbering is stable and reads naturally in a transcript.
-        ids: dict[str, int] = {}
-        turns: list[DiarTurn] = []
-        for segment, _, label in annotation.itertracks(yield_label=True):
-            index = ids.setdefault(label, len(ids))
-            turns.append(
-                DiarTurn(float(segment.start), float(segment.end), f"speaker_{index}")
-            )
-        turns.sort(key=lambda t: t.start)
-        return turns
+        return turns_from_pipeline_output(output)

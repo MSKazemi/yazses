@@ -1,6 +1,6 @@
 ---
 title: "Handy alternative — YazSes vs Handy for offline speech to text"
-description: "YazSes vs Handy, two free offline open-source dictation tools: Wayland support, voice commands, file and meeting transcription, and where Handy is better."
+description: "YazSes vs Handy, two free offline open-source dictation tools: voice commands, meeting capture, Wayland, file transcription, and where Handy is better."
 ---
 
 # YazSes vs Handy
@@ -8,9 +8,9 @@ description: "YazSes vs Handy, two free offline open-source dictation tools: Way
 **Short answer:** [Handy](https://github.com/cjpais/Handy) is the better choice if
 you want dictation and nothing else, with the smoothest install and a large,
 active community behind it. YazSes is the better choice if you want **voice
-commands**, **offline transcription of existing recordings**, **meeting capture
-with speaker labels**, or **Wayland without extra setup** — or if accessibility features
-are the reason you are looking.
+commands**, **meeting capture with speaker labels**, or **Wayland without extra setup**
+— or if accessibility features are the reason you are looking. Both now transcribe
+existing recordings: Handy added file transcription in v0.10.0.
 
 Both are free, open source, and run entirely offline on Linux, macOS and Windows. YazSes on
 macOS and Windows is in preview: supported, not yet verified on hardware by a person on a
@@ -20,15 +20,20 @@ not which has more stars.
 
 ## At a glance
 
+As of November 2026: checked on 2026-11-20 against Handy's
+[README](https://github.com/cjpais/Handy) and
+[releases](https://github.com/cjpais/Handy/releases) (v0.10.1). Handy changes quickly, so
+verify a row before relying on it.
+
 | | Handy | YazSes |
 |---|---|---|
 | Licence | MIT | Apache-2.0 |
 | Built with | Tauri (Rust) + React | Python |
-| Models | Whisper (GPU when available), Parakeet V3 | faster-whisper (CPU int8); Parakeet optional |
+| Models | Whisper (GPU when available), Parakeet V3, via transcribe.cpp | faster-whisper (CPU int8); Parakeet optional |
 | Activation | Hotkey, or push-to-talk | Hold-to-talk |
 | Linux Wayland | Limited — needs `wtype` or `dotool` | Runtime backend probe picks a working injector; not yet verified on GNOME and KDE hardware ([#643](https://github.com/MSKazemi/yazses/issues/643)) |
 | Voice commands | No | **Yes** (regex grammar → key sequences) |
-| Transcribe existing files | No | **Yes** (`yazses transcribe`) |
+| Transcribe existing files | Yes (since v0.10.0, into its history) | **Yes** (`yazses transcribe`; txt, md, srt, vtt or json, optional speaker labels) |
 | Meeting capture + speaker labels | No | **Yes** (`yazses meeting`) |
 | macOS / Windows | Yes | Yes (preview) |
 
@@ -58,8 +63,9 @@ answer.
   injection backend — `ydotool`, `wtype`, `xdotool`, or clipboard paste — and
   `yazses doctor` reports which one it picked. A hardware-verified record on GNOME and KDE
   Wayland is still to come ([#643](https://github.com/MSKazemi/yazses/issues/643)).
-- **Existing recordings.** `yazses transcribe <file>` turns any audio or video file
-  into text, Markdown, SRT, WebVTT or JSON, optionally with speaker diarization.
+- **Recordings as subtitles or with speakers.** Both tools now transcribe an existing
+  file. `yazses transcribe <file>` writes text, Markdown, SRT, WebVTT or JSON, and can
+  add speaker diarization; Handy's file transcription puts the text into its history.
 - **Whole meetings.** `yazses meeting` captures hands-free and produces a
   speaker-labelled transcript, optionally with minutes written by a local LLM.
 - **Accessibility.** VAD calibration, a dysfluency-friendly mode for stuttered or
@@ -73,8 +79,7 @@ answer.
 If your answer to *"what do you want it to do?"* is **"type what I say"**, Handy is
 an excellent choice and probably the easier one to live with.
 
-If your answer includes *"…and run commands"*, *"…and handle my recordings"*,
-*"…and take my meeting notes"*, or *"…and work for someone who cannot hold a key"*,
+If your answer includes *"…and run commands"*, *"…and take my meeting notes"*, or *"…and work for someone who cannot hold a key"*,
 those are the jobs YazSes was built for, and they are not on Handy's roadmap as far
 as its documentation describes.
 

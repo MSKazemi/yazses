@@ -4985,6 +4985,14 @@ def update(
     status = check_update(current)
     typer.echo(f"Installed:  yazses {current}  (via {status.method})")
 
+    if getattr(status, "managed_by", ""):
+        # A packaged (Microsoft Store) build: not a failed check and not an update to
+        # run. Nothing was asked of the network, and nothing here replaces the package.
+        typer.echo(f"Updates for this build are managed by {status.managed_by}.")
+        typer.echo("YazSes does not check for or install them itself.")
+        _echo_steps(status.steps)
+        return
+
     if status.latest is None:
         # The check needs the network; dictation does not. A blocked check is not
         # a broken YazSes, so say what still works and hand over the manual steps
@@ -6418,6 +6426,7 @@ def facegesture_calibrate(
             )
             raise typer.Exit(1)
 
+    _camera_guard("facegesture calibrate")
     backend = FaceGestureBackend(face_cfg)
     landmarker = backend._build_landmarker()
     if landmarker is None:
@@ -6431,7 +6440,7 @@ def facegesture_calibrate(
     if cap is None:
         if hasattr(landmarker, "close"):
             landmarker.close()
-        typer.echo("Could not open the camera (in use, or no permission).", err=True)
+        typer.echo(_camera_open_failed("facegesture calibrate"), err=True)
         raise typer.Exit(1)
 
     floor = getattr(face_cfg, "confidence_floor", 0.0)
@@ -6658,6 +6667,250 @@ def facegesture_status() -> None:
         typer.echo(f"    {counts}{suffix}")
 
 
+camera_app = typer.Typer(
+    name="camera",
+    help="Switch the camera on or off for every camera feature at once, without restarting.",
+)
+app.add_typer(camera_app, rich_help_panel=_SETUP)
+
+
+#: Seconds the CLI waits for `camera on|off|use`; the IPC default (2 s) is too short.
+_CAMERA_SWITCH_WAIT_S = 15.0
+
+
+def _camera_call(action: str, **params: object) -> dict:
+    """Ask the running daemon for a camera `action`; exits with a hint when it cannot."""
+    platform = get_platform()
+    client = platform.ipc_client_factory(platform.paths.ipc_socket)
+    # A switch waits for the device to be released and reopened (the face loop alone
+    # may take 2 s to let go), so on/off/use get a longer wait than the 2 s default.
+    if action in ("on", "off", "use"):
+        params["wait_s"] = _CAMERA_SWITCH_WAIT_S
+    try:
+        result = client.call("camera", action=action, **params)
+    except IpcTimeoutError:
+        typer.echo(
+            "The daemon is still switching the camera and did not answer in time. "
+            "It is running; check the result with: yazses camera status",
+            err=True,
+        )
+        raise typer.Exit(1)
+    except IpcUnreachableError:
+        typer.echo("Daemon is not running. Start it with: yazses start", err=True)
+        raise typer.Exit(1)
+    except IpcCallError as exc:
+        typer.echo(
+            f"The running daemon could not do that ({exc}). It may be an older version "
+            "without the camera switch; restart it with: yazses restart",
+            err=True,
+        )
+        raise typer.Exit(1)
+    if not isinstance(result, dict) or not result.get("ok"):
+        reason = result.get("reason") if isinstance(result, dict) else None
+        typer.echo(f"Camera: {reason or 'failed'}", err=True)
+        if isinstance(result, dict) and result.get("problem") == "ambiguous":
+            typer.echo("Use the index or the /dev/v4l/by-id path to pick one.", err=True)
+        raise typer.Exit(1)
+    return result
+
+
+def _echo_camera(result: dict) -> None:
+    on = result.get("state") == "on"
+    holders = [str(h) for h in (result.get("holders") or [])]
+    consumers = result.get("consumers") or []
+    typer.echo(f"Camera: {'ON' if on else 'OFF'}")
+    active = result.get("active")
+    if isinstance(active, dict):
+        label = active.get("name") or "unnamed"
+        typer.echo(f"Using: {label} (index {active.get('index')}), chosen with "
+                   "`yazses camera use`; not saved")
+    if not consumers:
+        typer.echo("No camera feature is running, so nothing holds the camera.")
+    elif holders:
+        typer.echo(f"Held by: {', '.join(holders)}")
+    else:
+        typer.echo("YazSes is not holding the camera.")
+    failures = result.get("failures") or {}
+    for name, reason in failures.items():
+        typer.echo(f"  {name}: could not reopen the camera -- {reason}")
+    if on and holders:
+        typer.echo("Before a video call: yazses camera off")
+    elif not on:
+        typer.echo("Voice dictation is unaffected. Turn it back on with: yazses camera on")
+
+
+def _camera_guard(feature: str) -> None:
+    """Refuse to open the camera ourselves while a running daemon holds it (#924).
+
+    A webcam is exclusive, so a calibration that opens its own capture would fail with a
+    bare "could not open the camera". Ask the daemon first: when it holds the device, say
+    so and how to hand it over; when the switch is OFF, say that too (the open can still
+    work, but the user switched it off on purpose). A daemon that is not running, or too
+    old to know the `camera` method, changes nothing.
+    """
+    platform = get_platform()
+    try:
+        client = platform.ipc_client_factory(platform.paths.ipc_socket)
+        result = client.call("camera", action="status")
+    except Exception:  # noqa: BLE001 - no daemon (or an old one) is simply "nothing holds it"
+        return
+    if not isinstance(result, dict) or not result.get("ok"):
+        return
+    holders = [str(h) for h in (result.get("holders") or [])]
+    if holders:
+        typer.echo(
+            f"The running daemon holds the camera ({', '.join(holders)}), so {feature} "
+            "cannot open it.\n"
+            "  Release it:  yazses camera off\n"
+            f"  Run {feature} again, then give it back:  yazses camera on",
+            err=True,
+        )
+        raise typer.Exit(1)
+    if result.get("state") == "off":
+        typer.echo(
+            "Note: the camera is switched OFF for the running daemon (yazses camera off). "
+            f"{feature} opens the camera itself; turn the daemon's features back on "
+            "afterwards with: yazses camera on",
+            err=True,
+        )
+
+
+def _camera_open_failed(feature: str) -> str:
+    """The message for a camera that would not open, with the switch guidance appended."""
+    return (
+        f"Could not open the camera for {feature} (in use, or no permission).\n"
+        "  If YazSes is running, free it first:  yazses camera off  (then  yazses camera on)"
+    )
+
+
+def _camera_save(target: str) -> None:
+    """Write the chosen camera to ``[camera]`` and the three legacy keys, atomically (#924).
+
+    Resolves ``target`` against the cameras the OS lists and writes nothing for a camera
+    that is not there, or that two cameras share a name with, so what is saved is always
+    something that was seen.
+    """
+    from yazses.perception.devices import default_enumerator, resolve_camera
+    from yazses.system.configedit import ConfigChange, set_config_keys_atomic
+
+    resolution = resolve_camera(default_enumerator()(), target)
+    dev = resolution.device
+    if dev is None:
+        typer.echo(f"Camera: {resolution.message()}", err=True)
+        raise typer.Exit(1)
+    stable = dev.paths[0] if dev.paths else dev.name
+    changes = [ConfigChange("camera", "device", stable), ConfigChange("camera", "index", dev.index)]
+    changes += [ConfigChange(sec, "camera_index", dev.index)
+                for sec in ("gaze", "facegesture", "perception")]
+    set_config_keys_atomic(get_platform().paths.config_file, changes)
+    typer.echo(f"Saved camera {dev.name!r} (index {dev.index}) to the config file.")
+
+
+def _camera_clear() -> None:
+    """Forget the saved camera: ``[camera]`` back to unchosen, the three legacy keys back to 0."""
+    from yazses.system.configedit import ConfigChange, set_config_keys_atomic
+
+    changes = [ConfigChange("camera", "device", ""), ConfigChange("camera", "index", -1)]
+    changes += [ConfigChange(sec, "camera_index", 0) for sec in ("gaze", "facegesture", "perception")]
+    set_config_keys_atomic(get_platform().paths.config_file, changes)
+    typer.echo("Cleared the saved camera. Each camera feature uses its own camera_index again "
+               "(reset to 0 in [gaze], [facegesture] and [perception]). Applies at the next start.")
+
+
+@camera_app.command(
+    "status",
+    epilog=_examples("yazses camera status    is the camera on, and which features hold it"),
+)
+def camera_status() -> None:
+    """Show whether the camera is on and which YazSes features hold the device."""
+    _echo_camera(_camera_call("status"))
+
+
+@camera_app.command(
+    "list",
+    epilog=_examples("yazses camera list    every camera with its index and stable path"),
+)
+def camera_list() -> None:
+    """List the cameras this computer has, with the name and path `camera use` accepts."""
+    from yazses.perception.devices import CameraDevice, default_enumerator, format_devices
+
+    platform = get_platform()
+    client = platform.ipc_client_factory(platform.paths.ipc_socket)
+    devices: list[CameraDevice] = []
+    active = None
+    try:
+        reply = client.call("camera", action="list")
+        if isinstance(reply, dict) and reply.get("ok"):
+            for row in reply.get("devices") or []:
+                devices.append(CameraDevice(
+                    int(row["index"]), str(row["name"]), tuple(row.get("paths") or ())
+                ))
+            active = reply.get("active")
+        else:
+            raise IpcUnreachableError("no usable reply")
+    except (IpcUnreachableError, KeyError, TypeError, ValueError):
+        # No daemon: list locally. (Without a device listing this opens each index
+        # briefly, which is harmless while nothing of ours holds the camera.)
+        devices = default_enumerator()()
+    typer.echo(format_devices(devices))
+    if isinstance(active, dict):
+        typer.echo(f"Using: {active.get('name') or 'unnamed'} (index {active.get('index')})")
+    if devices:
+        typer.echo("Pick one with: yazses camera use <name-or-path>")
+
+
+@camera_app.command(
+    "use",
+    epilog=_examples(
+        "yazses camera use 'Logitech C920'    switch every camera feature to that camera, now",
+        "yazses camera use /dev/v4l/by-id/usb-...-video-index0    the stable path from `camera list`",
+    ),
+)
+def camera_use(
+    target: str = typer.Argument("", help="Camera name (or part of it), index, or /dev/v4l/by-id path"),
+    save: bool = typer.Option(
+        False, "--save",
+        help="Also remember the choice in the config file ([camera]), so it applies after a restart.",
+    ),
+    clear: bool = typer.Option(
+        False, "--clear", help="Forget the saved choice; each feature uses its own camera_index again.",
+    ),
+) -> None:
+    """Switch every camera feature to another camera without restarting. Add --save to keep it."""
+    if clear:
+        _camera_clear()
+        return
+    if not target.strip():
+        typer.echo("Give a camera name, index or path (or --clear). See: yazses camera list", err=True)
+        raise typer.Exit(2)
+    if save:
+        _camera_save(target)
+        try:
+            _echo_camera(_camera_call("use", target=target))
+        except typer.Exit:
+            typer.echo("Saved. The daemon was not switched live; it applies at the next start.")
+        return
+    _echo_camera(_camera_call("use", target=target))
+
+
+@camera_app.command(
+    "on",
+    epilog=_examples("yazses camera on    let the enabled camera features have the camera back"),
+)
+def camera_on() -> None:
+    """Switch the camera on: every enabled camera feature reopens the device."""
+    _echo_camera(_camera_call("on"))
+
+
+@camera_app.command(
+    "off",
+    epilog=_examples("yazses camera off    release the camera before a video call"),
+)
+def camera_off() -> None:
+    """Switch the camera off: every camera feature releases the device. Dictation keeps working."""
+    _echo_camera(_camera_call("off"))
+
+
 gaze_app = typer.Typer(name="gaze", help="Aim dictation with your gaze — type into whichever pane you look at.")
 app.add_typer(gaze_app, rich_help_panel=_SETUP)
 
@@ -6714,6 +6967,8 @@ def gaze_calibrate(
         typer.echo(blocked, err=True)
         raise typer.Exit(1)
 
+    _camera_guard("gaze calibrate")
+
     # Auto-install the webcam gaze deps on first run (same path as
     # `yazses features enable gaze`), so calibration is turnkey.
     feat = find_feature(cfg, "gaze")
@@ -6767,6 +7022,11 @@ def gaze_calibrate(
             "Improve lighting / camera framing and retry.",
             err=True,
         )
+        if not samples:
+            typer.echo(
+                "  If the camera would not open: " + _camera_open_failed("gaze calibrate").split("\n", 1)[1].strip(),
+                err=True,
+            )
         raise typer.Exit(1)
 
     try:
@@ -7518,27 +7778,110 @@ def eye_eval(
 
 @model_app.command(
     "list",
-    epilog=_examples("yazses model list    show speech + intent-router models, and which are present"),
+    epilog=_examples(
+        "yazses model list    show every model (speech, VAD, intent router, voice, diarization, gaze)",
+    ),
 )
 def model_list() -> None:
-    """List available models (speech-to-text and SLM) and their status."""
-    from yazses.commands.model_manager import list_models, local_path
-    from yazses.stt.download import WHISPER_MODELS, hub_cache_dir, is_cached
+    """List every model YazSes can use, grouped by kind, with size and on-disk state."""
+    from yazses.models.registry import KINDS, build_registry
+    from yazses.stt.download import hub_cache_dir
 
-    cache = hub_cache_dir()
-    typer.echo("Speech-to-text (`[stt] model`):\n")
-    for name in sorted(WHISPER_MODELS):
-        state = "downloaded" if is_cached(name, cache) else "not downloaded"
-        typer.echo(f"  {name:<24}  [{state}]")
-    typer.echo(f"\n  Cache: {cache}")
-
-    typer.echo("\nIntent routing (`[commands] slm_model_path`):\n")
-    for info in list_models():
-        path = local_path(info.id)
-        status = f"installed: {path}" if path else f"not downloaded ({info.size_mb} MB)"
-        typer.echo(f"  {info.id:<24}  {info.description}")
-        typer.echo(f"  {'':24}  [{status}]")
+    titles = {
+        "stt": "Speech-to-text (`[stt] model`)",
+        "vad": "Voice activity detection (`[meeting] vad_backend`)",
+        "slm": "Intent routing (`[commands] slm_model_path`)",
+        "tts": "Read-Back voice (`[tts]`)",
+        "diarization": "Speaker diarization (`yazses transcribe --download-models`)",
+        "gaze": "Gaze (`[gaze]`)",
+    }
+    entries = build_registry()
+    for kind in KINDS:
+        typer.echo(f"{titles[kind]}:\n")
+        for e in (x for x in entries if x.kind == kind):
+            size = f" (~{e.size_mb} MB)" if e.size_mb else ""
+            if e.state == "present":
+                where = f": {e.paths[0]}" if kind != "stt" and e.paths else ""
+                state = f"downloaded{where}"
+            elif e.state == "bundled":
+                state = "bundled, no download"
+            else:
+                state = f"not downloaded{size}"
+            typer.echo(f"  {e.name:<24}  [{state}]")
+            if kind == "slm":
+                typer.echo(f"  {'':24}  {e.description}")
+        if kind == "stt":
+            typer.echo(f"\n  Cache: {hub_cache_dir()}")
         typer.echo("")
+
+
+def _remove_target_hint(ident: str, entries) -> str:
+    names = [e for e in entries if e.name == ident]
+    if len(names) > 1:
+        return "That name is ambiguous; use one of: " + ", ".join(e.id for e in names)
+    return "Run `yazses model list` for the names (use kind:name, e.g. stt:base.en)."
+
+
+@model_app.command(
+    "remove",
+    epilog=_examples(
+        "yazses model remove stt:base.en    delete a cached speech model",
+        "yazses model remove qwen2.5-0.5b   delete an intent-routing GGUF",
+        "yazses model remove tts:kokoro -y  skip the confirmation",
+    ),
+)
+def model_remove(
+    model_id: str = typer.Argument(..., help="kind:name, or a bare name (see `yazses model list`)."),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Do not ask for confirmation."),
+) -> None:
+    """Delete a downloaded model from disk to free space.
+
+    Only files YazSes itself downloaded are touched, never a path you set in config. A speech
+    model that has a second name (`large`/`large-v3`, `turbo`/`large-v3-turbo`) shares one
+    cache folder, so removing either removes both.
+    """
+    from yazses.models.registry import build_registry, find_entry, remove_entry
+
+    entries = build_registry()
+    entry = find_entry(entries, model_id)
+    if entry is None:
+        typer.echo(f"Unknown model {model_id!r}. {_remove_target_hint(model_id, entries)}", err=True)
+        raise typer.Exit(1)
+    if entry.state == "bundled":
+        typer.echo(f"{entry.id} ships inside its package wheel; there is nothing to remove.", err=True)
+        raise typer.Exit(1)
+    if not entry.paths:
+        typer.echo(f"{entry.id} is not downloaded — nothing to remove.")
+        return
+    mb = entry.disk_bytes / (1024 * 1024)
+    if not yes and not typer.confirm(f"Delete {entry.id} ({mb:.0f} MB) from disk?"):
+        typer.echo("Left it in place.")
+        return
+    try:
+        removed = remove_entry(entry)
+    except OSError as exc:
+        typer.echo(f"Could not remove {entry.id}: {exc}", err=True)
+        raise typer.Exit(1)
+    for p in removed:
+        typer.echo(f"Removed {p}")
+    if entry.kind == "stt" and _daemon_needs_restart_for_model(entry.name):
+        typer.echo("\nThis is the model `[stt] model` selects; re-download it before the next start.")
+
+
+@model_app.command(
+    "disk",
+    epilog=_examples("yazses model disk    how much disk each kind of model uses"),
+)
+def model_disk() -> None:
+    """Show the disk space the downloaded models use, per kind and in total."""
+    from yazses.models.registry import KINDS, build_registry, disk_usage
+
+    entries = build_registry()
+    usage = disk_usage(entries)
+    for kind in KINDS:
+        have = [e for e in entries if e.kind == kind and e.state == "present"]
+        typer.echo(f"  {kind:<12}  {usage[kind] / (1024 * 1024):>9.1f} MB   {len(have)} downloaded")
+    typer.echo(f"  {'total':<12}  {sum(usage.values()) / (1024 * 1024):>9.1f} MB")
 
 
 @model_app.command(
