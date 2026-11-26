@@ -1,5 +1,6 @@
 import subprocess
 
+from yazses.inject.pacing import type_delay_ms, typing_timeout
 from yazses.inject.payload import hide_payload
 
 # xdotool sleeps this long between keystrokes. `type` is given it explicitly;
@@ -38,11 +39,17 @@ def _xdotool_combo(combo: str) -> str:
 
 class XdotoolInjector:
     def inject(self, text: str) -> None:
+        # `[injection] type_delay_ms` (inject/pacing.py) replaces `--delay` for text
+        # only; `key` keeps xdotool's built-in 12 ms. Unset keeps today's 12 exactly.
+        configured = type_delay_ms()
+        delay = _DELAY_MS if configured is None else configured
         with hide_payload():
             subprocess.run(
-                ["xdotool", "type", "--clearmodifiers", "--delay", str(_DELAY_MS), "--", text],
+                ["xdotool", "type", "--clearmodifiers", "--delay", str(delay), "--", text],
                 check=True,
-                timeout=_timeout_for(len(text)),
+                timeout=typing_timeout(
+                    len(text), configured, default_s_per_char=_SECONDS_PER_KEYSTROKE
+                ),
             )
 
     def inject_backspaces(self, count: int) -> None:
