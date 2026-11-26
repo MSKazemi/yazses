@@ -21,7 +21,7 @@ This is the narrowest, most falsifiable follow-on to the existing biosignal ADRs
 | **G1b** runtime gate | [#829 — compose source/integrity/waveform gates](https://github.com/MSKazemi/yazses/issues/829) | Cloud coder + human PR review | M/L | #828 + G0 | Unified fail-closed runtime, source provenance and watchdog tests | **Blocked** |
 | **G2a** field evidence | [#830 — daemon/monitor/field-test parity](https://github.com/MSKazemi/yazses/issues/830) | Cloud coder + human PR review | M | #829 | Identical fake trace admissions, honest usable exposure and voided cues | **Blocked** |
 | **G2b** docs + observability | [#831 — diagnostics and Linux preflight](https://github.com/MSKazemi/yazses/issues/831) | Cloud coder + docs reviewer | S/M | #829, #830 | Privacy-safe docs, diagnostics, release caveats | **Blocked** |
-| **G3** physical qualification | [#832 — Linux first-headset pilot](https://github.com/MSKazemi/yazses/issues/832) | Human with device | Hardware-dependent | G2 passed + physical unit | Real-device field/safety aggregate or explicit blocked record | **Not started** |
+| **G3** physical qualification | [#832 — Linux first-headset pilot](https://github.com/MSKazemi/yazses/issues/832) | Human with device | Hardware-dependent | G2 passed + physical unit | Real-device field/safety aggregate or explicit blocked record, run with the [day-one bench runbook](thinkgear-day-one-bench-runbook.md) and written up in the [report template](thinkgear-first-device-report-template.md) | **Not started** |
 | **G4** claims decision | [#833 — evidence review/release decision](https://github.com/MSKazemi/yazses/issues/833) | Maintainer | S/M | #832 result or blocked record | Dated support/no-support decision, honest technical docs | **Not started** |
 
 **Task size (S/M/L)** is a rough prioritization heuristic, not a time estimate or delivery commitment. No device delivery date is assumed, and none of the tasks can justifiably be marked tested/complete because documentation exists.
@@ -104,6 +104,8 @@ When #827 records a maintainer-approved decision:
 ## Real hardware handoff and release-governance boundaries
 
 The coding agent stops after tests and a local setup guide. Only a person with the device can pair it and run `yazses biosignal check-source`, monitor, field-test and live shutdown stress cases. Record actual version, hardware and OS, measured sample coverage, counted false activations, hit rate with intervals, and failures. Existing [validation protocol](../specs/biosignal-validation-protocol.md) is canonical and must not be rewritten to make a result pass.
+
+The human steps are sequenced in the [day-one bench runbook](thinkgear-day-one-bench-runbook.md) (added 2026-11-13: Linux pairing and RFCOMM hypotheses, the verified `yazses biosignal` commands, stop criteria and the CLI gaps found), and the result is written up in the [first-device report template](thinkgear-first-device-report-template.md), which maps one-to-one to the three committed measures. Neither document amends the protocol.
 
 The earliest defensible claim after a successful pilot is **"tested with one specific unit/configuration under the described conditions; experimental"**. If the serial transport is absent, contact metadata never turns healthy, or safety stress fails, the right output is **"not qualified / inconclusive"**. Never change ADR-v2-152 to Accepted solely on a single-device run.
 
