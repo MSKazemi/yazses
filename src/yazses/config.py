@@ -314,6 +314,22 @@ class InjectionConfig:
     # python3-pyatspi), else a best-effort X11 focus check. Only acts on a *confident* "no
     # target", so it never drops normal dictation.
     target_guard: str = "clipboard"
+    # Typing speed: milliseconds per typed character for the keystroke backends. -1
+    # (default) keeps each backend's own pacing, which is what every install had before
+    # this key: xdotool `--delay 12`, ydotool 1.x `-d 6 -H 6`, ydotool 0.1.x
+    # `--key-delay 6`, wtype no `-d` (its own 0). A value 0-200 replaces it: xdotool
+    # `type --delay N`; ydotool 1.x splits N into key delay + hold (`-d ceil(N/2)
+    # -H floor(N/2)`, so 12 is today's 6/6); ydotool 0.1.x, which has no hold, gets
+    # `--key-delay ceil(N/2)`; wtype `-d N` (wtype refuses `-d 0`, so 0 sends no `-d`,
+    # its own unpaced default). Applies to typed text only -- key combos, backspaces
+    # and the clipboard paste keep their pacing -- and the portal and Windows/macOS
+    # backends ignore it. Pacing is nearly all of the time after the decode: at 12 ms
+    # a 150-word dictation takes ~9 s to appear, and halving the delay halves that.
+    # The trade-off: some applications, toolkits and remote sessions drop or reorder
+    # keys when they arrive too fast, worst at 0. Try 4-6 and check that a long
+    # dictation arrives intact before going lower. Outside -1..200 -> a warning and
+    # the default.
+    type_delay_ms: int = field(default=-1, metadata={"min": -1, "max": 200})
 
 
 @dataclass
