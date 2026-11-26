@@ -191,6 +191,12 @@ class HotkeyConfig:
     # it forces command mode: whatever you say is parsed as a command and never
     # typed as literal text (an unrecognised phrase is ignored, not inserted).
     command_key: str = ""
+    # "hold" (default) = hold-to-talk: hold the key while you speak, release to type.
+    # "toggle" = press once to start dictating, press again to stop and type -- for anyone
+    # for whom holding a key is hard or painful. [audio] max_record_seconds still ends a
+    # recording left running. Applies to the dictation key only; the command key and
+    # [autostop] tap-to-latch stay hold-based (autostop is not used while this is "toggle").
+    mode: str = "hold"               # hold | toggle
 
 
 @dataclass

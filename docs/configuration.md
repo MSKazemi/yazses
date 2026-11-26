@@ -50,6 +50,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `source` | str | `"default"` | ⚠️ inert |  |
 | `evdev_device` | str | `""` | ⚠️ inert |  |
 | `command_key` | str | `""` |  | Optional dedicated *command* key. Empty = single-key mode (commands are auto-detected on the dictation key). When set to a different key, holding it forces command mode: whatever you say is parsed as a command and never typed as literal text (an unrecognised phrase is ignored, not inserted). |
+| `mode` | str | `"hold"` |  | hold \| toggle |
 
 ## `[audio]`
 
