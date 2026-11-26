@@ -120,6 +120,20 @@ def despeak_ref(raw: str) -> str:
     return text
 
 
+def split_ref_words(ref: str) -> list[str]:
+    """The words of a ref, split at the separators a user speaks. Pure.
+
+    The inverse direction of :func:`despeak_ref`: ``fix-tray-crash`` → ``["fix", "tray",
+    "crash"]``, ``feature/login_form`` → ``["feature", "login", "form"]``. Reads the same
+    :data:`_SPOKEN_SEPARATORS` table, so the words a branch is *heard* as and the
+    punctuation a spoken ref is *typed* as can never disagree. Empty pieces are dropped.
+    """
+    text = ref or ""
+    for _word, symbol in _SPOKEN_SEPARATORS:
+        text = text.replace(symbol, " ")
+    return text.split()
+
+
 def ref_src_for_push(raw: str) -> str:
     """The push utterance with courtesy and force words removed, refs de-spoken.
 

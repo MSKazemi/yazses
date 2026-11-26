@@ -352,7 +352,19 @@ class MacosHotkey:
     def _press(self) -> None:
         t = time.monotonic()
         self._detector.on_press(t)
-        if not self._recording and self._detector.check(t):
+        if self._recording:
+            return
+        if not self._produces_char:
+            # A modifier types nothing, so there is no tap to tell from a hold: start on
+            # key-down, as the evdev and Windows backends do. Waiting for the threshold
+            # here could not work: flagsChanged has no auto-repeat, so `check()` only ever
+            # ran at the instant of the press, where no threshold above 0 has elapsed.
+            # In toggle mode (#869) starting on key-down is also what lets a quick tap
+            # count.
+            self._recording = True
+            self._on_hold_start(0)
+            return
+        if self._detector.check(t):
             self._recording = True
             leaked = self._detector.leaked_count if self._produces_char else 0
             self._on_hold_start(leaked)

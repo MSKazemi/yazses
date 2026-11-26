@@ -8,7 +8,12 @@ import weakref
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from yazses.platform.base import LINUX_PLATFORM_NAME, ClickObserverFactory, Platform
+from yazses.platform.base import (
+    LINUX_PLATFORM_NAME,
+    ClickObserverFactory,
+    FocusedCwdFactory,
+    Platform,
+)
 from yazses.platform.linux.paths import build_paths
 from yazses.pointer.base import PointerSink, PointerUnsupportedError
 
@@ -138,6 +143,25 @@ def _click_observer_route(
     return None, HEADLESS_CLICK_REASON
 
 
+def _focused_cwd_route(environ: Mapping[str, str] | None = None) -> FocusedCwdFactory | None:
+    """The ``focused_cwd_factory`` for this session: X11 only, None elsewhere.
+
+    The same session classifier as the click observer, for the same reason: on Wayland
+    xdotool reaches only XWayland, so a "focused" PID would be some X client's, not the
+    window the user is typing in.
+    """
+    from yazses.gaze.target_semantics import classify_session
+
+    session = classify_session(os.environ if environ is None else environ)
+    return _make_focused_cwd if session == "x11" else None
+
+
+def _make_focused_cwd() -> Any:
+    from yazses.platform.linux.focused_cwd import LinuxFocusedCwd
+
+    return LinuxFocusedCwd()
+
+
 def _make_click_observer() -> Any:
     from yazses.platform.linux.click_observer_x11 import build_x11_click_observer
 
@@ -203,6 +227,8 @@ def build_platform() -> Platform:
         # with the reason when there is no desktop session or no pyatspi binding.
         accessibility_factory=accessibility_factory,
         accessibility_unavailable_reason=accessibility_reason,
+        # [context] use_git: X11 only (xdotool's focused PID, then /proc/<pid>/cwd).
+        focused_cwd_factory=_focused_cwd_route(),
     )
 
 

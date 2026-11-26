@@ -132,8 +132,13 @@ client is in [Connect YazSes to an MCP client](../how-to/connect-mcp-client.md).
 
 ## Not released yet
 
-One more piece is built but not yet in a release:
+Two more pieces are built but not yet in a release:
 
+- **Project and branch hints**: with `[context] enabled = true` and `use_git = true`, the
+  name of the git repository you are typing into and the words of its branch
+  (`fix-tray-crash` → "fix", "tray", "crash") bias recognition. They are read from the
+  `.git` files on your machine, without running `git`, and never stored or logged. Linux
+  X11 sessions only for now; elsewhere the setting does nothing.
 - **One-click MCP**: install the MCP server from a client's extension screen or the MCP
   registry, and an `ask_human` that stops listening when you stop talking
   ([ADR-032](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-032-mcp-discoverability.md)).

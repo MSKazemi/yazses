@@ -260,6 +260,16 @@ def apply_injection_config(injection: object) -> None:
     # backend the daemon will not choose.
     consent = (getattr(injection, "portal_consent", "") or "ask").strip().lower()
     os.environ["YAZSES_PORTAL_CONSENT"] = consent
+    # `[injection] type_delay_ms`, read by the typing backends (inject/pacing.py).
+    # The default (-1, "each backend's own pacing") removes the variable rather than
+    # writing it, so a config that turns the key back off is honoured on reload.
+    from yazses.inject.pacing import ENV_VAR, parse_type_delay
+
+    delay = parse_type_delay(getattr(injection, "type_delay_ms", -1))
+    if delay is None:
+        os.environ.pop(ENV_VAR, None)
+    else:
+        os.environ[ENV_VAR] = str(delay)
 
 
 def describe_injector(injector: object) -> str:
