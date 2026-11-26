@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.52.0] - 2026-11-26
+
 ### Fixed — PyAV raised to 18.1.1: 18.1.0 was withdrawn for memory corruption when decoding some audio
 
 The lock file, and so the Windows build, and the Flatpak module list pinned PyAV (`av`) 18.1.0, which PyPI has yanked: "Memory corruption (double free) when decoding audio with custom channel layouts. Upgrade to 18.1.1". PyAV decodes the files that `yazses transcribe` and the MCP transcribe tool read. The floor is now `av>=18.1.1` (still below 19), and both pins moved to 18.1.1. The reason for the yank is upstream's; the crash was not reproduced here.
