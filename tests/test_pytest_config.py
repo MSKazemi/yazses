@@ -114,14 +114,14 @@ _HANG_RUNS = {
 }
 
 
-@pytest.mark.timeout(120)
+@pytest.mark.timeout(240)
 @pytest.mark.parametrize(
     "extra, expected, carries_on", list(_HANG_RUNS.values()), ids=list(_HANG_RUNS)
 )
 def test_a_hung_test_comes_back_as_a_failure(
     tmp_path: pathlib.Path, extra: list[str], expected: str, carries_on: bool
 ) -> None:
-    """Run a test that blocks for a minute under this repository's config, with the
+    """Run a test that blocks for three minutes under this repository's config, with the
     ceiling lowered to two seconds, and check that pytest-timeout ends it.
 
     The child pytest is given this repository's `pyproject.toml` with `-c`, so it runs
@@ -135,7 +135,12 @@ def test_a_hung_test_comes_back_as_a_failure(
     if "thread" not in extra and not hasattr(signal, "SIGALRM"):
         # Windows: the default method there is already the thread one, covered above.
         pytest.skip("the signal method needs SIGALRM, which this OS does not have")
-    hang_seconds = 60
+    # The hang only has to outlast the child's own startup. A child pytest costs about
+    # 3-10 s of imports on an idle machine, and a full `-n auto` run on a busy one has been
+    # seen to take it past 55 s, 65 s and 90 s (one `subprocess.TimeoutExpired`), so a hang
+    # of 60 s left no margin. The hang is cut at 2 s when the config works, so a long one
+    # costs nothing; it is only ever waited out when pytest-timeout is broken.
+    hang_seconds = 180
     (tmp_path / "test_hang.py").write_text(
         textwrap.dedent(
             f"""

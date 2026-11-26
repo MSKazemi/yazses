@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — tests: `test_a_hung_test_comes_back_as_a_failure` no longer fails when a full `-n auto` run starves its child pytest
+
+The test starts a child pytest and gave it a 60 s hang with a 90 s subprocess ceiling. The child's own startup is the slow part: on a busy machine it was seen at 55 s, 65 s and past 90 s, so the `xdist-thread` case raised `subprocess.TimeoutExpired` and the `serial-signal` case failed its `elapsed < hang` check although pytest-timeout had worked. The hang is now 180 s (it is cut at 2 s whenever the config works, so this costs nothing) and the test's own ceiling 240 s. Test-only; no product change.
+
 ### Fixed — biosignal: `field-test --minutes` below the minimum silently ran the full protocol and cued switches that were off ([#888](https://github.com/MSKazemi/yazses/issues/888))
 
 A `--minutes` value too short for the gesture phases' cues (about 5.3 min with only `double_blink` on) made scaling fail, and the fallback ran the module's standard protocol: the full length, plus squeeze and jaw-clench phases whose switches were off, which counted guaranteed misses against the user. The note it printed ("This build cannot change the length of the test") was wrong too. Such a value is now refused before the source is opened, with the shortest accepted `--minutes` for the enabled switches named in the message, and every accepted length keeps the switch filter. Tests pin the boundary.
