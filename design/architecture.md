@@ -766,6 +766,7 @@ reviewable config diffs.
 | File | Role |
 |---|---|
 | `hold_detector.py` | State machine: key-held-for-≥N-ms fires `on_hold_start(leaked_count)` / `on_hold_end()` |
+| `toggle.py` | Pure press-to-start / press-to-stop latch for `[hotkey] mode = "toggle"` (#869). With it on, the daemon wires the dictation backend to `_on_toggle_press` / `_on_toggle_release`, which call the ordinary hold handlers; a release never ends anything, and a watcher thread ends a latched recording at `[audio] max_record_seconds` |
 
 **Optional dedicated command key.** When `[hotkey] command_key` is set (≠ the dictation
 key), the daemon builds a *second* hotkey backend (`_make_command_hotkey`) and runs it in

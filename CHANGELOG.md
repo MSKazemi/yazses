@@ -10,6 +10,18 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 New `yazses.models.registry` (pure, imports nothing heavy) describes every model kind (speech-to-text, VAD, SLM, TTS voice, diarization, gaze) with name, approximate size, on-disk state and owning feature, built over the existing sources without changing them. `yazses model list` now shows all kinds; `yazses model remove <id>` (`kind:name` or an unambiguous bare name; asks first, `--yes` skips) and `yazses model disk` are new. `model download` is unchanged. The registry also holds `ensure_model(kind, name, policy, is_cached=, download=)` with policy `auto|ask|never`: a pure function that calls the injected `download` only under `auto` and otherwise returns a message naming what is missing, its size and the manual route. Nothing calls it yet, and the `[stt] download` config key that would set the policy is **not** added: it is an L3 change awaiting owner sign-off (ADR-030). Until then the behaviour is `auto`, exactly as today. No new network path (ADR-019 unchanged).
 
+### Added — toggle dictation: press once to start, press again to stop (#869)
+
+Holding the hotkey for a whole sentence is hard or painful for some people with motor
+disabilities. `[hotkey] mode = "toggle"` makes the dictation key a latch: the first press
+starts recording, the second press stops it and the text is typed as on a hold-to-talk
+release. Key auto-repeat never stops or restarts a recording, a press while the previous
+dictation is still being transcribed or typed is ignored, a recording that ends some other
+way (microphone lost) resets the latch, and `[audio] max_record_seconds` ends a recording
+left running. The command key stays hold-to-talk and is ignored while a toggle dictation is
+open; `[autostop]` is not used in toggle mode. The default stays `mode = "hold"`, so an
+existing install is unchanged. The latch is a pure module, `yazses.hotkeys.toggle`.
+
 ### Added — `[context] use_git`: the focused repository's name and branch as recognition hints
 
 With `[context] enabled = true` and the new `use_git = true` (off by default, and off even when `[context]` is on), the git repository behind the focused window lends its name, its branch and the branch's words (`fix-tray-crash` → "fix", "tray", "crash") to Whisper's `initial_prompt`, within `max_terms`. The repository is found by reading `.git`, `HEAD` and `gitdir:`/`commondir` pointer files (detached HEAD, linked worktrees and submodules handled); no `git` binary runs. The branch is split with the same spoken-separator table `gitvoice` uses. The focused directory comes from a new `FocusedCwdProvider` platform seam: Linux on an X11 session (the focused window's PID via `xdotool`, then `/proc/<pid>/cwd`, following the youngest child so a terminal answers for its shell); Wayland, macOS, Windows and the BSDs have no provider yet and the setting does nothing there. The path, repository name and branch are used for one decode and never stored or logged.
