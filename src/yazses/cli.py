@@ -8665,7 +8665,7 @@ def biosignal_calibrate(
     ),
 )
 def biosignal_monitor(
-    source: str = typer.Option("", "--source", help="Watch this source instead of [biosignal] source (synthetic | file:<path> | brainflow:<id>[:<port>])."),
+    source: str = typer.Option("", "--source", help="Watch this source instead of [biosignal] source (synthetic | file:<path> | brainflow:<id>[:<port>] | thinkgear:<port>)."),
     seconds: float = typer.Option(0.0, "--seconds", min=0.0, help="Stop after this long (0 = until Ctrl-C)."),
     interval: float = typer.Option(1.0, "--interval", min=0.1, max=60.0, help="Seconds between status lines."),
     emg: bool | None = typer.Option(None, "--emg/--no-emg", help="Override [biosignal] emg for this run."),
@@ -8745,7 +8745,7 @@ def biosignal_report(
 )
 def biosignal_record(
     out: str = typer.Option(..., "--out", "-o", help="File to write: .csv (streamed) or .npz."),
-    source: str = typer.Option("", "--source", help="Record this source instead of [biosignal] source (synthetic | file:<path> | brainflow:<id>[:<port>])."),
+    source: str = typer.Option("", "--source", help="Record this source instead of [biosignal] source (synthetic | file:<path> | brainflow:<id>[:<port>] | thinkgear:<port>)."),
     seconds: float = typer.Option(30.0, "--seconds", min=1.0, max=86400.0, help="How much signal to record."),
     force: bool = typer.Option(False, "--force", help="Overwrite --out (and --truth-out) if it exists."),
     seed: int = typer.Option(0, "--seed", min=0, help="Synthetic source only: seed for the scripted gestures and noise."),
@@ -8776,7 +8776,7 @@ def biosignal_record(
     ),
 )
 def biosignal_field_test(
-    source: str = typer.Option("", "--source", help="Test this source instead of [biosignal] source (synthetic | file:<path> | brainflow:<id>[:<port>])."),
+    source: str = typer.Option("", "--source", help="Test this source instead of [biosignal] source (synthetic | file:<path> | brainflow:<id>[:<port>] | thinkgear:<port>)."),
     minutes: float = typer.Option(0.0, "--minutes", min=0.0, max=120.0, help="Stretch or shrink the test to about this long (0 = the standard length)."),
     as_json: bool = typer.Option(False, "--json", help="Print one JSON object instead of text."),
     out: str = typer.Option("", "--out", "-o", help="Also write the counts to this JSON file (owner-only; never overwrites)."),
