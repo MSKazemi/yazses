@@ -25,6 +25,7 @@ SECTION_NAMES: frozenset[str] = frozenset({
     "brailleout",
     "breath",
     "bridge",
+    "camera",
     "casetransform",
     "checkdigit",
     "chords",

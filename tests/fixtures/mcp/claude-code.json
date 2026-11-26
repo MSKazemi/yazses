@@ -1,0 +1,16 @@
+{
+  "client": "Claude Code",
+  "client_version": "2.1.329",
+  "recorded": "2026-11-20",
+  "evidence": "observed",
+  "how": "claude -p --strict-mcp-config --mcp-config <temp file> against a throwaway logging stdio server; the user's own MCP configuration was not read or changed. Frames copied verbatim from the log.",
+  "source": "https://code.claude.com/docs/en/mcp",
+  "era": "dual",
+  "accepts_versions": ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"],
+  "frames": [
+    {"jsonrpc": "2.0", "id": "server-discover-probe-1", "method": "server/discover", "params": {"_meta": {"io.modelcontextprotocol/protocolVersion": "2026-07-28", "io.modelcontextprotocol/clientInfo": {"name": "claude-code", "title": "Claude Code", "version": "2.1.329", "description": "Anthropic's agentic coding tool", "websiteUrl": "https://claude.com/claude-code"}, "io.modelcontextprotocol/clientCapabilities": {"roots": {"listChanged": true}, "elicitation": {"form": {}, "url": {}}, "extensions": {"io.modelcontextprotocol/tasks": {}}}}}},
+    {"method": "initialize", "params": {"protocolVersion": "2025-11-25", "capabilities": {"roots": {"listChanged": true}, "elicitation": {"form": {}, "url": {}}}, "clientInfo": {"name": "claude-code", "title": "Claude Code", "version": "2.1.329", "description": "Anthropic's agentic coding tool", "websiteUrl": "https://claude.com/claude-code"}}, "jsonrpc": "2.0", "id": 0},
+    {"jsonrpc": "2.0", "method": "notifications/initialized"},
+    {"method": "tools/list", "jsonrpc": "2.0", "id": 1}
+  ]
+}

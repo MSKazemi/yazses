@@ -73,10 +73,18 @@ def build_perception_source(
 
     index = _int(getattr(config, "camera_index", 0), default=0)
     fps = min(MAX_FPS, max(MIN_FPS, _int(getattr(config, "fps", DEFAULT_FPS), DEFAULT_FPS)))
+    # The index is a one-slot box so `yazses camera use` can re-point the next open
+    # without touching config; the first open still uses `[perception] camera_index`.
+    box = [index]
+
+    def _set_index(value: int) -> None:
+        box[0] = value
+
     return SharedPerceptionSource(
-        capture_factory=lambda: open_capture(index),
+        capture_factory=lambda: open_capture(box[0]),
         processor_factory=build_processor,
         interval_s=1.0 / fps,
+        index_setter=_set_index,
     )
 
 

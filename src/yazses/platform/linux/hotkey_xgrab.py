@@ -145,7 +145,15 @@ class X11GrabHotkey:
             self._press_gen += 1
             if self._produces_char:
                 self._leaked_count += 1
-            delay = self._threshold_ms / 1000.0
+                delay = self._threshold_ms / 1000.0
+            else:
+                # A modifier types nothing, so there is no tap to tell from a hold: start
+                # at once, as the evdev and Windows backends do. Waiting out the threshold
+                # only clipped the first words of speech, and in toggle mode (#869) it
+                # made every press last hold_threshold_ms to count. Still on the Timer
+                # thread, so opening the microphone never parks the X listener, and
+                # `_handle_release` runs a start this Timer has not reached yet.
+                delay = 0.0
             self._timer = threading.Timer(delay, self._fire_hold_start, args=(self._press_gen,))
             self._timer.start()
         finally:
@@ -156,6 +164,13 @@ class X11GrabHotkey:
             return
         try:
             self._cancel_timer()
+            if (not self._produces_char and self._press_time is not None
+                    and not self._recording):
+                # A quick tap of a modifier whose zero-delay Timer has not run yet: the
+                # tap still counts. Start here, under the lock, then end below; the late
+                # Timer then finds no press and does nothing.
+                self._recording = True
+                self._on_hold_start(0)
             was = self._recording
             self._recording = False
             self._press_time = None
