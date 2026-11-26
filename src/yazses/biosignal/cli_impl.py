@@ -746,15 +746,17 @@ def run_monitor(
         _warn(f"Source {spec!r} is not available: {getattr(src, 'last_error', '') or 'no data'}")
         src.stop()
         return UNUSABLE
-    # The same stream-integrity guard the daemon wraps every source in (runner.py). The
-    # arrival-rate check is for live hardware only; synthetic and file sources are paced
-    # by the harness. The pipeline reads ``parts.quality`` on every block, so setting it
-    # here, before the first block, is enough.
-    from yazses.biosignal.integrity import IntegrityGate, IntegrityGuard
+    # The same guarded source and event gate the daemon builds (source_gates, ADR-v2-155):
+    # the stream-integrity guard (arrival-rate check for live hardware only; synthetic and
+    # file sources are paced by the harness) and, for a source that reports its own health
+    # (ThinkGear), its per-block veto. The pipeline reads ``parts.quality`` on every block,
+    # so setting it here, before the first block, is enough.
+    from yazses.biosignal import source_gates
 
-    guard = IntegrityGuard(src, check_arrival_rate=_scheme(spec) not in ("synthetic", "file"))
+    guard = source_gates.guard_source(src, spec)
     pipeline, parts, ledger = _build_pipeline(bio, src, sw, data_dir)
-    parts.quality = IntegrityGate(guard, parts.quality)
+    parts.quality = source_gates.compose_quality_gate(guard, parts.quality, spec)
+    shows_health = source_gates.needs_source_health(src, spec)
     _say(f"Monitoring {spec}  (fs {src.fs:g} Hz, {len(src.channels)} channels; detectors: "
          f"{sw.names()}).  Ctrl-C to stop."
          + ("  Demo gestures are scripted every 8 s." if demo else ""))
@@ -765,7 +767,8 @@ def run_monitor(
     counts: dict[Any, int] = {}
     started = time.monotonic()
     state: dict[str, Any] = {"next": started + max(interval, 0.1), "overall": "", "blocks": 0,
-                             "dropped": 0, "shown": "", "integrity": (False, 0)}
+                             "dropped": 0, "shown": "", "integrity": (False, 0),
+                             "health": None}
     # What the pipeline did with each event, newest last. Used unless the pipeline can list
     # its own recent events itself.
     local_recent: list[tuple[float, str, bool, str]] = []
@@ -787,9 +790,28 @@ def run_monitor(
             for line in integrity_lines(integ):
                 _say(line)
 
+    def check_source_health(block: Any) -> None:
+        # Print the source's own verdict when it changes: a reason code and its plain
+        # meaning, never a value from the signal, a port or an address.
+        if not shows_health:
+            return
+        health = guard.health_for(block)
+        key = None if health is None else (bool(health.trusted), health.reason.value)
+        if key == state["health"]:
+            return
+        state["health"] = key
+        if health is None:
+            _say("  Source health: events HELD (unknown provenance)")
+        elif health.trusted:
+            _say("  Source health: trusted")
+        else:
+            _say(f"  Source health: events HELD ({health.reason.value}: "
+                 f"{health.reason.describe()})")
+
     def on_result(block: Any, result: Any) -> None:
         state["blocks"] += 1
         check_integrity()
+        check_source_health(block)
         for event in result.events:
             counts[event.kind] = counts.get(event.kind, 0) + 1
             _say("  " + format_event(event))
@@ -1680,15 +1702,24 @@ def run_field_test(
         _warn(f"Cannot open source {spec!r}: {exc}")
         return UNUSABLE
     sw = switches_from(bio)
-    src.start()
+    # The same guarded source and event gate the daemon and monitor build (source_gates,
+    # ADR-v2-155), so the test scores only what the daemon would admit: a block the stream
+    # guard or the source's own health refuses is BAD, which FieldTestSession leaves out of
+    # usable exposure and uses to void the cues it overlaps. Started once, through the guard.
+    from yazses.biosignal import source_gates
+
+    guard = source_gates.guard_source(src, spec)
+    guard.start()
     try:
-        if getattr(src, "available", True) is False or not src.fs:
+        if getattr(guard, "available", True) is False or not guard.fs:
             _warn(f"Source {spec!r} is not available: "
-                  f"{getattr(src, 'last_error', '') or 'no data'}")
+                  f"{getattr(guard, 'last_error', '') or 'no data'}")
             return UNUSABLE
 
         def make_pipeline(_source: Any = None) -> Any:
-            return _build_pipeline(bio, src, sw, data_dir)[0]
+            pipeline, parts, _ledger = _build_pipeline(bio, guard, sw, data_dir)
+            parts.quality = source_gates.compose_quality_gate(guard, parts.quality, spec)
+            return pipeline
 
         protocol, total, note = _scaled_protocol(fieldtest, minutes, sw)
         session_kwargs: dict[str, Any] = {}
@@ -1698,7 +1729,9 @@ def run_field_test(
         if budget > 0:
             session_kwargs["max_cancelled_per_hour"] = budget   # judge against YOUR budget
         try:
-            session = fieldtest.FieldTestSession(src, make_pipeline, **session_kwargs)
+            # The guarded source, never the bare one: the loop below feeds blocks itself,
+            # but a session's run() reads whatever source it holds.
+            session = fieldtest.FieldTestSession(guard, make_pipeline, **session_kwargs)
         except (ValueError, TypeError) as exc:
             _warn(f"Cannot start the field test on this source: {exc}")
             return UNUSABLE
@@ -1722,13 +1755,13 @@ def run_field_test(
                     why = "the source delivered too little data"
                     break
                 try:
-                    block = src.read()
+                    block = guard.read()
                 except EOFError:
                     why = "the recording ended"
                     break
                 if block is None:
-                    if getattr(src, "available", True) is False:
-                        why = str(getattr(src, "last_error", "") or "the source went away")
+                    if getattr(guard, "available", True) is False:
+                        why = str(getattr(guard, "last_error", "") or "the source went away")
                         break
                     time.sleep(0.005)
                     continue
@@ -1736,7 +1769,7 @@ def run_field_test(
         except KeyboardInterrupt:
             why = "stopped early"
     finally:
-        src.stop()
+        guard.stop()
 
     try:
         report = session.result()
