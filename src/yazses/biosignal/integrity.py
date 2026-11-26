@@ -66,6 +66,13 @@ is a drop-in for ``PipelineParts.quality``: it wraps the real quality monitor an
 ``BiosignalPipeline._quality_gate`` closes — and releases a held squeeze — with **no change
 to the pipeline**. A block the gate has never seen (unknown provenance) counts as closed.
 
+A source that reports its own per-read health (today only ThinkGear, ADR-v2-155) exposes
+``health_for(block)``. The guard asks it at the one point where it knows both the block the
+source returned and the block it emits (the same one, or a sanitized copy), and records the
+verdict beside its bounded identity map; :meth:`IntegrityGuard.health_for` returns it only
+for a block the guard itself emitted. For every other source nothing is asked and the
+answer is ``None``. :mod:`yazses.biosignal.source_gates` turns that into an event veto.
+
 ## Honesty about the thresholds
 
 Every numeric default below is an engineering choice with its reasoning next to it. None
@@ -622,7 +629,8 @@ class IntegrityGuard:
         self._last_arrival: float | None = None
         self._arrivals: deque[tuple[float, int]] = deque()
         self._arrival_n = 0
-        self._emitted: deque[tuple[SampleBlock, bool]] = deque(maxlen=_PROVENANCE_DEPTH)
+        # (emitted block, gate closed for it, the source's own health verdict or None)
+        self._emitted: deque[tuple[SampleBlock, bool, Any]] = deque(maxlen=_PROVENANCE_DEPTH)
 
     # ---- BlockSource --------------------------------------------------------
 
@@ -653,7 +661,7 @@ class IntegrityGuard:
             self._check_arrival(now, verdict.block)
             # An arrival violation found on this block closes the gate for it, too.
             closed = verdict.gate_closed or self.checker.gate_closed
-            self._emitted.append((verdict.block, closed))
+            self._emitted.append((verdict.block, closed, self._source_health(raw)))
         return verdict.block
 
     def stop(self) -> None:
@@ -680,10 +688,19 @@ class IntegrityGuard:
     def gate_closed_for(self, block: SampleBlock) -> bool:
         """The gate as it stood for ``block`` (by identity). A block this guard did not
         emit recently has unknown provenance and counts as closed: fail closed."""
-        for emitted, closed in reversed(self._emitted):
+        for emitted, closed, _health in reversed(self._emitted):
             if emitted is block:
                 return closed
         return True
+
+    def health_for(self, block: SampleBlock) -> Any:
+        """The inner source's own health verdict for the read that produced ``block`` (by
+        identity, also when the guard emitted a sanitized copy), or ``None``: for a block
+        this guard did not emit recently, and for every source that reports no health."""
+        for emitted, _closed, health in reversed(self._emitted):
+            if emitted is block:
+                return health
+        return None
 
     def __getattr__(self, name: str) -> Any:
         # Only reached for attributes the guard does not have itself.
@@ -696,6 +713,19 @@ class IntegrityGuard:
     def _refresh_declared(self) -> None:
         self.fs = float(getattr(self._inner, "fs", 0.0) or 0.0)
         self.channels = tuple(getattr(self._inner, "channels", ()) or ())
+
+    def _source_health(self, raw: SampleBlock) -> Any:
+        # Asked only of a source that offers it (looked up on the type, so a forwarding
+        # wrapper cannot fake it); a lookup that raises is recorded as no verdict, which a
+        # health gate treats as untrusted.
+        lookup = getattr(type(self._inner), "health_for", None)
+        if not callable(lookup):
+            return None
+        try:
+            return self._inner.health_for(raw)  # type: ignore[attr-defined]
+        except Exception:
+            log.debug("source health lookup failed; recorded as unknown", exc_info=True)
+            return None
 
     def _check_declared(self, block: SampleBlock) -> None:
         problems = []
