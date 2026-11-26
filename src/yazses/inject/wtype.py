@@ -1,5 +1,6 @@
 import subprocess
 
+from yazses.inject.pacing import type_delay_ms, typing_timeout
 from yazses.inject.payload import hide_payload
 
 # wtype resolves `-M`/`-m` against a fixed table and exits 1 on anything else
@@ -65,10 +66,28 @@ def wtype_key_argv(keys: list[str]) -> list[str]:
     return args
 
 
+def wtype_type_argv(text: str, delay_ms: int | None) -> list[str]:
+    """``wtype`` argv typing *text*, paced by ``[injection] type_delay_ms``.
+
+    wtype's ``-d TIME`` is "sleep for TIME milliseconds between keystrokes when typing
+    texts ... default 0" (upstream man/wtype.1), and it applies to the text arguments
+    *after* it, so it goes before ``--``. Upstream main.c refuses ``-d 0`` outright
+    (``delay_ms <= 0`` -> "Invalid sleep time", exit 1), so 0 -- and the unset default
+    -- send no ``-d`` at all, which is wtype's own 0 ms and exactly today's argv.
+    """
+    if delay_ms:
+        return ["wtype", "-d", str(delay_ms), "--", text]
+    return ["wtype", "--", text]
+
+
 class WtypeInjector:
     def inject(self, text: str) -> None:
+        delay = type_delay_ms()
+        # Unpaced wtype has always had a flat 10 s; a configured delay scales it so a
+        # slow setting cannot time out mid-string and trigger a second, pasted copy.
+        timeout = 10.0 if not delay else typing_timeout(len(text), delay, default_s_per_char=0.0)
         with hide_payload():
-            subprocess.run(["wtype", "--", text], check=True, timeout=10)
+            subprocess.run(wtype_type_argv(text, delay), check=True, timeout=timeout)
 
     def inject_backspaces(self, count: int) -> None:
         if count <= 0:

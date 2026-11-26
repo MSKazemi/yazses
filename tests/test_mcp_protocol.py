@@ -12,9 +12,17 @@ every test here is a dict in and a dict out.
 """
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 
-from yazses.mcp.protocol import ToolSpec, handle
+from yazses.mcp.protocol import (
+    PROTOCOL_VERSION,
+    SUPPORTED_PROTOCOL_VERSIONS,
+    ToolSpec,
+    handle,
+)
 
 
 def _echo(**kwargs):
@@ -603,3 +611,120 @@ def test_the_real_model_error_names_its_model_and_commands_once(model):
     assert model in text
     assert text.count("yazses model download") == 1 and text.count("yazses restart") == 1
     assert "SENTINEL-TOKEN-7731" not in text and "Cause" not in text and "\n" not in text
+
+
+# ---- client replay fixtures (docs/mcp-compatibility.md) ------------------------
+#
+# Each file under tests/fixtures/mcp/ holds the first frames one MCP client sends,
+# with the date and the evidence (observed, source, docs, unverified). They pin what
+# was recorded, not what the client does today: re-record when the matrix changes.
+
+_FIXTURES = Path(__file__).parent / "fixtures" / "mcp"
+_CLIENT_FIXTURES = sorted(_FIXTURES.glob("*.json"))
+
+#: 2026-07-28 "Basic / Error codes": -32020 to -32099 is reserved for the MCP
+#: specification. A dual-era client reads an error in that range (such as
+#: UnsupportedProtocolVersion, -32022) as "this server is modern" and does not fall
+#: back to `initialize`; any other error sends it back to the legacy handshake.
+_MODERN_ERROR_RANGE = range(-32099, -32019)
+
+#: The first revision without an `initialize` handshake.
+_FIRST_MODERN_REVISION = "2026-07-28"
+
+
+def _load(path: Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def test_there_is_a_fixture_for_every_client_in_the_matrix() -> None:
+    names = {p.stem for p in _CLIENT_FIXTURES}
+    assert {"claude-code", "claude-desktop", "codex-cli", "cursor", "vscode",
+            "gemini-cli"} <= names
+
+
+@pytest.mark.parametrize("path", _CLIENT_FIXTURES, ids=lambda p: p.stem)
+def test_a_fixture_says_when_and_how_it_was_recorded(path: Path) -> None:
+    fixture = _load(path)
+    assert fixture["evidence"] in {"observed", "source", "docs", "unverified"}
+    assert fixture["recorded"].startswith("20") and fixture["how"] and fixture["source"]
+    assert fixture["era"] in {"legacy", "dual", "modern"}
+
+
+@pytest.mark.parametrize("path", _CLIENT_FIXTURES, ids=lambda p: p.stem)
+def test_a_recorded_client_reaches_tools_list(path: Path) -> None:
+    """Replay the client's opening frames and check that each gets what that client
+    needs to carry on: a matching reply for every request, silence for every
+    notification, a protocol version it accepts, and the tool list."""
+    fixture = _load(path)
+    seen_tools = False
+    for frame in fixture["frames"]:
+        reply = handle(frame, TOOLS)
+        if "id" not in frame:
+            assert reply is None, f"{frame['method']} is a notification"
+            continue
+        assert reply is not None and reply["id"] == frame["id"]
+        method = frame["method"]
+        if method == "server/discover":
+            # The dual-era probe. This server is legacy-only, so the answer must be
+            # an error a client reads as "legacy", never a modern-range code.
+            assert "result" not in reply
+            assert reply["error"]["code"] not in _MODERN_ERROR_RANGE
+        elif method == "initialize":
+            agreed = reply["result"]["protocolVersion"]
+            assert agreed in SUPPORTED_PROTOCOL_VERSIONS
+            accepts = fixture["accepts_versions"]
+            if accepts is not None:
+                assert agreed in accepts, f"{fixture['client']} would refuse {agreed}"
+        elif method == "tools/list":
+            assert [t["name"] for t in reply["result"]["tools"]] == ["transcribe"]
+            seen_tools = True
+    assert seen_tools
+
+
+@pytest.mark.parametrize("path", _CLIENT_FIXTURES, ids=lambda p: p.stem)
+def test_no_recorded_client_skips_the_handshake(path: Path) -> None:
+    """The migration trigger in docs/mcp-compatibility.md: once a client's first
+    frames hold no `initialize`, this server needs a modern code path and an ADR.
+    A fixture that trips this is the signal, not a bug in the fixture."""
+    fixture = _load(path)
+    assert any(f.get("method") == "initialize" for f in fixture["frames"]), fixture["client"]
+
+
+def test_the_first_modern_revision_gets_our_latest_version_not_an_error() -> None:
+    """`initialize` asking for 2026-07-28, which this server does not implement, is
+    answered with the latest revision it does (the 2025-06-18 lifecycle rule), not
+    with an error, so a dual-era client can carry on under that revision."""
+    reply = handle(_req("initialize", {"protocolVersion": _FIRST_MODERN_REVISION}), TOOLS)
+    assert "error" not in reply
+    assert reply["result"]["protocolVersion"] == PROTOCOL_VERSION == "2025-06-18"
+
+
+def test_the_2025_11_25_revision_is_answered_with_2025_06_18() -> None:
+    """What Claude Code, VS Code, Cursor and Gemini CLI ask for in November 2026.
+    Pinned so that adding 2025-11-25 support is a visible change, not a silent one."""
+    reply = handle(_req("initialize", {"protocolVersion": "2025-11-25"}), TOOLS)
+    assert reply["result"]["protocolVersion"] == "2025-06-18"
+
+
+def test_server_discover_is_unknown_so_a_dual_era_client_falls_back() -> None:
+    reply = handle(_req("server/discover", {"_meta": {
+        "io.modelcontextprotocol/protocolVersion": _FIRST_MODERN_REVISION}}), TOOLS)
+    assert reply["error"]["code"] == -32601
+
+
+def test_tools_list_is_answered_without_a_prior_handshake() -> None:
+    """The protocol module keeps no session, so a client that skips `initialize` still
+    gets the tool list. This is not 2026-07-28 support: the reply has none of that
+    revision's required fields, such as `resultType` and `ttlMs`."""
+    reply = handle(_req("tools/list", {"_meta": {
+        "io.modelcontextprotocol/protocolVersion": _FIRST_MODERN_REVISION}}), TOOLS)
+    assert [t["name"] for t in reply["result"]["tools"]] == ["transcribe"]
+
+
+def test_a_modern_revision_is_not_claimed_before_server_discover_exists() -> None:
+    """2026-07-28: servers MUST implement `server/discover`. Listing that revision as
+    supported while the method is unknown would tell clients something untrue."""
+    modern = [v for v in SUPPORTED_PROTOCOL_VERSIONS if v >= _FIRST_MODERN_REVISION]
+    if modern:
+        reply = handle(_req("server/discover"), TOOLS)
+        assert "result" in reply, "add server/discover before claiming " + ", ".join(modern)
