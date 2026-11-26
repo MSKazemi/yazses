@@ -527,12 +527,12 @@ def sounddevice_or_skip(*, allow_module_level: bool = False):
 # flip -- `test_cli_help_keeps_config_sections.py` already says so in its own
 # fixture. These make the property hold for the whole suite rather than one file.
 
-_INJECTOR_ENV = ("YAZSES_INJECTOR", "YAZSES_INJECT_FALLBACK")
+_INJECTOR_ENV = ("YAZSES_INJECTOR", "YAZSES_INJECT_FALLBACK", "YAZSES_TYPE_DELAY_MS")
 
 
 @pytest.fixture(autouse=True)
 def _no_test_may_leak_the_injector_env():
-    """`inject.auto.apply_injection_config` writes these two variables into the
+    """`inject.auto.apply_injection_config` writes these variables into the
     process environment, by design -- they are how `[injection] backend` reaches a
     zero-argument `injector_factory`. In one process per run that is correct; in a
     shared test process the next test inherits the setting.
@@ -698,6 +698,29 @@ def _pinned_ydotool_dialect():
     ydotool.set_ydotool_dialect(ydotool.DIALECT_V1)
     yield
     ydotool.set_ydotool_dialect(None)
+
+
+@pytest.fixture(autouse=True)
+def _no_test_may_reach_the_network(request):
+    """Fail any test that opens a real non-loopback connection (ADR-019, runtime half).
+
+    The AST inventory in `test_egress_inventory.py` sees only our own modules; this sees
+    every socket a test actually opens, including a dependency's. Loopback, AF_UNIX and
+    socketpair are allowed. `@pytest.mark.allow_network` opts one test out. Set
+    `YAZSES_TEST_NET_GUARD=0` to disable it locally when bisecting. See `tests/_net_guard.py`.
+    """
+    from tests._net_guard import GUARD
+
+    GUARD.install()  # idempotent; wrappers stay for the session and are switched per test
+    off = (
+        request.node.get_closest_marker("allow_network")
+        or os.environ.get("YAZSES_TEST_NET_GUARD") == "0"
+    )
+    GUARD.enabled = not off
+    try:
+        yield
+    finally:
+        GUARD.enabled = False
 
 
 def pytest_configure(config):

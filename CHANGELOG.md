@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — biosignal: `field-test --minutes` below the minimum silently ran the full protocol and cued switches that were off ([#888](https://github.com/MSKazemi/yazses/issues/888))
+
+A `--minutes` value too short for the gesture phases' cues (about 5.3 min with only `double_blink` on) made scaling fail, and the fallback ran the module's standard protocol: the full length, plus squeeze and jaw-clench phases whose switches were off, which counted guaranteed misses against the user. The note it printed ("This build cannot change the length of the test") was wrong too. Such a value is now refused before the source is opened, with the shortest accepted `--minutes` for the enabled switches named in the message, and every accepted length keeps the switch filter. Tests pin the boundary.
+
 ### Fixed — biosignal: `calibrate` learned from ThinkGear reads the source did not trust ([#887](https://github.com/MSKazemi/yazses/issues/887))
 
 `yazses biosignal calibrate` opened the source directly, so a ThinkGear calibration ignored the contact verdict that the daemon, `monitor` and `field-test` honour (ADR-v2-155): samples from reads with no skin contact, a corrupt frame or a stale contact report could shape the saved blink profile. A source that judges its own signal is now read through the same `source_gates` guard, and a read it does not trust, or that the stream-integrity gate holds, never reaches the profile. A step such a read interrupts is discarded and repeated (it counts as an attempt), the time left out is reported, and a source that stays untrusted for 30 s fails the calibration with a reason and saves nothing. Every other source is calibrated exactly as before. Tested with synthetic ThinkGear wire traces only.
@@ -22,11 +26,155 @@ With a `thinkgear:` source, the daemon now admits a blink or clench only when th
 
 ADR-v2-155 is now Accepted (maintainer, 2026-11-13, G0 [#827](https://github.com/MSKazemi/yazses/issues/827)). The opt-in `thinkgear:` source now judges every serial read with a pure, standard-library state machine (`biosignal/thinkgear_health.py`) and keeps the verdict beside the block that read produced (`ThinkGearSource.health_for(block)`; unknown blocks get none). A read is untrusted when it holds any nonzero `POOR_SIGNAL` (even if a later report in the same read is 0), any rejected packet or skipped framing byte, when the last contact report is older than 3.0 s, or when the monotonic clock goes back. Until the first explicit `POOR_SIGNAL=0` nothing is trusted. Recovery needs two separate zero reports and 1.0 s (512 samples) of contiguous clean raw samples, and the read that completes it is still untrusted. Lost packets are never filled in and the clock is never moved for them. Stopping, a lost port and a fresh start clear all trust. One serial read is now capped at 64 KiB, and a packet carrying several `POOR_SIGNAL` rows reports the largest. This change only records the verdict: no gate reads it yet ([#829](https://github.com/MSKazemi/yazses/issues/829) adds that), so event behaviour is unchanged. Checked with fake serial ports and a fake clock only (TG-01..TG-11). No headset was used. The thresholds are engineering choices, not measured values, and this is not a claim that any device is supported.
 
+
+
+
+
+### Added — models: one registry of every model, `yazses model list` for all kinds, `model remove` and `model disk` (#929)
+
+New `yazses.models.registry` (pure, imports nothing heavy) describes every model kind (speech-to-text, VAD, SLM, TTS voice, diarization, gaze) with name, approximate size, on-disk state and owning feature, built over the existing sources without changing them. `yazses model list` now shows all kinds; `yazses model remove <id>` (`kind:name` or an unambiguous bare name; asks first, `--yes` skips) and `yazses model disk` are new. `model download` is unchanged. The registry also holds `ensure_model(kind, name, policy, is_cached=, download=)` with policy `auto|ask|never`: a pure function that calls the injected `download` only under `auto` and otherwise returns a message naming what is missing, its size and the manual route. Nothing calls it yet, and the `[stt] download` config key that would set the policy is **not** added: it is an L3 change awaiting owner sign-off (ADR-030). Until then the behaviour is `auto`, exactly as today. No new network path (ADR-019 unchanged).
+
+### Added — `[injection] type_delay_ms`: make dictation appear faster by typing faster
+
+Keystroke pacing is nearly all of the time after the decode: at ~12 ms per character a 150-word dictation takes ~9 s to type. `[injection] type_delay_ms` sets the milliseconds per typed character for the typing backends: xdotool `type --delay N`; ydotool 1.x `-d ⌈N/2⌉ -H ⌊N/2⌋`; ydotool 0.1.x `--key-delay ⌈N/2⌉`; wtype `-d N` (0 sends no `-d`, which wtype refuses). The default, `-1`, keeps each backend's own pacing (`--delay 12`, `-d 6 -H 6`, `--key-delay 6`, no `-d`), so an install that does not set it types exactly as before. Values outside -1..200 are reported and fall back to the default. Some apps drop keys when they arrive too fast, worst at 0; try 4–6 ms. Timeouts scale with a slower setting so a long burst cannot time out mid-string and be pasted a second time. See `docs/benchmarks.md` ("…except typing it").
+
+### Added — toggle dictation: press once to start, press again to stop (#869)
+
+Holding the hotkey for a whole sentence is hard or painful for some people with motor
+disabilities. `[hotkey] mode = "toggle"` makes the dictation key a latch: the first press
+starts recording, the second press stops it and the text is typed as on a hold-to-talk
+release. Key auto-repeat never stops or restarts a recording, a press while the previous
+dictation is still being transcribed or typed is ignored, a recording that ends some other
+way (microphone lost) resets the latch, and `[audio] max_record_seconds` ends a recording
+left running. The command key stays hold-to-talk and is ignored while a toggle dictation is
+open; `[autostop]` is not used in toggle mode. The default stays `mode = "hold"`, so an
+existing install is unchanged. The latch is a pure module, `yazses.hotkeys.toggle`.
+
+A quick tap of a key that types nothing (Right Ctrl, Right Alt / Option and the other
+modifiers) now counts on every hotkey backend. The X11 key-grab backend (snap, BSD) and the
+macOS backend used to wait `[hotkey] hold_threshold_ms` (500 ms) before they reported any
+press, so in toggle mode every press had to last half a second. The threshold is only
+needed for a key that also types, where a tap must keep typing; both backends now start a
+modifier on key-down, as evdev and Windows already did. That also changes hold-to-talk on
+those two backends: a modifier hold starts at once instead of clipping the first half
+second of speech, and on macOS a modifier hold could not start at all before, since its
+`flagsChanged` events never repeat (read from the code, not yet seen on a Mac). `space`
+keeps the guard, so toggle mode on space still needs each press held that long;
+`yazses doctor` and the daemon log now say so and suggest `right_ctrl`.
+
+### Added — `[context] use_git`: the focused repository's name and branch as recognition hints
+
+With `[context] enabled = true` and the new `use_git = true` (off by default, and off even when `[context]` is on), the git repository behind the focused window lends its name, its branch and the branch's words (`fix-tray-crash` → "fix", "tray", "crash") to Whisper's `initial_prompt`, within `max_terms`. The repository is found by reading `.git`, `HEAD` and `gitdir:`/`commondir` pointer files (detached HEAD, linked worktrees and submodules handled); no `git` binary runs. The branch is split with the same spoken-separator table `gitvoice` uses. The focused directory comes from a new `FocusedCwdProvider` platform seam: Linux on an X11 session (the focused window's PID via `xdotool`, then `/proc/<pid>/cwd`, following the youngest child so a terminal answers for its shell); Wayland, macOS, Windows and the BSDs have no provider yet and the setting does nothing there. The path, repository name and branch are used for one decode and never stored or logged.
+
+### Added — LLM cleanup can use any OpenAI-compatible server on this machine
+
+`[filters.disfluency] llm_api = "openai"` sends cleanup to `{llm_endpoint}/v1/chat/completions`, the route llama-server, LM Studio and vLLM serve, instead of Ollama's `/api/generate`. It sends the system prompt as a `system` message, `temperature = 0`, `max_tokens` and `stream = false`, and reads `choices[0].message.content`. The default stays `"ollama"`, and cleanup itself stays off by default. Both API styles go through the same loopback-only check, timeout, and length and number checks, so a remote URL is still refused unless `llm_allow_remote_endpoint` is set. Thinking models are kept from typing their reasoning: the Ollama request sends `"think": false`, and a leading `<think>…</think>` block is removed from the answer. A reply that is only reasoning counts as a rejection. A misspelt `llm_api` falls back to `"ollama"`, and `doctor` reports it. New how-to: [Use your own local model server for cleanup](docs/how-to/local-model-server.md). Tested against an in-process fake server only. No real llama-server, LM Studio or vLLM has been tried, and no model is recommended yet.
+
+### Fixed — LLM cleanup sent a hardcoded model name to Ollama
+
+`[filters.disfluency]` LLM cleanup always asked the endpoint for `qwen2.5:1.5b`, so anyone whose Ollama held a different model got a 404 on every burst and the raw text back, with nothing but a debug log line to say why. The new `llm_endpoint_model` key names the model to request. It defaults to empty, which keeps `qwen2.5:1.5b`, so an install that never sets it sends the same request as before.
+
+### Docs — comparison pages corrected to what is true as of November 2026
+
+`docs/comparison.md` and `docs/compare/yazses-vs-handy.md` no longer claim differentiators peers have matched, and are dated. Handy transcribes files since v0.10.0; TalkType is now TuxTalk (old name kept); FluidVoice has FluidMeet meetings and Windows and Linux betas; OpenWhispr records meetings with local speaker labels and has paid cloud plans; Windows voice access, macOS 27 and Ubuntu's Myna preview offer on-device dictation within stated limits; VS Code's built-in dictation runs on-device; the Whispering link points to `EpicenterHQ/epicenter`. Each claim was re-checked on 2026-11-20 against the project's releases or README or the vendor's support page. The 2026-08-15 adjacent-projects note gains a dated Handy star count.
+
+### Fixed — Meeting Mode's Silero VAD backend crashed on its first chunk; `silero-vad` floor raised to 6.2.3
+
+`[meeting] vad_backend = "silero"` passed a numpy slice to silero-vad's ONNX wrapper, which calls `x.dim()` first and so needs a torch tensor: the first voiced chunk raised `AttributeError`. Each 512-sample window is now wrapped with `torch.from_numpy`, and `tests/test_meeting_silero_contract.py` pins what the backend expects from the package (bundled ONNX via `load_silero_vad(onnx=True)`, 512 samples at 16 kHz in, a `(1, 1)` probability out), so a future upstream change fails in CI. The `silero` and `all` extras now require `silero-vad>=6.2.3` (was `>=5.1.2`; the lock already resolved 6.2.3). Upstream reports the v6 model makes 16% fewer errors on noisy real-life data and 11% fewer on multi-domain validation; YazSes has not measured that. YazSes's own `silero_threshold` (0.5) is unchanged. The backend stays off by default and still pulls torch (~3 GB).
+
+### Changed — Wayland dictation returns ~0.3 s sooner per burst; nothing typed changes
+
+After typing, the ydotool flood guard sent a key-up for 60 fixed keys, and ydotool waits 12 ms after each one. That added about 730 ms to every burst. It now releases the keys that burst's `ydotool type` can have pressed (ydotool 1.x maps text through a fixed US keycode table, so that set is known exactly), plus the shifts, left Ctrl/Alt, Space and the hotkey modifiers. The pacing is the same, and no key-up is sent that the old sweep did not send. A failed `type` or a control character still gets the full sweep. Measured with a stand-in ydotool that sleeps the documented pacing: 730 → 360–420 ms. The hold-end hotkey key-up (~18 ms) now runs alongside the decode, and every keystroke waits for it, so it still lands before any typed character. The post-processing chain was re-measured at 0.13 ms for 40 words, which leaves keystroke pacing (12 ms per character) as the real cost. The recommendations for that, none of them applied, are in `design/research/2026-11-20-dictation-latency-inject.md`.
+
+
+
+### Added — research: a consumer for Apple's BCI HID switch protocol, recorded as a Proposed ADR (research record only), not a feature
+
+[ADR-v2-157](design/adr/adr-v2-157-bci-hid-switch-consumer.md) (Proposed, research record only) records Apple's BCI HID report layout from Apple's reference page: usage page `0x60`, 32 buttons, pointer with the `-128` absent-axis sentinel, item selection, signal quality, and the host's scan-information report, which never reveals a focused keyboard key. It also records how such a device could become a YazSes switch on macOS, Linux and Windows by reusing the biosignal event types and the false-positive governor, and what nobody has measured yet. `examples/bci-hid-switch/` adds a stdlib-only parser for synthetic report bytes, with tests. Nothing in `src/` changes and no device has been tested. The ADR-030 freeze on new device families applies.
+
+### Changed — dictation: the speech-presence detector loads at start-up, not on the first dictation
+
+The speech-presence check (#598) runs Silero on every burst, and Silero was built on its first call — the first dictation after the daemon started. The daemon now runs it once on half a second of silence while it is still loading, only when the check will run (it is on by default; off, Dysfluency-Friendly mode and the sotto-voce channel skip it). Measured on a 4-thread i7-6500U in 15 fresh processes per arm: the first check took 48 ms (median) and every later one 13 ms; with the prime the first took 13 ms. No transcript, verdict or config key changes. A decode warm-up was measured too and is **not** shipped: it cost 1.9 s of start-up (median) and did not make the first decode measurably faster.
+
+`scripts/bench-decode-latency.py` is the harness behind these numbers: fresh-process cold starts, an interleaved warm grid of decoder settings with every transcript checked against the shipped one, idle gaps and the pre-decode audio work, with load average and ADR-033-style provenance recorded. The results, and the decoder settings that would be faster but change the text, are in `docs/benchmarks.md` ("Release → transcript, stage by stage") and `design/research/2026-11-20-dictation-latency-decode.md`. No default changes.
+
+### Added — tests: an autouse socket guard fails any test that makes a real outbound connection
+
+`tests/_net_guard.py`, installed per test by `tests/conftest.py`, makes `socket.connect`, `connect_ex`, `sendto`, `sendmsg` (where it exists) and `getaddrinfo` raise `NetworkAccessBlocked` (naming the host and pointing at ADR-019) for anything but loopback, `localhost`, AF_UNIX and `socketpair`. It is the runtime half of the egress inventory, which only sees our own modules by AST. `@pytest.mark.allow_network` (registered in `pyproject.toml`) opts one test out; `YAZSES_TEST_NET_GUARD=0` disables it for a local bisect. A prior audit of the whole suite found no test that reached the network. Tests: `tests/test_net_guard.py`.
+
+### Changed — tests: the collection-id guard tests print the whole child run when they fail
+
+`tests/test_collection_id_guard.py` now includes the subprocess exit code, full stdout and full stderr in every assertion message, so a failure on a CI leg that cannot be reproduced locally (a Windows Python 3.11 flake) is diagnosable. Test-only; no behaviour change.
+
+### Fixed — commands: the Tier 2 SLM router can no longer pass on a command or argument nobody said
+
+The opt-in Tier 2 router (`[commands] slm_model_path`) parsed whatever JSON the model wrote and handed any action name and any `args` to dispatch, so an instruction carried in the transcript could come back as, say, `run_command` with `rm -rf ~`. The router's output contract is now built from the Tier 1 grammar table (`commands/slm_schema.py`), filtered by an explicit allow-list of the same 22 actions the old hand-written prompt listed, so it cannot drift from the commands that exist. Keystroke actions such as `press_enter`, arrows and paging stay Tier 1 only. When the installed `llama-cpp-python` has `LlamaGrammar.from_json_schema`, the model decodes under that JSON Schema. Older bindings decode unconstrained. In both cases every answer is re-checked in plain code: an unknown intent or action, a missing, extra or wrongly typed argument, a count outside 1–99, a line number outside 1–1,000,000, or a name or shell command that is not in the utterance means no command, and the words are typed. A `run_command` that passes the check still meets the Command Safety Gate as before. The prompt's action list is generated from the same table; the model context stays at 512 tokens. No command was added. `scripts/bench-slm-router.py` runs a synthetic benchmark (200 paraphrased commands, 200 prose sentences) with and without the grammar for anyone who has a local model. No numbers are committed, and the change has not been run against a real model.
+
+### Docs — which MCP clients still talk to `yazses mcp-server` under MCP 2026-07-28
+
+The MCP 2026-07-28 revision removes the `initialize` handshake that `yazses mcp-server` expects. The new [MCP client compatibility](docs/mcp-compatibility.md) page records, with a date and a source per row, which revision Claude Code, Claude Desktop, Codex CLI, Cursor, VS Code and Gemini CLI ask for and whether they still send `initialize`. All six do, as of 2026-11-20. Claude Code 2.1.329 was observed: it probes `server/discover` at 2026-07-28, then falls back to `initialize` and lists the tools. Codex, VS Code and Gemini CLI come from their source code and Cursor from a forum reply, none of them run here. Claude Desktop is not determined. No migration is needed yet, and the server's behaviour does not change. Replay fixtures for each client are under `tests/fixtures/mcp/`, and new tests check that every recorded client reaches `tools/list` and that an `initialize` asking for an unsupported revision (2026-07-28) is answered with 2025-06-18, not an error.
+
+### Changed — docs: validation matrix records a Windows pipx report on 2.51.0 (E43)
+
+The Windows 11 pipx row of `docs/validation-matrix.md` now cites a 2026-11-18 report from [#330](https://github.com/MSKazemi/yazses/issues/330): on 2.51.0 (pipx upgrade from 2.40.1) the daemon started cleanly, a hotkey set with `yazses hotkey set` survived `yazses restart`, and exactly one daemon ran afterwards. The report names no device model or OS build and pastes no raw `doctor` text, so it is graded Reported, the 2.36.0 failure stays as history, and the row does not move to Verified (HW). Refs #388.
+
+### Added — a script to compare pyannote 3.1 with community-1; the pyannote adapter reads exclusive diarization
+
+`scripts/bench-pyannote-pipelines.py` runs `pyannote/speaker-diarization-3.1` and `pyannote/speaker-diarization-community-1` on the same RTTM-labelled fixtures. It reports DER, JER, speaker-count error and wall time, with the ADR-033 provenance fields (commit, snapshot revision and hash, versions, machine, corpus hashes). It runs offline by default. Nobody has run it yet: both models are gated, so a person with access has to. `docs/benchmarks.md` explains how. The default pipeline is still 3.1.
+
+`[recimport] backend = "pyannote"` now reads `exclusive_speaker_diarization` when the pipeline output has it (pyannote.audio 4.x `DiarizeOutput`). That view gives one speaker per instant, so `align.py` does not have to settle an overlap by tie-break. Otherwise the adapter reads `speaker_diarization`, or a bare legacy `Annotation`, as before.
+
+### Fixed — face switch: the log now says when YazSes holds the webcam, and why a call app cannot open it (#922)
+
+With `[facegesture]` on, the camera is held from daemon start, and a video-call app saying "camera not available" gave no hint that YazSes was the cause. The daemon now logs one INFO line when it takes the camera and one when it hands it back ("holding camera N: other applications (video calls) cannot use it ... `systemctl --user stop yazses`"), the busy-camera warning names "another application holds it", and `docs/troubleshooting.md` has a section on the symptom. Observability and documentation only: the camera lifecycle, config keys, CLI and IPC are unchanged. Idle release, a tray toggle and camera sharing remain open as #924 and #925. Checked with fake `cv2` handles; not checked against a real webcam or a real call app.
+
+### Fixed — runtime camera switch: review findings on #927 (#924)
+
+An independent review of the camera switch found seven defects, all fixed with fakes-only tests (no real webcam was used). (1) The face switch no longer gives up for good when its first camera open fails: it waits, so `yazses camera on` reopens it later. (2) `yazses camera on|off|use` wait up to 15 s instead of 2 s, a slow daemon is reported as "still switching" rather than "Daemon is not running", an older daemon without the `camera` method gets a plain message instead of a traceback, and the Linux tray's Camera click no longer blocks the menu thread. (3) `on`, `off` and `use` now run as one transition under a lock, so concurrent calls cannot leave the switch ON with the camera released; observers run outside the lock. (4) The gaze backends read a frame under the camera lock, so a pause cannot release the device mid-read. (5) A gaze camera that fails to open is retried at most every 5 s instead of on every dictation hold; `camera on` retries at once. (6) `camera on` while already ON retries a feature whose last reopen failed. (7) `camera use` matches Windows device paths. No new config key and no IPC change.
+
+### Added — tray: a Camera toggle and a held/released line (#924)
+
+The tray menu (Linux, Windows and macOS) gains a **Camera** entry, checked while the camera is ON, that does what `yazses camera on|off` does: one click releases the webcam for every YazSes camera feature, another takes it back, and voice dictation is untouched. A line under it says whether YazSes holds the device right now and which features do ("Camera held by: gaze"), that it is released, or which feature could not reopen it. The entry only appears when a camera feature is enabled, so an install without one sees no new menu item. The daemon `status` reply gains a `camera` block (`state`, `holders`, `failures`, `consumers`) from the same switch; no new config key or IPC method. The Linux menu rebuilds on open and the Windows menu on change, so the checkmark follows a CLI switch; the macOS menu is updated on the tray's status poll. Tested on fake status payloads and a stand-in `pystray`; the Qt and macOS menus themselves were not run on a real desktop or Mac.
+### Added — `yazses camera list` and `yazses camera use <name-or-path>`: pick the webcam by name, not by guessed index (#924)
+
+`yazses camera list` shows every camera with its index, its name and its stable `/dev/v4l/by-id/...` path (Linux reads `/sys/class/video4linux` and `/dev/v4l/by-id`; other systems briefly open indexes 0 to 7 and call them `Camera N`, which cannot see a camera something else holds). `yazses camera use "Logitech C920"` (a name, part of a name, an index or a by-id path) switches every camera feature to that camera at once: the camera goes OFF, the shared source, the face switch and gaze are pointed at the new index, and it comes back ON, with no restart. A name that is missing or matches two cameras changes nothing and prints the list to choose from; two identical webcams are told apart by index or path. `yazses camera status` now names the chosen camera. The choice is runtime-only and is **not** saved: a restarted daemon uses `camera_index` from config again (saving it needs a config key, which the ADR-030 freeze leaves to the owner). The `camera` IPC method gains the `list` and `use` actions (`target` param). The resolver is a pure module, `yazses.perception.devices`.
+
+### Added — `yazses camera status|on|off`: one runtime switch that releases the webcam for every camera feature (#922, #924)
+
+With `[facegesture]` on, the daemon held `/dev/video0` for its whole life, so Zoom, Teams and Meet showed "camera not available". `yazses camera off` now releases the device for every YazSes camera feature at once (the face switch, gaze, the Head-Pointer and every lease on the shared camera source) without editing config or restarting, and `yazses camera on` takes it back. Voice dictation is untouched either way. `yazses camera status` says whether the camera is ON or OFF, which features hold the device right now, and, if a reopen failed, the reason (a camera in use by another app, or a denied permission). The daemon also logs a line when the holder set changes. The switch is a runtime state, not a config key: it is not saved, and a restarted daemon starts with the camera ON. The new `camera` IPC method (`status` / `on` / `off`) and the CLI command are a public-surface addition. Camera selection by name or by-id path (`camera list` / `camera use`), covered-camera detection (#923) and PipeWire sharing (#925) are not part of this change. See [Troubleshooting](docs/troubleshooting.md).
+
+The gaze backends (`mediapipe`, `l2cs`) now reopen the camera immediately on `camera on`, so `camera status` and its failure reason are accurate at once instead of after the next estimate. `yazses gaze calibrate` and `yazses facegesture calibrate`, which open their own capture, now check the daemon first: if it holds the camera they say so and point at `yazses camera off` / `yazses camera on`, if the switch is OFF they say that, and a camera that will not open names the same workaround.
+
+### Docs — README comparison tables brought up to November 2026 and dated
+
+The README's "Comparison & alternatives" section now matches `docs/comparison.md` as re-checked on 2026-11-20. Handy transcribes files since v0.10.0; OpenWhispr records meetings with local speaker labels and has paid cloud plans; FluidVoice has FluidMeet meetings with speaker labels and Windows and Linux betas (no longer "announced" or a "community port"); VoiceInk is GPLv3, sold one-time from $25, and offers optional cloud models. Speaker-labelled meetings are no longer listed as a YazSes-only difference; the no-cloud egress inventory is. The tables now carry their check date.
+
+### Added — `yazses camera use --save`: remember the chosen webcam across restarts (#924)
+
+`yazses camera use <name-or-path>` switches the running daemon and, as before, is not saved. With `--save` it also writes `[camera] device` and `index` to the config file and sets `camera_index` under `[gaze]`, `[facegesture]` and `[perception]` to the same camera in one atomic edit, so the choice survives a restart. At load time a chosen `[camera] index` overrides the three per-feature keys; the default (`index = -1`, nothing chosen) leaves them exactly as written, so an install that never saved a choice is unchanged. `yazses camera use --clear` forgets the saved choice and puts the three per-feature keys back to 0. A camera that is not listed, or whose name two cameras share, writes nothing (use the index or the `/dev/v4l/by-id` path). If no daemon is running, the choice is saved and applies at the next start. This replaces the separate `camera devices|use|status` group the first version of this PR added, which duplicated `camera list|use|status` from the runtime switch; the new `[camera]` section is dormant by default (ADR-030: new config key and CLI flag, owner-approved in review).
+
+
+### Removed — the AUR job in publish-channels.yml
+
+`publish-channels.yml` no longer has an `aur` job, `aur` choice or summary row. Every run since v2.48.0 failed at the SSH check with `Permission denied (publickey)`, because no AUR account was available to register the key on and the AUR closed new registrations in June 2026. The other channels are unchanged. `packaging/arch/` is kept for a manual submission and the release-channel checker still reports the AUR; restore the job from git history once an account exists. The `AUR_SSH_KEY` secret is now unused.
+
 ### Added — research: a MaixCAM2 text link, recorded as an ADR (research record only) and a research note, not a feature
 
 [ADR-v2-156](design/adr/adr-v2-156-maixcam2-text-link.md) (Accepted as a research record only) records whether a Sipeed MaixCAM2 running Whisper `base` could send recognised text to a desktop over a wired UART: the falsifiable hypothesis, a threat model for text arriving over a wire, the egress statement, exit criteria and the unknowns. `docs/research/maixcam2-text-link.md` is the matching notice: experimental, research only, not part of YazSes. The change also adds a stdlib-only reference codec, simulator and printing reader under `examples/maixcam2-text-link/`, with tests, and a draft wire spec (`design/specs/textlink-wire-protocol.md`). Nothing in `src/` changes and no board has been tested; the ADR-030 breadth freeze applies, so implementation needs a recorded go and a named exception.
 
 The MaixCAM2 example now also records the vendor's answer (Sipeed support, 2026-11-13: one-time online setup, then local recognition, stated by the vendor and not measured here), and its board script can record a WAV the way Sipeed's own example does, still untested on a board.
+
+### Fixed — Quit stops a daemon that does not answer, and reopening the app replaces one that predates a permission
+
+Two gaps were left after the macOS `before_quit` fix (#578). Quit sent the daemon `shutdown` and, if that failed (no answer, a timeout, an error), did nothing more, so a daemon that was alive but not answering outlived Quit with the permission it had read at start. Quit now gives that daemon the same stop `yazses stop` sends, through the platform lifecycle, and waits up to 3 s for it to go. A daemon that accepts `shutdown` is left to finish on its own. Separately, a newly started daemon replaced only a strictly older one. Now it also replaces one that reports `stale_permissions` (it started before a grant), but only while that daemon is idle or in error and not in a meeting. A lock holder that does not answer is asked again for 3 s, then named in the log by pid and left running: no answer is not proof it is stuck. Verified with fakes only, not on a Mac.
+
+### Fixed — Windows Store (MSIX) build: the microphone and camera checks read the app's own consent entry
+
+The packaged build already skipped the "Let desktop apps access…" (`NonPackaged`) switch, which does not govern it, but read nothing in its place, so a user who had switched YazSes off in the Settings app list still got `doctor` OK, and the camera could never be reported as allowed. It now asks Windows for its package family name (`GetCurrentPackageFamilyName`) and reads `HKCU\…\ConsentStore\<microphone|webcam>\<package family name>`: a `Deny` there is a refusal, and the camera is `GRANTED` only on that entry's own `Allow`. Microsoft documents this per-app layout for `location`; that the microphone and camera use the same one is inferred, and none of it has run on a real MSIX install. With no family name the check falls back to the two broader switches, as before (#653).
+
+### Fixed — a burst the speech check could not judge could still type "The app is called YazSes." (#598)
+
+The speech-presence check stops a no-speech burst before it is decoded, but it does not always run. It is skipped in Whisper / Low-Effort mode, Dysfluency-Friendly mode and the sotto-voce command channel, it is off when `[accessibility] speech_presence_check = false`, and it lets the burst through when the detector cannot run. In any of those cases, a silent Right Ctrl press or an eye-gesture burst could still be decoded into the built-in prompt and typed. Now, after decode, a transcript is dropped (`discard_reason = "prompt_echo"`; the log shows its length, never the text) when two things are both true. First, it consists only of a run of three or more consecutive words from the decoder's own `initial_prompt`, ignoring case and punctuation. A word cut short or doubled counts as a match, so "The app is called YazS." and "…YazSeses." are covered. Second, the speech detector did not find speech in the audio. If the detector did find speech, the sentence is typed, so you can still say it. Dictation that only contains the name ("Open YazSes settings", "YazSes.") is never affected. Tested with a stub decoder only. The real model was not run for this change.
 
 ### Fixed — `yazses mcp-server` could not connect to Claude Code: `serverInfo.version` was missing
 
@@ -35,6 +183,10 @@ The MCP `initialize` reply carried `serverInfo.name` and `title` but no `version
 ### Fixed — commands: a spoken repeat count is bounded before any key is sent
 
 A mis-heard "delete the last 1000000 words" made dispatch send a million Ctrl+BackSpace, which deleted the document and blocked the daemon while it typed. `delete_words`, `delete_lines`, `undo_n` and `select_lines` now resolve their count before the first key and refuse anything above 99 (`CommandRefused`: nothing sent, nothing typed), the same ceiling the Mandarin grammar already enforced at parse time. Every producer of a command intent is covered, including the SLM router and the activation pipeline.
+
+### Fixed — CI telemetry: a response cut off mid-body is retried once ([#894](https://github.com/MSKazemi/yazses/issues/894))
+
+The scheduled `CI telemetry` report crashed with `http.client.IncompleteRead` when GitHub dropped a connection while the response body was being read. The GET transport in `scripts/ci-telemetry-report.py` now treats `IncompleteRead`, a remote disconnect or a connection reset like any other dropped connection: the existing single retry, then a sanitized `ApiError` (exit 1) that names only the exception class. The retry budget, the time budget and the rate-limit reserve are unchanged; 4xx and non-JSON bodies are still not retried.
 
 ### Fixed — CI: dispatch inputs no longer expand into shell source
 

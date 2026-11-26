@@ -143,10 +143,10 @@ def test_the_exact_prompt_is_typed_when_the_audio_does_hold_speech(monkeypatch) 
 
 
 def test_a_detector_that_cannot_run_decodes_as_before(monkeypatch) -> None:
-    d = _daemon(monkeypatch, verdict=None)
+    d = _daemon(monkeypatch, verdict=None, text="Please send the report today.")
     d._on_hold_end()
     assert d._engine.calls == 1
-    assert d._injector.calls == [BUILTIN_PROMPT]
+    assert d._injector.calls == ["Please send the report today."]
 
 
 @needs_faster_whisper
@@ -276,7 +276,7 @@ def test_the_gate_runs_before_the_first_decode_in_on_hold_end() -> None:
     fn = _daemon_methods()["_on_hold_end"]
     gate = [
         n.lineno for n in ast.walk(fn)
-        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "holds_no_speech"
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "speech_verdict"
     ]
     assert gate, "_on_hold_end never asks whether the burst holds speech"
     assert gate[0] < _decoder_calls(fn)[0], "the speech check must precede the decoder"

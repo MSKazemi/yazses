@@ -155,8 +155,9 @@ machine is air-gapped, or because you do not want a subscription.
 
 - **Compared with cloud dictation** such as Wispr Flow, YazSes runs entirely on-device.
 - **Compared with Talon Voice**, it aims at plug-and-play use rather than advanced scripting.
-- **Compared with other free on-device tools** (Handy, OpenWhispr), it adds voice
-  **commands**, speaker-labelled meeting capture and published benchmarks.
+- **Compared with other free on-device tools** (Handy, OpenWhispr), it adds a documented
+  voice-**command** grammar, published benchmarks and no cloud path at all; Handy has no
+  commands or meetings, and OpenWhispr's cloud is optional rather than absent.
 - **It is not the right tool** if you need a conversational AI agent, non-English models out
   of the box, or a mobile or web app.
 
@@ -363,7 +364,7 @@ desktop experience where one exists.
 | **Privacy-conscious professionals** | Dictate in law, medicine or research, where audio must never touch a cloud service. |
 | **Teams with confidential meetings** | Record and summarise internal, clinical, legal or pre-publication meetings without a note-taking SaaS or a bot in the call. |
 | **Researchers with recordings** | Batch-transcribe interviews, lectures and field recordings offline, with speaker labels, under your own retention rules. |
-| **People with motor disabilities** | Offline hold-to-talk dictation, with Dysfluency-Friendly Mode for stuttered or dysarthric speech. An EMG (muscle-sensor) trigger exists but is [experimental, off by default, with no real-device evidence yet](docs/roadmap.md#known-limits). |
+| **People with motor disabilities** | Offline dictation, with Dysfluency-Friendly Mode for stuttered or dysarthric speech. If holding a key is hard, set `[hotkey] mode = "toggle"`: press once to start, press again to stop. An EMG (muscle-sensor) trigger exists but is [experimental, off by default, with no real-device evidence yet](docs/roadmap.md#known-limits). |
 | **Offline and air-gapped sites** | Dictation on machines with no reliable internet, or where outbound network calls are not allowed. |
 
 **Guides with setup steps:**
@@ -401,7 +402,9 @@ desktop experience where one exists.
 ## Comparison & alternatives
 
 An honest comparison with other voice-dictation tools. Every claim is about publicly
-documented behaviour, and each tool has strengths YazSes does not.
+documented behaviour, and each tool has strengths YazSes does not. Both tables describe each
+tool **as of November 2026**, checked on 2026-11-20; the
+[comparison page](https://mskazemi.com/yazses/comparison.html) carries the full, sourced version.
 
 | | **YazSes** | **Dragon** | **Talon Voice** | **Windows Voice Access** | **Wispr Flow** |
 |---|---|---|---|---|---|
@@ -424,27 +427,31 @@ would make this comparison evasive to exactly the readers who already know about
 
 | | **YazSes** | **Handy** | **OpenWhispr** | **FluidVoice** | **VoiceInk** |
 |---|---|---|---|---|---|
-| Runs offline / on-device | ✅ | ✅ | ✅ (cloud optional, BYOK) | ✅ | ✅ |
-| Linux | ✅ | ✅ | ✅ | ❌ (announced) | ❌ |
+| Runs offline / on-device | ✅ | ✅ | ✅ (cloud optional, BYOK) | ✅ | ✅ (cloud models optional) |
+| Linux | ✅ | ✅ | ✅ | early beta | ❌ |
 | macOS | ✅ preview | ✅ | ✅ | ✅ | ✅ |
-| Windows | ✅ preview | ✅ | ✅ | community port | ❌ |
-| Price | Free | Free | Free | Free | Paid (from $29) |
-| Licence | Apache-2.0 | MIT | MIT | GPLv3 | open source |
-| Voice **commands**, not just dictation | ✅ | ❌ | ✅ spoken instructions | ✅ Command Mode | limited |
-| Meeting capture with **speaker labels** | ✅ | ❌ | transcription, no diarization documented | ❌ | ❌ |
+| Windows | ✅ preview | ✅ | ✅ | beta | ❌ |
+| Price | Free | Free | Free; paid cloud plans | Free | Paid, one-time (from $25) |
+| Licence | Apache-2.0 | MIT | MIT | GPLv3 | GPLv3 |
+| Voice **commands**, not just dictation | ✅ | ❌ | ✅ spoken instructions, AI agent | ✅ Command Mode | limited (rewrite a selection) |
+| Transcribe existing **files** | ✅ | ✅ (since v0.10.0) | ✅ | not documented | not documented |
+| Meeting capture with **speaker labels** | ✅ | ❌ | ✅ (local diarization) | ✅ FluidMeet (macOS) | ❌ |
 | **Published benchmarks** with method | ✅ | ❌ | ❌ | ❌ | ❌ |
 
 **Handy is the closest alternative.** It is MIT-licensed, free, cross-platform and on-device,
-with the same hold-a-key-and-speak loop. If you want dictation and nothing else, it is an
-excellent choice and considerably smaller than YazSes.
+with the same hold-a-key-and-speak loop, and since v0.10.0 it also transcribes existing audio
+files. If you want dictation plus the occasional file, it is an excellent choice and
+considerably smaller than YazSes.
 
 **Good reasons to choose another tool:**
 
-- **Handy:** you want dictation only, with the smallest possible install.
-- **OpenWhispr:** you want a polished Electron app, and falling back to a cloud model with
-  your own API key is a feature for you rather than a dealbreaker.
+- **Handy:** you want dictation and file transcription, with the smallest possible install.
+- **OpenWhispr:** you want a polished Electron app with an AI assistant and meeting notes,
+  and falling back to a cloud model with your own API key is a feature for you rather than a
+  dealbreaker.
 - **FluidVoice:** you are on macOS and want voice control of the OS itself (launching apps,
-  running Shortcuts), which goes beyond YazSes's editor-oriented commands.
+  running Shortcuts), which goes beyond YazSes's editor-oriented commands, or meeting
+  transcripts your coding agent can read.
 - **VoiceInk:** you are on macOS, want a native app, and prefer paying once.
 - **Talon Voice:** you want deep, scriptable voice control and are willing to learn its
   scripting model. YazSes and Talon can run side by side.
@@ -458,18 +465,22 @@ excellent choice and considerably smaller than YazSes.
 Being open source, local, cross-platform and free **no longer sets YazSes apart**: Handy and
 OpenWhispr are all four. The real differences are narrower:
 
-1. **Voice commands as well as dictation**, with a documented grammar. Most of the tools
-   above do dictation only.
-2. **Linux as a first-class target**, not a port: X11 and Wayland injection, evdev
+1. **No cloud path at all**, enforced by a test rather than asserted: the
+   [egress inventory](design/adr/adr-019-egress-inventory-and-escalation.md) fails the build
+   if a module grows a new outbound primitive. OpenWhispr and VoiceInk offer optional cloud
+   models.
+2. **Voice commands as well as dictation**, with a documented grammar, on all three desktops.
+   Handy has no commands; FluidVoice's Command Mode is macOS-only.
+3. **Linux as a first-class target**, not a port: X11 and Wayland injection, evdev
    hold-to-talk, systemd autostart, a `.deb`, an APT repository and a snap.
-3. **Meeting capture with speaker labels**, entirely on-device.
 4. **Published benchmarks with a stated method**, plus an explicit list of what was *not*
    measured. See [benchmarks](https://mskazemi.com/yazses/benchmarks.html).
 5. **Accessibility as a design constraint**, not an add-on: dysfluency-friendly filtering,
    calibrated silence gates, and activation that does not depend on a keyboard.
 
-> **How current is this?** It was compiled from each project's own documentation in August
-> 2026, **not** from testing each tool. This space moves quickly. If a row is out of date,
+> **How current is this?** It was compiled from each project's own README, releases or
+> vendor pages and last re-checked on **2026-11-20**, **not** from testing each tool. Meeting
+> capture with speaker labels is no longer unique: OpenWhispr and FluidVoice have it too. This space moves quickly. If a row is out of date,
 > [tell us](https://github.com/MSKazemi/yazses/issues); a comparison that flatters us by
 > being stale is worth less than no comparison at all.
 

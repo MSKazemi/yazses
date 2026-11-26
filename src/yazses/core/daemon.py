@@ -26,6 +26,8 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     # All imported lazily at runtime (in _build_gaze_targeter and the other builders
     # below) so the optional/heavy dependencies stay dormant; the names exist here only
     # so the `X | None` attribute annotations resolve for the type checker.
@@ -37,6 +39,7 @@ if TYPE_CHECKING:
     from yazses.gaze.refine_runtime import RefinementRuntime
     from yazses.gaze.targeter import GazeTargeter
     from yazses.hesitation.stream import HesitationMonitor
+    from yazses.hotkeys.toggle import ToggleTurn
     from yazses.inject.replace import InjectionTally, ReplacementOutcome, ReplacementSteps, Wording
     from yazses.inject.target import TargetDetector
     from yazses.latency.pool import EnginePool
@@ -44,6 +47,7 @@ if TYPE_CHECKING:
     from yazses.learning.edit_watch import EditWatcher
     from yazses.meeting.controller import MeetingController
     from yazses.perception import SharedPerceptionSource
+    from yazses.perception.switch import CameraSwitch
     from yazses.pilot.service import PilotService
     from yazses.predict.runtime import PredictRuntime
     from yazses.predict.session import Suggestion
@@ -63,7 +67,11 @@ from yazses.audio.device_monitor import DeviceMonitor, SilentStreakTracker, capt
 from yazses.audio.mic_prompt import MicPrompt
 from yazses.audio.padding import PreSpeechRingBuffer
 from yazses.audio.recorder import AudioRecorder
-from yazses.audio.speech_presence import holds_no_speech, speech_check_applies
+from yazses.audio.speech_presence import (
+    prime_detector,
+    speech_check_applies,
+    speech_verdict,
+)
 from yazses.audio.vad_calibrated import is_silent_calibrated
 from yazses.cmdsafety.classify import ConfirmGate
 from yazses.commands.dispatch import dispatch as cmd_dispatch
@@ -104,6 +112,7 @@ from yazses.stt.factory import build_engine, describe_active_engine
 from yazses.stt.filters.disfluency import filter_transcript
 from yazses.stt.latency import LatencyWindow
 from yazses.stt.streaming import StreamingEngine
+from yazses.stt.vocabulary import is_prompt_echo
 from yazses.system.outcomes import OutcomeWindow, classify_outcome
 from yazses.system.relaunch import Mode, command_for
 from yazses.system.uptime import monotonic_including_suspend
@@ -132,6 +141,16 @@ _MORSE_QUIET_STATES = frozenset({TrayState.IDLE, TrayState.TRANSCRIBING, TraySta
 #: How often the ask_human listener reads the mic level: the hands-free watcher's
 #: cadence (`_autostop_watch`), well under the 0.3 s silence floor.
 _ASK_HUMAN_POLL_S = 0.05
+#: How often a latched toggle recording (`[hotkey] mode = "toggle"`, #869) is checked
+#: against the `max_record_seconds` cap and for having ended some other way.
+_TOGGLE_POLL_S = 0.1
+#: States in which a toggle-mode press neither starts nor stops anything: the previous
+#: dictation is still being transcribed or typed, or the microphone belongs to enrollment.
+#: READBACK and MEETING are absent on purpose: a press there starts dictation (and barges
+#: in on read-back) exactly as a hold-to-talk press does.
+_TOGGLE_BUSY_STATES = frozenset(
+    {TrayState.TRANSCRIBING, TrayState.INJECTING, TrayState.LOADING, TrayState.ENROLLING}
+)
 
 
 class _SilentEarcon:
@@ -378,6 +397,11 @@ _RECAL_LEAD_S = 1.5
 # daemon is quick, because the loop returns the moment the lock is free.
 _TAKEOVER_WAIT_S = 45.0
 
+# How long a starting daemon keeps asking an unreachable lock holder for its status. The
+# holder takes the lock a moment before it opens its socket, so a first miss is not yet
+# an answer; one that is still silent after this is reported and left alone.
+_INCUMBENT_ANSWER_WAIT_S = 3.0
+
 _TONE_INSTRUCTIONS: dict[str, str] = {
     "casual": "Use a casual, conversational tone.",
     "formal": "Use a formal, professional tone.",
@@ -468,6 +492,11 @@ class Daemon:
     #: Returns the focused application's identifier (an X11 class / AT-SPI name, a macOS
     #: bundle id, a Windows image name) for the profile lookup, or None when nothing can. Injected, so a test hands in a lambda instead of a desktop.
     _focused_app_class: Callable[[], str] | None = None
+    #: Returns the focused window's working directory for `[context] use_git`, or None.
+    #: Built lazily from `Platform.focused_cwd_factory` on the first decode that needs
+    #: it; injected in tests. Holds a callable only -- never a path or a branch.
+    _focused_cwd_source: Callable[[], Path | None] | None = None
+    _focused_cwd_built: bool = False
     #: True once `_announce_model_download` has told the user a first-run download is
     #: under way. The one signal `_announce_ready_after_download` fires on. Class-level
     #: so a daemon whose announcement is stubbed (most of the suite) stays silent.
@@ -523,6 +552,14 @@ class Daemon:
     #: Class-level for the same partial-daemon reason as the attributes above; while it is
     #: None the two hold handlers behave exactly as they always have.
     _autostop: AutoStopTurn | None = None
+    #: Toggle dictation (`[hotkey] mode = "toggle"`, #869): the press-to-start,
+    #: press-to-stop latch on the dictation key, or None -- the default, hold-to-talk.
+    _toggle: ToggleTurn | None = None
+    #: Bumped on every toggle start, so a cap watcher left from an earlier turn exits.
+    _toggle_gen: int = 0
+    #: A command-key press refused because a toggle recording is latched open; its
+    #: release must then be refused too, or it would end the dictation as a command.
+    _command_press_ignored: bool = False
     #: True from a hold-start whose microphone failed to open until the next hold-start.
     #: Read by `_autostop_defer_end`: a tap on a burst that never began must not latch.
     _hold_start_failed: bool = False
@@ -563,6 +600,14 @@ class Daemon:
         # Non-keyboard activation sources (EMG squeeze — [emg] device_port).
         # Each is a HotkeyBackend duck-type driving the same hold callbacks.
         self._extra_activations: list[HotkeyBackend] = []
+        # The runtime camera on/off switch (perception/switch.py, #922/#924). Always built,
+        # always starts ON, never persisted; camera features register their owners below.
+        # Built on first use, never at start: the perception package pulls in the gaze
+        # package, which a daemon with no camera feature must not import (budget tests).
+        self._camera_switch_obj: CameraSwitch | None = None
+        # How `yazses camera list|use` finds cameras (perception/devices.py). Injected so a
+        # test never touches /sys; the real one reads sysfs on Linux and probes elsewhere.
+        self._camera_enumerator_fn: Callable[[], Any] | None = None
         # Verbatim/autoformat mode (ADR-v2-078): a persistent gate toggled by the
         # spoken commands "dictate verbatim" / "resume formatting". Lazily created on
         # first use when [verbatim] enabled; holds mode across bursts. None = feature off.
@@ -801,6 +846,9 @@ class Daemon:
         # The platform's "will the window in front take our input?" check, asked again
         # just before typing (see `_recheck_input_block`). None when the guard is off.
         self._input_block_probe: Callable[[], str | None] | None = None
+        # The hold-end hotkey key-up while it runs alongside the decode; joined before
+        # any keystroke (`_await_hotkey_release`). None when nothing is in flight.
+        self._hotkey_release_thread: threading.Thread | None = None
         # True once we've auto-healed for the current silent streak, so a device that
         # is genuinely gone doesn't re-trigger the switch on every subsequent clip.
         self._healed_this_streak = False
@@ -826,30 +874,40 @@ class Daemon:
         return True
 
     def _replace_older_daemon(self, lock: SingleInstanceLock) -> bool:
-        """Ask a strictly older daemon to stop and take its place. False if not applicable.
+        """Ask a stale daemon to stop and take its place. False if not applicable.
 
-        After an upgrade the previous daemon keeps running with what it read at its own
-        start -- on macOS the keyboard permission, before it was granted -- while the new
-        app exits as a duplicate (#562, #578). Only an *older* version is replaced
-        (`core/takeover.py`); an equal or newer one, or one that will not say, is left
-        alone and the caller reports the duplicate as before.
+        A daemon reads its code and, on macOS, the keyboard permission once, at its own
+        start. After an upgrade, or after the user grants a permission and opens the app
+        again, the old daemon kept running with the old answer while the new one exited
+        as a duplicate (#562, #578). The incumbent is replaced only on its own report
+        (`core/takeover.py::startup_replacement_reason`): it is strictly older, or it is
+        idle (or in error) and says grants arrived after it started. A current, healthy
+        daemon, one that will not say, and one that does not answer are all left alone
+        and the caller reports the duplicate as before.
         """
-        from yazses.core.takeover import is_older
+        from yazses.core.takeover import startup_replacement_reason
 
         platform = self._platform
         try:
             client = platform.ipc_client_factory(platform.paths.ipc_socket)
-            # Not consuming: this reader displays nothing, and the holder's one-shot toast
-            # queue is the only notification channel on Windows and macOS.
-            status = client.call("status", consume_notifications=False)
-            theirs = status.get("version") if isinstance(status, dict) else None
-            mine = _running_version()
-            if not is_older(theirs, mine):
+            status = self._incumbent_status(client)
+            if status is None:
                 return False
-            log.warning(
-                "YazSes %s is still running from before the upgrade; asking it to stop "
-                "so %s can take over.", theirs, mine,
-            )
+            mine = _running_version()
+            reason = startup_replacement_reason(status, mine)
+            if reason is None:
+                return False
+            if reason == "older":
+                log.warning(
+                    "YazSes %s is still running from before the upgrade; asking it to "
+                    "stop so %s can take over.", status.get("version"), mine,
+                )
+            else:
+                log.warning(
+                    "The running daemon started before a permission was granted (%s); "
+                    "asking it to stop so this one, which can see the grant, takes over.",
+                    ", ".join(str(g) for g in status.get("stale_permissions") or []),
+                )
             client.call("shutdown")
         except Exception:
             log.debug("Could not ask the running daemon to stop", exc_info=True)
@@ -861,10 +919,48 @@ class Daemon:
                 return True
             time.sleep(0.25)
         log.error(
-            "The older daemon was asked to stop and still holds the lock after %.0f s. "
+            "The previous daemon was asked to stop and still holds the lock after %.0f s. "
             "Run: yazses restart", _TAKEOVER_WAIT_S,
         )
         return False
+
+    def _incumbent_status(self, client: Any) -> dict[str, Any] | None:
+        """The lock holder's ``status`` reply, or None when it gives none. Never raises.
+
+        A holder that cannot be reached is retried for :data:`_INCUMBENT_ANSWER_WAIT_S`,
+        because one that has only just taken the lock opens its socket a moment later.
+        One that still does not answer is *named* (pid, and what to run) and left
+        running: an unanswered socket is not proof the daemon is stuck, and stopping a
+        healthy one on that guess would be worse than the duplicate it prevents (ADR-021).
+        """
+        from yazses.ipc.client import IpcUnreachableError
+
+        deadline = time.monotonic() + _INCUMBENT_ANSWER_WAIT_S
+        while True:
+            try:
+                # Not consuming: this reader displays nothing, and the holder's one-shot
+                # toast queue is the only notification channel on Windows and macOS.
+                reply = client.call("status", consume_notifications=False)
+            except IpcUnreachableError:
+                if time.monotonic() < deadline:
+                    time.sleep(0.25)
+                    continue
+                pid = None
+                try:
+                    pid = self._platform.lifecycle.read_pid()
+                except Exception:  # noqa: BLE001 - the report must not fail the start
+                    pass
+                log.error(
+                    "A YazSes daemon%s holds the single-instance lock but has not answered "
+                    "for %.0f s. It was left running. If dictation does not work, run: "
+                    "yazses restart",
+                    f" (pid {pid})" if pid is not None else "", _INCUMBENT_ANSWER_WAIT_S,
+                )
+                return None
+            except Exception:
+                log.debug("The running daemon's status call failed", exc_info=True)
+                return None
+            return reply if isinstance(reply, dict) else None
 
     def run(self) -> None:
         self._configure_logging()
@@ -1592,6 +1688,25 @@ class Daemon:
         self._idle_unload_engine = wrapped
         return wrapped
 
+    def _prime_speech_detector(self) -> None:
+        """Load the speech-presence detector during start-up, not on the first burst.
+
+        Only when the check is on and no mode at start-up exempts it, so a daemon that
+        never runs the check never loads Silero. Never raises: a detector that cannot
+        load fails open on every burst exactly as it would have without this.
+        """
+        acc = self._config.accessibility
+        wm = self._config.whispermode
+        if not speech_check_applies(
+            enabled=acc.speech_presence_check,
+            dysfluency_friendly=acc.dysfluency_friendly,
+            sotto_voce=wm.enabled and wm.command_channel,
+        ):
+            return
+        took = prime_detector(int(self._config.audio.sample_rate))
+        if took is not None:
+            log.debug("Speech-presence detector ready in %.0f ms.", took)
+
     def _start_stt_idle_unloader(self) -> None:
         """Run the idle-unload tick beside the portal reaper. Dormant at the default.
 
@@ -1876,6 +1991,7 @@ class Daemon:
         self._announce_model_download(cfg)
         self._engine = self._with_idle_unload(build_engine(cfg.stt))
         self._remember_engine_info()
+        self._prime_speech_detector()
 
         # [injection] backend selects the Linux injector (type | ydotool |
         # clipboard | wtype | auto), and fallback_to_clipboard the runtime fallback.
@@ -1981,17 +2097,30 @@ class Daemon:
         key_id = cfg.hotkey.key
         if key_id == "auto":
             key_id = self._platform.default_hotkey
+        # `[hotkey] mode = "toggle"` (#869): the same key, as a press-on / press-off latch.
+        self._toggle = self._build_toggle(cfg)
+        if self._toggle is not None:
+            on_key_down, on_key_up = self._on_toggle_press, self._on_toggle_release
+        else:
+            on_key_down, on_key_up = self._on_hold_start, self._on_hold_end
         self._hotkey = self._platform.hotkey_factory(
             key_id,
             cfg.hotkey.hold_threshold_ms,
-            self._on_hold_start,
-            self._on_hold_end,
+            on_key_down,
+            on_key_up,
         )
 
         # Optional dedicated command key: a second listener that forces command
         # mode while held. Ignored if unset or the same as the dictation key.
         self._command_hotkey = self._make_command_hotkey(cfg, key_id)
-        self._autostop = self._build_autostop(cfg)
+        if self._toggle is not None and cfg.autostop.enabled:
+            # Both latch the recording open; two latches on one key would fight over every
+            # release. Toggle is the explicit choice of how the key behaves, so it wins.
+            log.info("[autostop] is not used while [hotkey] mode = \"toggle\": the second "
+                     "press ends the recording instead of trailing silence.")
+            self._autostop = None
+        else:
+            self._autostop = self._build_autostop(cfg)
 
         # ADR-v2-145: one camera owner per daemon, so gaze, the Head-Pointer and the
         # face switch cannot each open the webcam and meet "device already busy".
@@ -2039,6 +2168,7 @@ class Daemon:
 
         # Optional non-keyboard activation sources (EMG squeeze via [emg]).
         self._extra_activations = self._build_activation_sources(cfg)
+        self._register_camera_consumers()
         # Tier 2 natural-language intent fallback (ADR: commands/slm_router.py).
         # None unless `[commands] slm_model_path` names a usable model.
         self._slm_router = self._build_slm_router(cfg)
@@ -2193,6 +2323,7 @@ class Daemon:
         server.register("headpointer", self._handle_headpointer)
         server.register("handsfree", self._handle_handsfree)
         server.register("facegesture", self._handle_facegesture)
+        server.register("camera", self._handle_camera)
         server.register("gesture", self._handle_gesture)
         server.register("mousegrid", self._handle_mousegrid)
         server.serve_in_thread()
@@ -3011,6 +3142,124 @@ class Daemon:
                 reason = "the face switch is not running (`yazses features enable facegesture`)"
             return {"ok": True, "active": False, "reason": reason}
         return {"ok": True, "active": True, **payload}
+
+    # ---- Camera on/off switch (perception/switch.py, #922 / #924) --------------------
+
+    @property
+    def _camera_switch(self) -> CameraSwitch:
+        if self._camera_switch_obj is None:
+            from yazses.perception.switch import CameraSwitch
+
+            self._camera_switch_obj = CameraSwitch()
+        return self._camera_switch_obj
+
+    @_camera_switch.setter
+    def _camera_switch(self, value: CameraSwitch) -> None:
+        self._camera_switch_obj = value
+
+    def _camera_enumerator(self) -> Any:
+        if self._camera_enumerator_fn is None:
+            from yazses.perception.devices import default_enumerator
+
+            self._camera_enumerator_fn = default_enumerator()
+        return self._camera_enumerator_fn()
+
+    def _register_camera_consumers(self) -> None:
+        """Tell the camera switch who owns a device. Never raises; dictation is not in here."""
+        try:
+            perception = getattr(self, "_perception", None)
+            if (perception is None and getattr(self, "_gaze_targeter", None) is None
+                    and not any(hasattr(src, "pause_camera") for src in self._extra_activations)):
+                return  # no camera owner: nothing to switch, nothing to import
+            from yazses.perception.devices import default_enumerator  # noqa: F401
+            from yazses.perception.source import SourceState
+            from yazses.perception.switch import CameraConsumer
+
+            switch = self._camera_switch
+            if perception is not None:
+                def _shared_holders(src=perception) -> tuple[str, ...]:
+                    status = src.status()
+                    if src.suspended or status.state not in (
+                        SourceState.RUNNING, SourceState.STARTING
+                    ):
+                        return ()
+                    return tuple(status.consumers)
+
+                def _shared_failure(src=perception) -> str:
+                    return "" if src.suspended else str(src.status().failure_reason)
+
+                switch.register(CameraConsumer(
+                    name="shared camera",
+                    pause=perception.suspend,
+                    resume=perception.resume,
+                    holders=_shared_holders,
+                    failure=_shared_failure,
+                    set_index=perception.set_camera_index,
+                ))
+            owners: list[tuple[str, Any]] = [
+                ("facegesture", src) for src in self._extra_activations
+                if hasattr(src, "pause_camera")
+            ]
+            if getattr(self, "_gaze_targeter", None) is not None:
+                owners.append(("gaze", self._gaze_targeter))
+            def _own_holders(name: str, owner: Any) -> Callable[[], tuple[str, ...]]:
+                return lambda: (name,) if owner.camera_held else ()
+
+            def _own_failure(owner: Any) -> Callable[[], str]:
+                return lambda: str(owner.camera_failure)
+
+            for name, owner in owners:
+                switch.register(CameraConsumer(
+                    name=name,
+                    pause=owner.pause_camera,
+                    resume=owner.resume_camera,
+                    holders=_own_holders(name, owner),
+                    failure=_own_failure(owner),
+                    set_index=getattr(owner, "set_camera_index", None),
+                ))
+        except Exception:
+            log.warning("Camera switch registration failed; `yazses camera` will report "
+                        "nothing to switch.", exc_info=True)
+
+    def _camera_status_payload(self) -> dict[str, object] | None:
+        """The camera switch as a status block, or None -- a status read never fails on it."""
+        if self._camera_switch_obj is None:
+            return None
+        try:
+            return self._camera_switch.status().as_payload()
+        except Exception:  # pragma: no cover - defensive
+            log.debug("camera status unavailable", exc_info=True)
+            return None
+
+    def _handle_camera(self, request: Request) -> dict[str, object]:
+        """IPC: `status` / `on` / `off` / `list` / `use` for every camera feature at once."""
+        action = str(request.params.get("action", "status"))
+        if action not in ("status", "on", "off", "list", "use"):
+            return {"ok": False, "reason": f"unknown action {action!r}"}
+        try:
+            from yazses.perception.devices import resolve_camera
+
+            switch = self._camera_switch
+            if action == "list":
+                devices = self._camera_enumerator()
+                return {"ok": True, "devices": [dev.as_payload() for dev in devices],
+                        **switch.status().as_payload()}
+            if action == "use":
+                target = str(request.params.get("target", ""))
+                found = resolve_camera(self._camera_enumerator(), target)
+                if found.device is None:
+                    return {"ok": False, "reason": found.message(), "problem": found.problem,
+                            "devices": [dev.as_payload() for dev in found.candidates]}
+                switch.use_camera(found.device.index, found.device.name)
+                return {"ok": True, **switch.status().as_payload()}
+            if action == "on":
+                switch.set(True)
+            elif action == "off":
+                switch.set(False)
+            return {"ok": True, **switch.status().as_payload()}
+        except Exception as exc:  # pragma: no cover - defensive
+            log.exception("camera %s raised", action)
+            return {"ok": False, "reason": f"failed: {type(exc).__name__}"}
 
     def _build_slm_router(self, cfg):
         """Tier 2 SLM intent router, or None (#164).
@@ -3981,13 +4230,117 @@ class Daemon:
                 self._on_hold_end()
                 return
 
+    def _build_toggle(self, cfg) -> ToggleTurn | None:
+        """The toggle latch for `[hotkey] mode = "toggle"` (#869), or None for hold-to-talk.
+
+        The import sits behind the mode check, so a default start loads nothing new.
+        """
+        raw = getattr(cfg.hotkey, "mode", "hold")
+        if isinstance(raw, str) and raw.strip().lower() in ("", "hold"):
+            return None
+        from yazses.hotkeys.toggle import MODES, ToggleTurn, normalise_mode, toggle_key_note
+
+        if normalise_mode(raw) != "toggle":
+            log.warning("[hotkey] mode = %r is not one of %s; using hold-to-talk.",
+                        raw, ", ".join(repr(m) for m in MODES))
+            return None
+        turn = ToggleTurn(max_seconds=cfg.audio.max_record_seconds)
+        key = cfg.hotkey.key
+        if key == "auto":
+            key = self._platform.default_hotkey
+        note = toggle_key_note(raw, key, cfg.hotkey.hold_threshold_ms)
+        if note:
+            log.warning("[hotkey] %s.", note)
+        if turn.max_seconds:
+            log.info("Toggle dictation: press the hotkey to start, press it again to stop "
+                     "(a recording left running ends after %d s).", int(turn.max_seconds))
+        else:
+            log.info("Toggle dictation: press the hotkey to start, press it again to stop "
+                     "(max_record_seconds = 0: no time limit).")
+        return turn
+
+    def _toggle_state(self) -> tuple[bool, bool]:
+        """(recording, busy) for a toggle-mode press, read under the lock."""
+        with self._lock:
+            state = self._state.state
+        return state == TrayState.RECORDING, state in _TOGGLE_BUSY_STATES
+
+    def _on_toggle_press(self, leaked: int) -> None:
+        """Dictation key down in toggle mode: start a recording, or end the latched one."""
+        from yazses.hotkeys.toggle import Press
+
+        turn = self._toggle
+        if turn is None:  # pragma: no cover - only wired while toggle mode is on
+            self._on_hold_start(leaked)
+            return
+        recording, busy = self._toggle_state()
+        action = turn.press(time.monotonic(), recording=recording, busy=busy)
+        if action is Press.STOP:
+            log.info("Toggle dictation: second press, stopping.")
+            self._on_hold_end()
+            return
+        if action is Press.IGNORE:
+            log.info("Toggle dictation: press ignored (%s).",
+                     "still transcribing the last one" if busy else "a recording is already open")
+            if leaked > 0 and self._injector is not None:
+                # A character hotkey typed something before the press was recognised.
+                try:
+                    self._injector.inject_backspaces(leaked)
+                except Exception as exc:
+                    log.warning("Failed to clean %d leaked char(s): %s", leaked, exc)
+            return
+        self._on_hold_start(leaked)
+        if self._hold_start_failed:
+            turn.cancel()  # the microphone did not open: nothing is latched
+            return
+        self._toggle_gen += 1
+        threading.Thread(
+            target=self._toggle_watch, args=(turn, self._toggle_gen),
+            daemon=True, name="toggle-watch",
+        ).start()
+
+    def _on_toggle_release(self) -> None:
+        """Dictation key up in toggle mode: never starts or ends anything."""
+        turn = self._toggle
+        if turn is not None:
+            turn.release(time.monotonic())
+
+    def _toggle_watch(self, turn: ToggleTurn, gen: int) -> None:
+        """Watch a latched toggle recording: end it at the cap, drop it if it ended elsewhere."""
+        # Wait on the daemon's stop event, not time.sleep: the watcher ends with the daemon
+        # instead of polling forever, and it never spins if something replaces time.sleep.
+        while turn.latched and gen == self._toggle_gen:
+            if self._stop_event.wait(_TOGGLE_POLL_S):
+                return
+            if gen != self._toggle_gen or not turn.latched:
+                return
+            recording, _busy = self._toggle_state()
+            if not recording:
+                turn.cancel()  # the recording ended another way (mic lost, shutdown)
+                return
+            if turn.expired(time.monotonic()):
+                log.warning("Toggle dictation: the recording reached max_record_seconds "
+                            "(%d s) and was stopped.", int(turn.max_seconds))
+                self._on_hold_end()
+                return
+
     def _on_command_hold_start(self, leaked: int) -> None:
         """Hold-start for the dedicated command key — arm force-command mode."""
+        if self._toggle is not None and self._toggle.latched:
+            # A toggle dictation is open: this hold would turn it into a command and its
+            # release would end it. The dictation key ends it; this press does nothing.
+            self._command_press_ignored = True
+            log.info("Command key ignored: a toggle dictation is open; press the "
+                     "dictation key to stop it.")
+            return
         self._command_mode = True
         self._on_hold_start(leaked)
 
     def _on_command_hold_end(self) -> None:
         """Hold-end for the command key. `_on_hold_end` consumes _command_mode."""
+        if self._command_press_ignored:
+            self._command_press_ignored = False
+            return
         self._on_hold_end()
 
     def _on_hold_start(self, leaked: int) -> None:
@@ -4180,6 +4533,44 @@ class Daemon:
         except Exception:  # pragma: no cover - best-effort, environment dependent
             log.debug("hotkey-modifier release (best-effort) failed", exc_info=True)
 
+    def _release_hotkey_modifier_overlapped(self) -> None:
+        """Run `_release_hotkey_modifier` alongside the decode instead of before it.
+
+        On a ydotool session the release is a process spawn plus ydotool's 12 ms key
+        delay per key-up, and it used to sit in series in front of transcription on
+        every burst. Nothing in the non-streaming pipeline sends a keystroke before the
+        decode has produced text, so the release can run while the decode does, as
+        long as every keystroke waits for it: `_await_hotkey_release` is called from
+        `_active_injector` (which every post-hold-end injection path goes through),
+        right after the decode, and when `_on_hold_end` returns. The ordering the
+        release exists for -- key-up *before* any typed text -- is therefore kept.
+
+        With streaming partials on screen it stays synchronous: an early return
+        cancels them with backspaces through a `StreamingInjector` that does not go
+        through `_active_injector`, and those must not race a held Alt.
+        """
+        if getattr(self, "_stream_injector", None) is not None:
+            self._release_hotkey_modifier()
+            return
+        thread = threading.Thread(
+            target=self._release_hotkey_modifier, name="hotkey-release", daemon=True
+        )
+        self._hotkey_release_thread = thread
+        thread.start()
+
+    def _await_hotkey_release(self) -> None:
+        """Block until the hold-end hotkey release (if one is running) has finished.
+
+        Bounded: `release_keycodes` has its own 3 s timeout, which is no longer than the
+        synchronous call this replaced could already take.
+        """
+        thread = getattr(self, "_hotkey_release_thread", None)
+        if thread is None or thread is threading.current_thread():
+            return
+        thread.join()
+        if getattr(self, "_hotkey_release_thread", None) is thread:
+            self._hotkey_release_thread = None
+
     def _on_hold_end(self) -> None:
         if self._autostop is not None and self._autostop_defer_end():
             return  # a tap: keep recording until the speaker stops
@@ -4200,7 +4591,8 @@ class Daemon:
         # (slow) transcription, and regardless of whether this burst ends in an
         # injection or a silent discard. Fixes stuck right_alt → Alt+Space window
         # menu / screenshots on GNOME Wayland. Best-effort; never breaks dictation.
-        self._release_hotkey_modifier()
+        # Overlapped with the decode; every keystroke below waits for it to finish.
+        self._release_hotkey_modifier_overlapped()
 
         # Consume the dedicated-command-key flag for this burst (reset for next).
         command_mode = self._command_mode
@@ -4229,11 +4621,13 @@ class Daemon:
             self._stream_engine.request_stop()
 
         if self._recorder is None or self._engine is None or self._injector is None:
+            self._await_hotkey_release()
             return
         if not in_burst and not getattr(self._recorder, "has_clip", True):
             # The unpaired release: no burst, nothing captured. Not a silent clip either --
             # counting it as one would feed the adaptive VAD a 0.0 and the silent streak a
             # miss. (A recorder that cannot say whether it holds a clip is treated as before.)
+            self._await_hotkey_release()
             return
         with self._lock:
             # `[stt] idle_unload_s` (ADR-029): when the model is still coming back from
@@ -4404,12 +4798,19 @@ class Daemon:
             # Profiles), not from `acc`: a profile-raised gate is not Whisper Mode and must
             # not exempt the burst from this check.
             wm_cfg = self._config.whispermode
-            if speech_check_applies(
-                enabled=acc.speech_presence_check,
-                whisper_mode=configured_gate != self._config.accessibility.vad_threshold,
-                dysfluency_friendly=acc.dysfluency_friendly,
-                sotto_voce=wm_cfg.enabled and wm_cfg.command_channel,
-            ) and holds_no_speech(padded, sample_rate):
+            # Tri-state, kept for the prompt-echo check after decode: only `False` (speech
+            # positively found) lets a transcript that echoes the prompt be typed.
+            no_speech_verdict = (
+                speech_verdict(padded, sample_rate)
+                if speech_check_applies(
+                    enabled=acc.speech_presence_check,
+                    whisper_mode=configured_gate != self._config.accessibility.vad_threshold,
+                    dysfluency_friendly=acc.dysfluency_friendly,
+                    sotto_voce=wm_cfg.enabled and wm_cfg.command_channel,
+                )
+                else None
+            )
+            if no_speech_verdict is True:
                 # Pitch-Contour Gestures (ADR-v2-103): a hum gets its check before this
                 # discard. No-op while `[contour]` is off.
                 if self._contour_gesture(padded, sample_rate, None, event):
@@ -4570,6 +4971,9 @@ class Daemon:
                         task=stt_task,
                     )
             decode_ms = (time.monotonic() - t_decode) * 1000.0
+            # The hotkey key-up ran alongside the decode; from here on keystrokes may
+            # follow, so it must have landed. Normally long finished, so this is free.
+            self._await_hotkey_release()
             # Keep this burst's audio + word timings so "play that back" has something
             # to play. One burst only, in RAM, replaced by the next: it is the audio of
             # what the user just said, and ADR-011 says the machine keeps nothing it
@@ -4634,6 +5038,21 @@ class Daemon:
                 self._note_silent_discard()
                 # Same reasoning as the silent branch: nothing will be typed, and
                 # without a screen that is indistinguishable from a slow decode.
+                self._earcon.play("error")
+                if stream_injector is not None:
+                    stream_injector.cancel()
+                return
+
+            # Prompt echo (#598): the transcript is nothing but a run of the decoder's own
+            # initial_prompt ("The app is called YazSes.") and the speech detector did not
+            # positively hear speech -- it was exempt (Whisper / Dysfluency-Friendly /
+            # sotto-voce), switched off, or could not run. That is Whisper answering
+            # non-speech with what it was primed with, not dictation. A burst the detector
+            # found speech in is typed: the user may really say the sentence.
+            if no_speech_verdict is not False and is_prompt_echo(text, bias_prompt):
+                event["discard_reason"] = "prompt_echo"
+                log.info("Prompt echo -- discarding a %d-char transcript that repeats the "
+                         "initial prompt (no speech confirmed in the audio).", len(text))
                 self._earcon.play("error")
                 if stream_injector is not None:
                     stream_injector.cancel()
@@ -5496,6 +5915,10 @@ class Daemon:
                 except Exception:
                     pass
         finally:
+            # A burst that was discarded never reached an injector, so nothing has
+            # waited for the overlapped hotkey release yet: wait here, so a hold-end
+            # never leaves a ydotool running into the next hold.
+            self._await_hotkey_release()
             # Every burst passes through here exactly once, whatever became of it, so
             # this is the one place the outcome can be counted without threading a
             # return value through each early return. The per-burst result was always
@@ -6966,6 +7389,9 @@ class Daemon:
                 sources = read_sources(
                     ctx.use_window_title, ctx.use_selection, ctx.use_clipboard
                 )
+                use_git = bool(getattr(ctx, "use_git", False))
+                if use_git:
+                    sources.git_terms = self._git_hint_terms(ctx.max_terms)
                 extra = compose_context_prompt(
                     sources,
                     max_terms=ctx.max_terms,
@@ -6973,6 +7399,7 @@ class Daemon:
                     use_selection=ctx.use_selection,
                     use_clipboard=ctx.use_clipboard,
                     use_lsp=False,
+                    use_git=use_git,
                 )
                 if extra:
                     base = f"{base}. {extra}" if base else extra
@@ -6996,6 +7423,34 @@ class Daemon:
         # language, the English sentence would condition that decode (see
         # `builtin_prompt_applies`); the user's own prompt and vocabulary are unaffected.
         return merge_initial_prompt(base, language=self._config.stt.language)
+
+    def _git_hint_terms(self, max_terms: int) -> list[str]:
+        """The focused repository's name, branch and branch words (`[context] use_git`).
+
+        Read now, for this decode, and dropped: the directory, the repo name and the
+        branch are never stored on the daemon and never logged -- a failure is swallowed
+        without a message, because an exception's text could carry the path.
+        """
+        if not self._focused_cwd_built:
+            self._focused_cwd_built = True
+            platform = getattr(self, "_platform", None)
+            factory = getattr(platform, "focused_cwd_factory", None)
+            if factory is not None:
+                try:
+                    provider = factory()
+                    cwd = getattr(provider, "cwd", None)
+                    self._focused_cwd_source = cwd if callable(cwd) else None
+                except Exception:
+                    self._focused_cwd_source = None
+        source = self._focused_cwd_source
+        if source is None:
+            return []
+        try:
+            from yazses.commands.git_hint import git_hint, hint_terms
+
+            return hint_terms(git_hint(source()), max_terms)
+        except Exception:
+            return []
 
     def _build_governor(self) -> None:
         """Stand up the Adaptive Latency Governor, or say why it cannot run.
@@ -8848,7 +9303,11 @@ class Daemon:
         INJECTING, so checking it sent all dictation to the local machine. The remote
         injector exists exactly while a session does (`_handle_remote_start` sets it,
         `_handle_remote_stop` clears it).
+
+        Waits first for an overlapped hold-end hotkey release (see
+        `_release_hotkey_modifier_overlapped`), so no keystroke can overtake it.
         """
+        self._await_hotkey_release()
         with self._lock:
             remote = self._remote_injector
         if remote is not None:
@@ -9134,6 +9593,9 @@ class Daemon:
                 "meeting_enabled": self._config.meeting.enabled,
                 "meeting_active": self._meeting_controller is not None,
                 "meeting_finalizing": self._meeting_finalizing,
+                # The camera switch (#924): state, holders, failures. The tray's Camera
+                # toggle and its held/released line read it; None if it cannot be read.
+                "camera": self._camera_status_payload(),
                 # Decode latency over a bounded recent window, per model (#296).
                 # Percentiles, not a mean: decode time is right-skewed and it is
                 # the slow tail you wait through. The count travels with it so a

@@ -639,6 +639,23 @@ def hotkey_drift_note(configured: str, running: str | None, *, default: str) -> 
     )
 
 
+def _toggle_key_check(cfg, platform_default: str) -> _Check | None:
+    """A WARN row when toggle mode is on a key that cannot take a quick tap (#869).
+
+    In `[hotkey] mode = "toggle"` a tap of a modifier key counts on every backend, but a
+    key that also types (`space`) must still type when tapped, so each toggle press on it
+    has to last `hold_threshold_ms`. Silent for hold mode and for a modifier key.
+    """
+    from yazses.hotkeys.toggle import toggle_key_note
+
+    hotkey = cfg.hotkey
+    key = hotkey.key if hotkey.key != "auto" else (platform_default or hotkey.key)
+    note = toggle_key_note(getattr(hotkey, "mode", "hold"), key, hotkey.hold_threshold_ms)
+    if note is None:
+        return None
+    return ("Hotkey mode", "WARN", note)
+
+
 def _daemon_check(platform) -> tuple[_Check, dict]:
     """Report whether the daemon is running, with live state when IPC answers.
 
@@ -1468,6 +1485,9 @@ def _config_summary(
         f"{cfg.hotkey.key} (hold {cfg.hotkey.hold_threshold_ms} ms)"
         + (f" — {drift}" if drift else ""),
     ))
+    toggle_note = _toggle_key_check(cfg, platform_default)
+    if toggle_note is not None:
+        out.append(toggle_note)
     pinned = (getattr(cfg.audio, "device", "") or "").strip()
     if pinned:
         out.append(("Input device", "OK", f"pinned: {pinned!r}"))

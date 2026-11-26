@@ -1,0 +1,15 @@
+{
+  "client": "VS Code (Copilot agent mode)",
+  "client_version": "1.147.0",
+  "recorded": "2026-11-20",
+  "evidence": "source",
+  "how": "Not run. Read src/vs/workbench/contrib/mcp/common/mcpServerRequestHandler.ts (McpServerRequestHandler.create sends initialize with MCP.LATEST_PROTOCOL_VERSION) and src/vs/platform/mcp/common/modelContextProtocol.ts (LATEST_PROTOCOL_VERSION = \"2025-11-25\") at tag 1.147.0 and main 1dedb183; no server/discover in the client. Capabilities follow the source with sampling and elicitation handlers present; clientInfo is illustrative.",
+  "source": "https://github.com/microsoft/vscode/blob/1.147.0/src/vs/workbench/contrib/mcp/common/mcpServerRequestHandler.ts",
+  "era": "legacy",
+  "accepts_versions": null,
+  "frames": [
+    {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-11-25", "capabilities": {"roots": {"listChanged": true}, "sampling": {}, "elicitation": {"form": {}, "url": {}}, "tasks": {"list": {}, "cancel": {}, "requests": {"sampling": {"createMessage": {}}, "elicitation": {"create": {}}}}, "extensions": {"io.modelcontextprotocol/ui": {"mimeTypes": ["text/html;profile=mcp-app"]}}}, "clientInfo": {"name": "Visual Studio Code", "version": "1.147.0"}}},
+    {"jsonrpc": "2.0", "method": "notifications/initialized"},
+    {"jsonrpc": "2.0", "id": 2, "method": "tools/list"}
+  ]
+}
