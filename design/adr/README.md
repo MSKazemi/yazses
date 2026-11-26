@@ -244,7 +244,7 @@ The v2 programme: interaction layer, cognitive layer, and everything after.
 | [adr-v2-152-biosignal-artifact-switches](adr-v2-152-biosignal-artifact-switches.md) | Biosignal switches: artifact-grade EEG/EMG/EOG events under a measured false-positive budget | Proposed |
 | [adr-v2-153-biosignal-false-positive-governor](adr-v2-153-biosignal-false-positive-governor.md) | The biosignal false-positive governor: measure a proxy, desensitize first, suspend only on evidence, release in one action | Proposed |
 | [adr-v2-154-eeg-eog-evidence-gates](adr-v2-154-eeg-eog-evidence-gates.md) | EEG/EOG research must pass artifact-origin and real-world safety gates before any activation integration | Proposed — research-only; not an implementation authorization |
-| [adr-v2-155-thinkgear-transport-safety](adr-v2-155-thinkgear-transport-safety.md) | Fail-closed ThinkGear stream health before first physical-device qualification | Proposed |
+| [adr-v2-155-thinkgear-transport-safety](adr-v2-155-thinkgear-transport-safety.md) | Fail-closed ThinkGear stream health before first physical-device qualification | Accepted |
 | [adr-v2-156-maixcam2-text-link](adr-v2-156-maixcam2-text-link.md) | A wired text link from a MaixCAM2 board: research record, out-of-tree example, no product feature | Accepted as a research record only |
 | [adr-v2-157-bci-hid-switch-consumer](adr-v2-157-bci-hid-switch-consumer.md) | A consumer for Apple's BCI HID switch protocol: research record, device-free parser, no product feature | Proposed — research record only |
 
