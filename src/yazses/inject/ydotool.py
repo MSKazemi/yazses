@@ -4,6 +4,12 @@ import subprocess
 from collections.abc import Iterable, Sequence
 
 from yazses.inject.keycodes import KEYCODES
+from yazses.inject.pacing import (
+    type_delay_ms,
+    typing_timeout,
+    ydotool_v0_key_delay,
+    ydotool_v1_pacing,
+)
 from yazses.inject.payload import describe_argv, hide_payload
 
 log = logging.getLogger(__name__)
@@ -340,6 +346,75 @@ _RELEASE_ALL_TYPED_KEYS = [f"{code}:0" for code in range(2, 58)] + [
 ]
 
 
+def _us_ascii_keycodes() -> dict[str, int]:
+    """The keycode ydotool 1.x ``type`` presses for each ASCII character.
+
+    1.x does not consult the layout: ``Client/tool_type.c`` maps every character
+    through a fixed US-QWERTY table (``ascii2keycode_map``) and lets the active XKB
+    layout interpret the keycode -- which is exactly why #329 lost accented letters.
+    So the keycodes a successful ``type`` pressed are a pure function of the text, and
+    this table is that function. Shifted characters press the same key as their
+    unshifted twin plus ``KEY_LEFTSHIFT``, which the release always includes anyway.
+    """
+    rows = {
+        "1!": "KEY_1", "2@": "KEY_2", "3#": "KEY_3", "4$": "KEY_4", "5%": "KEY_5",
+        "6^": "KEY_6", "7&": "KEY_7", "8*": "KEY_8", "9(": "KEY_9", "0)": "KEY_0",
+        "-_": "KEY_MINUS", "=+": "KEY_EQUAL", "[{": "KEY_LEFTBRACE",
+        "]}": "KEY_RIGHTBRACE", ";:": "KEY_SEMICOLON", "'\"": "KEY_APOSTROPHE",
+        "`~": "KEY_GRAVE", "\\|": "KEY_BACKSLASH", ",<": "KEY_COMMA", ".>": "KEY_DOT",
+        "/?": "KEY_SLASH", " ": "KEY_SPACE", "\t": "KEY_TAB", "\n": "KEY_ENTER",
+    }
+    table: dict[str, int] = {}
+    for chars, name in rows.items():
+        for ch in chars:
+            table[ch] = KEYCODES[name]
+    for letter in "abcdefghijklmnopqrstuvwxyz":
+        code = KEYCODES[f"KEY_{letter.upper()}"]
+        table[letter] = code
+        table[letter.upper()] = code
+    return table
+
+
+_US_ASCII_KEYCODES = _us_ascii_keycodes()
+
+# Released after every successful `type` whatever the text was: both shifts (any
+# capital), left Ctrl/Alt (common hold-to-talk keys, and inside the original 2..57
+# sweep), Space (the commonest key there is, and one event), and the hotkey
+# modifiers outside that sweep.
+_ALWAYS_RELEASED_KEYCODES = frozenset(
+    {KEYCODES["KEY_LEFTSHIFT"], KEYCODES["KEY_RIGHTSHIFT"], KEYCODES["KEY_LEFTCTRL"],
+     KEYCODES["KEY_LEFTALT"], KEYCODES["KEY_SPACE"], *_HOTKEY_MODIFIER_KEYCODES}
+)
+
+
+def release_tokens_after_typing(text: str) -> list[str]:
+    """The key-up tokens the flood guard sends after *text* was typed successfully.
+
+    Every key ydotool can have pressed for *text*, plus `_ALWAYS_RELEASED_KEYCODES`,
+    and never anything outside the full `_RELEASE_ALL_TYPED_KEYS` sweep. Why not
+    simply the full sweep, as before: ``ydotool key`` waits its key delay (12 ms in
+    1.x unless told otherwise, see `ydotool_key_timeout`) after **every** token, so
+    the sixty-key sweep cost ~720 ms on every burst -- longer than most decodes --
+    and almost all of it was key-ups for keys nobody pressed, which the module
+    already notes are no-ops. The guard's job is unchanged: every key this burst's
+    ``type`` pressed still gets its key-up, at the same pacing.
+
+    Only the ASCII characters count: a non-ASCII run is pressed by
+    `UnicodeInjector` on its own uinput device, which ydotoold's key-ups cannot
+    reach either way. A character outside the table (a control character) means
+    we cannot say which key ydotool used, so the full sweep is sent, as before.
+    """
+    codes = set(_ALWAYS_RELEASED_KEYCODES)
+    for ch in set(text):
+        if not ch.isascii():
+            continue
+        code = _US_ASCII_KEYCODES.get(ch)
+        if code is None:
+            return list(_RELEASE_ALL_TYPED_KEYS)
+        codes.add(code)
+    return [f"{code}:0" for code in sorted(codes)]
+
+
 def _ascii_runs(text: str) -> list[tuple[bool, str]]:
     """Split *text* into consecutive ASCII / non-ASCII runs, in order.
 
@@ -386,12 +461,20 @@ class YdotoolInjector:
     _KEY_HOLD_MS = 6
 
     def _type_argv(self, text: str, dialect: str) -> list[str]:
+        # `[injection] type_delay_ms` (inject/pacing.py) is a per-character budget:
+        # 1.x splits it into -d/-H, 0.1.x gets the -d half. Unset keeps 6/6 and 6.
+        configured = type_delay_ms()
+        if configured is None:
+            key_delay, key_hold = self._KEY_DELAY_MS, self._KEY_HOLD_MS
+        else:
+            key_delay, key_hold = ydotool_v1_pacing(configured)
         if dialect == DIALECT_V0:
             # 0.1.x has --key-delay and no hold time; -d and -H are both refused.
-            return ["ydotool", "type", "--key-delay", str(self._KEY_DELAY_MS), "--", text]
+            v0_delay = self._KEY_DELAY_MS if configured is None else ydotool_v0_key_delay(configured)
+            return ["ydotool", "type", "--key-delay", str(v0_delay), "--", text]
         return [
-            "ydotool", "type", "-d", str(self._KEY_DELAY_MS),
-            "-H", str(self._KEY_HOLD_MS), "--", text,
+            "ydotool", "type", "-d", str(key_delay),
+            "-H", str(key_hold), "--", text,
         ]
 
     def _type_ascii_run(self, run: str) -> None:
@@ -400,7 +483,7 @@ class YdotoolInjector:
         # timeout looks like a failure to LinuxInjector and triggers the clipboard
         # fallback, which re-injects the WHOLE text — the "typed twice" bug. Budget
         # 30 ms/char (~2.5x the real ~12 ms) plus a base.
-        timeout = 10.0 + len(run) * 0.03
+        timeout = typing_timeout(len(run), type_delay_ms(), default_s_per_char=0.03)
         dialect = ydotool_dialect()
         try:
             run_ydotool(self._type_argv(run, dialect), timeout=timeout)
@@ -433,21 +516,27 @@ class YdotoolInjector:
             # command sequence; not observed on hardware). Read the dialect AFTER
             # typing: a run may have downgraded it. 0.1.x cannot express a bare
             # key-up at all, so there the guard is a no-op by construction.
-            self._release_all_typed_keys(typing_failed=typing_failed)
+            self._release_all_typed_keys(typing_failed=typing_failed, text=text)
 
     @staticmethod
-    def _release_all_typed_keys(*, typing_failed: bool) -> None:
+    def _release_all_typed_keys(*, typing_failed: bool, text: str | None = None) -> None:
         """Send the v1 release-all.
 
-        On the success path this is the original call, so a failing release
-        surfaces exactly as it always did. While a typing error is already
-        propagating the release is best-effort and its own failure is swallowed:
+        On the success path this releases every key *text* can have pressed
+        (`release_tokens_after_typing`) and a failing release surfaces exactly as it
+        always did. While a typing error is already propagating, the full sweep is
+        sent -- a ``type`` that died mid-string is the case nobody has measured, so
+        it keeps the original, widest guard -- and its own failure is swallowed:
         the typing error is the one the caller (and ``LinuxInjector``'s clipboard
         fallback) must see.
         """
         if ydotool_dialect() != DIALECT_V1:
             return
-        argv = ["ydotool", "key", *_RELEASE_ALL_TYPED_KEYS]
+        if typing_failed or text is None:
+            tokens = _RELEASE_ALL_TYPED_KEYS
+        else:
+            tokens = release_tokens_after_typing(text)
+        argv = ["ydotool", "key", *tokens]
         if not typing_failed:
             run_ydotool(argv, timeout=5, check=False)
             return

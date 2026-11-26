@@ -150,6 +150,7 @@ class IssueCode(Enum):
     CLENCHES_NOT_FOUND = "clenches_not_found"
     TOO_MANY_CLENCHES = "too_many_clenches"
     STALLED = "stalled"
+    SOURCE_UNTRUSTED = "source_untrusted"
 
 
 class CalibrationError(RuntimeError):
@@ -222,6 +223,8 @@ class CalibrationConfig:
     # -- retry / stall ------------------------------------------------------------------
     max_attempts: int = 3
     stall_timeout_s: float = 5.0         # wall time without a block before tick() complains
+    # -- source health (ADR-v2-155) -------------------------------------------------------
+    untrusted_timeout_s: float = 30.0    # wall time the source may stay untrusted before failing
 
 
 # --------------------------------------------------------------------------- the profile
@@ -574,6 +577,8 @@ class CalibrationSession:
         self._last_feed = self._clock()
         self._last_issue: CalibrationIssue | None = None
         self._phase_issue_pending = False  # a retry notice should lead the next prompt
+        self._excluded_s = 0.0             # seconds of samples refused as untrusted
+        self._untrusted_since: float | None = None
         # derived values, filled as phases pass
         self._rest_data: np.ndarray | None = None
         self._baseline = 0.0
@@ -609,6 +614,11 @@ class CalibrationSession:
     def last_issue(self) -> CalibrationIssue | None:
         """The most recent rejection, kept until the phase it concerned passes."""
         return self._last_issue
+
+    @property
+    def excluded_s(self) -> float:
+        """Seconds of samples left out because the source did not trust them."""
+        return self._excluded_s
 
     def prompt(self) -> str:
         """The instruction to show now, led by the retry reason after a rejection."""
@@ -647,6 +657,7 @@ class CalibrationSession:
                 "Check the connection and try this step again."
             ))
         self._last_feed = self._clock()
+        self._untrusted_since = None
         while data.shape[1] > 0 and not self.finished:
             need = self._target_samples() - self._collected
             take = min(need, data.shape[1])
@@ -658,6 +669,45 @@ class CalibrationSession:
                 if issue is not None:
                     return issue
         return None
+
+    def feed_untrusted(self, block: SampleBlock | None, reason: str) -> CalibrationIssue | None:
+        """A block the source itself does not trust (ADR-v2-155): its samples are never used.
+
+        Data is arriving, so this is not a stall. If the current step had already collected
+        samples, they are discarded and the step is rejected (``SOURCE_UNTRUSTED``, which
+        counts as an attempt): a window with a hole in it is not a window, and its samples
+        straddle a contact or transport fault. While nothing is collected, untrusted blocks
+        are only counted in :attr:`excluded_s`; if the source stays untrusted for
+        ``untrusted_timeout_s`` of wall time the session fails with ``reason``, instead of
+        waiting forever or saving a profile learned from a lifted electrode.
+        """
+        if self.finished:
+            return None
+        now = self._clock()
+        self._last_feed = now
+        if block is not None and block.fs > 0:
+            self._excluded_s += block.n_samples / float(block.fs)
+        if self._untrusted_since is None:
+            self._untrusted_since = now
+        why = reason.strip() or "the source does not trust its signal"
+        if self._collected > 0:
+            return self._reject(IssueCode.SOURCE_UNTRUSTED, (
+                f"The device reported a problem ({why}), so the samples of this step were "
+                "discarded. Check the electrode contact and repeat the step."
+            ))
+        if now - self._untrusted_since < self._cfg.untrusted_timeout_s:
+            return None
+        phase = self._state
+        issue = CalibrationIssue(phase, IssueCode.SOURCE_UNTRUSTED, (
+            f"The device has not reported a trustworthy signal for "
+            f"{self._cfg.untrusted_timeout_s:g} s ({why}). Seat the headset so the electrode "
+            "touches the skin, check that `yazses biosignal monitor` shows 'Source health: "
+            "trusted', then calibrate again."
+        ), self._attempts.get(phase, 0) + 1, True)
+        self._last_issue = issue
+        self._state = CalibrationPhase.FAILED
+        self._drop_buffers()
+        return issue
 
     def tick(self) -> CalibrationIssue | None:
         """Stall check without data: reports (and restarts the phase) if the source has gone

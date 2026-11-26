@@ -204,6 +204,11 @@ class TrayController:
         """
         return self._call("meeting_stop")
 
+    # ---- Camera switch (#924) ---------------------------------------------
+    def set_camera(self, on: bool) -> dict:
+        """Switch every camera feature ON or OFF; the daemon's answer, untouched."""
+        return self._call("camera", action="on" if on else "off", wait_s=15.0)
+
     # ---- help / about / updates -------------------------------------------
     def open_url(self, url: str) -> bool:
         """Open a docs/issues URL in the browser. Returns whether it was handed off."""

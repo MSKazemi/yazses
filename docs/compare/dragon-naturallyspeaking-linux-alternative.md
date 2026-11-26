@@ -56,7 +56,7 @@ All of these run offline and are free and open source.
 | [Vocalinux](https://github.com/VocaHQ/vocalinux) | AGPL-3.0 | whisper.cpp / Whisper / VOSK | Toggle or push-to-talk | No |
 | [Speech Note](https://github.com/mkiol/dsnote) | MPL-2.0 | whisper.cpp / faster-whisper / VOSK / Coqui / april-asr | Global shortcut | No (also Sailfish OS) |
 | [nerd-dictation](https://github.com/ideasman42/nerd-dictation) | GPL-3.0 | VOSK | `begin` / `end` commands | No |
-| [Handy](https://github.com/cjpais/Handy) | MIT | whisper.cpp | Hotkey | Yes |
+| [Handy](https://github.com/cjpais/Handy) | MIT | transcribe.cpp (Whisper, Parakeet) | Hotkey | Yes |
 | [Talon Voice](https://talonvoice.com/) | Not open source | — | Voice + noise + eye tracking | Yes (Linux is X11) |
 
 ## How close does YazSes get to Dragon?

@@ -252,6 +252,31 @@ Arguments: \fItext\fR
 \fB\-\-grade\fR
 UEB grade: 1 (uncontracted) or 2 (contracted).
 .RE
+.SS "yazses camera"
+Switch the camera on or off for every camera feature at once, without restarting.
+.TP
+\fByazses camera list\fR
+List the cameras this computer has, with the name and path `camera use` accepts.
+.TP
+\fByazses camera off\fR
+Switch the camera off: every camera feature releases the device. Dictation keeps working.
+.TP
+\fByazses camera on\fR
+Switch the camera on: every enabled camera feature reopens the device.
+.TP
+\fByazses camera status\fR
+Show whether the camera is on and which YazSes features hold the device.
+.TP
+\fByazses camera use\fR \fITARGET\fR
+Switch every camera feature to another camera without restarting. Add --save to keep it.
+.RS
+.TP
+\fB\-\-save\fR
+Also remember the choice in the config file ([camera]), so it applies after a restart.
+.TP
+\fB\-\-clear\fR
+Forget the saved choice; each feature uses its own camera_index again.
+.RE
 .SS "yazses case"
 Recase text to a naming convention \(em fully offline.
 .br
@@ -821,11 +846,22 @@ Write the recommended vad_threshold to config.
 .SS "yazses model"
 Manage SLM intent-routing models (download / list).
 .TP
+\fByazses model disk\fR
+Show the disk space the downloaded models use, per kind and in total.
+.TP
 \fByazses model download\fR \fIMODEL_ID\fR
 Download a model: a speech-to-text checkpoint, or a GGUF for intent routing.
 .TP
 \fByazses model list\fR
-List available models (speech-to-text and SLM) and their status.
+List every model YazSes can use, grouped by kind, with size and on-disk state.
+.TP
+\fByazses model remove\fR \fIMODEL_ID\fR
+Delete a downloaded model from disk to free space.
+.RS
+.TP
+\fB\-\-yes, \-y\fR
+Do not ask for confirmation.
+.RE
 .SS "yazses outline"
 Build a nested outline incrementally and render it to Markdown/OPML \(em offline.
 .TP

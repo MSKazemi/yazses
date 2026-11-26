@@ -21,6 +21,14 @@ def _collect(tmp_path, body: str):
     )
 
 
+def _report(out: subprocess.CompletedProcess) -> str:
+    """The whole child run, so a failure on a CI leg we cannot reproduce is diagnosable."""
+    return (
+        f"collection subprocess exited {out.returncode}\n"
+        f"--- stdout ---\n{out.stdout}\n--- stderr ---\n{out.stderr}"
+    )
+
+
 def test_a_payload_used_as_its_own_id_fails_collection(tmp_path) -> None:
     # pytest up to 9.1 builds a case's id from its value, so a huge bytes payload became a huge
     # node id. pytest 9.2 shortens such a value to `p0`, which removes the hazard but would also
@@ -36,8 +44,8 @@ def test_a_payload_used_as_its_own_id_fails_collection(tmp_path) -> None:
             pass
         """,
     )
-    assert out.returncode != 0
-    assert "exceed" in (out.stdout + out.stderr)
+    assert out.returncode != 0, _report(out)
+    assert "exceed" in (out.stdout + out.stderr), _report(out)
 
 
 def test_an_explicit_short_id_collects_normally(tmp_path) -> None:
@@ -51,4 +59,4 @@ def test_an_explicit_short_id_collects_normally(tmp_path) -> None:
             pass
         """,
     )
-    assert out.returncode == 0, out.stdout + out.stderr
+    assert out.returncode == 0, _report(out)

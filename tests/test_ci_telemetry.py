@@ -21,12 +21,14 @@ a gate) is pinned at the end.
 
 from __future__ import annotations
 
+import http.client
 import importlib.util
 import io
 import json
 import sys
 import urllib.error
 import urllib.parse
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -524,6 +526,107 @@ def test_http_get_retries_one_server_error(monkeypatch: pytest.MonkeyPatch) -> N
 
     rep.http_get("tok", opener=opener)("https://api.github.com/x")
     assert len(calls) == 2
+
+
+class _TruncatedResponse(_Response):
+    """A response whose body read is cut off by the server, as in #894."""
+
+    def __init__(self, exc: BaseException) -> None:
+        super().__init__({}, {})
+        self._exc = exc
+
+    def read(self, *args: Any) -> bytes:  # type: ignore[override]
+        raise self._exc
+
+
+_INTERRUPTIONS = [
+    pytest.param(lambda: http.client.IncompleteRead(b"", 12827), id="incomplete-read"),
+    pytest.param(lambda: http.client.RemoteDisconnected("closed"), id="remote-disconnected"),
+    pytest.param(lambda: ConnectionResetError(104, "reset"), id="connection-reset"),
+]
+
+
+@pytest.mark.parametrize("make_exc", _INTERRUPTIONS)
+def test_http_get_retries_one_interrupted_body(
+    monkeypatch: pytest.MonkeyPatch, make_exc: Callable[[], BaseException]
+) -> None:
+    monkeypatch.setattr(rep.time, "sleep", lambda s: None)
+    calls = []
+
+    def opener(request: Any, timeout: float) -> _Response:
+        calls.append(1)
+        if len(calls) == 1:
+            return _TruncatedResponse(make_exc())
+        return _Response({"ok": True}, {"X-RateLimit-Remaining": "7"})
+
+    data, headers = rep.http_get("tok", opener=opener)("https://api.github.com/x")
+    assert data == {"ok": True} and headers["x-ratelimit-remaining"] == "7"
+    assert len(calls) == 2
+
+
+@pytest.mark.parametrize("make_exc", _INTERRUPTIONS)
+def test_an_interrupted_body_twice_is_an_api_error(
+    monkeypatch: pytest.MonkeyPatch, make_exc: Callable[[], BaseException]
+) -> None:
+    monkeypatch.setattr(rep.time, "sleep", lambda s: None)
+    calls = []
+
+    def opener(request: Any, timeout: float) -> _Response:
+        calls.append(1)
+        return _TruncatedResponse(make_exc())
+
+    with pytest.raises(rep.ApiError) as excinfo:
+        rep.http_get("tok-SECRET", opener=opener)("https://api.github.com/x?page=1")
+    assert len(calls) == 2  # the existing single retry, no more
+    message = str(excinfo.value)
+    assert "tok-SECRET" not in message and "page=1" not in message
+    assert "interrupted response" in message
+    assert excinfo.value.__cause__ is None and excinfo.value.__suppress_context__
+
+
+def test_a_client_error_is_not_retried(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(rep.time, "sleep", lambda s: None)
+    calls = []
+
+    def opener(request: Any, timeout: float) -> _Response:
+        calls.append(1)
+        raise urllib.error.HTTPError(request.full_url, 404, "nope", {}, None)  # type: ignore[arg-type]
+
+    with pytest.raises(rep.ApiError):
+        rep.http_get("tok", opener=opener)("https://api.github.com/x")
+    assert len(calls) == 1
+
+
+def test_a_server_error_twice_is_an_api_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(rep.time, "sleep", lambda s: None)
+    calls = []
+
+    def opener(request: Any, timeout: float) -> _Response:
+        calls.append(1)
+        raise urllib.error.HTTPError(request.full_url, 502, "bad", {}, None)  # type: ignore[arg-type]
+
+    with pytest.raises(rep.ApiError) as excinfo:
+        rep.http_get("tok", opener=opener)("https://api.github.com/x")
+    assert len(calls) == 2 and "502" in str(excinfo.value)
+
+
+def test_a_body_that_is_not_json_is_an_api_error_without_retry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(rep.time, "sleep", lambda s: None)
+    calls = []
+
+    class _Garbage(_Response):
+        def read(self, *args: Any) -> bytes:  # type: ignore[override]
+            return b"<html>not json"
+
+    def opener(request: Any, timeout: float) -> _Response:
+        calls.append(1)
+        return _Garbage({}, {})
+
+    with pytest.raises(rep.ApiError, match="not JSON"):
+        rep.http_get("tok", opener=opener)("https://api.github.com/x")
+    assert len(calls) == 1
 
 
 def test_an_api_error_never_carries_the_token(monkeypatch: pytest.MonkeyPatch) -> None:

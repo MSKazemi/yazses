@@ -67,6 +67,7 @@ SECTIONS = [
         "backend": "auto | type | clipboard | wtype",
         "target_guard": "what to do when the focused element accepts no text",
         "continuation_window_ms": "gap under which a new burst continues the last sentence",
+        "type_delay_ms": "ms per typed character; -1 = backend default (~12), try 4-6 to type faster",
     }),
     ("accessibility", AccessibilityConfig, "Speech and hearing accommodations", {
         "vad_threshold": "silence gate; lower it for a quiet voice (`yazses mic-level --set`)",

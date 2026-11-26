@@ -381,7 +381,17 @@ Stage by stage:
    path is set** — Tier 1 alone decides every utterance otherwise, which is what every
    install without a model does. Few-shot examples mined by `yazses tune` are loaded
    from `few_shots.toml` if present. A router that fails or raises falls back to Tier 1
-   rather than losing the burst.
+   rather than losing the burst. The router can only name one of 22 Tier 1 commands
+   (`commands/slm_schema.py::TIER2_ACTIONS`, checked against the grammar table, which
+   also supplies their arguments, the JSON Schema and the prompt list). Keystroke
+   commands such as *"press enter"*, arrows and paging are deliberately not among
+   them: only Tier 1's exact phrases can send those. When the installed
+   `llama-cpp-python` has `LlamaGrammar.from_json_schema`, decoding runs under that
+   schema; on an older binding it runs unconstrained. Either way the answer is then
+   re-checked in plain code: an unknown action, an argument of the wrong type, a count
+   above 99, a line number above 1,000,000, or a name or shell command the user did not
+   actually say means no command, and the words are typed. A `run_command` that passes
+   still goes through the Command Safety Gate like any other.
 9. **Dispatch and inject.** Plain dictation goes to text injection; commands go to
    a key sequence (`src/yazses/commands/dispatch.py`). For dictation only, two
    optional finishing steps run first: an offline **LLM cleanup** pass that lightly
@@ -523,12 +533,14 @@ are written once against the interfaces and never branch on the operating system
 | `PermissionsBackend` | Probe keyboard/microphone permissions, explain how to grant them | input group | TCC prompts | microphone privacy switch; elevation check |
 | `TrayBackend` | Tray / menu-bar UI | PySide6 `QSystemTrayIcon` | rumps | pystray |
 
-These are the core seven. `platform/base.py` defines seven more. Four are built on
+These are the core seven. `platform/base.py` defines eight more. Four are built on
 demand by functions in `platform/factory.py`, with one implementation per OS family:
 `HostBackend`, `FileOpener`, `UrlOpener` (the "send to" hand-off) and `PackRuntime`
-(the add-on pack loader). Three are optional fields of the platform bundle, left
+(the add-on pack loader). Four are optional fields of the platform bundle, left
 `None` where an OS has no implementation yet: `FocusedAppProvider` (macOS and Windows
-only), `UpdateLauncher` (Windows only) and `AccessibilityBackend` (Linux only).
+only), `UpdateLauncher` (Windows only), `AccessibilityBackend` (Linux only) and
+`FocusedCwdProvider` (the focused window's working directory for `[context] use_git`;
+Linux on an X11 session only).
 
 The **EMG hotkey backend** (`platform/emg/backend.py`) is a
 platform-independent `HotkeyBackend` implementation — it reads squeeze events

@@ -348,6 +348,8 @@ def _injection_backend_values() -> tuple[str, ...]:
 
 _ENUMS: Mapping[str, tuple[str, ...]] = _ClosedSets({
     "commands.language": ("auto", "en", "zh"),
+    # Held equal to `hotkeys/toggle.MODES` by tests/test_toggle_dictation.py (#869).
+    "hotkey.mode": ("hold", "toggle"),
     # DERIVED from `inject/registry.BACKENDS`, not hand-written. The hand-written
     # version is what silently reverted a documented `backend = "ydotool"` to
     # `auto`: the value existed in the docs and in `get_injector`, and only this
@@ -413,6 +415,11 @@ _ENUMS: Mapping[str, tuple[str, ...]] = _ClosedSets({
     # bottom_center for everything else, so a typo moves the overlay somewhere the
     # user did not ask for rather than reporting anything.
     "overlay.position": ("cursor", "bottom_center", "top_center", "corner"),
+    # `postprocess/llm_cleanup.py` takes the OpenAI chat-completions path on an exact
+    # `"openai"` and the Ollama path otherwise, so `llm_api = "opneai"` would POST an
+    # Ollama body to a server that 404s it, and every burst would fall back to raw
+    # text with only a debug line to say why. Nested section, so the key is dotted.
+    "filters.disfluency.llm_api": ("ollama", "openai"),
 })
 
 

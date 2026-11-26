@@ -33,6 +33,7 @@ self-contained — pick the one that matches what you want to do.
 | [Choose a model on a low-RAM machine](low-ram-models.md) | Measured memory per Whisper model, and which features load a model of their own. |
 | [Reduce CPU use and battery drain](cpu-and-battery.md) | What dictation costs on a laptop, and the settings that actually lower it. |
 | [Run fully air-gapped](air-gapped.md) | Which files YazSes downloads, how to carry them to an offline machine, and how to check nothing phones home. |
+| [Use your own local model server for cleanup](local-model-server.md) | Point the optional LLM cleanup at Ollama, llama-server, LM Studio or vLLM on this machine, with the model you choose. |
 | [Fix "Silent audio -- discarding"](silent-audio-discarding.md) | Set the voice-activity threshold with `yazses mic-level`, or find the muted microphone. |
 | [Dictation types into the wrong window](wrong-window.md) | The causes, the no-text-target guard, and precise detection with AT-SPI on Linux. |
 | [The tray icon does not appear](tray-icon-missing.md) | The AppIndicator requirement, the tray's own error log, and what each desktop needs. |
