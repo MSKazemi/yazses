@@ -161,7 +161,7 @@ def describe_update(
 def update_wait_pids(*, own_pid: int | None = None, daemon_pid=None) -> list[int]:
     """The YazSes processes a detached update must wait for: this one and the daemon.
 
-    ``daemon_pid`` defaults to the platform lifecycle's PID file. Never raises — a PID
+    ``daemon_pid`` defaults to the platform lifecycle's ``read_pid``. Never raises — a PID
     that cannot be read is simply not waited for (the installer's Restart Manager closes
     whatever is left).
     """

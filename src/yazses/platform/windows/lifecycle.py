@@ -1,4 +1,4 @@
-"""Windows daemon lifecycle — PID file + detached spawn + HKCU\\Run autostart."""
+"""Windows daemon lifecycle — instance lock and PID file, detached spawn, HKCU\\Run autostart."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ from pathlib import Path, PureWindowsPath
 from yazses.platform.base import Paths
 from yazses.platform.windows.update_handoff import APP_EXE
 from yazses.system.proc import process_alive as _process_alive
+from yazses.system.single_instance import holder_pid
 
 log = logging.getLogger(__name__)
 
@@ -23,6 +24,18 @@ _RUN_VALUE_NAME = "YazSes"
 
 #: The console binary the spec builds beside ``YazSesApp.exe`` (packaging/windows/yazses.spec).
 _CLI_EXE = "yazses-cli.exe"
+
+#: The lock the daemon holds for its whole life (``core/daemon.py``), under ``data_dir``.
+_LOCK_NAME = "daemon.lock"
+
+#: The windowed launcher pip writes for the ``yazses-tray`` gui-script.
+_TRAY_SCRIPT = "yazses-tray.exe"
+
+#: ``Run`` value tail for an install that has no tray launcher to name.
+_TRAY_MODULE_ARGS = " -m yazses.tray.app"
+
+# The console interpreter, as opposed to its windowed twin pythonw*.exe.
+_CONSOLE_PYTHON = re.compile(r"python(\d+(\.\d+)?)?\.exe", re.IGNORECASE)
 
 # GetExitCodeProcess reports this while a process is still running.
 _STILL_ACTIVE = 259
@@ -106,11 +119,20 @@ def resolve_daemon_command(executable: str, frozen: bool) -> list[str]:
     return [executable, "-m", "yazses.main"]
 
 
+def windowed_interpreter(executable: Path) -> Path | None:
+    """The ``pythonw`` beside a console ``python`` (or the one given), else None. Pure."""
+    name = executable.name
+    if _CONSOLE_PYTHON.fullmatch(name):
+        return executable.with_name("pythonw" + name[len("python"):])
+    return executable if name.lower().startswith("pythonw") else None
+
+
 def resolve_tray_command(
     executable: str,
     frozen: bool,
     tray_script: Path | None,
     windowed_exe: Path | None = None,
+    windowed_python: Path | None = None,
 ) -> str:
     """The HKCU\\Run command line that starts YazSes in tray mode.
 
@@ -134,6 +156,8 @@ def resolve_tray_command(
       empty window titled ``yazses-cli.exe`` open after every sign-in (#330), and
       ``yazses autostart enable`` swapped the installer's entry for that one. A
       *windowed_exe* that exists wins; without one, *executable* is all there is.
+      The same holds outside the bundle: with no *tray_script*, an existing
+      *windowed_python* runs the module instead of the console interpreter.
     """
     if frozen:
         if windowed_exe is not None and windowed_exe.exists():
@@ -141,7 +165,9 @@ def resolve_tray_command(
         return f'"{executable}" --tray'
     if tray_script is not None and tray_script.exists():
         return f'"{tray_script}"'
-    return f'"{executable}" -m yazses.tray.app'
+    if windowed_python is not None and windowed_python.exists():
+        return f'"{windowed_python}"{_TRAY_MODULE_ARGS}'
+    return f'"{executable}"{_TRAY_MODULE_ARGS}'
 
 
 def is_console_twin(current: str, wanted: str) -> bool:
@@ -159,13 +185,41 @@ def is_console_twin(current: str, wanted: str) -> bool:
     return _quoted_tray_exe(current) == app.with_name(_CLI_EXE)
 
 
+def is_console_python_entry(current: str, wanted: str) -> bool:
+    """True when *current* starts the tray with console ``python`` and *wanted* does not.
+
+    The pip counterpart of :func:`is_console_twin`: *current* is exactly
+    ``"<dir>\\python.exe" -m yazses.tray.app``, and *wanted* is that same interpreter's
+    ``pythonw``, or its ``yazses-tray.exe`` (beside it, or under its ``Scripts``).
+    Any other entry belongs to another install or to the user, and is left alone.
+    """
+    python = _quoted_exe(current, _TRAY_MODULE_ARGS)
+    if python is None or not _CONSOLE_PYTHON.fullmatch(python.name):
+        return False
+    pythonw = _quoted_exe(wanted, _TRAY_MODULE_ARGS)
+    if pythonw is not None:
+        return pythonw.name.lower().startswith("pythonw") and pythonw.parent == python.parent
+    script = _quoted_exe(wanted, "")
+    return (
+        script is not None
+        and script.name.lower() == _TRAY_SCRIPT
+        and script.parent in (python.parent, python.parent / "Scripts")
+    )
+
+
 def _quoted_tray_exe(command: str) -> PureWindowsPath | None:
     """The program in a ``"<path>" --tray`` command line, or None for any other shape."""
-    suffix = '" --tray'
+    return _quoted_exe(command, " --tray")
+
+
+def _quoted_exe(command: str, args: str) -> PureWindowsPath | None:
+    """The program in a ``"<path>"<args>`` command line, or None for any other shape."""
+    suffix = '"' + args
     command = command.strip()
     if not (command.startswith('"') and command.lower().endswith(suffix)):
         return None
-    return PureWindowsPath(command[1 : -len(suffix)])
+    program = command[1 : -len(suffix)]
+    return None if '"' in program else PureWindowsPath(program)
 
 
 class WindowsLifecycle:
@@ -186,13 +240,36 @@ class WindowsLifecycle:
         self._paths.pid_file.unlink(missing_ok=True)
 
     def read_pid(self) -> int | None:
+        """The daemon's PID: from the instance lock if it is held, else the PID file.
+
+        The PID file outlives a daemon that Windows ends at sign-out or shutdown, and
+        the number in it is soon some other process's. ``yazses restart`` stops whatever
+        this returns, and the one-click update waits for it. So a lock that exists and
+        is free answers None: the OS releases it the moment the daemon dies. The PID
+        file alone decides only where there is no lock file, or the holder wrote no PID.
+        Same rule as ``system/pid.py`` on Linux.
+        """
+        lock = self._paths.data_dir / _LOCK_NAME
+        holder = holder_pid(lock)
+        if holder is not None and holder > 0:
+            return holder
+        if holder is None and lock.exists():
+            return None
+        return self._read_pid_file()
+
+    def _read_pid_file(self) -> int | None:
         try:
             return int(self._paths.pid_file.read_text(encoding="utf-8").strip())
         except (FileNotFoundError, ValueError):
             return None
 
     def is_running(self) -> bool:
-        pid = self.read_pid()
+        lock = self._paths.data_dir / _LOCK_NAME
+        if holder_pid(lock) is not None:
+            return True  # held: a daemon runs, whatever the PID file says
+        if lock.exists():
+            return False
+        pid = self._read_pid_file()
         if pid is None:
             return False
         if not self._alive(pid):
@@ -335,11 +412,11 @@ class WindowsLifecycle:
             return False
 
     def repair_autostart(self) -> bool:
-        """Point an entry this install wrote for its console binary at the windowed one.
+        """Point an entry this install wrote for a console program at the windowed one.
 
-        Returns True when it rewrote the entry. Fixes installs that already carry the
+        Returns True when it rewrote the entry. Fixes installs that already carry a
         value :func:`resolve_tray_command` used to produce; see :func:`is_console_twin`
-        for why nothing else is touched.
+        and :func:`is_console_python_entry` for why nothing else is touched.
         """
         try:
             import winreg  # type: ignore[import-not-found]
@@ -351,7 +428,10 @@ class WindowsLifecycle:
         except OSError:
             return False
         wanted = self._tray_executable()
-        if not is_console_twin(str(current), wanted):
+        if not (
+            is_console_twin(str(current), wanted)
+            or is_console_python_entry(str(current), wanted)
+        ):
             return False
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _RUN_KEY, 0, winreg.KEY_SET_VALUE) as key:
             winreg.SetValueEx(key, _RUN_VALUE_NAME, 0, winreg.REG_SZ, wanted)
@@ -377,10 +457,16 @@ class WindowsLifecycle:
           value with a broken one*.
         * **Name the windowed binary**, not the console one the CLI runs as;
           see :func:`resolve_tray_command`.
+
+        pip puts the tray launcher beside ``python.exe`` in a virtual environment, but
+        under ``Scripts`` for an interpreter installed on its own.
         """
+        exe = Path(sys.executable)
+        scripts = (exe.parent / _TRAY_SCRIPT, exe.parent / "Scripts" / _TRAY_SCRIPT)
         return resolve_tray_command(
             sys.executable,
             bool(getattr(sys, "frozen", False)),
-            Path(sys.executable).parent / "yazses-tray.exe",
-            Path(sys.executable).parent / APP_EXE,
+            next((s for s in scripts if s.exists()), None),
+            exe.parent / APP_EXE,
+            windowed_interpreter(exe),
         )
