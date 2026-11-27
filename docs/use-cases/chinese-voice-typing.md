@@ -198,6 +198,20 @@ set — 一千, the elided 一百一, 两十 — is typed as text, not guessed. 
 the explicit "删除最后 … 词/行" form. Every Mandarin command phrase is **provisional**
 until a native Mandarin speaker has reviewed it; until then, treat the set as a preview.
 
+## Optional editing features with Chinese text
+
+These are all off by default. With Chinese text they behave like this:
+
+| Feature | With Chinese text |
+|---|---|
+| Staged dictation (`[staged]`) | Bursts join without a space between Chinese characters |
+| Punch-In (`[punch_in]`) | Matches single characters, so re-speaking a few of them replaces only that part |
+| Prosody Ink (`[prosody]`), prosodic punctuation (`[prosodypunct]`) | Leave any burst containing Chinese unchanged: pauses cannot yet be matched to characters |
+| Word counts (`yazses staged`, `yazses wordgoal`) | Each Chinese character counts as one; a Latin word or a number counts as one |
+| Field-aware dictation (`[fieldaware]`) | A search field drops a trailing `。` or `？` |
+| Paced typing for screen readers (`[srpace]`) | Not paced: Chinese text with no spaces is typed as one piece |
+| Spoken punctuation (`[commands] voice_punctuation`) | English mark names only, and they type ASCII marks |
+
 ## Meetings and file transcripts
 
 `yazses transcribe` and Meeting Mode keep Chinese text as written in every output format —

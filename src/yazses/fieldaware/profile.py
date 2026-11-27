@@ -10,6 +10,8 @@ from dataclasses import dataclass
 _PASSWORD = ("password", "passwordtext")
 _NUMBER = ("spinbutton", "spin button", "number")
 _SEARCH = ("search", "searchbox", "searchfield")
+#: Marks a search field drops from the end of a query, ASCII and full-width Chinese.
+_TRAILING_PUNCT = ".!?,;:。！？，、；："
 
 
 @dataclass(frozen=True)
@@ -45,7 +47,7 @@ def apply_profile(text: str, profile: FormatProfile):
     out = text
     if not profile.trailing_punct:
         out = out.rstrip()
-        while out and out[-1] in ".!?,;:":
+        while out and out[-1] in _TRAILING_PUNCT:
             out = out[:-1].rstrip()
     if profile.capitalize and out:
         out = out[0].upper() + out[1:]

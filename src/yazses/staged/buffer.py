@@ -50,6 +50,8 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum
 
+from yazses.postprocess.cjk import count_words, needs_space
+
 # Anchored at both ends: a suffix match would turn "git commit" into a commit and
 # "let's discard that idea" into a discard. Whole utterance or nothing.
 _COMMIT_RE = re.compile(
@@ -111,7 +113,9 @@ def join_chunks(chunks: list[str]) -> str:
     """Join staged bursts the way successive dictations would have been typed.
 
     Mirrors `postprocess/spacing.py`: one separating space, suppressed before
-    closing punctuation, so a staged burst reads identically to an unstaged one.
+    closing punctuation and where `postprocess/cjk.py::needs_space` says an unspaced
+    script takes none (between two Han clauses, around a full-width mark), so a
+    staged burst reads identically to an unstaged one.
     """
     out = ""
     for chunk in chunks:
@@ -121,7 +125,7 @@ def join_chunks(chunks: list[str]) -> str:
         if not out:
             out = piece
             continue
-        if piece[0] in ",.;:!?)]}":
+        if piece[0] in ",.;:!?)]}" or not needs_space(out, piece):
             out += piece
         else:
             out += " " + piece
@@ -199,7 +203,7 @@ def describe(buffer: StagedBuffer) -> str:
     """One line for `yazses staged status` and the tray tooltip."""
     if buffer.is_empty:
         return "Staged mode: nothing pending."
-    words = len(buffer.text.split())
+    words = count_words(buffer.text)
     bursts = len([c for c in buffer.chunks if c.strip()])
     return (
         f"Staged mode: {words} word{'s' if words != 1 else ''} pending "

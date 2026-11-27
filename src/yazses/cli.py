@@ -3719,7 +3719,9 @@ def staged_commit() -> None:
         # success either — the user asked for text to appear and none did.
         typer.echo(f"Nothing typed — {info.get('detail', 'nothing staged')}.")
         raise typer.Exit(1)
-    words = len(str(info.get("text", "")).split())
+    from yazses.postprocess.cjk import count_words
+
+    words = count_words(str(info.get("text", "")))
     typer.echo(f"Committed {words} word{'s' if words != 1 else ''}.")
 
 
