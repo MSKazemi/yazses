@@ -8,6 +8,7 @@ from yazses.inject.wtype import wtype_key_argv
 from yazses.inject.xdotool import _timeout_for as xdotool_timeout_for
 from yazses.inject.xdotool import _xdotool_combo
 from yazses.inject.ydotool import run_ydotool_keys, ydotool_key_timeout
+from yazses.system.wayland_env import wayland_run_kwargs
 
 # Milliseconds to wait after wl-copy sets the clipboard before sending Ctrl+V, so
 # the new Wayland selection has propagated to the compositor. Without it the
@@ -32,6 +33,15 @@ def _ydotool_ready() -> bool:
     return find_ydotool_socket() is not None
 
 
+class PasteUnavailable(RuntimeError):
+    """The text is on the clipboard and nothing here can press Ctrl+V.
+
+    The ordinary end of the fallback in a snap on GNOME or KDE Wayland, which bundles
+    neither ydotool nor a wtype those compositors accept. ``system/diagnosis.py``
+    matches this message to tell the user where their words are.
+    """
+
+
 def _paste_wayland() -> None:
     """Send Ctrl+V on Wayland with whichever tool this session has."""
     if _ydotool_ready():
@@ -42,7 +52,7 @@ def _paste_wayland() -> None:
     if shutil.which("wtype"):
         subprocess.run(["wtype", "-M", "ctrl", "-k", "v", "-m", "ctrl"], check=True, timeout=5)
         return
-    raise RuntimeError("No tool available to send Ctrl+V on Wayland (install ydotool, or wtype on wlroots)")
+    raise PasteUnavailable("Copied to the clipboard, but no tool here can send Ctrl+V on Wayland")
 
 
 class ClipboardInjector:
@@ -50,7 +60,9 @@ class ClipboardInjector:
         is_wayland = bool(os.environ.get("WAYLAND_DISPLAY"))
         if is_wayland:
             with hide_payload():
-                subprocess.run(["wl-copy", "--", text], check=True, timeout=5)
+                subprocess.run(
+                    ["wl-copy", "--", text], check=True, timeout=5, **wayland_run_kwargs()
+                )
             time.sleep(_CLIPBOARD_SETTLE_S)
             _paste_wayland()
         else:

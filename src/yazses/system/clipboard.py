@@ -12,6 +12,8 @@ import shutil
 import subprocess
 from collections.abc import Callable
 
+from yazses.system.wayland_env import wayland_run_kwargs
+
 log = logging.getLogger(__name__)
 
 
@@ -51,7 +53,7 @@ def set_clipboard(
     for cmd in cmds:
         try:
             if cmd and cmd[0] == "wl-copy":
-                runner([*cmd, text], check=True, timeout=5, **quiet)
+                runner([*cmd, text], check=True, timeout=5, **quiet, **wayland_run_kwargs())
             else:
                 runner(cmd, input=text.encode(), check=True, timeout=5, **quiet)
             return True
@@ -96,7 +98,8 @@ def get_clipboard(
     cmds = candidates if candidates is not None else _read_candidates(primary)
     for cmd in cmds:
         try:
-            result = runner(cmd, capture_output=True, timeout=5, check=True)
+            extra = wayland_run_kwargs() if cmd and cmd[0] == "wl-paste" else {}
+            result = runner(cmd, capture_output=True, timeout=5, check=True, **extra)
         except Exception as exc:
             log.debug("clipboard read via %s failed: %s", cmd[0] if cmd else "?", exc)
             continue

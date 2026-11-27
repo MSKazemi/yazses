@@ -31,6 +31,7 @@ from yazses.platform.base import (
     WINDOWS_PLATFORM_NAME,
 )
 from yazses.platform.bsd import BSD_PREFIXES
+from yazses.system import doctor
 from yazses.system.doctor import _elevation_check, _keyboard_capture_check
 
 SRC = Path(__file__).resolve().parents[1] / "src" / "yazses"
@@ -223,9 +224,12 @@ def test_the_capability_matrix_promise_and_the_row_move_together():
 # ---- the other gated row ------------------------------------------------
 
 
-def test_the_linux_input_group_advice_is_keyed_to_the_declared_linux_name():
+def test_the_linux_input_group_advice_is_keyed_to_the_declared_linux_name(monkeypatch):
     """The keyboard row's Linux branch is gated the same way; it happened to be
     correct, and nothing was holding it that way."""
+    # Read from the host otherwise: a developer who joined the group and has not
+    # logged in again would get the re-login message and a red test.
+    monkeypatch.setattr(doctor, "_input_group_pending_relogin", lambda: False)
 
     class _Denied:
         def check_keyboard_capture(self):

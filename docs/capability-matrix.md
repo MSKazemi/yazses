@@ -119,8 +119,8 @@ yazses doctor               # reports the same, plus the injector it will use
 
 - **Linux** — hold-to-talk reads the keyboard through evdev, so a non-Snap install
   needs the `input` group and a **full logout**, not a new terminal. `yazses doctor`
-  says when that is pending. The Snap instead needs its `raw-input` interface
-  connected manually, and dictates on X11 or on GNOME/KDE Wayland through the
+  says when that is pending. The Snap needs its `raw-input` interface
+  connected manually, plus the `input` group for the key to work in every Wayland window, and dictates on X11 or on GNOME/KDE Wayland through the
   `xdg-desktop-portal` RemoteDesktop API; the universal installer, APT and
   `pipx` remain the most-tested Wayland path.
 - **macOS** — Accessibility and Microphone permissions are per-binary. An update

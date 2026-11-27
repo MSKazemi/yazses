@@ -4,9 +4,14 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+import evdev
 from evdev import ecodes
 
-from yazses.hotkeys.evdev_hold import EvdevHoldListener
+from yazses.hotkeys.evdev_hold import (
+    EvdevHoldListener,
+    _is_virtual_device,
+    _looks_like_keyboard,
+)
 
 # key_id strings → evdev key codes. Used by the cross-platform abstraction so
 # the same config value resolves correctly across Linux/Mac/Win.
@@ -41,6 +46,37 @@ def resolve_key_id(key_id: str, default: str = "right_alt") -> tuple[str, int]:
             f"Unknown hotkey {key_id!r}. Supported: {sorted(_KEY_MAP)} or 'auto'."
         )
     return name, _KEY_MAP[name]
+
+
+def can_read_keyboard(key_id: str) -> bool:
+    """Whether a real keyboard carrying *key_id* can actually be opened. Never raises.
+
+    Opens the nodes rather than asking about permission bits: `os.access` does not see
+    a confinement profile, so inside a snap without `raw-input` it can say yes to a
+    node that every open then refuses.
+    """
+    try:
+        _, code = resolve_key_id(key_id)
+        paths = evdev.list_devices()
+    except Exception:
+        return False
+    for path in paths:
+        try:
+            dev = evdev.InputDevice(path)
+        except OSError:
+            continue
+        try:
+            if (
+                not _is_virtual_device(dev)
+                and _looks_like_keyboard(dev)
+                and code in dev.capabilities().get(ecodes.EV_KEY, ())
+            ):
+                return True
+        except OSError:
+            continue
+        finally:
+            dev.close()
+    return False
 
 
 class LinuxHotkey:

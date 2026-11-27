@@ -56,6 +56,11 @@ description: |
     sudo snap connect yazses:raw-input      # the hold-to-talk key
     yazses restart
 
+  On Wayland, for the key to work in every window, also run
+  `sudo usermod -aG input $USER`, then log out and back in. That group lets any
+  program you run read your keystrokes. Without it the key is seen only while an
+  X11 window is focused.
+
   Then run `yazses doctor` as your normal desktop user — it checks both
   permissions and tells you exactly what to fix. Do not run YazSes with sudo;
   that loses your desktop session and it will not be able to type.
@@ -110,7 +115,8 @@ apps:
       - network
       - opengl
       # Hold-to-talk reads /dev/input/event* via evdev, which strict confinement
-      # blocks outright — the `input` group cannot grant it (issue #44). Not
+      # blocks outright — the `input` group alone cannot grant it (issue #44), and
+      # where the nodes are root:input 0660 the user needs the group as well. Not
       # auto-connected: users run `sudo snap connect yazses:raw-input`, and
       # `yazses doctor` says so when capture is denied inside a snap.
       - raw-input

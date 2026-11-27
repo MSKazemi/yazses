@@ -11,13 +11,15 @@ import shutil
 import subprocess
 
 from yazses.commands.context import ContextSources
+from yazses.system.wayland_env import wayland_run_kwargs
 
 _TIMEOUT_S = 0.5
 
 
 def _run(cmd: list[str]) -> str:
     try:
-        out = subprocess.run(cmd, capture_output=True, text=True, timeout=_TIMEOUT_S)
+        extra = wayland_run_kwargs() if cmd[0] == "wl-paste" else {}
+        out = subprocess.run(cmd, capture_output=True, text=True, timeout=_TIMEOUT_S, **extra)
         return (out.stdout or "").strip()
     except Exception:
         return ""
