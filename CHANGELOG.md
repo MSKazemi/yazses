@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — eye-control analysis: summary numbers now have a table and name their source files ([#426](https://github.com/MSKazemi/yazses/issues/426))
+
+The min / median / max across units and the summary of session spreads appeared only in the report, so a paper table had to be copied by hand and no claim said which result files stood behind them. `scripts/eye_eval_figures.py` now writes `tables/across_units.csv` and `tables/session_retest_summary.csv`, and `claim_manifest` has an entry for each. A session-retest claim no longer lists sessions that had too few trials to be compared, and a number with no source file no longer gets an empty claim. The report is now `analysis_version` 1.1; the figures script still reads 1.0 reports. No statistical test was added (that waits for [#425](https://github.com/MSKazemi/yazses/issues/425)), and only synthetic test records were used.
+
 ### Fixed — snap on Wayland: dictated text could not reach the clipboard
 
 The snap's private `XDG_RUNTIME_DIR` does not hold the Wayland socket, so `wl-copy` and `wl-paste` failed with "Failed to connect to a Wayland server": when typing failed, the clipboard fallback failed too and the dictation was lost. The clipboard commands are now given the host socket's full path; the daemon's own environment is unchanged. Where the copy works and nothing can press Ctrl+V, the notification now says the words are on the clipboard instead of that they were not typed.

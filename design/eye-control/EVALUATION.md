@@ -212,14 +212,16 @@ target, fallback and lost tracking stay separate), false activations per hour ov
 exposure, per-unit tables, the min / median / max of unit rates, a within-participant session
 spread, per-host latency (never pooled), the exclusions with category, reason and whether the rule
 was predefined, separate participant / session / run / trial / host counts, and a claim-to-source
-manifest. A rate below the **provisional** minimum prints `insufficient data`. There is no
+manifest (per-unit rows, across-unit summaries, session spreads and latency each name the result
+files behind them, and only those that reached the number). A rate below the **provisional** minimum prints `insufficient data`. There is no
 inferential test until the analysis plan is frozen (#425), and tests use synthetic records that
 prove the code, not the product. Real participant data stays outside this repository.
 
 Paper tables and figures come from that report, never from a spreadsheet: run the analysis with
 `--format json --out report.json`, then
 `uv run python scripts/eye_eval_figures.py report.json --out <dir>`. It writes CSV tables
-(counts, outcomes, false activations, latency, session retest, exclusions, missing data), one
+(counts, outcomes, false activations, latency, session retest and its summary, across-unit
+min / median / max, exclusions, missing data), one
 outcome and one latency SVG per stratum (host + config; latency is never pooled), and a
 `manifest.json` that hashes every file and the source report and lists which report claims and
 source runs each table or figure carries. `insufficient data` stays an empty cell with its reason

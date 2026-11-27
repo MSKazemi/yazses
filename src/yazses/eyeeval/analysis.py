@@ -50,6 +50,10 @@ gives only the count of units and the min / median / max of their rates.
 * **Latency is never pooled across hosts or configs.** It is listed per stratum, per run.
 * **Exclusions are reported with category, reason and whether the rule was predefined.**
   Pilot rows are excluded by default.
+* **A claim names the runs behind its number, and no others.** Per-unit rows, latency, the
+  across-unit summaries and the session spreads each get a claim ID; a run that did not
+  reach the number (too few trials, too little exposure) is not listed as its source, and
+  a number with no source run gets no claim.
 * **Deterministic.** Sorted everywhere, no timestamps, file identity is name plus content
   hash, so the same inputs give byte-identical output on every machine.
 """
@@ -74,7 +78,7 @@ from yazses.eyeeval.schema import (
 )
 from yazses.eyeeval.tasks import FACE_SWITCH_TASK, GAZE_TASK, HEAD_POINTER_TASK
 
-ANALYSIS_VERSION = "1.0"
+ANALYSIS_VERSION = "1.1"
 LINKS_VERSION = "1.0"
 UNITS = ("run", "session", "participant")
 
@@ -561,11 +565,14 @@ def _stratum_report(
 
     def claim(kind: str, key: str, runs: list[_Run]) -> list[str]:
         ids = sorted(r.id for r in runs)
-        claims.append({"claim_id": f"{sid}/{kind}/{key}", "stratum_id": sid, "table": kind,
-                       "row": key, "source_runs": ids})
+        if ids:
+            claims.append({"claim_id": f"{sid}/{kind}/{key}", "stratum_id": sid, "table": kind,
+                           "row": key, "source_runs": ids})
         return ids
 
     units: list[dict[str, Any]] = []
+    outcome_runs: dict[str, list[_Run]] = {}
+    exposure_runs: dict[str, list[_Run]] = {}
     for key, members in sorted(by_unit.items()):
         row: dict[str, Any] = {"unit": key, "runs": len(members)}
         measured = [r for r in members if r.counts is not None]
@@ -574,11 +581,13 @@ def _stratum_report(
             denom = sum(cats[c] for c in spec["report"]) if spec["total"] == "cues" else sum(r.total for r in measured)
             row["outcomes"] = {c: _share(cats[c], denom, min_trials) for c in spec["report"]}
             row["source_runs"] = claim("outcomes", key, measured)
+            outcome_runs[key] = measured
         exposed = [r for r in members if r.events is not None and r.exposure_s is not None]
         if "exposure" in spec and exposed:
             row["false_activations"] = _per_hour(
                 sum(r.events or 0 for r in exposed), sum(r.exposure_s or 0 for r in exposed), min_exposure_s)
             claim("false_activations", key, exposed)
+            exposure_runs[key] = exposed
         units.append(row)
 
     def spread(values: list[float]) -> dict[str, Any]:
@@ -589,15 +598,20 @@ def _stratum_report(
         return {**base, "min": round(min(values), 4), "median": round(statistics.median(values), 4),
                 "max": round(max(values), 4)}
 
+    def across(key: str, values: dict[str, float], sources: dict[str, list[_Run]]) -> dict[str, Any]:
+        """Spread of the units' *values*; the claim names only those units' runs."""
+        claim("across_units", key, [r for u in values for r in sources[u]])
+        return spread(list(values.values()))
+
     summary: dict[str, Any] = {"units_total": len(units)}
     for cat in spec["report"]:
-        vals = [u["outcomes"][cat]["rate"] for u in units
-                if "outcomes" in u and isinstance(u["outcomes"][cat]["rate"], float)]
-        summary[cat] = spread(vals)
+        vals = {u["unit"]: u["outcomes"][cat]["rate"] for u in units
+                if "outcomes" in u and isinstance(u["outcomes"][cat]["rate"], float)}
+        summary[cat] = across(cat, vals, outcome_runs)
     if "exposure" in spec:
-        vals = [u["false_activations"]["per_hour"] for u in units
-                if "false_activations" in u and isinstance(u["false_activations"]["per_hour"], float)]
-        summary["false_activations_per_hour"] = spread(vals)
+        vals = {u["unit"]: u["false_activations"]["per_hour"] for u in units
+                if "false_activations" in u and isinstance(u["false_activations"]["per_hour"], float)}
+        summary["false_activations_per_hour"] = across("false_activations_per_hour", vals, exposure_runs)
 
     latency_values = sorted(r.latency for r in group if r.latency is not None)
     reasons: dict[str, int] = {}
@@ -629,17 +643,22 @@ def _retest(group: list[_Run], spec: dict[str, Any], min_trials: int, min_units:
         if run.counts is not None:
             people.setdefault(str(run.participant), {}).setdefault(str(run.session), []).append(run)
     rows: list[dict[str, Any]] = []
+    compared: list[_Run] = []  # the runs behind every row, for the summary's claim
     for pid, sessions in sorted(people.items()):
         rates: list[dict[str, Any]] = []
+        used: list[_Run] = []  # only sessions that reached the minimum n
         for sid, members in sorted(sessions.items()):
             cats = {c: sum(r.counts[c] for r in members if r.counts) for c in spec["cats"]}
             denom = sum(cats[c] for c in spec["report"]) if spec["total"] == "cues" else sum(r.total for r in members)
             if denom >= max(min_trials, 1):
                 rates.append({"session": sid, "n": denom, "rate": round(cats[primary] / denom, 4)})
+                used += members
         if len(rates) >= 2:
             values = [x["rate"] for x in rates]
             rows.append({"participant": pid, "sessions": rates, "spread": round(max(values) - min(values), 4)})
-            claim("session_retest", pid, [r for s in sessions.values() for r in s])
+            claim("session_retest", pid, used)
+            compared += used
+    claim("session_retest_summary", primary, compared)
     result: dict[str, Any] = {
         "outcome": primary, "provisional": True, "participants_with_two_or_more_sessions": len(rows),
         "minimum_units": min_units, "rows": rows,
