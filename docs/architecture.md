@@ -533,14 +533,15 @@ are written once against the interfaces and never branch on the operating system
 | `PermissionsBackend` | Probe keyboard/microphone permissions, explain how to grant them | input group | TCC prompts | microphone privacy switch; elevation check |
 | `TrayBackend` | Tray / menu-bar UI | PySide6 `QSystemTrayIcon` | rumps | pystray |
 
-These are the core seven. `platform/base.py` defines eight more. Four are built on
+These are the core seven. `platform/base.py` defines nine more. Four are built on
 demand by functions in `platform/factory.py`, with one implementation per OS family:
 `HostBackend`, `FileOpener`, `UrlOpener` (the "send to" hand-off) and `PackRuntime`
-(the add-on pack loader). Four are optional fields of the platform bundle, left
+(the add-on pack loader). Five are optional fields of the platform bundle, left
 `None` where an OS has no implementation yet: `FocusedAppProvider` (macOS and Windows
-only), `UpdateLauncher` (Windows only), `AccessibilityBackend` (Linux only) and
+only), `UpdateLauncher` (Windows only), `AccessibilityBackend` (Linux only),
 `FocusedCwdProvider` (the focused window's working directory for `[context] use_git`;
-Linux on an X11 session only).
+Linux on an X11 session only) and `CameraCoverSignal` (the hardware's word on a camera
+privacy shutter for `[camera] cover_detection`; Linux only).
 
 The **EMG hotkey backend** (`platform/emg/backend.py`) is a
 platform-independent `HotkeyBackend` implementation — it reads squeeze events
