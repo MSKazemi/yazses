@@ -288,3 +288,11 @@ def test_the_recording_state_set_is_shared_not_copied() -> None:
     assert tray_menu._RECORDING_STATES == frozenset(
         {"recording", "transcribing", "injecting", "meeting"}
     )
+
+
+def test_the_command_lists_exactly_the_pages_the_window_has():
+    """`cli.py` spells the keys out to keep the window's package out of a start."""
+    from yazses.cli import _SETTINGS_PAGES
+    from yazses.settingsui.pages import PAGE_KEYS
+
+    assert tuple(_SETTINGS_PAGES.split(", ")) == PAGE_KEYS

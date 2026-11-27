@@ -12,7 +12,6 @@ from yazses import branding
 from yazses.hotkeys.names import SETTABLE_HOTKEYS, SUPPORTED_HOTKEYS, canonical
 from yazses.ipc.client import IpcCallError, IpcTimeoutError, IpcUnreachableError
 from yazses.platform import get_paths, get_platform
-from yazses.settingsui.pages import PAGE_KEYS, resolve_page
 from yazses.system.logtail import tail_records
 from yazses.system.outcomes import describe_outcomes
 from yazses.system.relaunch import Mode, command_for
@@ -2003,6 +2002,14 @@ def tray(
     run_tray()
 
 
+#: The keys `settings --page` accepts, spelled out so that `--help` does not import the
+#: window's package; `tests/test_tray_settings_parity.py` holds it equal to `PAGE_KEYS`.
+_SETTINGS_PAGES = (
+    "overview, dictation, meetings, files, commands, features, accessibility, speech, "
+    "audio, general, handsfree, updates"
+)
+
+
 @app.command(
     rich_help_panel=_DAEMON,
     epilog=_examples(
@@ -2013,7 +2020,7 @@ def tray(
 def settings(
     page: Optional[str] = typer.Option(
         None, "--page", metavar="KEY",
-        help="Open the window on this page: " + ", ".join(PAGE_KEYS) + "."),
+        help="Open the window on this page: " + _SETTINGS_PAGES + "."),
     install_launcher: bool = typer.Option(
         False, "--install-launcher",
         help="Add 'YazSes Settings' to your desktop app grid, then exit."),
@@ -2054,10 +2061,11 @@ def settings(
         typer.echo(result.describe())
         raise typer.Exit(0 if result.installed else 1)
 
+    # Imported here: the window's package is not part of an ordinary start.
+    from yazses.settingsui.pages import resolve_page
+
     if page is not None and resolve_page(page) is None:
-        typer.echo(
-            f"There is no page named {page!r}. Pages: {', '.join(PAGE_KEYS)}", err=True
-        )
+        typer.echo(f"There is no page named {page!r}. Pages: {_SETTINGS_PAGES}", err=True)
         raise typer.Exit(2)
 
     from yazses.settingsui.app import run as run_settings
