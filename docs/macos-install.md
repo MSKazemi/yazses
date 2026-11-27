@@ -291,8 +291,14 @@ Speech model: loaded, idle 45 s of 300 s
 
 The memory line and the silent-recordings warning use the same words as the Linux tray
 menu and the Windows tooltip. The engine and the fallback warning use the same words as
-`yazses status`. Below the status lines are Settings, Meeting Mode, Pause hotkey, Help, About and Check
-for updates, in that order. *This menu has not been tested on a real Mac yet.*
+`yazses status`. Below the status lines are Settings, Meeting Mode, Help, About and Check
+for updates, in that order, and Quit is at the bottom. *This menu has not been tested on a
+real Mac yet.*
+
+No menu entry pauses the hold-to-talk key. To stop YazSes responding to it, choose
+**Quit**, which stops the daemon too; open the app again to resume. Earlier releases showed
+a **Pause hotkey** entry that announced a pause but did not pause anything, so the key kept
+recording.
 
 ## Verify with the CLI
 

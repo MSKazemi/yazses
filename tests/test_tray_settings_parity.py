@@ -101,7 +101,7 @@ def test_the_macos_menu_handlers_are_not_crossed():
     """Each rumps label *path* routes to exactly one handler.
 
     ``@rumps.clicked`` binds by label, so stacking a second one on the wrong
-    function silently re-points an existing menu entry — "Pause hotkey" opening
+    function silently re-points an existing menu entry — "About" opening
     Settings, with nothing to see in a diff-free read of the file. Submenu items
     bind on the full path (``clicked(HELP_LABEL, DOCS_LABEL)``), so the whole
     argument tuple is the identity — comparing only the first argument would read
@@ -131,6 +131,23 @@ def test_every_tray_actually_wires_the_entry_to_something(os_name, entry):
     assert any(marker in source for marker in ENTRY_HANDLERS[entry]), (
         f"{os_name} renders {entry} but wires no handler"
     )
+
+
+@pytest.mark.parametrize("os_name", sorted(TRAYS))
+def test_no_tray_offers_to_pause_the_hotkey(os_name):
+    """The daemon cannot pause the dictation key, so no menu may offer to.
+
+    The macOS entry announced "Pausing the dictation hotkey…" and did nothing: the
+    user believed dictation was off while the key still recorded. An entry like it
+    may come back only with a daemon behaviour behind it, and a test of that.
+    """
+    module = ast.parse((ROOT / TRAYS[os_name]).read_text(encoding="utf-8"))
+    strings = [
+        node.value.casefold()
+        for node in ast.walk(module)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+    ]
+    assert not [s for s in strings if "pause hotkey" in s or "dictation hotkey" in s]
 
 
 @pytest.mark.parametrize("os_name", ["macos", "windows"])

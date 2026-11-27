@@ -142,7 +142,9 @@ class MacosTray:
                     camera_item,
                     camera_line,
                     None,
-                    "Pause hotkey",
+                    # No "Pause hotkey": the daemon has no way to pause the dictation
+                    # key, so the entry only announced a pause that never happened.
+                    # Quit stops the daemon.
                     [HELP_LABEL, [DOCS_LABEL, TROUBLESHOOTING_LABEL, REPORT_BUG_LABEL]],
                     ABOUT_LABEL,
                     UPDATE_LABEL,
@@ -176,11 +178,6 @@ class MacosTray:
             def _on_camera(self_inner, _sender) -> None:
                 if tray._camera_action:
                     _run_camera(tray._camera_action)
-
-            @rumps.clicked("Pause hotkey")
-            def _on_pause(self_inner, _sender) -> None:
-                # Wired via IPC by the tray entry point; no-op here in v0.
-                rumps.notification("YazSes", "Pause", "Pausing the dictation hotkey…")
 
             @rumps.clicked(HELP_LABEL, DOCS_LABEL)
             def _on_docs(self_inner, _sender) -> None:
