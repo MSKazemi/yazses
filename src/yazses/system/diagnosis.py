@@ -278,8 +278,9 @@ _RULES: tuple[tuple[str, tuple[str, ...], str, str, str, str | None], ...] = (
         ("raw-input",),
         "YazSes cannot see the hold-to-talk key inside the snap",
         "The snap's raw-input interface is not connected. Joining the `input` group "
-        "cannot grant this inside confinement — only the interface can.",
-        "Grant it once:  sudo snap connect yazses:raw-input",
+        "alone cannot grant this inside confinement.",
+        "Run `sudo snap connect yazses:raw-input` and `sudo usermod -aG input $USER`, "
+        "then log out and back in.",
         f"{_DOCS}/troubleshooting.html",
     ),
     (
@@ -365,6 +366,17 @@ _RULES: tuple[tuple[str, tuple[str, ...], str, str, str, str | None], ...] = (
         "On Linux install it with `sudo apt install libportaudio2`, then run "
         "`yazses doctor`.",
         f"{_DOCS}/known-good-microphones.html",
+    ),
+    (
+        # `inject/clipboard.PasteUnavailable`: the copy worked, only the keypress did
+        # not. Without this the user is told the words are gone while they are one
+        # Ctrl+V away.
+        "inject-copied-not-pasted",
+        ("pasteunavailable",),
+        "Your words are on the clipboard",
+        "YazSes could not type your dictation, so it copied it to the clipboard.",
+        "Click where you want the text and press Ctrl+V (Ctrl+Shift+V in a terminal).",
+        f"{_DOCS}/troubleshooting.html",
     ),
     (
         "inject-tool-missing",

@@ -2,8 +2,12 @@
 
 The bug being pinned here is not a crash: it is *impossible advice*. Inside a
 strictly confined snap, `yazses doctor` told users to join the `input` group,
-which can never grant `/dev/input` access because snapd — not the group — is
-what blocks it. Users followed it in circles.
+which cannot grant `/dev/input` access on its own because snapd blocks it until
+`raw-input` is connected. Users followed it in circles.
+
+The interface is not sufficient either: the event devices are ``root:input 0660``
+on Ubuntu, so with `raw-input` connected and no group membership the open is still
+refused. The advice has to name both.
 """
 
 from __future__ import annotations
@@ -46,12 +50,14 @@ def test_classic_and_devmode_are_not_strict():
 # ---- the advice itself -----------------------------------------------------
 
 
-def test_advice_names_the_interface_not_the_group():
+def test_advice_names_the_interface_first_and_the_group_with_it():
     advice = keyboard_capture_advice({"SNAP_NAME": "yazses"})
-    assert "snap connect yazses:raw-input" in advice
-    assert "raw-input" in advice
-    # The whole point: the group fix must not be offered here.
-    assert "usermod" not in advice
+    connect = advice.index("snap connect yazses:raw-input")
+    group = advice.index("usermod -aG input $USER")
+    assert connect < group
+    assert "log out" in advice.lower()
+    # Neither alone is enough, and the reader has to be told so.
+    assert "both" in advice.lower()
 
 
 def test_advice_uses_the_instance_name_for_parallel_installs():
@@ -85,21 +91,18 @@ def test_doctor_gives_snap_advice_instead_of_the_group_advice(monkeypatch):
 
     assert status == "FAIL"
     assert "raw-input" in rendered
-    assert "usermod" not in rendered
+    assert "usermod -aG input" in rendered
 
 
 def test_snap_branch_wins_over_pending_relogin(monkeypatch):
-    # Being mid-relogin is irrelevant inside a snap; the group was never the
-    # barrier, so that message would still send the user in a circle.
+    # The pending-relogin message promises that logging in again is all that is
+    # left, which inside a snap is false until `raw-input` is connected too.
     perms = _denied_perms(monkeypatch)
     monkeypatch.setattr(doctor, "in_strict_snap", lambda: True)
     monkeypatch.setattr(doctor, "_input_group_pending_relogin", lambda: True)
 
     _name, _status, detail = doctor._keyboard_capture_check(perms, "linux")
     assert "raw-input" in detail
-    # The advice may *name* the group to explain why it is not the fix; what it
-    # must not do is tell the user to log out and back in.
-    assert "log out and back in" not in detail.lower()
     assert "session started before" not in detail.lower()
 
 

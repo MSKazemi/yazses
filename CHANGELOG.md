@@ -6,6 +6,18 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — snap on Wayland: dictated text could not reach the clipboard
+
+The snap's private `XDG_RUNTIME_DIR` does not hold the Wayland socket, so `wl-copy` and `wl-paste` failed with "Failed to connect to a Wayland server": when typing failed, the clipboard fallback failed too and the dictation was lost. The clipboard commands are now given the host socket's full path; the daemon's own environment is unchanged. Where the copy works and nothing can press Ctrl+V, the notification now says the words are on the clipboard instead of that they were not typed.
+
+### Fixed — Wayland typing: a silent desktop portal no longer holds a dictation for 30 seconds
+
+A dictation allows the RemoteDesktop portal 5 s before falling back to the clipboard, but only the last of the three requests honoured that; the first two waited 30 s each. The 5 s now covers all three together. The permission dialog raised at start-up keeps its longer wait.
+
+### Fixed — snap on Wayland: the hold-to-talk key now works in native Wayland windows when keyboard access is granted
+
+The snap used an X11 key grab whenever an X display existed, which on Wayland sees the key only while an X11 window is focused. On Wayland it now reads the keyboard directly when a keyboard actually opens, and keeps the grab otherwise and on X11 sessions. `yazses doctor` gains a **Hotkey listener** line, and its advice and the install docs now name both requirements: the `raw-input` interface and, where the device nodes belong to it, the `input` group. The earlier text said the group could not grant access in a snap; it cannot on its own, but the interface alone was not enough either.
+
 ### Changed — release checks: AUR, Flathub and nixpkgs are no longer checked
 
 `scripts/check-release-channels.py`, which the release completeness check and the daily channel drift watch run, no longer asks AUR, Flathub or nixpkgs for the new version. None of the three has accepted a first submission, so no tag could publish to them and the completeness check stayed red whatever shipped. Their recipes (`packaging/arch/`, `packaging/flatpak/`, `flake.nix`) are unchanged, and each check can be restored from git history when its channel accepts a submission. The check still fails while a channel the project does publish to lacks the version.

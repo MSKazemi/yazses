@@ -13,6 +13,7 @@ import platform as platform_module  # `platform` is a local in run_doctor (the P
 import re
 import shutil
 import sys
+from collections.abc import Callable, Mapping
 from dataclasses import replace
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _pkg_version
@@ -1712,6 +1713,37 @@ def _keyboard_capture_check(perms, platform_name: str) -> _Check:
     return ("Keyboard capture", "OK" if state is PermissionState.OK else "FAIL", detail)
 
 
+def _snap_hotkey_listener_check(
+    platform_name: str,
+    key_id: str,
+    *,
+    env: Mapping[str, str] | None = None,
+    probe: Callable[[str], bool] | None = None,
+) -> _Check | None:
+    """Which listener a snap watches the hotkey with; None anywhere else.
+
+    "Keyboard capture: OK" and a hotkey that is dead in half the windows are both
+    true while the X11 grab is in use on Wayland, so the listener is its own line.
+    Answers for the process running doctor, like the capture check above it.
+    """
+    environ = os.environ if env is None else env
+    if platform_name != LINUX_PLATFORM_NAME or "SNAP" not in environ:
+        return None
+    from yazses.platform.linux import snap_hotkey_listener
+
+    if snap_hotkey_listener(environ, key_id, probe=probe) == "evdev":
+        return ("Hotkey listener", "OK", "reads the keyboard directly, in every window")
+    from yazses.gaze.target_semantics import classify_session
+
+    if not classify_session(environ).startswith("wayland"):
+        return ("Hotkey listener", "OK", "X11 key grab")
+    return (
+        "Hotkey listener", "WARN",
+        "X11 key grab: on Wayland it sees the key only while an X11 window is "
+        f"focused. For every window — {keyboard_capture_advice(environ)}",
+    )
+
+
 def _input_monitoring_check(perms, platform_name: str) -> _Check | None:
     """macOS: the *second* grant a keyboard tap needs, reported on its own row.
 
@@ -2546,6 +2578,11 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
 
     # Keyboard capture
     checks.append(_keyboard_capture_check(perms, platform.name))
+    listener = _snap_hotkey_listener_check(
+        platform.name, cfg.hotkey.key if cfg is not None else "auto"
+    )
+    if listener is not None:
+        checks.append(listener)
 
     # macOS only: the second grant the same hotkey needs. Placed directly after
     # keyboard capture because the two are one question to the user ("does my

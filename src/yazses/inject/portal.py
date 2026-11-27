@@ -463,7 +463,7 @@ class _PortalSession:
                 options = dict(body[-1])
                 options["handle_token"] = ("s", handle_token)
                 msg = new_method_call(addr, member, signature, (*body[:-1], options))
-                self._conn.send_and_get_reply(msg, timeout=REQUEST_TIMEOUT_S)
+                self._conn.send_and_get_reply(msg, timeout=min(timeout, REQUEST_TIMEOUT_S))
                 signal = self._conn.recv_until_filtered(queue, timeout=timeout)
         finally:
             try:
@@ -540,6 +540,19 @@ class _PortalSession:
             raise
 
     def _negotiate_locked(self, start_timeout: float) -> None:
+        # One budget for the three requests together. `CreateSession` and
+        # `SelectDevices` need no human, but a portal can stop answering them, and a
+        # dictation must reach the clipboard fallback in `start_timeout` either way.
+        deadline = time.monotonic() + start_timeout
+
+        def remaining(member: str, cap: float = start_timeout) -> float:
+            left = deadline - time.monotonic()
+            if left <= 0:
+                raise PortalUnavailable(
+                    f"the desktop portal did not answer in time (before {member})"
+                )
+            return min(left, cap)
+
         self._conn = self._open_connection()
 
         session_token = f"yazses{uuid.uuid4().hex[:16]}"
@@ -547,7 +560,7 @@ class _PortalSession:
             "CreateSession",
             "a{sv}",
             ({"session_handle_token": ("s", session_token)},),
-            REQUEST_TIMEOUT_S,
+            remaining("CreateSession", REQUEST_TIMEOUT_S),
         )
         handle = results.get("session_handle")
         # The value arrives as a variant; jeepney hands back (signature, value).
@@ -579,13 +592,13 @@ class _PortalSession:
             "SelectDevices",
             "oa{sv}",
             (self._session_handle, select),
-            REQUEST_TIMEOUT_S,
+            remaining("SelectDevices", REQUEST_TIMEOUT_S),
         )
 
         # parent_window is "" -- there is no yazses window to parent the dialog
         # to, and the portal is specified to accept an empty string for that.
         started = self._call_with_response(
-            "Start", "osa{sv}", (self._session_handle, "", {}), start_timeout
+            "Start", "osa{sv}", (self._session_handle, "", {}), remaining("Start")
         )
         token = started.get("restore_token")
         token_value = token[1] if isinstance(token, tuple) else token

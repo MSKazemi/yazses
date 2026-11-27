@@ -89,6 +89,9 @@ def test_doctor_puts_it_in_front_of_someone_who_is_blocked(mocker) -> None:
     perms = mocker.MagicMock()
     perms.check_keyboard_capture.return_value = PermissionState.DENIED
     perms.how_to_grant.return_value = MacosPermissions().how_to_grant()
+    # Read from the host otherwise: a Linux developer who joined the `input` group
+    # and has not logged in again would get that message and a red test.
+    mocker.patch("yazses.system.doctor._input_group_pending_relogin", return_value=False)
 
     name, status, detail = _keyboard_capture_check(perms, "darwin")
     assert name == "Keyboard capture"

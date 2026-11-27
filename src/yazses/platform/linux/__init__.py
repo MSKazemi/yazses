@@ -40,14 +40,42 @@ HEADLESS_CLICK_REASON = (
 )
 
 
-def _make_hotkey(key_id: str, threshold_ms: int, on_start, on_end):
-    in_snap = "SNAP" in os.environ
-    has_x11 = bool(os.environ.get("DISPLAY"))
+def _probe_keyboard(key_id: str) -> bool:
+    try:
+        from yazses.platform.linux import hotkey
+    except ImportError:
+        return False
+    return hotkey.can_read_keyboard(key_id)
 
-    if in_snap and has_x11:
+
+def snap_hotkey_listener(
+    env: Mapping[str, str],
+    key_id: str,
+    *,
+    probe: Callable[[str], bool] | None = None,
+) -> str:
+    """``"evdev"`` or ``"x11"``: how this process should watch the hold-to-talk key.
+
+    The X11 grab exists for the snap, where it needs no manual permission. On Wayland
+    it reaches the XWayland server only, so it sees the key just while an X11 window is
+    focused; reading ``/dev/input`` covers every window and is used whenever a keyboard
+    actually opens. An X11 session keeps the grab, which covers every window there and
+    consumes the key. Shared with `yazses doctor`, so the two cannot disagree.
+    """
+    if "SNAP" not in env or not env.get("DISPLAY"):
+        return "evdev"
+    from yazses.gaze.target_semantics import classify_session
+
+    if classify_session(env).startswith("wayland") and (probe or _probe_keyboard)(key_id):
+        return "evdev"
+    return "x11"
+
+
+def _make_hotkey(key_id: str, threshold_ms: int, on_start, on_end):
+    if snap_hotkey_listener(os.environ, key_id) == "x11":
         try:
             from yazses.platform.linux.hotkey_xgrab import X11GrabHotkey
-            return X11GrabHotkey(
+            grab = X11GrabHotkey(
                 key_id=key_id,
                 threshold_ms=threshold_ms,
                 on_hold_start=on_start,
@@ -55,9 +83,20 @@ def _make_hotkey(key_id: str, threshold_ms: int, on_start, on_end):
             )
         except Exception as exc:
             log.warning("X11GrabHotkey unavailable (%s), falling back to evdev", exc)
+        else:
+            from yazses.gaze.target_semantics import classify_session
 
-    from yazses.platform.linux.hotkey import LinuxHotkey
-    return LinuxHotkey(
+            if classify_session(os.environ).startswith("wayland"):
+                log.warning(
+                    "The hold-to-talk key is seen only while an X11 window is focused. "
+                    "For every window, connect the `raw-input` interface and join the "
+                    "`input` group, then log out and back in: `yazses doctor` has the "
+                    "commands."
+                )
+            return grab
+
+    from yazses.platform.linux import hotkey
+    return hotkey.LinuxHotkey(
         key_id=key_id,
         threshold_ms=threshold_ms,
         on_hold_start=on_start,

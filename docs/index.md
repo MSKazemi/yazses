@@ -279,6 +279,14 @@ hide:
     yazses start
     ```
 
+    On Wayland, also join the `input` group and log out and back in, or the key
+    is seen only while an X11 window is focused. The group lets any program you
+    run read your keystrokes.
+
+    ```sh
+    sudo usermod -aG input $USER
+    ```
+
     `yazses setup` is not required for the snap. Confinement prevents it from
     installing host packages, changing groups, or configuring host services, so
     it can only print the manual permission checklist; the snap already bundles

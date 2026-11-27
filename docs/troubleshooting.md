@@ -158,7 +158,9 @@ install a udev rule — there the portal is genuinely the only way to type on Wa
 `yazses setup` is not offered.
 
 If you declined the dialog, dictation falls back to pasting via the clipboard, which is a
-no-op in terminals. Approve it, or run `yazses setup`, then `yazses restart`.
+no-op in terminals. Approve it, or run `yazses setup`, then `yazses restart`. Where nothing
+can press Ctrl+V (the snap on GNOME or KDE Wayland), the text stays on the clipboard and a
+notification asks you to paste it.
 
 ## `yazses start` says it started, but `yazses status` says "not running"
 

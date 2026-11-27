@@ -1,11 +1,12 @@
 """Snap-confinement awareness.
 
 Advice that cannot work is worse than no advice. Inside a strictly confined
-snap the barrier to ``/dev/input/event*`` is snapd, not the ``input`` group, so
-telling the user to run ``usermod -aG input`` sends them round a loop that can
+snap snapd blocks ``/dev/input/event*`` whatever groups the user is in, so
+telling them only to run ``usermod -aG input`` sends them round a loop that can
 never succeed — they join the group, log out, log back in, and get the same
-``denied`` (issue #44). The only thing that can grant it is the ``raw-input``
-interface, or installing unconfined.
+``denied`` (issue #44). The ``raw-input`` interface lifts that block, but the
+device nodes are still ``root:input 0660`` on most distributions, so the group is
+needed as well. The alternative is installing unconfined.
 
 Pure and import-light on purpose: this is consulted from ``yazses doctor``.
 """
@@ -157,10 +158,12 @@ def keyboard_capture_advice(env: Mapping[str, str] | None = None) -> str:
     environ = os.environ if env is None else env
     name = environ.get("SNAP_INSTANCE_NAME") or environ.get("SNAP_NAME") or "yazses"
     return (
-        "this is a strictly confined snap, so reading the keyboard needs the "
-        "`raw-input` interface — joining the `input` group cannot grant it. Run:\n"
+        "this is a strictly confined snap, so reading the keyboard needs both the "
+        "`raw-input` interface and, on most distributions, the `input` group. Run:\n"
         f"    sudo snap connect {name}:raw-input\n"
-        "    yazses restart\n"
+        "    sudo usermod -aG input $USER\n"
+        "Then log out and back in. The group lets any program you run read your "
+        "keystrokes.\n"
         "If your snapd does not offer that interface, install unconfined instead:\n"
         f"    sudo snap remove {name} && pipx install yazses"
     )

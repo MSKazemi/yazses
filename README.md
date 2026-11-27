@@ -663,6 +663,10 @@ yazses doctor                           # says if anything is still missing
 yazses start
 ```
 
+On Wayland, also run `sudo usermod -aG input $USER`, then log out and back in. Without it the
+key is seen only while an X11 window is focused. The group lets any program you run read your
+keystrokes.
+
 A Snap install does not need `yazses setup`. Strict confinement stops it from changing host
 packages, groups or services, so current builds only use it to print the manual permission
 checklist; the snap already bundles its X11 dependencies. Run `yazses doctor` and every other

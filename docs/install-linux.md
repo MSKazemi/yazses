@@ -219,6 +219,14 @@ membership, or configure the host's `ydotoold` service. Therefore:
   dictation asks once for permission; approve it and the answer is remembered.
   Both cases still require manually connecting `audio-record` and `raw-input`
   as shown in [§1](#1-install--one-command);
+- on **Wayland**, the hold-to-talk key works in every window only when YazSes can
+  read the keyboard, which needs `raw-input` **and** the `input` group
+  (`sudo usermod -aG input $USER`, then log out and back in; the group lets any
+  program you run read your keystrokes). Without both, an X11 key grab is used,
+  which sees the key only while an X11 window is focused. `yazses doctor` shows
+  which on its **Hotkey listener** line;
+- if typing through the portal fails, the text is copied to the clipboard; the
+  snap cannot press Ctrl+V on GNOME or KDE Wayland, so paste it yourself;
 - `wtype` is **not** a Wayland fallback here: it needs `virtual-keyboard-manager-v1`,
   which GNOME's Mutter and KDE's KWin do not implement. The portal is what covers
   those two desktops;
@@ -227,7 +235,7 @@ membership, or configure the host's `ydotoold` service. Therefore:
 - `yazses setup` cannot provision a Snap install; current builds only use it to
   print the manual interface checklist.
 
-Only the three `snap install`/`snap connect` commands require `sudo`. Run
+Only the `snap install`, `snap connect` and `usermod` commands require `sudo`. Run
 `yazses doctor`, `yazses start`, and every other YazSes command as your normal
 desktop user; `sudo yazses …` loses the session environment and reports the
 wrong display type.
@@ -514,7 +522,8 @@ Look for these lines and act on any that are not `[OK]`:
   leave you running stale code: `pipx uninstall yazses`, `sudo apt remove yazses`,
   or `uv tool uninstall yazses` as appropriate.
 - **`Keyboard capture: FAIL`** — you are not in the `input` group; see
-  [§3b](#3b-add-yourself-to-the-input-group-required).
+  [§3b](#3b-add-yourself-to-the-input-group-required). A snap also needs its
+  `raw-input` interface ([§3e](#3e-what-the-snap-can-and-cannot-do)).
 
 If `yazses logs` shows `Silent audio -- discarding`, the key *is* working but your
 speech is below the VAD gate — see [§6](#6-tune-the-silence-threshold).
