@@ -19,12 +19,25 @@ from __future__ import annotations
 
 import os
 from logging.handlers import RotatingFileHandler
+from typing import Any
 
 from yazses.system.private_files import ensure_private_file
 
 
 class PrivateRotatingFileHandler(RotatingFileHandler):
-    """``RotatingFileHandler`` whose live file and backups are never group/other readable."""
+    """``RotatingFileHandler`` whose live file and backups are never group/other readable.
+
+    Always UTF-8. Without an ``encoding`` the stock handler uses the locale's, which on
+    Windows is an ANSI code page such as cp1252: a record naming a Persian or Chinese
+    user folder or microphone could not be encoded and was dropped, and every reader of
+    this file (``yazses logs``, ``report``, ``doctor``) decodes it as UTF-8.
+    ``backslashreplace`` keeps even an unpaired surrogate from costing the record.
+    """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        kwargs.setdefault("encoding", "utf-8")
+        kwargs.setdefault("errors", "backslashreplace")
+        super().__init__(*args, **kwargs)
 
     def _open(self):  # type: ignore[no-untyped-def]
         # Create the file 0600 (or tighten it) *before* the stock open, which would

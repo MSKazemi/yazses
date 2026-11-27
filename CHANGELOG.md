@@ -18,6 +18,10 @@ On a Python installed on its own (not a virtual environment), pip puts `yazses-t
 
 The tray starts reading the daemon before its icon is on screen, and a notification read then (a missing permission, a finished model download) was discarded. The newest five are now kept and shown once the icon appears. The tray also reassigned its icon several times a second; pystray writes a temporary `.ico` file for each assignment. The icon is now changed only when its colour changes. Found by reading the code and tested with stand-ins; not run on Windows.
 
+### Fixed — Windows: the daemon log lost lines containing non-Latin text
+
+`daemon.log` was written in the system code page, so a line with a folder or microphone name that the code page cannot hold was dropped, and `yazses logs` read the file as UTF-8. It is now written as UTF-8. Found by reading the code and tested with stand-ins; not run on Windows.
+
 ### Fixed — snap on Wayland: dictated text could not reach the clipboard
 
 The snap's private `XDG_RUNTIME_DIR` does not hold the Wayland socket, so `wl-copy` and `wl-paste` failed with "Failed to connect to a Wayland server": when typing failed, the clipboard fallback failed too and the dictation was lost. The clipboard commands are now given the host socket's full path; the daemon's own environment is unchanged. Where the copy works and nothing can press Ctrl+V, the notification now says the words are on the clipboard instead of that they were not typed.
