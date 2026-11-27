@@ -60,6 +60,8 @@ from yazses.settingsui.pages import (
     category_selectable,
     dirty_page_keys,
     effective_selection,
+    page_from_argv,
+    resolve_page,
     section_visible,
 )
 from yazses.settingsui.palette import THEME_CHOICES
@@ -115,8 +117,13 @@ _NO_DISPLAY_MSG = (
 )
 
 
-def run() -> None:
-    """Entry point — the `yazses-settings` GUI script / `yazses settings`."""
+def run(page: str | None = None) -> None:
+    """Entry point — the `yazses-settings` GUI script / `yazses settings`.
+
+    *page* is the page to open on (`--page`); when the caller passes none it is read from
+    the command line. An unknown name opens the window on Overview and is logged: a stale
+    shortcut must still open the window.
+    """
     # No console on Windows for a GUI script: sys.stderr is None, which would
     # take down both basicConfig and the print() diagnostics below.
     from yazses.system.wincon import alert, ensure_streams
@@ -202,6 +209,13 @@ def run() -> None:
     apply_theme(app, None, model.window_theme)
     window = SettingsWindow(model, controller)
     apply_theme(app, window._win, model.window_theme)
+    requested = page if page is not None else page_from_argv(sys.argv[1:])
+    if requested is not None:
+        key = resolve_page(requested)
+        if key is None:
+            log.warning("There is no page named %r; opening Overview.", requested)
+        else:
+            window.open_page(key)
     window.show()
     sys.exit(app.exec())
 
@@ -2642,6 +2656,10 @@ class SettingsWindow:
         from PySide6.QtWidgets import QMessageBox
 
         QMessageBox.warning(self._win, title, body, QMessageBox.StandardButton.Ok)
+
+    def open_page(self, key: str) -> None:
+        """Show the page *key*; an unknown key is ignored."""
+        self._shell.select(key)
 
     def show(self) -> None:
         self._win.show()

@@ -76,6 +76,35 @@ PAGES: tuple[PageSpec, ...] = (
     ),
 )
 
+#: Every page's key: what ``yazses settings --page`` accepts.
+PAGE_KEYS: tuple[str, ...] = tuple(spec.key for spec in PAGES)
+
+#: The option `yazses settings` and `yazses-settings` take to open on a given page.
+PAGE_FLAG = "--page"
+
+
+def resolve_page(name: str | None) -> str | None:
+    """The page key *name* refers to (case and spaces ignored), or ``None`` if none does."""
+    key = (name or "").strip().lower()
+    return key if key in PAGE_KEYS else None
+
+
+def page_from_argv(argv: Sequence[str]) -> str | None:
+    """What followed ``--page`` (or ``--page=``) in *argv*, unchecked; ``None`` if absent.
+
+    The window's own entry point has no argument parser: `yazses-settings`, the bundle's
+    ``--settings`` and ``-m`` all hand it a bare argv, and anything else in it is Qt's.
+    The last occurrence wins, as it does in `yazses settings`.
+    """
+    found: str | None = None
+    for index, arg in enumerate(argv):
+        if arg == PAGE_FLAG:
+            found = argv[index + 1] if index + 1 < len(argv) else ""
+        elif arg.startswith(f"{PAGE_FLAG}="):
+            found = arg[len(PAGE_FLAG) + 1:]
+    return found
+
+
 #: How many pages get a ``Ctrl+<digit>`` shortcut: the keyboard has nine.
 SHORTCUT_PAGES = 9
 

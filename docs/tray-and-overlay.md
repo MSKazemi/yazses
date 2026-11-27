@@ -75,6 +75,22 @@ that most often go wrong — the wrong microphone, and a daemon that needs a res
 
 ![The full YazSes tray menu: state lines, Microphone, Restart and Stop daemon, Settings, Help, About YazSes, Check for updates and Quit tray](screenshots/tray-menu-full.png)
 
+(This picture predates the **Open YazSes** entry and the fix entry described below.)
+
+- **The fix, when there is one** — while YazSes has a problem that one click can solve, the
+  first entry of the menu offers it, and says what is wrong:
+
+  | Entry | When it appears | What it does |
+  |---|---|---|
+  | **Start YazSes — YazSes is not running** | the daemon is gone and the icon reports it | `yazses start --no-autostart`; nothing if it is already running |
+  | **Restart YazSes — Something is wrong** | the daemon reports an error | `yazses restart` |
+  | **Recalibrate microphone — I can’t hear you** | `[audio] silent_streak_threshold` recordings in a row were silent (3 by default) | the same as **Re-calibrate** below |
+
+  It is the same decision as the one button on the window's
+  [Overview page](settings-gui.md), so the two never disagree. Nothing is offered when there
+  is nothing to fix, or while the daemon is starting, restarting or too busy to answer.
+- **Open YazSes** — opens the [window](settings-gui.md) on its Overview page: dictation,
+  meetings, file transcription and everything else.
 - **`YazSes — idle`** and **`Mic: default`** — the same state the badge colour encodes, in words.
 - **Microphone** — every input device the system reports, with the active one marked. Picking
   one **pins** it, so a USB-C monitor or a headset that appears later can't quietly steal
@@ -103,9 +119,9 @@ that most often go wrong — the wrong microphone, and a daemon that needs a res
   `yazses features enable meeting`) and restart. On macOS and Windows the menu is built once when the tray starts and cannot grey
   entries out as state changes, so both stay clickable there and YazSes answers with the same
   reason when a click can't apply.
-- **Settings…** — opens the graphical settings window (the same thing as `yazses settings`),
-  where features, the hotkey, the microphone and the silence threshold are all editable without
-  hand-writing TOML.
+- **Settings…** — opens the same window on its **Features** page (the same thing as
+  `yazses settings --page features`). Features, the hotkey, the microphone and the silence
+  threshold are all editable there without hand-writing TOML.
 - **Help** — a submenu with **Documentation**, **Troubleshooting** and **Report a bug…**, each
   opening the right page in your browser. No terminal needed to find the docs from the icon.
 
@@ -150,8 +166,8 @@ install, say), it repeats about once an hour while idle; `yazses doctor` shows w
 version is running. Tested with simulated daemons; not yet confirmed on a Mac
 ([#578](https://github.com/MSKazemi/yazses/issues/578)).
 
-The **Settings…**, **Help**, **About** and **Check for updates…** entries are in the menu on
-**Linux, macOS and Windows** — the menu means the same thing wherever you run it. (macOS and
+The fix entry, **Open YazSes**, **Settings…**, **Help**, **About** and **Check for
+updates…** are in the menu on **Linux, macOS and Windows** — the menu means the same thing wherever you run it. (macOS and
 Windows show About as an alert/notification rather than a dialog, since their menu toolkits
 have no dialog of their own.) On Windows there is also a **YazSes Settings** shortcut in the
 Start menu, for when you haven't found the tray icon yet.

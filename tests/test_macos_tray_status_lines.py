@@ -30,6 +30,7 @@ from yazses.stt.factory import fallback_phrase, render_engine_status_lines
 from yazses.tray import menu as tray_menu
 from yazses.tray.menu import (
     MEETING_START_LABEL,
+    OPEN_LABEL,
     SETTINGS_LABEL,
     STATUS_LINE_SLOTS,
     UPDATE_LABEL,
@@ -262,20 +263,26 @@ def running_tray(monkeypatch):
     return tray
 
 
-def test_the_menu_starts_with_the_status_slots_then_the_existing_items(running_tray):
+def _slots(tray):
+    """The status lines: right below the fix entry, which is the first item."""
+    return tray._app.menu[1:1 + STATUS_LINE_SLOTS]
+
+
+def test_the_menu_starts_with_the_fix_and_the_status_slots_then_the_entries(running_tray):
     menu = running_tray._app.menu
-    slots = menu[:STATUS_LINE_SLOTS]
+    assert menu[0].key_title == "yazses-fix" and menu[0].hidden is True
+    slots = _slots(running_tray)
     assert all(isinstance(item, _Item) for item in slots)
-    assert menu[STATUS_LINE_SLOTS] is None  # a separator below them
-    # The existing entries follow, in their existing order.
-    rest = menu[STATUS_LINE_SLOTS + 1:]
-    assert rest[0] == SETTINGS_LABEL
+    assert menu[1 + STATUS_LINE_SLOTS] is None  # a separator below them
+    # The window entries follow, then the others in their existing order.
+    rest = menu[STATUS_LINE_SLOTS + 2:]
+    assert rest[:2] == [OPEN_LABEL, SETTINGS_LABEL]
     assert rest.index(MEETING_START_LABEL) < rest.index("Pause hotkey") < rest.index(UPDATE_LABEL)
     assert rest[-1] == UPDATE_LABEL
 
 
 def test_the_status_slots_are_disabled_and_keyed_apart(running_tray):
-    slots = running_tray._app.menu[:STATUS_LINE_SLOTS]
+    slots = _slots(running_tray)
     # No callback: rumps greys the item out, so it cannot be clicked.
     assert all(item.callback is None for item in slots)
     # rumps keys a MenuItem by its title when added; equal keys would collapse slots.
@@ -283,7 +290,7 @@ def test_the_status_slots_are_disabled_and_keyed_apart(running_tray):
 
 
 def test_before_the_first_poll_the_menu_says_loading(running_tray):
-    slots = running_tray._app.menu[:STATUS_LINE_SLOTS]
+    slots = _slots(running_tray)
     assert slots[0].title == "YazSes — loading" and slots[0].hidden is False
     assert all(item.hidden for item in slots[1:])
 
@@ -292,7 +299,7 @@ def test_a_tick_queues_the_lines_on_the_main_thread_and_moves_the_glyph(
     running_tray, monkeypatch
 ):
     queued = _install_fake_apphelper(monkeypatch)
-    slots = running_tray._app.menu[:STATUS_LINE_SLOTS]
+    slots = _slots(running_tray)
     model = TrayModel(
         state=TrayState.IDLE,
         model="base.en",
@@ -329,7 +336,7 @@ def test_an_unchanged_tick_queues_nothing(running_tray, monkeypatch):
 
 def test_lines_that_drop_out_are_hidden_on_the_next_tick(running_tray, monkeypatch):
     queued = _install_fake_apphelper(monkeypatch)
-    slots = running_tray._app.menu[:STATUS_LINE_SLOTS]
+    slots = _slots(running_tray)
     running_tray.set_state(
         TrayModel(model="base.en", stt_residency=dict(_LOADED), silent_streak=2)
     )
@@ -345,7 +352,7 @@ def test_without_a_main_thread_dispatcher_nothing_is_mutated_off_thread(
 ):
     """No `PyObjCTools`: skip the update rather than touch AppKit from the poller."""
     monkeypatch.setitem(sys.modules, "PyObjCTools", None)
-    slots = running_tray._app.menu[:STATUS_LINE_SLOTS]
+    slots = _slots(running_tray)
 
     running_tray.set_state(TrayModel(state=TrayState.ERROR, last_error="boom", model=""))
 
@@ -357,6 +364,27 @@ def test_without_a_main_thread_dispatcher_nothing_is_mutated_off_thread(
     running_tray.set_state(TrayModel(state=TrayState.ERROR, last_error="boom", model=""))
     _drain(queued)
     assert [s.title for s in slots[:2]] == ["YazSes — error", "⚠ boom"]
+
+
+def test_a_problem_shows_the_fix_entry_and_a_click_runs_it(running_tray, monkeypatch):
+    queued = _install_fake_apphelper(monkeypatch)
+    ran: list[str] = []
+    monkeypatch.setattr(mac_tray, "_run_fix", ran.append)
+    item = running_tray._app.menu[0]
+    broken = TrayModel(state=TrayState.ERROR, last_error="boom", model="")
+
+    running_tray.set_state(broken)
+    _drain(queued)
+
+    entry = tray_menu.fix_entry(status_from_model(broken))
+    assert entry is not None
+    assert item.hidden is False and item.title == entry.text
+    item.callback(item)
+    assert ran == ["restart"]
+
+    running_tray.set_state(TrayModel(state=TrayState.IDLE, model="base.en"))
+    _drain(queued)
+    assert item.hidden is True
 
 
 def test_the_tray_module_imports_no_toolkit_at_top_level():

@@ -142,6 +142,14 @@ class TrayModel:
     # consumers), or None on an older daemon. `tray/camera.py::camera_entry` turns it into
     # the menu's Camera toggle. Left out of the hash for the reason `stt_residency` is.
     camera: dict[str, Any] | None = field(default=None, hash=False)
+    # What the menu's fix entry reads besides the fields above (`tray/menu.py::fix_entry`).
+    # `ready` is False while the model loads; None on a daemon that did not say.
+    ready: bool | None = None
+    # `[audio] silent_streak_threshold`; None means the default of 3.
+    silent_streak_threshold: int | None = None
+    # Set by the poller when no status reply came back: "down" (no daemon process) or
+    # "unresponsive". "" when the daemon answered, or while it is starting or restarting.
+    daemon_reach: str = ""
 
 
 @dataclass(frozen=True)

@@ -25,10 +25,15 @@ Three ways, all the same window:
 
   (`--uninstall-launcher` removes it again.)
 
-- **From the tray** — click the "Y" badge → **Settings…**. Present on Linux, macOS
-  and Windows.
+- **From the tray** — click the "Y" badge → **Open YazSes** for the Overview page, or
+  **Settings…** for the Features page. Present on Linux, macOS and Windows. When
+  something is wrong, the first entry of that menu offers the same fix as Overview does
+  ([the tray menu](tray-and-overlay.md)).
 
-- **From a terminal** — `yazses settings`.
+- **From a terminal** — `yazses settings`, or `yazses settings --page <key>` to open on
+  a particular page. The keys are `overview`, `dictation`, `meetings`, `files`,
+  `commands`, `features`, `accessibility`, `speech` (the **Models** page), `audio`,
+  `general`, `handsfree` and `updates`.
 
 It needs a graphical session but **not** a system tray. On a headless or SSH
 machine use `yazses features` instead, which does the same job in text.

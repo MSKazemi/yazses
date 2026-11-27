@@ -12,13 +12,24 @@ A stand-in `pystray` records the menu, so this runs where pystray is not install
 from __future__ import annotations
 
 import sys
+import threading
 import types
 
 import pytest
 
 from yazses.platform.base import TrayModel, TrayState
 from yazses.platform.windows import tray as win_tray
-from yazses.tray.menu import MEETING_START_LABEL, MEETING_STOP_LABEL
+from yazses.tray import fix as tray_fix
+from yazses.tray.menu import (
+    DAEMON_DOWN,
+    MEETING_START_LABEL,
+    MEETING_STOP_LABEL,
+    OPEN_LABEL,
+    SETTINGS_LABEL,
+    SETTINGS_PAGE,
+    fix_entry,
+    status_from_model,
+)
 
 
 class _Item:
@@ -137,3 +148,58 @@ def test_a_failing_menu_rebuild_never_breaks_the_icon_update(tray):
 
     _Icon.last.update_menu = boom
     tray.set_state(TrayModel(state=TrayState.IDLE, meeting_enabled=False))  # must not raise
+
+
+# ---- the window entry and the one fix (the same menu) -------------------------
+
+
+def _first():
+    return _Icon.last.menu.items[0]
+
+
+def test_the_fix_is_first_and_hidden_while_there_is_nothing_to_fix(tray):
+    tray.set_state(TrayModel(state=TrayState.IDLE))
+    assert _first().visible is False
+
+
+def test_a_problem_shows_its_fix_and_rebuilds_the_menu(tray):
+    icon = _Icon.last
+    broken = TrayModel(state=TrayState.ERROR, last_error="boom")
+    before = icon.menu_updates
+
+    tray.set_state(broken)
+
+    entry = fix_entry(status_from_model(broken))
+    assert entry is not None
+    assert _first().visible and _first().text == entry.text
+    assert icon.menu_updates == before + 1
+    tray.set_state(TrayModel(state=TrayState.IDLE))
+    assert _first().visible is False and icon.menu_updates == before + 2
+
+
+def test_clicking_the_fix_runs_it_off_the_ui_thread(tray, monkeypatch):
+    ran: list[tuple[str, str]] = []
+    done = threading.Event()
+
+    def _run(action):
+        ran.append((action, threading.current_thread().name))
+        done.set()
+        return "YazSes", "ok"
+
+    monkeypatch.setattr(tray_fix, "run_fix_action", _run)
+    tray.set_state(TrayModel(state=TrayState.ERROR, daemon_reach=DAEMON_DOWN))
+
+    _first().action(types.SimpleNamespace(notify=lambda *a: None), None)
+
+    assert done.wait(5.0)
+    assert ran == [("start", "tray-fix")]
+
+
+def test_open_and_settings_open_the_window_on_different_pages(tray, monkeypatch):
+    pages: list[str] = []
+    monkeypatch.setattr(win_tray, "launch_settings", lambda page="": pages.append(page) or True)
+
+    _item(OPEN_LABEL).action(None, None)
+    _item(SETTINGS_LABEL).action(None, None)
+
+    assert pages == ["", SETTINGS_PAGE]

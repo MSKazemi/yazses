@@ -846,6 +846,10 @@ command mode and "no text field focused" had no colour at all, and five of the t
 states — Meeting Mode among them — fell through to idle blue. A second implementation of a
 policy is a second policy.
 
+The same holds for what to do about a problem. The fix at the top of each tray menu and the
+button on the window's Overview page come from one function,
+`settingsui/overview.py::health`, read by the trays through `tray/menu.py::fix_entry`.
+
 **One renderer draws the mark everywhere.** `brandmark.py` redraws `contrib/icons/yazses.svg`
 in Pillow, and the live tray badge, the packaged `.ico`/`.icns` (`scripts/gen-icons.py`) and
 the Microsoft Store listing artwork (`scripts/gen-store-art.py`) all come out of it, so the

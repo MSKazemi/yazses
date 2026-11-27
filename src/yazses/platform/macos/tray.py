@@ -29,11 +29,14 @@ from yazses.tray.menu import (
     HELP_LABEL,
     MEETING_START_LABEL,
     MEETING_STOP_LABEL,
+    OPEN_LABEL,
     REPORT_BUG_LABEL,
     SETTINGS_LABEL,
+    SETTINGS_PAGE,
     STATUS_LINE_SLOTS,
     TROUBLESHOOTING_LABEL,
     UPDATE_LABEL,
+    fix_entry,
     status_from_model,
     status_lines,
 )
@@ -60,6 +63,7 @@ _GLYPH = {
 }
 
 _CAMERA_LINE_KEY = "yazses-camera-status"
+_FIX_KEY = "yazses-fix"
 
 # The status lines at the top of the menu: engine, speech-model memory, the top warning
 # (`tray/menu.py::status_lines`). A rumps menu is built once, so the slots exist from the
@@ -91,6 +95,11 @@ class MacosTray:
         self._camera_items: list[Any] = []
         self._camera_action: str | None = None
         self._shown_camera: Any = None
+        # The fix entry at the top of the menu: its MenuItem, what a click does, and the
+        # entry last shown.
+        self._fix_item: Any = None
+        self._fix_action: str | None = None
+        self._shown_fix: Any = None
 
     def run(self, on_quit: Callable[[], None]) -> None:
         try:
@@ -118,12 +127,21 @@ class MacosTray:
                 camera_line = rumps.MenuItem(_CAMERA_LINE_KEY)
                 camera_item.hidden = True
                 camera_line.hidden = True
+                # The one fix for a reported problem, hidden while there is none. Its
+                # title changes, so the callback is bound here rather than by label.
+                fix_item = rumps.MenuItem(
+                    _FIX_KEY,
+                    callback=lambda _sender: _run_fix(tray._fix_action),
+                )
+                fix_item.hidden = True
                 # "Settings…" opens the graphical settings window — the same
                 # entry the Linux tray has, so the menu means the same thing
                 # on every OS (#63). Help/About/updates likewise.
                 self_inner.menu = [
+                    fix_item,
                     *status_items,
                     None,
+                    OPEN_LABEL,
                     SETTINGS_LABEL,
                     None,
                     # Meeting Mode. Both entries always present: a rumps menu is built
@@ -151,12 +169,22 @@ class MacosTray:
                 )
                 tray._status_items = status_items
                 tray._camera_items = [camera_item, camera_line]
+                tray._fix_item = fix_item
+
+            @rumps.clicked(OPEN_LABEL)
+            def _on_open_window(self_inner, _sender) -> None:
+                if not _launch_settings():
+                    rumps.notification(
+                        "YazSes",
+                        "",
+                        "Could not open the YazSes window — is `yazses` on PATH?",
+                    )
 
             @rumps.clicked(SETTINGS_LABEL)
             def _on_settings(self_inner, _sender) -> None:
                 # A menu click that silently does nothing is indistinguishable
                 # from a frozen tray, so a failed launch says so.
-                if not _launch_settings():
+                if not _launch_settings(SETTINGS_PAGE):
                     rumps.notification(
                         "YazSes", "", "Could not open Settings — is `yazses` on PATH?"
                     )
@@ -254,6 +282,11 @@ class MacosTray:
                 self._app.title = glyph
             except Exception:
                 log.exception("Tray title update failed")
+            fix = fix_entry(status_from_model(model))
+            if fix != self._shown_fix and self._fix_item is not None:
+                self._fix_action = fix.action if fix is not None else None
+                if _on_main_thread(_apply_fix, self._fix_item, fix):
+                    self._shown_fix = fix
             # The status lines, on the same tick as the glyph. Worked out here, on the
             # poller thread, from the shared helpers; only the AppKit mutation itself
             # goes to the main thread, and only when a line actually changed.
@@ -312,6 +345,37 @@ def _apply_status_lines(items: list[Any], lines: list[str]) -> None:
                 item.hidden = False
         except Exception:
             log.debug("tray status line update failed", exc_info=True)
+
+
+def _apply_fix(item: Any, entry: Any) -> None:
+    """Show the fix entry, or hide it. Main thread only, like ``_apply_status_lines``."""
+    try:
+        if entry is None:
+            item.hidden = True
+            return
+        item.title = entry.text
+        item.hidden = False
+    except Exception:
+        log.debug("tray fix entry update failed", exc_info=True)
+
+
+def _run_fix(action: str | None) -> None:
+    """Carry out the menu's fix off the UI thread and report how it went."""
+    if not action:
+        return
+
+    def _work() -> None:
+        from yazses.tray.fix import run_fix_action
+
+        title, body = run_fix_action(action)
+        try:
+            import rumps  # type: ignore[import-not-found]
+
+            rumps.notification("YazSes", title, body)
+        except Exception:
+            log.debug("tray notification failed", exc_info=True)
+
+    threading.Thread(target=_work, name="tray-fix", daemon=True).start()
 
 
 def _apply_camera(items: list[Any], entry: Any) -> None:
@@ -412,8 +476,8 @@ def _open(url: str) -> bool:
     return False
 
 
-def _launch_settings() -> bool:
-    """Open the settings window, detached. Shared by the menu handler above.
+def _launch_settings(page: str = "") -> bool:
+    """Open the settings window, detached, on *page*. Shared by the menu handlers above.
 
     Kept module-level so it is importable and testable without rumps, which is
     macOS-only and cannot be imported on a Linux CI runner.
@@ -426,7 +490,7 @@ def _launch_settings() -> bool:
         subprocess.Popen(
             # The .app bundle has no `yazses` on PATH either; `settings_command`
             # finds the CLI beside the running binary. See its docstring.
-            settings_command(),
+            settings_command(page=page),
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True,
         )
         return True

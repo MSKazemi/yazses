@@ -404,8 +404,15 @@ the same categories `yazses features` prints, with its advice tier and a one-lin
 description underneath.
 
 ```bash
-yazses settings           # open the window (blocks until you close it)
+yazses settings                    # open the window (blocks until you close it)
+yazses settings --page meetings    # open it on the Meetings page
 ```
+
+| Flag | Effect |
+|---|---|
+| `--page <key>` | Open on that page: `overview` (the default), `dictation`, `meetings`, `files`, `commands`, `features`, `accessibility`, `speech` (Models), `audio`, `general`, `handsfree` or `updates`. An unknown key exits with status 2 and lists the keys. |
+| `--install-launcher` | Add *YazSes Settings* to your desktop app grid, then exit. |
+| `--uninstall-launcher` | Remove that entry and its icons, then exit. |
 
 Checking a box **stages** the change; **Apply** writes them all, then restart the
 daemon (`yazses restart`) to pick them up. The window is generated from the same

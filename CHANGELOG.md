@@ -6,6 +6,12 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — tray: **Open YazSes**, a one-click fix for a reported problem, and `yazses settings --page`
+
+The menu of all three trays (Linux, macOS, Windows) gains **Open YazSes**, which opens the window on Overview; **Settings…** now opens it on **Features**. While there is a problem one click can fix, the first entry of the menu offers it: **Start YazSes** when it is not running, **Restart YazSes** after an error, **Recalibrate microphone** after repeated silent recordings. The tray asks the same function as the window's Overview page (`settingsui/overview.py`), so the two cannot offer different fixes; a daemon that is busy or still starting is offered nothing. Start runs `yazses start --no-autostart` and leaves a running daemon alone. `yazses settings --page <key>` (and `yazses-settings --page <key>`) opens the window on a given page.
+
+On macOS and Windows the tray now also receives the daemon's own silent-clip limit (`[audio] silent_streak_threshold`) and its loading state, so the icon turns red at your limit, not at the default of 3, and the meeting entries are greyed out while the model loads. The Linux tray's recalibration notice said to speak at once; the daemon measures the quiet room first, and the notice now says so. Not tried on a real macOS or Windows desktop.
+
 ### Added — the settings window is now a desktop app: dictation, meetings and file transcription without a terminal
 
 `yazses settings` opens on a new **Overview** page that says whether dictation works and offers one fix when it does not (start YazSes, restart it, or recalibrate a microphone that heard nothing). New pages: **Dictation** (key, level while recording, a practice box, writing options), **Meetings** (start and stop, live draft, stored transcripts, speaker names, export), **File transcription** (runs `yazses transcribe`, asks before replacing a transcript, can be cancelled), **Voice commands** and **Accessibility**. **General** now lists what can leave the computer, read from your settings. Switches on the new pages are the Features checkboxes, so Apply, confirmation and dependency install behave as before. The pages use only existing daemon calls; no network path was added and the window stores no dictated text.

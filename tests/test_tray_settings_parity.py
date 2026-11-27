@@ -30,6 +30,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 # Every user-visible label that must mean the same thing on all three OSes.
 SHARED_LABELS = [
+    menu_mod.OPEN_LABEL,
     menu_mod.SETTINGS_LABEL,
     menu_mod.ABOUT_LABEL,
     menu_mod.HELP_LABEL,
@@ -45,6 +46,10 @@ SHARED_LABELS = [
 # ``about.help_links()`` on Linux and Windows and by the constants on macOS; either
 # way the labels and URLs come from the one shared source.
 SHARED_ENTRIES = {
+    "Open YazSes": ("OPEN_LABEL",),
+    # The one fix for a reported problem. All three decide it with `fix_entry`; the Qt
+    # tray reads the answer off the menu model.
+    "Problem fix": ("fix_entry", "model.fix"),
     "Settings…": ("SETTINGS_LABEL", "settings_label"),
     "About": ("ABOUT_LABEL",),
     "Help": ("HELP_LABEL",),
@@ -59,6 +64,8 @@ SHARED_ENTRIES = {
 
 # entry -> the names that prove a click actually does something.
 ENTRY_HANDLERS = {
+    "Open YazSes": ("_on_open_window", "_open_window_clicked"),
+    "Problem fix": ("_on_fix", "_fix_clicked", "_run_fix("),
     "Settings…": ("launch_settings", "_launch_settings", "_on_settings"),
     "About": ("about_html", "about_lines", "_on_about", "_about_clicked"),
     "Help links": ("open_url", "open_link", "_open", "_link_clicked", "_on_open_url"),
@@ -152,6 +159,13 @@ def test_the_launcher_is_importable_without_the_platform_toolkit(os_name):
     assert names & {"launch_settings", "_launch_settings"}, (
         f"{os_name} has no module-level settings launcher"
     )
+
+
+@pytest.mark.parametrize("os_name", sorted(TRAYS))
+def test_every_tray_opens_settings_on_the_shared_page(os_name):
+    """"Open YazSes" opens the first page and "Settings…" the settings, on every OS."""
+    source = (ROOT / TRAYS[os_name]).read_text(encoding="utf-8")
+    assert "SETTINGS_PAGE" in source, f"{os_name} opens Settings… on a page of its own"
 
 
 # ---- the bundle has to understand the flag the shortcut passes -------------

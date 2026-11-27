@@ -12,6 +12,7 @@ from yazses import branding
 from yazses.hotkeys.names import SETTABLE_HOTKEYS, SUPPORTED_HOTKEYS, canonical
 from yazses.ipc.client import IpcCallError, IpcTimeoutError, IpcUnreachableError
 from yazses.platform import get_paths, get_platform
+from yazses.settingsui.pages import PAGE_KEYS, resolve_page
 from yazses.system.logtail import tail_records
 from yazses.system.outcomes import describe_outcomes
 from yazses.system.relaunch import Mode, command_for
@@ -2006,9 +2007,13 @@ def tray(
     rich_help_panel=_DAEMON,
     epilog=_examples(
         "yazses settings    open the settings window (needs a graphical session)",
+        "yazses settings --page meetings    open it on the Meetings page",
     ),
 )
 def settings(
+    page: Optional[str] = typer.Option(
+        None, "--page", metavar="KEY",
+        help="Open the window on this page: " + ", ".join(PAGE_KEYS) + "."),
     install_launcher: bool = typer.Option(
         False, "--install-launcher",
         help="Add 'YazSes Settings' to your desktop app grid, then exit."),
@@ -2046,9 +2051,15 @@ def settings(
         typer.echo(result.describe())
         raise typer.Exit(0 if result.installed else 1)
 
+    if page is not None and resolve_page(page) is None:
+        typer.echo(
+            f"There is no page named {page!r}. Pages: {', '.join(PAGE_KEYS)}", err=True
+        )
+        raise typer.Exit(2)
+
     from yazses.settingsui.app import run as run_settings
 
-    run_settings()
+    run_settings(resolve_page(page))
 
 
 def _warn_unmet_prereqs() -> None:

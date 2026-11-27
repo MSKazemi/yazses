@@ -34,10 +34,11 @@ class TrayController:
     def __init__(
         self,
         client,
-        launcher: Callable[[list[str]], object] = subprocess.Popen,
+        launcher: Callable[..., object] = subprocess.Popen,
         opener: Callable[[str], bool] = open_url,
         *,
         data_dir: Path | None = None,
+        running: Callable[[], bool] | None = None,
     ) -> None:
         self._client = client
         self._launch = launcher
@@ -45,13 +46,15 @@ class TrayController:
         # Where the stop note goes (system/stop_request.py). None writes no note, which
         # is right for a controller that is not driving a real daemon, such as a test.
         self._data_dir = data_dir
+        # Whether the daemon process is alive, for `start_daemon`. None asks the platform.
+        self._running = running
         # Handles for children we started and deliberately do not wait on. Kept so
         # they can be reaped; see `reap`.
         self._children: list = []
 
-    def _spawn(self, argv: list[str]) -> None:
+    def _spawn(self, argv: list[str], **options: object) -> None:
         """Start a detached child and remember it so it can be reaped later."""
-        handle = self._launch(argv)
+        handle = self._launch(argv, **options)
         if hasattr(handle, "poll"):
             self._children.append(handle)
 
@@ -114,6 +117,12 @@ class TrayController:
         return self._call("recalibrate_mic")
 
     # ---- daemon control ----
+    def start_daemon(self) -> dict:
+        """Start a daemon that is not running; a live one is left alone (`tray/fix.py`)."""
+        from yazses.tray.fix import start_daemon
+
+        return start_daemon(self._spawn, self._running)
+
     def restart(self) -> bool:
         """Restart the daemon via the CLI (handles systemd / detached cleanly).
 
@@ -132,8 +141,10 @@ class TrayController:
             log.exception("tray restart failed")
             return False
 
-    def launch_settings(self) -> bool:
+    def launch_settings(self, page: str = "") -> bool:
         """Open the graphical settings window, detached (never blocks the tray).
+
+        *page* is the page to open on; "" is the window's own first page.
 
         Returns whether the launch was handed off. A menu click that silently does
         nothing is indistinguishable from a frozen tray, so the caller reports it.
@@ -144,7 +155,7 @@ class TrayController:
 
             # Outside the unit, so Apply's restart does not close the window that is about
             # to report whether the daemon came back.
-            self._spawn(detached_argv(settings_command()))
+            self._spawn(detached_argv(settings_command(page=page)))
             return True
         except Exception:
             log.exception("tray settings launch failed")

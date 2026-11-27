@@ -26,9 +26,13 @@ from yazses.tray.menu import (
     HELP_LABEL,
     MEETING_START_LABEL,
     MEETING_STOP_LABEL,
+    OPEN_LABEL,
     SETTINGS_LABEL,
+    SETTINGS_PAGE,
     UPDATE_LABEL,
+    FixEntry,
     MeetingEntry,
+    fix_entry,
     icon_spec,
     meeting_entries,
     meeting_notice,
@@ -98,6 +102,9 @@ class WindowsTray:
     def _meeting_notice(self) -> str | None:
         return meeting_notice(meeting_entries(self._status))
 
+    def _fix(self) -> FixEntry | None:
+        return fix_entry(self._status)
+
     def _meeting_menu_key(self) -> tuple:
         entries = meeting_entries(self._status)
         cam = camera_entry(self._status)
@@ -105,6 +112,7 @@ class WindowsTray:
             tuple(e.enabled for e in entries),
             meeting_notice(entries),
             (cam.checked, cam.indicator) if cam is not None else None,
+            self._fix(),
         )
 
     def run(self, on_quit: Callable[[], None]) -> None:
@@ -133,11 +141,32 @@ class WindowsTray:
             except Exception:
                 log.debug("tray notification failed", exc_info=True)
 
+        def _open_window_clicked(icon, _item) -> None:  # noqa: ANN001
+            if not launch_settings():
+                _notify(
+                    icon, "YazSes",
+                    "Could not open the YazSes window — is `yazses` on PATH?",
+                )
+
         def _settings_clicked(icon, _item) -> None:  # noqa: ANN001
             # A menu click with no visible effect reads as a frozen tray, so a
             # failed launch is reported rather than swallowed.
-            if not launch_settings():
+            if not launch_settings(SETTINGS_PAGE):
                 _notify(icon, "YazSes", "Could not open Settings — is `yazses` on PATH?")
+
+        def _fix_clicked(icon, _item) -> None:  # noqa: ANN001
+            entry = self._fix()
+            if entry is None:
+                return
+            action = entry.action
+
+            # Off the UI thread: an IPC round trip or a process launch.
+            def _work() -> None:
+                from yazses.tray.fix import run_fix_action
+
+                _notify(icon, *run_fix_action(action))
+
+            threading.Thread(target=_work, name="tray-fix", daemon=True).start()
 
         def _link_clicked(url: str):
             def _handler(icon, _item) -> None:  # noqa: ANN001
@@ -198,8 +227,16 @@ class WindowsTray:
             *(pystray.MenuItem(label, _link_clicked(url)) for label, url in help_links())
         )
         menu = pystray.Menu(
+            # The one fix for a reported problem, first, as on the other two trays.
+            # Hidden while there is nothing to fix.
+            pystray.MenuItem(
+                lambda _item: f.text if (f := self._fix()) else "",
+                _fix_clicked,
+                visible=lambda _item: self._fix() is not None,
+            ),
             pystray.MenuItem("YazSes", None, enabled=False),
             pystray.Menu.SEPARATOR,
+            pystray.MenuItem(OPEN_LABEL, _open_window_clicked),
             # The same entry the Linux and macOS trays have (#63).
             pystray.MenuItem(SETTINGS_LABEL, _settings_clicked),
             pystray.Menu.SEPARATOR,
@@ -445,8 +482,11 @@ def open_link(url: str) -> bool:
     return open_url(url)
 
 
-def launch_settings() -> bool:
-    """Open the settings window, detached. Never blocks the tray thread."""
+def launch_settings(page: str = "") -> bool:
+    """Open the settings window, detached, on *page* ("" = its first page).
+
+    Never blocks the tray thread.
+    """
     import subprocess
 
     from yazses.tray.launch import settings_command
@@ -456,7 +496,7 @@ def launch_settings() -> bool:
             # Not `["yazses", "settings"]`: the installer build puts no `yazses` on
             # PATH, so that spelling made this button impossible on the one install
             # whose users have no terminal to fall back to.
-            settings_command(),
+            settings_command(page=page),
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )

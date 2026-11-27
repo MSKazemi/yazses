@@ -6,9 +6,10 @@ calls ``set_state``; ``run`` owns the Qt event loop. PySide6 is already a base d
 (the overlay uses it) so this adds nothing new.
 
 The icon shows daemon state (and flags a live silent-streak in orange); the click-menu —
-rebuilt fresh each time it opens — lets you pick/pin the input microphone, re-calibrate,
-restart/stop the daemon, open the graphical settings window, reach the docs and the issue
-tracker, see which version is running, and check for a newer one. On GNOME/AppIndicator the
+rebuilt fresh each time it opens — offers the one fix for a reported problem, opens the
+graphical window or its settings, lets you pick/pin the input microphone, re-calibrate,
+restart/stop the daemon, reach the docs and the issue tracker, see which version is
+running, and check for a newer one. On GNOME/AppIndicator the
 menu is the *primary* interaction (shown on click via ``setContextMenu``); left-click
 activation isn't delivered there.
 
@@ -80,7 +81,11 @@ class LinuxTray:
 
         platform = get_platform()
         client = platform.ipc_client_factory(platform.paths.ipc_socket)
-        self._controller = TrayController(client, data_dir=platform.paths.data_dir)
+        self._controller = TrayController(
+            client,
+            data_dir=platform.paths.data_dir,
+            running=platform.lifecycle.is_running,
+        )
 
         self._app = QApplication.instance() or QApplication([])
         self._app.setQuitOnLastWindowClosed(False)  # menu closing must not exit
@@ -317,6 +322,7 @@ class LinuxTray:
         from yazses.tray.menu import (
             ABOUT_LABEL,
             HELP_LABEL,
+            OPEN_LABEL,
             REPORT_BUG_LABEL,
             UPDATE_LABEL,
             build_menu_model,
@@ -338,6 +344,9 @@ class LinuxTray:
         # `error` state with its reason), so overlay the fresh reading onto that.
         with self._lock:
             self._latest.update(fresh)
+            if fresh:
+                # It just answered, so what the poller said about reaching it is stale.
+                self._latest["daemon_reach"] = ""
             status = dict(self._latest)
         devices = ctrl.list_devices() if ctrl is not None else []
         pinned = str(status.get("input_device") or "") if status.get("input_device") else ""
@@ -351,6 +360,12 @@ class LinuxTray:
             pass
         model = build_menu_model(status, devices, pinned)
 
+        # A problem one click can fix goes first, above the lines that describe it.
+        if model.fix is not None:
+            menu.addAction(model.fix.text).triggered.connect(
+                lambda _checked=False, a=model.fix.action: self._on_fix(a)
+            )
+            menu.addSeparator()
         header = menu.addAction(model.header)
         header.setEnabled(False)
         mic = menu.addAction(model.mic_line)
@@ -365,6 +380,8 @@ class LinuxTray:
         if model.target_warning:
             no_target = menu.addAction(model.target_warning)
             no_target.setEnabled(False)
+        menu.addSeparator()
+        menu.addAction(OPEN_LABEL).triggered.connect(self._on_open_window)
         menu.addSeparator()
 
         # Microphone submenu: an exclusive radio group of devices + actions.
@@ -457,13 +474,26 @@ class LinuxTray:
         )
 
     def _on_recalibrate(self) -> None:
+        from yazses.tray.fix import RECALIBRATE, describe
+
         if self._controller is None:
             return
         res = self._controller.recalibrate()
         if res.get("started"):
-            self._notify("YazSes", "Re-calibrating — speak normally for a few seconds…")
+            self._notify(*describe(RECALIBRATE, res))
         else:
             self._notify("YazSes", _daemon_words(res, "Could not re-calibrate right now."))
+
+    def _on_fix(self, action: str) -> None:
+        """Carry out the fix at the top of the menu, as the window's Overview page does."""
+        from yazses.tray.fix import RECALIBRATE, RESTART, START, describe
+
+        if action == RECALIBRATE:
+            self._on_recalibrate()
+        elif action == RESTART:
+            self._on_restart()
+        elif action == START and self._controller is not None:
+            self._notify(*describe(START, self._controller.start_daemon()))
 
     def _on_meeting(self, action: str) -> None:
         """Start or stop a meeting, reporting whatever the daemon actually answered.
@@ -519,10 +549,20 @@ class LinuxTray:
             else:
                 self._notify("YazSes", _daemon_words(res, "Could not stop the daemon."))
 
-    def _on_settings(self) -> None:
+    def _on_open_window(self) -> None:
         # Opening a window is the one menu action with no visible effect of its own if
         # the launch fails, so say so rather than leaving the click looking ignored.
         if self._controller is not None and not self._controller.launch_settings():
+            self._notify(
+                "YazSes", "Could not open the YazSes window — is `yazses` on PATH?"
+            )
+
+    def _on_settings(self) -> None:
+        from yazses.tray.menu import SETTINGS_PAGE
+
+        if self._controller is not None and not self._controller.launch_settings(
+            SETTINGS_PAGE
+        ):
             self._notify(
                 "YazSes", "Could not open Settings — is `yazses` on PATH?"
             )
