@@ -1,9 +1,5 @@
 # YazSes Architecture
 
-Last updated: 2026-05-18 (v1.0.0-dev.5)
-
----
-
 ## v1.0 Rust-core Architecture (archived — git history, `61025cca^`)
 
 > This Rust architecture is **not on `main`** anymore. The crates were removed in commit
@@ -134,7 +130,7 @@ Tool action visible ────────── ~750 ms P50 (streaming path)
 
 ---
 
-## v0.4 Python Pipeline (legacy, preserved)
+## Python pipeline (the shipping build)
 
 ### System overview
 
@@ -142,19 +138,20 @@ Tool action visible ────────── ~750 ms P50 (streaming path)
 ┌────────────────────────┐   ┌──────────────────┐
 │ Hotkey hook            │──▶│ Audio recorder   │
 │ (per-OS API)           │   │ PortAudio/16kHz  │
-│ OR EMGBackend (v0.4.0) │   │ PreSpeechRingBuf │
+│ OR activation source   │   │ PreSpeechRingBuf │
 └────────────────────────┘   └────────┬─────────┘
                                       │
                     ┌─────────────────▼──────────────────────────┐
                     │ STT pipeline                                 │
                     │  1. vad_calibrated (silence gate)           │
-                    │  2. faster-whisper (CPU / int8)             │
-                    │     ↑ initial_prompt from LspContextProvider│ ← v0.4.0
+                    │  2. STT engine (faster-whisper, CPU / int8, │
+                    │     by default) + initial_prompt:           │
+                    │     vocabulary and opt-in context terms     │
                     │  3. clean_text                              │
                     │  4. disfluency filter                       │
                     │  5. grammar.classify()                      │
                     │     Tier 1: regex rules (< 5 ms)            │
-                    │     Tier 2: SLMRouter (llama-cpp, optional) │ ← v0.4.0
+                    │     Tier 2: SLMRouter (llama-cpp, optional) │
                     └───────────────────┬────────────────────────┘
                                         │
                        ┌──────────────────────────────────────────┐
@@ -171,13 +168,16 @@ Tool action visible ────────── ~750 ms P50 (streaming path)
              │  Remote: RemoteInjectorProxy → SSH → agent          │
              └─────────────────────────────────────────────────────┘
 
-Daemon owns the state machine and IPC server:
+Daemon owns the state machine and IPC server. The states are
+`platform/base.py::TrayState`:
 
   LOADING → IDLE ↔ RECORDING → TRANSCRIBING → INJECTING → IDLE
-                 ↕               (ERROR)
+  INJECTING → READBACK → IDLE        speaking a dictation back ([tts])
+  IDLE ↔ MEETING → TRANSCRIBING      whole-meeting capture, then the post-pass
   REMOTE_SETUP → REMOTE_ACTIVE
   ENROLLING
-  PAUSED
+  ERROR                              start-up failed; held with IPC alive
+  PAUSED                             defined; nothing sets it
 
   Opt-in [stt] idle_unload_s > 0 (ADR-029), model released while idle:
   RECORDING → LOADING (ready=true) → TRANSCRIBING   while the reload finishes
@@ -214,16 +214,20 @@ and `latency` rows carry a ceiling, every other unit's is `null`. `ResidencyBudg
 and the out-of-process table (`WORKER_UNITS`) are policy code with no caller outside
 `system/residency.py`, and `[residency] max_resident` is not a config key yet.
 
-**DICTATE-path post-process chain (`core/daemon.py::_on_hold_end`).** After `clean_dictation`,
-the cleaned transcript flows through a chain of **opt-in, OFF-by-default** text transforms, each
-guarded by its own config flag (`if self._config.<x>.enabled: text = transform(text)`). Order:
-self-repair (ADR-058) → inline compute (086) → phonetic corrector (027) → voice punctuation →
-entity ITN (045) → redaction (046) → symbols (055) → unit convert (056) → temporal (057) →
-grammar repair (050) → diacritize (122) → transliteration (116) → semantic line breaks (111) →
-structured markup (067) → SafeGlyph warn (123) → auto-pairing (088) → prosody (002). Adding a new
-pure-text feature = one guarded stanza here plus a `test_v2_daemon_wiring.py` case that enables the
-flag and asserts the effect. (Many other v2 cores are built + tested but not yet wired into a
-runtime path — see an internal planning note.)
+**DICTATE-path post-process chain (`core/daemon.py::_on_hold_end`).** After
+`_clean_dictation` (the optional LLM cleanup), the cleaned transcript flows through a chain of
+**opt-in, OFF-by-default** text transforms, each guarded by its own config flag
+(`if self._config.<x>.enabled: text = transform(text)`). Order:
+self-repair (ADR-058) → inline compute (086) → phonetic corrector (027) → correction
+dictionary (079) → voice punctuation → entity ITN (045) → redaction (046) → symbols (055) →
+unit convert (056) → temporal (057) → grammar repair (050) → diacritize (122) →
+transliteration (116) → semantic line breaks (111) → structured markup (067) → style guard
+(109) → SafeGlyph warn (123) → auto-pairing (088) → prosodic auto-punctuation (104) →
+prosody (002) → smart paste (036). Verbatim mode (078) then restores the text as it was before
+this chain, so every change the chain made (redaction included) is discarded. Adding a new
+pure-text feature = one guarded stanza here plus a `test_v2_daemon_wiring.py` case that
+enables the flag and asserts the effect. (Many other v2 cores are built + tested but not yet
+wired into a runtime path — see an internal planning note.)
 
 ---
 
@@ -234,10 +238,11 @@ runtime path — see an internal planning note.)
 | File | Role |
 |---|---|
 | `daemon.py` | Orchestrator — owns state machine, IPC, pipeline wiring, signal handling |
+| `takeover.py` | Pure: a starting daemon replaces the one holding the lock only when that one is strictly older |
 
 ### Guards between the transcript and the injector
 
-Three run in `daemon.py::_on_hold_end`, **in this order**, and the order is load-bearing.
+These run in `daemon.py::_on_hold_end`, **in the order listed**, and the order is load-bearing.
 
 | Module | Role |
 |---|---|
@@ -245,7 +250,8 @@ Three run in `daemon.py::_on_hold_end`, **in this order**, and the order is load
 | `cmdsafety/spoken.py` | Match the confirm/cancel word — anchored at **both** ends, because "cancel the meeting" is dictated text |
 | `checkdigit/guard.py` | Is this utterance a checkable number that failed? Bare numbers only, ≥12 digits, failing every applicable scheme (ADR-021) |
 | `checkdigit/validate.py` | Luhn / ISBN-10 / ISBN-13 / Verhoeff + single-edit fix suggestion (pure) |
-| `staged/buffer.py` | Review buffer — runs **after** the two above, which would otherwise have their confirm word swallowed as ordinary text |
+| `reask/gate.py` | Opt-in `[reask]`: hold a burst with one uncertain confusable word until a spoken pick patches it, releasing it if nobody answers (ADR-v2-077) |
+| `staged/buffer.py` | Review buffer — runs **after** the guards above, which would otherwise have their confirm word swallowed as ordinary text |
 
 Each is judged on **how rarely it fires**. A guard that interrupts a house number teaches
 the user to dismiss it, and a dismissed guard costs attention while catching nothing —
@@ -297,6 +303,7 @@ a guard that silently stops protecting on a whole display server is worse than n
 | `*/permissions.py` | Keyboard capture, microphone and (ADR-v2-145 / #414) **camera**. `check_camera()` returns a `CameraPermission`, never a bare boolean, and returns `NOT_DETERMINED` — never `GRANTED` — when it cannot answer |
 | `emg/backend.py` | `EMGBackend` — `HotkeyBackend` over USB CDC serial YESP protocol (v0.4.0); requires `pyserial` optional dep |
 | `linux/` | evdev hotkey, LinuxInjector (xdotool/ydotool/wtype/clipboard), systemd lifecycle, Unix socket IPC. `accessibility.py` decides at bundle build whether AT-SPI can work (a desktop session and a locatable `pyatspi`, found with `find_spec`, never imported there) and says why not; `atspi_tree.py` is the backend, imported on first use: the active window only, showing nodes only, names/roles/action names, text content only for an unnamed node and never from a password field, a terminal or an editable field, bounded by `grounding/treewalk.py`, ids prefixed per snapshot so a stale id is refused |
+| `bsd/` | FreeBSD/OpenBSD/NetBSD/DragonFly: a thin composition over the Linux backends, with its own autostart answer. Experimental, never run on real BSD hardware |
 | `macos/` | CGEventTap hotkey, MacosInjector (CGEvent Unicode), launchd lifecycle, rumps tray, `pointer.py` (`MacosPointerSink` over CoreGraphics) |
 | `windows/` | WH_KEYBOARD_LL hotkey, WindowsInjector (SendInput UTF-16), named-pipe IPC, pystray tray, `integrity.py` (`Platform.input_block_probe`: "elevated" when the foreground window's integrity level is above ours, the UIPI block `SendInput` never reports, so the no-text-target guard sends the dictation to the clipboard), `pointer.py` (`WindowsPointerSink` over SendInput mouse events), `update_handoff.py` (`WindowsUpdateLauncher`: the `UpdateLauncher` Protocol — a detached `-EncodedCommand` PowerShell job that waits for YazSes to exit — and installs nothing if it has not within 300 s — re-checks the installer's SHA-256, runs the silent, never-elevated in-place upgrade or the choco/winget/scoop command by absolute path, records the exit code and relaunches YazSes either way; also reads the Inno uninstall key for the install scope and asks each package manager which version its feed carries; ADR-027) |
 
@@ -367,7 +374,8 @@ closes it again (idempotent) before the pointer and camera backends.
 
 | File | Role |
 |---|---|
-| `auto.py` | Runtime probe: xdotool → ydotool → wtype → clipboard |
+| `registry.py` | The one backend table and the pure `select()` over it. `auto` takes, by session: Wayland ydotool → portal (only with consent) → wtype; X11 xdotool; otherwise clipboard. `unicode` is used only when named. `[injection] backend` values derive from it |
+| `auto.py` | `get_injector()` (asks the registry), the ydotool socket and readiness probes, and the `[injection]` environment bridge |
 | `base.py` | `BaseInjector` protocol (inject, inject_backspaces, inject_key_sequence) |
 | `xdotool.py` | X11 via `xdotool type` / `xdotool key` |
 | `ydotool.py` | Wayland via `ydotool` |
@@ -493,7 +501,7 @@ outstanding for both.
 
 | File | Role |
 |---|---|
-| `faster_whisper.py` | `FasterWhisperEngine` — wrapper around `faster_whisper.WhisperModel`; accepts `initial_prompt` for LSP context (v0.4.0) |
+| `faster_whisper.py` | `FasterWhisperEngine` — wrapper around `faster_whisper.WhisperModel`; accepts `initial_prompt` (vocabulary and opt-in context terms; no editor/LSP context reaches it) |
 | `vocabulary.py` | Built-in STT vocabulary. `merge_initial_prompt(*parts)` always primes the coined app name `YazSes` (`BUILTIN_PROMPT`), placed **after** the configured/personal vocab because faster-whisper keeps only the last `PROMPT_TOKEN_BUDGET` = 223 tokens of a prompt and silently drops the front — first meant first to be discarded, so a large vocabulary cost exactly the priming this module exists for. Single chokepoint used by `daemon._effective_initial_prompt`, which also merges the user's personal dictionary (`system/vocabulary.py`, `yazses vocab`) |
 | `resident.py` | `IdleUnloadEngine` — `[stt] idle_unload_s` (ADR-029 §1, off by default: `0` builds no wrapper). Wraps the built engine; decodes count in/out under one condition (never held across a decode, so decodes still run side by side); one thread reloads through the daemon's `build_engine` while others wait; `detach_if_idle()` never blocks and hands back the engine only when the residency `IdleTracker` says it is due and nothing is in flight; `prefetch()` at a press starts the reload in the background while the user speaks. Delegates unknown attributes to a resident engine without loading one |
 | `streaming.py` | `StreamingEngine` — background decode thread, LocalAgreement stable-prefix policy (ADR-002). `prefix_stable_for_ms()` accessor + `prewarm()` feed Ghost Ahead endpoint anticipation |
@@ -663,7 +671,7 @@ a person signs it. The runtime does not re-check licences.
 | `revise.py` | Mid-Thought Undo (spec-mid-thought-undo): `parse_revise` (whole-utterance "scratch that" family) + `DictationLedger` (LIFO of injected-burst char counts **and text** via `last_text()`/`replace_last()` — the latter feeds Punch-In); daemon backspaces the last burst |
 | `slm_router.py` | `SLMRouter` — Tier 2 llama-cpp-python classifier (v0.4.0); disabled when `slm_model_path` unset; decodes under the `slm_schema` grammar when the binding has one |
 | `slm_schema.py` | Pure. The Tier 2 output contract built from the English Tier 1 rule table, filtered by the `TIER2_ACTIONS` allow-list (22 actions, no keystroke actions such as `press_enter`): action table, JSON Schema, prompt catalogue, and `validate()`, which re-checks every decoded answer (known action, typed and bounded args, free text grounded in the utterance) |
-| `lsp_context.py` | `LspContextProvider` — reads editor context via `EditorBridge` (NeovimBridge, NullBridge); 50 ms timeout |
+| `lsp_context.py` | `LspContextProvider` — reads editor context via `EditorBridge` (NeovimBridge, NullBridge); 50 ms timeout. Used by `yazses jump` for its bridge; the daemon never constructs it |
 | `dispatch.py` | Routes `DICTATE` to `inject()`, `MACRO` to expand-and-inject (+caret `Left`), all others to `inject_key_sequence()` via `DEFAULT_KEYMAP` (`ACTION_KEYS` + the `LEAD_KEYS` that open structured actions). An optional `keymap=` (an editor profile) overrides per action; an override of `None` raises `CommandRefused` before any key is sent, and nothing is typed |
 | `profiles.py` | Editor command profiles (pure): built-in `jetbrains`/`sublime`/`vscode`/`default` key overrides, `match_app(app_class)` (exact `APP_IDENTIFIERS` — macOS bundle ids, Windows image names — then keywords), `ProfileRegistry.choose(app_class) -> ProfileChoice`, `load_profiles(CommandsConfig)`. **Wired** only when `[commands] editor_profiles`: `Daemon._build_command_profiles` builds the registry at start; `_command_keymap` reads the focused app at dispatch time through the platform's `FocusedAppProvider` (macOS, Windows) or else the text-target guard's detector (AT-SPI / X11 xdotool; none on Wayland-without-AT-SPI → default keys, reason logged once) and passes the profile to all three `cmd_dispatch` call sites |
 
@@ -1079,10 +1087,13 @@ so the change lasts until the next restart and no surface reports it.
 ## Configuration reference
 
 All fields have defaults. `config.toml` only needs the sections you want to override.
+The values below are the built-in defaults (`tests/test_docs_architecture_drift.py` holds
+them to `config.py`); the full surface is the generated
+[configuration reference](../docs/configuration.md).
 
 ```toml
 [stt]
-model = "tiny.en"          # tiny.en | base.en | medium.en | large-v3
+model = "base.en"          # tiny.en | base.en | small.en | medium.en | large-v3
 device = "cpu"
 compute_type = "int8"
 
@@ -1095,20 +1106,20 @@ evdev_device = ""          # e.g. /dev/input/event5
 [audio]
 sample_rate = 16000
 channels = 1
-max_record_seconds = 90
+max_record_seconds = 300
 
 [general]
 log_level = "INFO"
 
 [streaming]
-enabled = true
+enabled = false
 partial_interval_ms = 300
 partial_marker = ""
 
 [filters.disfluency]
 enabled = true
-filler_words = ["um", "uh", "er", "like", …]
-self_correction_triggers = ["scratch that", "delete that", …]
+filler_words = ["um", "uh", "er", "ah", "hmm", "you know", "i mean", "okay so", "so um", "so uh"]
+self_correction_triggers = ["no wait", "delete that", "scratch that", "never mind", "forget that", "strike that"]
 collapse_repetitions = false   # ADR-015 opt-in: b-b-because → because, the the the → the
 collapse_prolongations = false # ADR-015 opt-in: sooo → so
 llm_enabled = false
@@ -1118,7 +1129,7 @@ llm_allow_remote_endpoint = false  # cleanup refuses a non-loopback endpoint wit
 [accessibility]
 vad_threshold = 0.01       # calibrate with `yazses enroll`
 min_silence_ms = 500
-pre_speech_padding_ms = 200
+pre_speech_padding_ms = 300
 vad_source = "default"
 dysfluency_friendly = false # ADR-015 preset: enables both collapse_* + widens onset padding
 
@@ -1128,7 +1139,7 @@ profile = "auto"           # auto | default | vscode | jetbrains | sublime (read
 editor_profiles = false    # opt-in: command keys follow the focused editor (commands/profiles.py)
 
 [injection]
-backend = "auto"               # auto | xdotool | ydotool | wtype | clipboard
+backend = "auto"               # auto | ydotool | type | portal | wtype | xdotool | unicode | clipboard
 fallback_to_clipboard = true
 continuation_window_ms = 30000 # 0 disables; bursts within this window get a
                                # separating leading space so words don't glue
@@ -1189,7 +1200,8 @@ the date it was checked. Workflow lanes, cancellation, permissions and retry pol
 | ADR-004 | Correction-on-commit — `Shift+Left × N` to select partials, then inject final text |
 | ADR-005 | Accessibility as config params first — enrollment wizard + calibrated VAD; LoRA fine-tune deferred |
 
-Full v0.3.0 ADR files: `research/yazses-innovation/output/adrs/`
+The full v0.3.0 records are not in this repository. The files `design/adr/adr-001.md` to
+`adr-005.md` are a different, later series (the archived Rust design) that reuses the numbers.
 
 ### v0.4.0 ADRs
 
@@ -1199,7 +1211,8 @@ Full v0.3.0 ADR files: `research/yazses-innovation/output/adrs/`
 | ADR-v04-002 | pygls (JSON-RPC) + pynvim (msgpack-RPC) behind `EditorBridge` protocol for LSP context extraction |
 | ADR-v04-003 | USB CDC serial (YESP protocol) for EMG devices — hardware-agnostic, 5 ASCII message types |
 
-Full v0.4.0 ADR files: `docs/adr/`
+Full v0.4.0 ADR files: `design/adr/adr-v04-001-slm-inference.md`,
+`adr-v04-002-lsp-context.md` and `adr-v04-003-emg-serial.md`.
 
 ### 2026-08 — packaging, egress and direction
 
@@ -1244,7 +1257,7 @@ maintainer*, not *unbuilt* — several Proposed ADRs below have shipped code.
 slm_model_path = ""                  # e.g. ~/.cache/yazses/models/tinyllama.gguf
 slm_confidence_threshold = 0.75
 
-# LSP code context injection (optional; needs yazses[lsp])
+# LSP code context: reserved, nothing in the daemon reads these two keys
 lsp_enabled = false
 lsp_editor = "auto"                  # auto | neovim | vscode
 

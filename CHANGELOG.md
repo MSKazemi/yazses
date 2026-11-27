@@ -6,6 +6,12 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — docs: instructions and reference facts that no longer matched the code
+
+- `yazses features enable gaze` and `facegesture` are experimental and refused without `--force`; the capability matrix and two other pages now show it.
+- CLI reference: the overlay was described as on by default with PySide6 in the base install (it is off, and PySide6 comes from the `overlay`/`desktop` extra). `yazses start` setting itself to start at login, `--no-autostart`, and many other shipped options were missing.
+- Architecture pages: wrong configuration defaults, missing daemon states and injection backends, a speech prompt said to include editor context (it does not), and stale ADR paths. A new test holds these facts to the code.
+
 ### Fixed — CI telemetry: a job that never got a runner counted as a zero-second queue and as runner time ([#539](https://github.com/MSKazemi/yazses/issues/539))
 
 GitHub reports a job cancelled before any runner took it with a start time equal to its creation time and an end time at the cancellation. The daily report read that as a 0 s queue followed by minutes of runner time, so queue delay looked shorter and job-minutes higher exactly when a runner pool was starved. Such jobs are now left out of both and counted per runner class (Linux, Linux arm64, macOS, Windows, other), with superseded pull-request runs counted apart and the wait shown for the rest. The two fast-gate targets of `.github/CI_POLICY.md` §12 are now measured on the `changes` and `repo-hygiene` jobs: queue delay (previously approximated by all pull-request jobs, which is still shown) and execution time (previously not measured). The report's schema is `yazses-ci-telemetry/2`. This is CI-only: no gate changes and the product still collects no telemetry.

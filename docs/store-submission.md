@@ -100,8 +100,8 @@ does and where to check it:
 
 **`webcam` is deliberately not declared.** The camera features are implemented and
 reachable on a PyPI install, and all of them are off by default. Glance-Type gaze targeting
-(`yazses features enable gaze`) routes dictation to the pane you look at. The
-Face-Gesture Switch (`yazses features enable facegesture`) opens the mic while you hold
+(`yazses features enable gaze --force`) routes dictation to the pane you look at. The
+Face-Gesture Switch (`yazses features enable facegesture --force`) opens the mic while you hold
 a facial movement, for someone who can speak but cannot press a key. The Head-Pointer
 (`yazses features enable headpointer`) moves the cursor by head pose. Each command
 installs the same two optional packages, `mediapipe` and `opencv-contrib-python`.
@@ -110,7 +110,7 @@ What differs here is the packaging, not the product. The Store package is a froz
 PyInstaller bundle — `scripts/build-windows.ps1` syncs no camera extra (only `desktop`,
 `parakeet` and `chinese`), so neither camera package is inside it, and an MSIX has no pip to add them afterwards.
 The camera code paths are therefore unreachable **in this package specifically**:
-`yazses features enable gaze` inside the MSIX refuses before it writes any config, and
+`yazses features enable gaze --force` inside the MSIX refuses before it writes any config, and
 names the install that works. Requesting camera access a user could never benefit from
 is a certification question with no upside.
 

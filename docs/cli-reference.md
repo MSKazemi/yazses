@@ -115,8 +115,13 @@ startup crash with the reason and exits non-zero. If one is already running it
 you never double-type. Warns if a runtime prerequisite is missing (run
 `yazses setup`) or if an `input`-group re-login is still pending.
 
+Once the daemon is up, `start` also sets YazSes to **start at login** if that is not set
+up yet, and says so. Pass `--no-autostart` to skip it. After `yazses autostart disable`
+it stays off.
+
 ```bash
-yazses start    # start dictating — hold the hotkey, speak, release
+yazses start                  # start dictating — hold the hotkey, speak, release
+yazses start --no-autostart   # start now, without adding a login entry
 ```
 
 ### `yazses restart`
@@ -387,7 +392,7 @@ Each row shows an **advice** tier:
 | Tier (`--tier`) | Meaning |
 |---|---|
 | `core` | Always on (e.g. Dictation core) — can't be toggled. |
-| `on` | `recommended (on by default)` — shipped on; keep it (Voice commands, Mid-Thought Undo, overlay). |
+| `on` | `recommended (on by default)` — shipped on; keep it (Voice commands, Mid-Thought Undo, tray icon). |
 | `rec` | `recommended` — safe and useful, worth enabling (e.g. Dysfluency-Friendly if you stutter). |
 | `opt` | `optional` — enable only if you want that capability (Punch-In, Prosody Ink, Read-Back, …). |
 | `exp` | `experimental — not advised yet` — known rough edges (Cocktail Filter, Glance-Type). Refused unless you pass `--force`. |
@@ -436,6 +441,10 @@ It needs a **graphical session**. On a headless box or a bare SSH session it say
 so and points you at `yazses features` / `yazses features reset` instead of
 failing at Qt.
 
+For a `pipx` or `uv tool` install, `yazses settings --install-launcher` adds a
+*YazSes Settings* entry to your application menu and exits;
+`--uninstall-launcher` removes it and its icons.
+
 ### `yazses-daemon`
 
 Run the daemon in the **foreground**, logging to the console — useful for
@@ -457,7 +466,7 @@ debugging. This is the entry point `yazses start` supervises in the background.
 | `yazses setup` | Provision all Linux runtime requirements so dictation works out of the box. |
 | `yazses enroll` | Accessibility enrollment wizard: calibrate VAD thresholds to your voice. |
 | `yazses enroll-voice` | Record an encrypted speaker voiceprint (for Cocktail Filter + Voiceprint Mind). |
-| `yazses model` | Manage the SLM intent-routing models (list / download). |
+| `yazses model` | Manage downloadable models (list / download / remove / disk). |
 | `yazses vocab` | Manage your personal dictionary (words STT mis-hears). |
 | `yazses acronyms` | Manage a persistent acronym glossary and expand acronyms in text. |
 | `yazses wordgoal` | Track words written against a writing goal, across invocations. |
@@ -725,7 +734,8 @@ yazses enroll-voice    # record a sample → save your speaker voiceprint
 
 ### `yazses model`
 
-Manage the Tier 2 SLM intent-routing models.
+Manage the models YazSes downloads: speech, VAD, Tier 2 intent router, voice,
+diarization and gaze.
 
 !!! note "Tier 2 is opt-in"
 
@@ -738,7 +748,7 @@ Manage the Tier 2 SLM intent-routing models.
 |---|---|
 | `yazses model list` | List every model (speech, VAD, intent router, voice, diarization, gaze) with size and state. |
 | `yazses model download <model_id>` | Download a speech model, or a GGUF model for Tier 2 SLM intent routing. |
-| `yazses model remove <id>` | Delete a downloaded model (`kind:name`, or a bare name) to free disk space. |
+| `yazses model remove <id>` | Delete a downloaded model (`kind:name`, or a bare name) to free disk space. Asks first; `--yes` / `-y` skips the question. |
 | `yazses model disk` | Show the disk space the downloaded models use, per kind. |
 
 ```bash
@@ -791,7 +801,7 @@ every burst. `yazses doctor` shows what actually reaches the recogniser.
 | `yazses vocab add <word> ...` | Add one or more words/names to your dictionary. |
 | `yazses vocab list` | Show every word in your dictionary. |
 | `yazses vocab remove <word>` | Remove a word. |
-| `yazses vocab export` | Print the dictionary (stdout by default, so it pipes). |
+| `yazses vocab export` | Print the dictionary (stdout by default, so it pipes); `--output` / `-o <file>` writes a file. |
 | `yazses vocab import <file>` | Merge entries from a file, or `-` for stdin. |
 
 ```bash
@@ -1107,6 +1117,17 @@ information for scripts and dashboards.
 default. Drop to `--dry-run` first if you want to see the plan and unmet requirements
 (a missing model download, a missing optional dependency) before committing to anything.
 
+| `set` option | Effect |
+|---|---|
+| `--dry-run` | Show the plan and prerequisites; change nothing. |
+| `--model <name>` | Use this faster-whisper model. |
+| `--engine <name>` | Explicit engine; only `faster-whisper` is accepted. |
+| `--recommended-model` | Take the profile's baseline model even if the current one is compatible. |
+| `--no-download` | Never fetch a missing speech model; refuse before writing config. |
+| `--no-install` | Never install a missing optional dependency; refuse before writing config. |
+| `--no-restart` | Write the config but leave a running daemon unchanged. |
+| `--yes` / `-y` | Apply the plan without asking. |
+
 The single-key toggles cannot split a profile either. `yazses features enable
 chinese-script` only pins the Han script, so it refuses, and writes nothing, when
 `[stt] language` is not `zh`: the script on English or auto-detected speech is the
@@ -1139,6 +1160,21 @@ yazses gaze rollback     # undo an implicit refinement, restoring the previous c
 yazses gaze measure --camera-class integrated   # derived-numbers-only field report for issue #104
 ```
 
+`measure` requires `--camera-class` (`integrated`, `external` or `virtual`). Its other
+options:
+
+| Option | Effect |
+|---|---|
+| `--out` / `-o <path>` | Report file (default `./yazses-gaze-report.json`). |
+| `--rounds <n>` · `--interval-s <s>` | Repeat the validation pass, waiting between passes, to see drift. |
+| `--per-point <n>` | Gaze samples averaged per target (default 8). |
+| `--block-s <s>` | Drift bucket length (default 300). |
+| `--study-mode <mode>` · `--protocol-id <id>` | `community_qa` (default) or `research`, which needs a protocol ID. |
+| `--camera-label <text>` | A short camera model name; no serial numbers. |
+| `--glasses <v>` · `--lighting <v>` | Context you choose to state. |
+| `--viewing-distance-cm <n>` · `--screen-diagonal-in <n>` | Give both to also get errors in degrees. |
+| `--routing-attempts <n>` · `--routing-fallbacks <n>` · `--wrong-target <n>` | Your own counts of gaze-aimed dictations. |
+
 ### `yazses camera` — switch the camera on or off at runtime
 
 | Command | Description |
@@ -1169,8 +1205,20 @@ yazses camera on       # after it
 
 `calibrate` watches the webcam for a few seconds while your face is relaxed and stores only
 the derived resting level and its spread — never a frame. Turn it on with
-`[facegesture] use_baseline = true`, then `yazses restart`. It recommends no threshold; it only
-changes what the existing ones are measured against.
+`[facegesture] use_baseline = true`, then `yazses restart`. With no extra flag it recommends
+no threshold; it only changes what the existing ones are measured against.
+
+| `calibrate` option | Effect |
+|---|---|
+| `--gesture <name>` | The gesture to calibrate (default: `[facegesture] gesture`). |
+| `--seconds <n>` | How long to watch your relaxed face (default 4). |
+| `--active` | Also measure a few deliberate holds. Thresholds derived between rest and active apply with `[facegesture] use_active_levels = true`. |
+| `--talk` | Also measure speech, so the derived hold threshold stays above it. Needs an active level. |
+| `--skip-rest` | Reuse the stored resting baseline; capture only `--active` and/or `--talk`. |
+| `--holds <n>` | Number of holds for `--active` (default 3). |
+| `--hold-seconds <n>` | Seconds measured per hold (default 2). |
+| `--talk-seconds <n>` | Seconds of speech for `--talk` (default 8). |
+| `--yes` / `-y` | Start without waiting for Enter. |
 
 ```bash
 yazses facegesture calibrate                          # the configured gesture
@@ -1238,6 +1286,9 @@ out. The example is the first three scored trials of `gaze_routing_4_pane` at it
 ]
 ```
 
+`--out` / `-o <path>` says where the result JSON goes. `--seed N` runs a task with another
+seed than the one its fixture records.
+
 `--study-mode` is never guessed. A public hardware test is `community_qa`; `research`
 additionally requires `--protocol-id`, because relabelling an artifact after collection is
 not consent. A `--synthetic` run cannot call itself `community_qa` (nobody performed it),
@@ -1288,8 +1339,12 @@ yazses test    # focus an editor first, then watch for 'YazSes OK'
 Inject text into the focused app without recording — the quickest way to test the
 injection backend.
 
+**Options:** `--delay` / `-d <seconds>` (wait before typing, so you can focus the app you
+are testing; default 0) · `--diagnose` (Windows only: report the focused window first).
+
 ```bash
-yazses inject "hello world"    # type it into the focused window
+yazses inject "hello world"          # type it into the focused window
+yazses inject -d 5 "hello world"     # 5 s to click into the target app first
 ```
 
 It uses the backend your config selects, and prints the concrete one it chose:
@@ -1316,6 +1371,7 @@ yazses inject-backend                 # what will be used here, and why
 yazses inject-backend ydotool         # pin direct typing
 yazses inject-backend auto            # go back to choosing automatically
 yazses inject-backend --allow-portal  # permit the desktop portal on Wayland
+yazses inject-backend --deny-portal   # stop `auto` from using it
 ```
 
 ```console
@@ -1351,7 +1407,7 @@ overwrites the clipboard), set the backend:
 
 ```toml
 [injection]
-backend = "clipboard"   # "auto" (default) | "type" | "clipboard" | "wtype"
+backend = "clipboard"   # auto (default) | ydotool | type | portal | wtype | xdotool | unicode | clipboard
 ```
 
 Or per-run without editing config: `YAZSES_INJECTOR=clipboard` — an exported override
@@ -1373,17 +1429,18 @@ yazses say "hello there"    # speak text aloud via offline TTS
 
 Runs the sonar voice-activity overlay in the foreground (preview/debug) — neon
 rings near the cursor that pulse with your voice while dictating. Normally the
-daemon auto-launches it (`[overlay] enabled = true`); the direct console script
-`yazses-overlay` does the same thing. PySide6 ships in the base install and is
-bundled in the snap, so it works out of the box. For true see-through rings on X11
-you need a compositor (e.g. `picom`).
+daemon launches it when `[overlay] enabled = true`; the direct console script
+`yazses-overlay` does the same thing. It needs PySide6 from the `overlay` (or
+`desktop`) extra, which `yazses features enable overlay` installs. For true
+see-through rings on X11 you need a compositor (e.g. `picom`).
 
 ```bash
 yazses overlay    # preview the sonar rings in the foreground
 ```
 
-Auto-launch is **on by default**; the daemon only spawns the overlay when a
-display (`DISPLAY`/`WAYLAND_DISPLAY`) is present **and** PySide6 is installed. See
+Auto-launch is **off by default**. When it is on, the daemon spawns the overlay only
+in a graphical session with PySide6 installed, and not on native Wayland, where the new
+window would take keyboard focus (setting `QT_QPA_PLATFORM` lifts that). See
 the [Configuration Reference](configuration.md) for the `[overlay]` keys
 (`style`, `position`, `react_to_voice`, `accent`, `size_px`, `fps`,
 `cursor_offset_px`).
@@ -1574,7 +1631,7 @@ Stop, re-arm and inspect every camera-driven hands-free input at once (the same 
 | `yazses handsfree status` | State (active, paused or faulted), health of the camera, pointer, calibration and face switch, and what to do next. States, flags and ages only. |
 | `yazses handsfree pause` | Stop all hands-free input. With `[handsfree_safety]` off it stops the Head-Pointer only, and says so. |
 | `yazses handsfree resume` | Explicit re-arm after a pause or a fault. Refused, with the reason, while a source is stale or faulted. |
-| `yazses handsfree enable` | Turn the hands-free preset on: writes only `[handsfree] enabled = true`; the per-feature settings are filled in when the config loads. Needs `--force` (it turns on experimental camera features); refused, naming the key, if your config weakens the safety floor. |
+| `yazses handsfree enable` | Turn the hands-free preset on: writes only `[handsfree] enabled = true`; the per-feature settings are filled in when the config loads. Needs `--force` (it turns on experimental camera features); refused, naming the key, if your config weakens the safety floor. Installs missing packages first unless you pass `--no-install`. |
 | `yazses handsfree explain` | Print the exact per-feature settings the preset sets, and which are yours, without applying anything. Works whether or not the preset is on. |
 | `yazses handsfree disable` | Turn the preset off: stops hands-free input now and says what `yazses restart` releases (the camera). Your calibration and your own settings are kept. |
 
@@ -1607,6 +1664,13 @@ Muscle-squeeze, blink and jaw-clench switches read from an EEG/EMG/EOG board (`[
 | `yazses biosignal profile-clear` | Delete the calibration profile (asks first; `--yes` skips the question). |
 | `yazses biosignal boards` | The boards the switches are known to work with, and the `source` string for each. |
 | `yazses biosignal check-source` | Open a source for a few seconds (`--seconds`) and check the stream is well-formed: start/stop, channels, sample rate, timestamps, gaps. For bringing up a new board or driver; exit 1 if a check fails. |
+
+`calibrate` takes `--blink` / `--no-blink` and `--clench` / `--no-clench` to include or skip
+those steps. `monitor`, `replay` and `evaluate` take the same two pairs, plus
+`--emg` / `--no-emg`, to switch detectors for one run. `monitor --interval N` sets the
+seconds between status lines. For synthetic signal, `record` and `evaluate` take `--seed N`,
+and `record --truth-out FILE` also writes the scripted events for `evaluate`.
+`evaluate --tolerance S` sets how far a detection may be from the true time (default 0.3 s).
 
 ```bash
 yazses biosignal doctor --source synthetic     # no hardware needed
@@ -1715,7 +1779,7 @@ clustering**, not pitch. Off by default — enable with `yazses features enable 
 
 | Command | Effect |
 |---|---|
-| `yazses meeting start` | Start recording hands-free (no key to hold). Requires `[meeting] enabled = true`. |
+| `yazses meeting start` | Start recording hands-free (no key to hold). Requires `[meeting] enabled = true`. `--speakers` / `-s N` says how many people are in the room: an exact count, not a maximum (`0`, the default, uses `[meeting] max_speakers`). |
 | `yazses meeting stop` | Stop; run the diarization post-pass and write the speaker-labelled transcript (and notes if enabled). |
 | `yazses meeting status` | Show the running meeting (elapsed + live transcript), or recent meetings. Says so plainly when Meeting Mode is off. |
 | `yazses meeting list` | List stored meetings on this machine (no daemon required). Marks any meeting whose transcript failed its quality check `⚠ BAD TRANSCRIPT`. |
@@ -1926,6 +1990,7 @@ so "Save file." works the same as "save". Spelled-out numbers ("delete the last
 | "run the tests" · "run the build" · "run that" | run in terminal |
 | "run CMD" (anything else) | run in terminal — **command key only**, see below |
 | "rename this to NAME" | rename symbol (F2) |
+| "new function NAME" · "new class NAME" · "new file NAME" | types NAME only (no skeleton yet) |
 
 !!! warning "`run <anything>` needs the command key"
 

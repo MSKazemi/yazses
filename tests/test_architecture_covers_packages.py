@@ -78,7 +78,6 @@ UNDOCUMENTED: dict[str, str] = {
     "prosodypunct": _TODO,
     "rag": _TODO,
     "readback": _TODO,
-    "reask": _TODO,
     "redaction": _TODO,
     "reflow": _TODO,
     "rewrite": _TODO,
