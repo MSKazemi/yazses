@@ -75,7 +75,11 @@ class EarconPlayer:
                 return
             import sounddevice as sd
 
-            sd.play(wave * _GAIN, samplerate=_FS, blocking=True)
+            from yazses.audio.devices import portaudio_in_use
+
+            # The device monitor must not re-initialise PortAudio under the playback.
+            with portaudio_in_use():
+                sd.play(wave * _GAIN, samplerate=_FS, blocking=True)
         except Exception:
             # A missing or busy output device is an ordinary situation on a headless
             # box, in a container, or over SSH. It must never reach the dictation path.

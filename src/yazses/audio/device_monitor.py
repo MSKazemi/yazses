@@ -133,6 +133,7 @@ CAPTURE_DOUBTING_DISCARDS = frozenset({
     "acoustic_floor",   # flat room noise under the profile gate; no transcript, no proof
     "voiceguard_rejected",  # not the enrolled speaker; dropped before any decode
     "device_lost",      # the input device vanished mid-hold; the take is truncated, not heard
+    "stream_stalled",   # the input stream stayed open and delivered no samples at all
 })
 
 
@@ -295,7 +296,8 @@ class LevelStreamOwner(Protocol):
     Morse mode, a scan, a held vowel) *and* audio is still arriving.
     ``release_mic_for_rescan`` closes the stream (True when it closed one) and remembers to
     reopen it; ``reacquire_mic_after_rescan`` reopens it only if nothing else -- a pause, a
-    fault, a shutdown -- closed it in between. Neither raises.
+    fault, a shutdown -- closed it in between. Neither raises. A reacquire that returns
+    ``(False, reason)`` keeps the stream remembered, and the monitor calls it again later.
     """
 
     @property
@@ -358,6 +360,9 @@ class DeviceMonitor:
         self._last_rescan_at = float(clock())
         self._engaged_since: float | None = None
         self._rebind_pending = False
+        #: Owners whose stream was closed for a re-scan and would not reopen.
+        self._reopen_pending: list[LevelStreamOwner] = []
+        self._last_reopen_at = 0.0
         #: The action the last poll chose (one of SKIP/RESCAN/PEEK/CYCLE), for tests and logs.
         self.last_action = SKIP
 
@@ -367,6 +372,8 @@ class DeviceMonitor:
         Never touches the audio backend during a recording, and never re-initialises it
         under an open stream. The first successful poll establishes the baseline silently.
         See :func:`plan_device_poll` for what a poll may do while level streams are open.
+        A level stream that would not reopen after a re-scan (no microphone at that
+        moment) is retried here every ``rescan_every_s``, and on a device change.
         """
         try:
             owners = self._owners()
@@ -398,6 +405,19 @@ class DeviceMonitor:
             max_defer_s=self._max_defer_s,
         )
         self.last_action = action
+        changed = self._run(action, open_owners, now)
+        if (
+            self._reopen_pending
+            and not recording
+            and (changed or now - self._last_reopen_at >= self._rescan_every_s)
+        ):
+            pending, self._reopen_pending = self._reopen_pending, []
+            for owner in pending:
+                self._reacquire(owner, now)
+        return changed
+
+    def _run(self, action: str, open_owners: list[LevelStreamOwner], now: float) -> bool:
+        """Carry out ``action``; True when it saw a device change."""
         if action == SKIP:
             return False
         try:
@@ -459,11 +479,23 @@ class DeviceMonitor:
             return True, cur
         finally:
             for owner in released:
-                try:
-                    owner.reacquire_mic_after_rescan()
-                except Exception:
-                    log.warning("A hands-free level stream did not reopen after a device "
-                                "re-scan", exc_info=True)
+                self._reacquire(owner, now)
+
+    def _reacquire(self, owner: LevelStreamOwner, now: float) -> None:
+        """Reopen one released stream; remember it for a later retry if that fails."""
+        try:
+            result = owner.reacquire_mic_after_rescan()
+        except Exception:
+            log.warning("A hands-free level stream did not reopen after a device "
+                        "re-scan", exc_info=True)
+        else:
+            if not (isinstance(result, tuple) and result and result[0] is False):
+                return
+            log.warning("A hands-free level stream did not reopen after a device re-scan "
+                        "(%s); trying again later.", result[-1])
+        self._last_reopen_at = now
+        if owner not in self._reopen_pending:
+            self._reopen_pending.append(owner)
 
     def _observe(self, cur: str | None) -> bool:
         """Compare ``cur`` with the baseline; fire ``on_change`` on a real change."""

@@ -138,20 +138,25 @@ class KokoroTtsBackend:
     def speak(self, text: str) -> None:
         import sounddevice as sd
 
+        from yazses.audio.devices import portaudio_in_use
+
         self._take_claim()
-        for chunk in sentence_chunks(text):
-            if self._cancel.is_set():
-                break
-            try:
-                samples, sr = self._kokoro.create(
-                    chunk, voice=self._voice, speed=self._speed
-                )
-                sd.play(samples, sr)
-                self._report_chunk(chunk, samples, sr, time.monotonic())
-                sd.wait()
-            except Exception as exc:  # never let a playback error break the daemon
-                log.debug("Kokoro speak error: %s", exc)
-                break
+        # Read-back plays while the daemon is idle: hold PortAudio so the device monitor
+        # does not re-initialise it under the playback.
+        with portaudio_in_use():
+            for chunk in sentence_chunks(text):
+                if self._cancel.is_set():
+                    break
+                try:
+                    samples, sr = self._kokoro.create(
+                        chunk, voice=self._voice, speed=self._speed
+                    )
+                    sd.play(samples, sr)
+                    self._report_chunk(chunk, samples, sr, time.monotonic())
+                    sd.wait()
+                except Exception as exc:  # never let a playback error break the daemon
+                    log.debug("Kokoro speak error: %s", exc)
+                    break
 
     def cancel(self) -> None:
         self._cancel.set()

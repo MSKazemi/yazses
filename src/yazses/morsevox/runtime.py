@@ -165,7 +165,10 @@ class MorseRunner:
             self._rescan_hold = False
             if self._paused or self._stop_flag() or not self.listens_for_hum:
                 return True, ""
-            return self._open()
+            ok, reason = self._open()
+            # No microphone right now: stay owed a reopen, so the monitor tries again.
+            self._rescan_hold = not ok
+            return ok, reason
 
     def status(self) -> dict[str, object]:
         """Privacy-safe state for `yazses status`: names, flags and a count, never text."""

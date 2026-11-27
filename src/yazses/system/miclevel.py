@@ -253,23 +253,44 @@ def record(
     list), an explicit PortAudio index, or None to follow the OS default. Pinning lets
     ``yazses mic-level`` and the daemon's re-calibrate action measure the *active* mic
     rather than whatever the OS default happens to be.
+
+    An input that refuses ``sample_rate`` is recorded at a rate it accepts and the clip
+    is resampled, so the result is always at ``sample_rate``.
     """
     import sounddevice as sd
 
-    device_index: int | None = None
-    if isinstance(device, int):
-        device_index = device
-    elif isinstance(device, str) and device.strip():
-        from yazses.audio.devices import list_input_devices, resolve_input_device
-
-        device_index = resolve_input_device(device, list_input_devices())
-
-    frames = int(seconds * sample_rate)
-    buf = sd.rec(
-        frames, samplerate=sample_rate, channels=1, dtype="float32", device=device_index
+    from yazses.audio.devices import (
+        list_input_devices,
+        open_at_supported_rate,
+        portaudio_in_use,
+        resolve_input_device,
     )
-    sd.wait()
-    return np.asarray(buf, dtype=np.float32).flatten()
+    from yazses.audio.resample import resample
+
+    # Held from resolve to the end of the recording: the daemon runs this for the
+    # [Re-calibrate] button while idle, when the device monitor re-initialises PortAudio
+    # every few seconds, which closed the recording part-way.
+    with portaudio_in_use():
+        device_index: int | None = None
+        if isinstance(device, int):
+            device_index = device
+        elif isinstance(device, str) and device.strip():
+            device_index = resolve_input_device(device, list_input_devices())
+
+        def _rec(rate: int):
+            return sd.rec(
+                int(seconds * rate),
+                samplerate=rate,
+                channels=1,
+                dtype="float32",
+                device=device_index,
+            )
+
+        buf, rate = open_at_supported_rate(
+            _rec, sample_rate, lambda: sd.query_devices(device_index, "input")
+        )
+        sd.wait()
+    return resample(np.asarray(buf, dtype=np.float32).flatten(), rate, sample_rate)
 
 
 def _section_span(text: str, section: str):

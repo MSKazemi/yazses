@@ -4795,6 +4795,37 @@ class Daemon:
                     stream_injector.cancel()
                 return
 
+            # The stream stayed open and delivered nothing. There is no level to compare
+            # with the gate, so it is not "silent": retuning could not help and the
+            # adaptive VAD must not learn from it. It still counts toward the streak, so
+            # auto-heal can move capture back to the last device that worked.
+            if getattr(self._recorder, "stream_stalled", False) is True:
+                event["discard_reason"] = "stream_stalled"
+                device = getattr(self._recorder, "current_device_name", None)
+                log.warning(
+                    "Microphone stream stalled (%s): no audio samples arrived -- "
+                    "discarding this take.",
+                    device or "unknown device",
+                )
+                healed_to = self._note_silent_discard(toast=False)
+                if self._config.audio.silent_streak_notify:
+                    remedy = (
+                        f"Capture was switched back to '{healed_to}'."
+                        if healed_to
+                        else "Reconnect it, or choose another with: yazses audio use <name>"
+                    )
+                    self._notify_mic(
+                        "🎤 Microphone delivered no audio",
+                        (f"'{device}'" if device else "The input device")
+                        + " opened but its stream stalled, so nothing was recorded. "
+                        + remedy,
+                        actions=False,
+                    )
+                self._earcon.play("error")
+                if stream_injector is not None:
+                    stream_injector.cancel()
+                return
+
             # VAD. Accessibility Continuum — Whisper/Low-Effort Mode lowers the VAD
             # threshold so quiet speech isn't gated as silence (ADR-v2-012). Guarded
             # so it can never break the gate; off by default → base threshold.
@@ -6230,16 +6261,20 @@ class Daemon:
         )
         self._notify_mic("🎤 Microphone changed", body)
 
-    def _note_silent_discard(self) -> None:
-        """Register a silent-discard; auto-heal + notify once a streak forms."""
+    def _note_silent_discard(self, *, toast: bool = True) -> str | None:
+        """Register a silent-discard; auto-heal + notify once a streak forms.
+
+        Returns the device capture was auto-healed to by this call, else None.
+        ``toast=False`` is for a caller that sends its own, more specific notification.
+        """
         streak = self._silent_streak.record_silent()
         with self._lock:
             self._state.silent_streak = streak
         threshold = self._config.audio.silent_streak_threshold
         if not self._silent_streak.should_notify(threshold):
-            return
+            return None
         if self._healed_this_streak:
-            return  # already acted for this streak; don't re-fire every clip
+            return None  # already acted for this streak; don't re-fire every clip
         self._healed_this_streak = True
 
         active = self._active_device_name()
@@ -6278,8 +6313,8 @@ class Daemon:
             else "no different last-good device to switch to",
         )
 
-        if not self._config.audio.silent_streak_notify:
-            return
+        if not toast or not self._config.audio.silent_streak_notify:
+            return last_good if healed else None
         # One implementation for every surface. `yazses audio status` used to phrase
         # this fault differently and name no command at all, so the advice `yazses
         # status` sends you to was a dead end.
@@ -6291,6 +6326,7 @@ class Daemon:
         body = "\n".join([headline, *remedies])
         title = "🔇 Mic recovered" if healed else "🔇 Dictation isn't hearing you"
         self._notify_mic(title, body)
+        return last_good if healed else None
 
     def _note_good_capture(self) -> None:
         """A clip produced usable audio — reset the streak, remember the device."""

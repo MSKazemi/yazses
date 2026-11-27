@@ -541,6 +541,12 @@ systemctl --user stop yazses
 
 Sharing the camera with a call app is tracked in #925; until it lands, the camera belongs to whichever program opened it first.
 
+## `Invalid sample rate`, or `Microphone stream stalled`
+
+Speech recognition works at 16 kHz. An input that refuses that rate (typically a pinned raw ALSA `hw:` device, or a Windows WASAPI entry) is recorded at its own rate and converted automatically; `yazses logs` shows `does not accept 16000 Hz; capturing at ... Hz and resampling` at the `INFO` level. Nothing needs to be configured. If `Invalid sample rate` still appears, the device refused every rate YazSes tried: pin another entry for the same microphone from `yazses audio devices`.
+
+`Microphone stream stalled` means the input opened but delivered no audio at all while the key was held. That is not a quiet microphone, so changing `vad_threshold` will not help. Reconnect the device, restart the audio service, or choose another input with `yazses audio use <name>`.
+
 ## Dictation stops after connecting a USB-C monitor or headset
 
 Some monitors, docks, and headsets register an audio input and become the operating system's default microphone. When that input is silent or very quiet, YazSes can keep running but stop writing dictated text because each recording is discarded as silence.

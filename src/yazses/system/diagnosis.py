@@ -343,9 +343,9 @@ _RULES: tuple[tuple[str, tuple[str, ...], str, str, str, str | None], ...] = (
         ("invalid sample rate",),
         "Your microphone does not support the sample rate YazSes asked for",
         "`[audio] sample_rate` is set to a value this device cannot do.",
-        "Remove the `sample_rate` line to use the default 16000, which every device "
-        "supports and the speech model expects. `yazses audio devices` lists what is "
-        "available.",
+        "Remove the `sample_rate` line to use the default 16000, which the speech model "
+        "expects and YazSes converts to when a device cannot record it. "
+        "`yazses audio devices` lists what is available.",
         f"{_DOCS}/configuration.html",
     ),
     (
