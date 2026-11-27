@@ -5027,14 +5027,24 @@ def quickstart() -> None:
 @app.command(
     rich_help_panel=_SETUP,
     epilog=_examples(
-        "yazses doctor          run this first if dictation isn't working",
-        "yazses doctor --mic    also sample the mic and compare it to the VAD gate",
+        "yazses doctor           run this first if dictation isn't working",
+        "yazses doctor --mic     also sample the mic and compare it to the VAD gate",
+        "yazses doctor --strict  exit 1 if any line is FAIL, for scripts",
+        "yazses doctor --json    check names and statuses as JSON",
     ),
 )
 def doctor(
     mic: bool = typer.Option(
         False, "--mic",
         help="Also record a short ambient clip and compare its level to the VAD threshold.",
+    ),
+    strict: bool = typer.Option(
+        False, "--strict",
+        help="Exit with code 1 if any line is FAIL. WARN and SKIP lines do not count.",
+    ),
+    json_output: bool = typer.Option(
+        False, "--json",
+        help="Print one JSON object with each check's name and status, without the explanations.",
     ),
 ) -> None:
     """Check system prerequisites and report what's OK / missing.
@@ -5044,10 +5054,25 @@ def doctor(
     and its injection tools, the STT model and model cache, the active config and
     hotkey, and any configured extras (EMG port, prosody). With --mic it also
     samples the microphone. Each line is OK / WARN / FAIL / SKIP.
-    """
-    from yazses.system.doctor import run_doctor
 
-    run_doctor(check_mic=mic)
+    The exit code is 0 even when a line is FAIL; add --strict to get 1 instead.
+    --json prints names and statuses only, because the explanations can contain
+    file paths, device names and addresses.
+    """
+    from yazses.system.doctor import has_failure, json_report, run_doctor
+
+    if json_output:
+        import contextlib
+        import json
+
+        # Anything a probed library prints goes to stderr, so stdout stays one object.
+        with contextlib.redirect_stdout(sys.stderr):
+            checks = run_doctor(check_mic=mic, emit=False)
+        typer.echo(json.dumps(json_report(checks, get_platform().name)))
+    else:
+        checks = run_doctor(check_mic=mic)
+    if strict and has_failure(checks):
+        raise typer.Exit(1)
 
 
 def _echo_steps(steps: list[str]) -> None:

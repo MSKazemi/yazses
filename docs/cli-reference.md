@@ -493,12 +493,41 @@ Each line is `OK` / `WARN` / `FAIL` / `SKIP`, and it ends with a one-line
 problems to fix — each with the concrete next command.
 
 **Options:** `--mic` (also record a short ambient clip and warn if room level
-meets/exceeds `accessibility.vad_threshold`).
+meets/exceeds `accessibility.vad_threshold`), `--strict` (exit `1` if any line is
+`FAIL`), `--json` (print one JSON object instead of the report).
 
 ```bash
-yazses doctor          # run this first if dictation isn't working
-yazses doctor --mic    # also sample the mic and compare it to the VAD gate
+yazses doctor           # run this first if dictation isn't working
+yazses doctor --mic     # also sample the mic and compare it to the VAD gate
+yazses doctor --strict  # exit 1 if any line is FAIL, for scripts
+yazses doctor --json    # check names and statuses as JSON
 ```
+
+#### Using `doctor` from a script
+
+Without `--strict` the exit code is `0` even when a line is `FAIL`. With it, the report is
+the same and the exit code is `1` if there is at least one `FAIL`. `WARN` and `SKIP` do not
+count, so exit `0` does not prove that dictation works: a daemon that is not running is a
+`WARN`. Use `yazses verify` for the end-to-end proof. A deliberate choice can still be a
+`FAIL` until YazSes knows about it. For example **Starts at login** fails until you run
+`yazses autostart enable`, or `yazses autostart disable` to record that you want it off.
+
+`--json` prints one object and combines with `--mic` and `--strict`:
+
+```json
+{"schema_version": 1, "yazses": "2.52.0", "platform": "linux", "result": "fail",
+ "counts": {"ok": 1, "warn": 0, "fail": 1, "skip": 0},
+ "checks": [{"name": "Platform", "status": "OK"},
+            {"name": "Microphone", "status": "FAIL"}]}
+```
+
+- `result` is `fail`, else `warn`, else `ok`. `status` is `OK`, `WARN`, `FAIL` or `SKIP`.
+- `checks` is in report order. Which rows appear depends on the OS and your config, and a
+  name can repeat. Names are the labels of the text report and may change between releases;
+  `schema_version` changes only when a key of the object is renamed, removed or redefined.
+- The explanation after each name is left out on purpose: it can contain file paths,
+  microphone names, device addresses and values from your config. Run `yazses doctor` to
+  read it.
 
 !!! note "The `Injection` line names the backend that will actually be used"
     It reads `[injection] backend` rather than only probing the session, so a machine

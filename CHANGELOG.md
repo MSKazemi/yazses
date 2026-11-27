@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — `yazses doctor --strict` and `--json`, for scripts
+
+`yazses doctor` exits 0 even when a line is `FAIL`, so a script could not act on it. `--strict` exits 1 when there is at least one `FAIL` (`WARN` and `SKIP` do not count). `--json` prints one object with the result, the counts and each check's name and status; the explanations are left out because they can contain paths, device names, addresses and config values. Without either flag nothing changes.
+
 ### Fixed — `yazses punch-in` reported "Daemon is not running" while it was recording
 
 The daemon records for `[punch_in] record_seconds` (4 s by default) before it answers, and the command waited 2 s. It now waits for the recording and the decode, and says when to re-speak the phrase.

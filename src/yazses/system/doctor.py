@@ -2531,7 +2531,10 @@ def microphone_detail(
     return state
 
 
-def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
+def run_doctor(
+    check_mic: bool = False, mic_seconds: float = 2.0, *, emit: bool = True
+) -> list[_Check]:
+    """Run every check, print the report unless *emit* is false, and return the rows."""
     platform = get_platform()
     perms = platform.permissions
     paths = platform.paths
@@ -2833,6 +2836,9 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     except Exception:
         pass
 
+    if not emit:
+        return checks
+
     print(f"YazSes doctor ({platform.name}):")
     for name, status, detail in checks:
         print(_format_check(name, status, detail))
@@ -2850,6 +2856,47 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     print("Need help, hit a bug, or want a feature?")
     print(f"  Author: {branding.AUTHOR} <{branding.EMAIL}>")
     print(f"  Issues: {branding.ISSUES}")
+    return checks
+
+
+#: Version of the `yazses doctor --json` object. Raise it when a key is renamed,
+#: removed or changes meaning; adding a key does not need it.
+JSON_SCHEMA_VERSION = 1
+
+
+def has_failure(checks: list[_Check]) -> bool:
+    """Whether any row is FAIL, which is what `yazses doctor --strict` exits 1 on. Pure."""
+    return any(status == "FAIL" for _name, status, _detail in checks)
+
+
+def json_report(checks: list[_Check], platform_name: str) -> dict[str, object]:
+    """The `yazses doctor --json` object. Pure.
+
+    **No row detail, by construction.** A detail is free text built from this machine and
+    its config: the config path, microphone names (often named after their owner), a BLE
+    address, an endpoint URL, and config values quoted back by `Config validity`.
+    `system/report.py` hides several of those from a diagnostic bundle by looking at the
+    config *key*, which cannot be done to a finished sentence, and `redact_text` alone
+    only covers the home folder and the account name. So only the row name and its status
+    leave here. Row names are fixed strings written in this codebase; keep them that way,
+    and never interpolate a user's value into one.
+    """
+    # Imported here: reading it walks the package metadata, and `status` imports this module.
+    from yazses import __version__
+
+    statuses = [status for _name, status, _detail in checks]
+    counts = {tag.lower(): statuses.count(tag) for tag in ("OK", "WARN", "FAIL", "SKIP")}
+    result = "fail" if counts["fail"] else "warn" if counts["warn"] else "ok"
+    return {
+        "schema_version": JSON_SCHEMA_VERSION,
+        "yazses": __version__,
+        "platform": platform_name,
+        "result": result,
+        "counts": counts,
+        "checks": [
+            {"name": name.strip(), "status": status} for name, status, _detail in checks
+        ],
+    }
 
 
 def _verdict_line(checks: list[_Check], cfg, platform) -> str:

@@ -347,6 +347,12 @@ Check system prerequisites and report what's OK / missing.
 .TP
 \fB\-\-mic\fR
 Also record a short ambient clip and compare its level to the VAD threshold.
+.TP
+\fB\-\-strict\fR
+Exit with code 1 if any line is FAIL. WARN and SKIP lines do not count.
+.TP
+\fB\-\-json\fR
+Print one JSON object with each check's name and status, without the explanations.
 .RE
 .SS "yazses enroll"
 Run the accessibility enrollment wizard to calibrate VAD thresholds.

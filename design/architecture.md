@@ -1010,7 +1010,7 @@ Host-side helpers and the CLI-facing config/diagnostics surface (no daemon neede
 
 | File | Role |
 |---|---|
-| `doctor.py` | `yazses doctor` diagnostics: version, daemon status (over IPC), permissions, session/injection tools, STT-model availability, config + hotkey summary, optional `--mic` ambient-vs-VAD sample, enabled extras |
+| `doctor.py` | `yazses doctor` diagnostics: version, daemon status (over IPC), permissions, session/injection tools, STT-model availability, config + hotkey summary, optional `--mic` ambient-vs-VAD sample, enabled extras. Exit code 0 whatever the rows say unless `--strict` (1 on any `FAIL`). `--json` (`json_report`, `schema_version` 1) carries row names and statuses only: details hold paths, device names, addresses and config values, so a row name must never interpolate a user's value |
 | `miclevel.py` | `yazses mic-level` — record + `analyze()` mean/peak vs `vad_threshold`, recommend a threshold, `update_threshold_in_config` |
 | `configedit.py` | `set_config_key(path, section, key, value)` — comment-preserving TOML writer used by `hotkey set` / `features enable/disable` |
 | `features.py` | Capability registry (single source of truth for `yazses features`). `Feature`/`_Def`, recommendation tiers (core/on/rec/opt/exp), `feature_status(cfg)`, `find_feature`, `toggleable_slugs`; drives the advice column + the experimental-guard on enable |
