@@ -35,7 +35,7 @@ _FORMATS = (
 )
 
 
-_SPEAKERS_READY = "Label who said what (the first use downloads about 45 MB)"
+_SPEAKERS_READY = "Label who said what (needs speaker models: about 45 MB)"
 _SPEAKERS_MISSING = "Label who said what (needs the diarization extra)"
 
 

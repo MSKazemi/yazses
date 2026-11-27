@@ -123,7 +123,8 @@ processed, and **Export…** writes a copy without changing the stored meeting.
 
 **File transcription** runs `yazses transcribe` and writes the transcript beside your
 file, asking before it replaces one that is already there. **Cancel** ends it. The list of
-files transcribed lasts until the window closes.
+files transcribed lasts until the window closes. Speaker labels need the speaker models,
+which the page does not download: fetch them once with `yazses transcribe --download-models`.
 
 A switch on any of these pages is the same switch as its checkbox on **Features**:
 nothing is written until you click **Apply**.

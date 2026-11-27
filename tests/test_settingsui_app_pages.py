@@ -571,6 +571,15 @@ def test_a_note_from_a_successful_run_is_shown(qapp, tmp_path):
     assert page.note.isVisibleTo(page.widget)
 
 
+def test_the_speaker_label_box_promises_no_download(qapp, tmp_path):
+    """A diarized run fetches no models (#932): `transcribe --download-models` does."""
+    _win, page, _source = _files(qapp, tmp_path)
+    page.extra_installed = lambda: True
+    page.refresh()
+    assert "needs speaker models" in page.speakers.text()
+    assert "first use" not in page.speakers.text()
+
+
 def test_speaker_labels_are_not_offered_without_their_libraries(qapp):
     win = _window(qapp)
     page = win._app_pages["files"]
