@@ -14,6 +14,10 @@ The daemon's PID file stays behind when Windows ends the daemon at sign-out or s
 
 On a Python installed on its own (not a virtual environment), pip puts `yazses-tray.exe` under `Scripts`. `yazses autostart enable` and `yazses start` looked only beside `python.exe`, so the sign-in entry ran the tray with the console interpreter. It now finds the launcher under `Scripts`, and without one uses `pythonw.exe`. The next `yazses start` rewrites an entry this interpreter wrote the old way. Found by reading the code and tested with stand-ins; not run on Windows.
 
+### Fixed — Windows tray: start-up notifications were dropped, and the icon was rewritten on every poll
+
+The tray starts reading the daemon before its icon is on screen, and a notification read then (a missing permission, a finished model download) was discarded. The newest five are now kept and shown once the icon appears. The tray also reassigned its icon several times a second; pystray writes a temporary `.ico` file for each assignment. The icon is now changed only when its colour changes. Found by reading the code and tested with stand-ins; not run on Windows.
+
 ### Fixed — snap on Wayland: dictated text could not reach the clipboard
 
 The snap's private `XDG_RUNTIME_DIR` does not hold the Wayland socket, so `wl-copy` and `wl-paste` failed with "Failed to connect to a Wayland server": when typing failed, the clipboard fallback failed too and the dictation was lost. The clipboard commands are now given the host socket's full path; the daemon's own environment is unchanged. Where the copy works and nothing can press Ctrl+V, the notification now says the words are on the clipboard instead of that they were not typed.

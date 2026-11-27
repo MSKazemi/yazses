@@ -49,6 +49,10 @@ _ICON_PX = 64
 # device name, so it is cut here rather than mid-line by the shell.
 _TOOLTIP_MAX = 127
 
+# How many messages are kept while the icon is not on screen yet. Start-up produces a
+# handful; the bound only matters if the icon never appears at all.
+_EARLY_NOTICES_MAX = 5
+
 
 def _make_icon(color_hex: str):
     """The YazSes mark — a rounded badge in the state colour with a white "Y".
@@ -80,6 +84,14 @@ class WindowsTray:
         self._icon: Any = None
         self._on_quit: Callable[[], None] | None = None
         self._lock = threading.Lock()
+        # Messages that arrived before the icon was on screen; None once it is. The
+        # poller starts before `run()`, and its first `status` read takes the daemon's
+        # queue, so a message dropped here is gone: pystray sends a balloon as a change
+        # to an icon, and Windows has no icon to change until `visible` is set.
+        self._early: list[tuple[str, str]] | None = []
+        # The colour the icon is currently drawn in. pystray writes a temporary .ico
+        # and calls Shell_NotifyIcon on every assignment, equal or not.
+        self._painted: str | None = None
         # The last status the poller pushed. The meeting entries read it each time
         # pystray rebuilds the menu, and `_menu_key` says when that is worth doing.
         self._status: dict = status_from_model(TrayModel())
@@ -254,6 +266,7 @@ class WindowsTray:
         # Seed through the same policy as every later update, so the icon the user
         # first sees is not drawn by a second, divergent code path.
         color, tooltip = icon_spec(status_from_model(TrayModel()))
+        self._painted = color
         self._icon = pystray.Icon(
             "yazses",
             _make_icon(color),
@@ -265,6 +278,7 @@ class WindowsTray:
             # the last one-click update did — the job that ran it could not tell anyone,
             # because YazSes had to be closed for it to run (ADR-027).
             icon.visible = True
+            self._deliver_early_notices()
 
             def _report() -> None:
                 message = pending_update_report(_update_launcher())
@@ -293,7 +307,11 @@ class WindowsTray:
                 return
             try:
                 color, tooltip = icon_spec(status)
-                self._icon.icon = _make_icon(color)
+                # Only on a change of colour: this runs up to seven times a second.
+                # Recorded after the assignment, so a failed one is tried again.
+                if color != self._painted:
+                    self._icon.icon = _make_icon(color)
+                    self._painted = color
                 self._icon.title = tooltip[:_TOOLTIP_MAX]
             except Exception:
                 log.exception("Tray icon update failed")
@@ -318,16 +336,30 @@ class WindowsTray:
         what `system/notify.py` builds for its no-actions fallback.
         """
         with self._lock:
-            if self._icon is None:
+            if self._early is not None:
+                self._early = [*self._early, (title, body)][-_EARLY_NOTICES_MAX:]
                 return
-            try:
-                # Fitted for the same reason as the menu's own notifier: these
-                # relayed daemon messages carry a fix in prose (the mic auto-heal
-                # names the device and what to do), so they are the longest bodies
-                # the tray shows and the likeliest to be silently discarded.
-                self._icon.notify(fit_balloon(body), fit_balloon_title(title))
-            except Exception:
-                log.debug("tray notification failed", exc_info=True)
+            self._show_balloon(title, body)
+
+    def _deliver_early_notices(self) -> None:
+        """Show what arrived before the icon did. Called once the icon is visible."""
+        with self._lock:
+            early, self._early = self._early or [], None
+            for title, body in early:
+                self._show_balloon(title, body)
+
+    def _show_balloon(self, title: str, body: str) -> None:
+        """One balloon from the tray icon. The caller holds the lock."""
+        if self._icon is None:
+            return
+        try:
+            # Fitted for the same reason as the menu's own notifier: these
+            # relayed daemon messages carry a fix in prose (the mic auto-heal
+            # names the device and what to do), so they are the longest bodies
+            # the tray shows and the likeliest to be silently discarded.
+            self._icon.notify(fit_balloon(body), fit_balloon_title(title))
+        except Exception:
+            log.debug("tray notification failed", exc_info=True)
 
     def stop(self) -> None:
         with self._lock:
