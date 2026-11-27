@@ -261,11 +261,9 @@ class AudioRecorder:
                 # Held across resolve and open: the device monitor re-initialises
                 # PortAudio from another thread, which would shift the index or close
                 # the stream between these lines.
-                from yazses.audio.resample import open_at_supported_rate
-
                 with _devices().portaudio_lock():
                     device_index = self._resolve_device()
-                    (stream, resampler), rate = open_at_supported_rate(
+                    (stream, resampler), rate = _devices().open_at_supported_rate(
                         partial(self._open_stream, device_index),
                         self._sample_rate,
                         partial(self._query_input, device_index),
