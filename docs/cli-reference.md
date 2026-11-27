@@ -740,13 +740,19 @@ Manage the Tier 2 SLM intent-routing models.
 | `yazses model download <model_id>` | Download a speech model, or a GGUF model for Tier 2 SLM intent routing. |
 | `yazses model remove <id>` | Delete a downloaded model (`kind:name`, or a bare name) to free disk space. |
 | `yazses model disk` | Show the disk space the downloaded models use, per kind. |
+| `yazses model recommend` | Suggest a speech profile (`fast`, `balanced`, `accurate`) for this machine. Changes and downloads nothing. |
 
 ```bash
 yazses model list                # show every model + which are downloaded
 yazses model remove stt:base.en  # delete a downloaded model
 yazses model disk                # disk used per kind of model
 yazses model download qwen2.5-0.5b  # download an SLM for intent routing
+yazses model recommend           # which speech profile suits this machine
 ```
+
+`yazses model recommend` reads the installed RAM, the CPU count, `[stt] engine` and
+`[stt] language`. See [which profile suits this machine](models.md#which-profile-suits-this-machine)
+for the three profiles and the rule behind the suggestion.
 
 ### `yazses packs` — add-ons (Windows installer build)
 

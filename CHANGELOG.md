@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — models: `yazses model recommend` suggests a speech profile for this machine ([#930](https://github.com/MSKazemi/yazses/issues/930))
+
+Three profiles name the models that already have published measurements: `fast` (`tiny.en`), `balanced` (`base.en`, the default) and `accurate` (`small.en`), with `tiny`, `base` and `small` for other languages. The command reads the installed RAM, the CPU count, `[stt] engine` and `[stt] language`, then prints a suggestion with its reasons; under 3 GB of RAM it suggests `fast`. It does not edit the config or download anything, and no default changes. The error rates and memory figures it shows are copied from `docs/benchmarks.md`, and a test fails if the two differ. `yazses model use` is not included. [ADR-036](design/adr/adr-036-speech-profiles.md) (**Proposed**) records the rule.
+
 ### Fixed — models: a `distil-` checkpoint no longer counts as its namesake being downloaded ([#929](https://github.com/MSKazemi/yazses/issues/929))
 
 With only `distil-small.en` in the cache, `small.en` was reported as downloaded, and the same for `medium.en`, `large-v2` and `large-v3`. `yazses model list`, `yazses doctor`, the first-run download notice and `yazses language set` all took that answer. A model name that resolves to a Hugging Face repository now matches only that repository's cache folder.
