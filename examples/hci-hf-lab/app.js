@@ -203,7 +203,7 @@
   function stageMeta(s) {
     var parts = [];
     parts.push("Confidence: " + (s.confidence === null ? "n/a" : s.confidence.toFixed(2)));
-    parts.push("Freshness: " + (s.freshness === "n/a" ? "n/a" : s.freshness + " (" + s.age_ms + " ms)"));
+    parts.push("Freshness: " + (s.age_ms === null ? s.freshness : s.freshness + " (" + s.age_ms + " ms)"));
     return parts.join(" · ");
   }
 

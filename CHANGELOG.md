@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — HCI lab replay: an unknown signal age is no longer read as fresh, and the harness checks timing ([#700](https://github.com/MSKazemi/yazses/issues/700))
+
+Research prototype under `examples/hci-hf-lab/` only; nothing in YazSes itself changes. The synthetic resolver treated an absent or negative `age_ms` as a fresh sample, and a confidence above 1 as passing; it now abstains on both, and an emergency stop still wins. `eval/replay.js` now checks each scenario's timeline itself (arrival order, monotonic timestamps, ages that follow from the events), proposes nothing from a scenario that breaks a rule, and exits 1. The report also gains an abstention/error trade-off table: the synthetic set replayed over a fixed grid of confidence floors. These are counts on hand-written scenarios, not measurements of a device or a person, and no threshold is recommended.
+
 ### Fixed — snap on Wayland: dictated text could not reach the clipboard
 
 The snap's private `XDG_RUNTIME_DIR` does not hold the Wayland socket, so `wl-copy` and `wl-paste` failed with "Failed to connect to a Wayland server": when typing failed, the clipboard fallback failed too and the dictation was lost. The clipboard commands are now given the host socket's full path; the daemon's own environment is unchanged. Where the copy works and nothing can press Ctrl+V, the notification now says the words are on the clipboard instead of that they were not typed.

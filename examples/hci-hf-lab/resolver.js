@@ -13,14 +13,15 @@
  *   config            the fixtures object: thresholds, desktop.windows, intents
  *
  * A confidence of null means UNKNOWN (not zero): the stream is treated as unusable and the
- * reason says so. A `quality` annotation on a stream is data for evaluators; the resolver
+ * reason says so. A confidence above 1 is invalid, and an age_ms that is absent, not a finite
+ * number or negative is unknown; neither is ever read as good or fresh. A `quality` annotation on a stream is data for evaluators; the resolver
  * decides from confidence and age only.
  *
  * Order of evaluation. The first rule that fires decides; later rules never override it.
  *   1  stop intent or emergency stop          -> stop           (always wins)
  *   2  no activation (kind "none")            -> abstain
- *   3  activation invalid                     -> abstain        (unknown kind, low or unknown
- *        confidence, stale, EMG hold shorter than emg_min_hold_ms, blink repeated inside
+ *   3  activation invalid                     -> abstain        (unknown kind, low, invalid or
+ *        unknown confidence, stale or of unknown age, EMG hold shorter than emg_min_hold_ms, blink repeated inside
  *        blink_refractory_ms or repeated with an unknown gap)
  *   4  target resolution
  *        voice names a target, gaze unusable          -> use the named target (voice-only)
@@ -33,9 +34,9 @@
  *        target window has trusted:false              -> abstain (untrusted target)
  *        target came from gaze alone and the gaze point is within
  *          ambiguity_margin_pct of another window     -> abstain (ambiguous target)
- *      "Gaze unusable" = sensor not connected, confidence unknown or < gaze_min_confidence,
- *      or age > max_age_ms.
- *   5  voice intent missing or confidence < voice_min_confidence -> abstain
+ *      "Gaze unusable" = sensor not connected, confidence unknown, above 1 or
+ *      < gaze_min_confidence, or age unknown or > max_age_ms.
+ *   5  voice intent missing, or confidence < voice_min_confidence or above 1 -> abstain
  *   6  risk: destructive intents (delete, send) and eeg_eog activation -> ask_confirmation
  *   7  otherwise                              -> accept         (a proposal; nothing runs)
  *
@@ -48,6 +49,11 @@
 
   function num(v, fallback) {
     return typeof v === "number" && isFinite(v) ? v : fallback;
+  }
+
+  // A missing age, or a negative one (a sample "from the future"), is unknown: never fresh.
+  function knownAge(v) {
+    return typeof v === "number" && isFinite(v) && v >= 0;
   }
 
   function windowAt(desktop, x, y) {
@@ -112,6 +118,12 @@
     } else if (conf < th.gaze_min_confidence) {
       state.code = "low_confidence";
       state.reason = "Gaze confidence " + conf.toFixed(2) + " is below " + th.gaze_min_confidence + ".";
+    } else if (conf > 1) {
+      state.code = "invalid_confidence";
+      state.reason = "Gaze confidence " + conf.toFixed(2) + " is above 1, so it is invalid.";
+    } else if (!knownAge(g.age_ms)) {
+      state.code = "unknown_age";
+      state.reason = "Gaze sample age is unknown.";
     } else if (age > th.max_age_ms) {
       state.code = "stale";
       state.reason = "Gaze sample is " + age + " ms old (limit " + th.max_age_ms + " ms).";
@@ -141,8 +153,12 @@
       out.reasons.push("Activation confidence is unknown.");
     } else if (conf < min) {
       out.reasons.push("Activation confidence " + conf.toFixed(2) + " is below " + min + " for " + kind + ".");
+    } else if (conf > 1) {
+      out.reasons.push("Activation confidence " + conf.toFixed(2) + " is above 1, so it is invalid.");
     }
-    if (num(a.age_ms, 0) > th.max_age_ms) {
+    if (!knownAge(a.age_ms)) {
+      out.reasons.push("Activation age is unknown.");
+    } else if (a.age_ms > th.max_age_ms) {
       out.reasons.push("Activation is " + num(a.age_ms, 0) + " ms old (limit " + th.max_age_ms + " ms).");
     }
     if (kind === "emg_hold" && num(a.hold_ms, 0) < th.emg_min_hold_ms) {
@@ -173,7 +189,7 @@
     var act = activationState(inputs.activation, th);
     var named = voice.target_ref || null;
     var voiceConf = num(voice.confidence, 0);
-    var voiceOk = intent !== null && voiceConf >= th.voice_min_confidence;
+    var voiceOk = intent !== null && voiceConf >= th.voice_min_confidence && voiceConf <= 1;
 
     var targetSource = "none";
     var result = { decision: "abstain", target: null, intent: intent, reasons: [] };
@@ -238,7 +254,8 @@
       return done("abstain", null, [
         intent === null
           ? "No voice intent."
-          : "Voice confidence " + voiceConf.toFixed(2) + " is below " + th.voice_min_confidence + ".",
+          : "Voice confidence " + voiceConf.toFixed(2) +
+            (voiceConf > 1 ? " is above 1, so it is invalid." : " is below " + th.voice_min_confidence + "."),
       ]);
     }
     if (!info) return done("abstain", null, ["Unknown voice intent '" + intent + "'."]);
@@ -259,6 +276,7 @@
   }
 
   function freshness(age, th) {
+    if (!knownAge(age)) return "unknown";
     return age > th.max_age_ms ? "stale" : "fresh";
   }
 
@@ -286,8 +304,8 @@
       status: gStatus,
       value: gValue,
       confidence: g.connected && g.confidence !== null ? num(g.confidence, 0) : null,
-      age_ms: g.connected ? num(g.age_ms, 0) : null,
-      freshness: g.connected ? freshness(num(g.age_ms, 0), th) : "n/a",
+      age_ms: g.connected && knownAge(g.age_ms) ? g.age_ms : null,
+      freshness: g.connected ? freshness(g.age_ms, th) : "n/a",
       note: gaze.reason,
     };
 
@@ -309,8 +327,8 @@
       status: aStatus,
       value: act.kind,
       confidence: act.missing || a.confidence === null ? null : num(a.confidence, 0),
-      age_ms: act.missing ? null : num(a.age_ms, 0),
-      freshness: act.missing ? "n/a" : freshness(num(a.age_ms, 0), th),
+      age_ms: !act.missing && knownAge(a.age_ms) ? a.age_ms : null,
+      freshness: act.missing ? "n/a" : freshness(a.age_ms, th),
       note: act.missing || act.valid ? "" : act.reasons.join(" "),
     };
 
