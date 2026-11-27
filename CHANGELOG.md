@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the `.mcpb` bundle finds YazSes installed with the Windows installer
+
+The installer, which winget and Chocolatey also run, puts `yazses.cmd` and `yazses-cli.exe` on PATH and no `yazses.exe`. The bundle's launcher starts programs without a shell, which looks only for `.com` and `.exe` files, so it reported that YazSes was not installed. On Windows it now tries `yazses-cli` after `yazses`. The [connect guide](docs/how-to/connect-mcp-client.md) says to write `yazses-cli` in a hand-written client configuration on such an install. Not tried on a Windows install or in a real MCP client (#638).
+
 ### Fixed — HCI lab replay: an unknown signal age is no longer read as fresh, and the harness checks timing ([#700](https://github.com/MSKazemi/yazses/issues/700))
 
 Research prototype under `examples/hci-hf-lab/` only; nothing in YazSes itself changes. The synthetic resolver treated an absent or negative `age_ms` as a fresh sample, and a confidence above 1 as passing; it now abstains on both, and an emergency stop still wins. `eval/replay.js` now checks each scenario's timeline itself (arrival order, monotonic timestamps, ages that follow from the events), proposes nothing from a scenario that breaks a rule, and exits 1. The report also gains an abstention/error trade-off table: the synthetic set replayed over a fixed grid of confidence floors. These are counts on hand-written scenarios, not measurements of a device or a person, and no threshold is recommended.

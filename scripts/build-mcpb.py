@@ -11,8 +11,9 @@ extension directory would be updated by nobody.
 So the bundle is three files: ``manifest.json``, rendered from
 ``packaging/mcpb/manifest.template.json`` with the version from ``pyproject.toml``,
 ``icon.png``, and ``server/launcher.js`` (``packaging/mcpb/launcher.js``), a few lines of
-Node that run ``yazses mcp-server`` and, if ``yazses`` is not on PATH, print the install
-URL and exit 127. Nothing else goes in, and ``tests/test_build_mcpb.py`` holds that.
+Node that run ``yazses mcp-server`` (``yazses-cli`` as a second name on Windows, where
+the installer puts no ``yazses.exe`` on PATH) and, if no such command is on PATH, print
+the install URL and exit 127. Nothing else goes in, and ``tests/test_build_mcpb.py`` holds that.
 
 Usage
 -----
