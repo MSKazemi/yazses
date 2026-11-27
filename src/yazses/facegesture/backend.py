@@ -68,6 +68,11 @@ from yazses.perception.signals import FacePerceptionSource
 
 log = logging.getLogger(__name__)
 
+#: Longest ``camera off`` waits for this switch to let the device go.
+_PAUSE_WAIT_S = 2.0
+#: Longest ``camera on`` waits for the loop's open attempt; well inside the CLI's 15 s.
+_RESUME_WAIT_S = 5.0
+
 
 class FaceGestureBackend:
     """HotkeyBackend implementation driven by a held facial gesture.
@@ -123,6 +128,11 @@ class FaceGestureBackend:
         self._open_index = 0  # the index the held device was opened with (for the release log)
         self._idle = threading.Event()  # set while the device is not held
         self._idle.set()
+        # Held for the whole of one open attempt, so a pause cannot report the camera
+        # free while it is still being acquired.
+        self._opening = threading.Lock()
+        self._watching = False  # the own-capture loop is running and will answer a resume
+        self._attempted = threading.Event()  # set after each open attempt (or on exit)
         self._camera_failure = ""
         self._index_override: int | None = None  # `yazses camera use`, runtime only
         # The covered-camera check (#923): measures own-capture frames, keeps none.
@@ -352,8 +362,12 @@ class FaceGestureBackend:
         landmarker = self._build_landmarker()
         if landmarker is None:
             return
-        cap, cv2 = self._open_camera()
-        if cap is None:
+        self._attempted.clear()
+        self._watching = True
+        cap, cv2 = self._open_unless_paused()
+        if cap is None and self._paused.is_set():
+            log.info("Face-gesture switch started with the camera switched off.")
+        elif cap is None:
             # A busy or denied camera is not the end of the switch: wait below, so a
             # later `camera on` (or the other app letting go) can open it. The
             # landmarker and the loop are released only on stop().
@@ -388,8 +402,10 @@ class FaceGestureBackend:
                 if self._stop_event.is_set():
                     break
                 if not self._paused.is_set():
-                    cap, cv2 = self._open_camera()
+                    cap, cv2 = self._open_unless_paused()
         finally:
+            self._watching = False
+            self._attempted.set()  # nobody is left to answer a waiting resume
             # A hold open at shutdown would leave the daemon RECORDING with no key
             # to release, so every switch is drained before the camera goes away.
             self._drain()
@@ -419,21 +435,33 @@ class FaceGestureBackend:
     def pause_camera(self) -> None:
         """Release the device and stop watching until :meth:`resume_camera` (#922).
 
-        Waits (bounded) for the loop to let go, so the device is free when this
-        returns. A no-op on the shared-camera path, where the shared source is
-        suspended instead.
+        Waits (bounded) for an open in progress to finish and for the loop to let go,
+        so the device is free when this returns. A no-op on the shared-camera path,
+        where the shared source is suspended instead.
         """
         self._paused.set()
-        self._idle.wait(2.0)
+        deadline = time.monotonic() + _PAUSE_WAIT_S
+        if self._opening.acquire(timeout=_PAUSE_WAIT_S):
+            self._opening.release()
+        self._idle.wait(max(0.0, deadline - time.monotonic()))
 
     def set_camera_index(self, index: int) -> None:
         """Open camera *index* at the next (re)open instead of ``[facegesture] camera_index``."""
         self._index_override = int(index)
 
     def resume_camera(self) -> None:
-        """Reopen the device after :meth:`pause_camera`. A failure sets :attr:`camera_failure`."""
+        """Reopen the device after :meth:`pause_camera`, or retry a failed open.
+
+        Waits (bounded) for the loop's attempt, so ``camera on`` can say whether the
+        device came back; a failure sets :attr:`camera_failure`.
+        """
+        self._attempted.clear()  # before the check: an attempt ending now is not missed
+        waiting = self._watching and not self._camera_open
         self._paused.clear()
         self._wake.set()
+        # `_watching` again: the loop may have ended between the check and the clear.
+        if waiting and self._watching:
+            self._attempted.wait(_RESUME_WAIT_S)
 
     @property
     def camera_index(self) -> int:
@@ -624,6 +652,16 @@ class FaceGestureBackend:
             log.warning("Face-gesture switch could not load the face model; "
                         "continuing without it.", exc_info=True)
             return None
+
+    def _open_unless_paused(self):
+        """One open attempt, or ``(None, None)`` while the camera is switched off."""
+        with self._opening:
+            if self._paused.is_set():
+                return None, None
+            try:
+                return self._open_camera()
+            finally:
+                self._attempted.set()
 
     def _open_camera(self):
         self._camera_failure = ""

@@ -1145,7 +1145,7 @@ yazses gaze measure --camera-class integrated   # derived-numbers-only field rep
 |---|---|
 | `yazses camera status` | Whether the camera is ON or OFF, which YazSes features hold the device right now, which camera looks covered, and why a reopen failed, if it did. |
 | `yazses camera off` | Release the camera for every camera feature (face switch, gaze, Head-Pointer) so a video-call app can open it. Dictation keeps working. |
-| `yazses camera on` | Let the enabled camera features reopen the camera. Also takes a covered camera back at once for another look. |
+| `yazses camera on` | Let the enabled camera features reopen the camera, and say why if one could not. Run it again to retry a camera another app was holding. Also takes a covered camera back at once for another look. |
 | `yazses camera list` | Every camera with its index, name and stable `/dev/v4l/by-id/...` path. Works without the daemon. |
 | `yazses camera use <name-or-path>` | Move every camera feature to that camera now (name, part of a name, index or by-id path); not saved. A missing or ambiguous name changes nothing and lists the cameras. |
 | `yazses camera use <name-or-path> --save` | The same, and also remember it in the config file (`[camera]`) so it applies after a restart. With no daemon running it only saves. |

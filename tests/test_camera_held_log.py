@@ -36,8 +36,9 @@ def test_held_message_names_the_camera_the_cause_and_the_way_out():
     text = camera_held_message(2)
     assert "camera 2" in text
     assert "video calls" in text
-    assert "systemctl --user stop yazses" in text
-    assert "[facegesture]" in text
+    assert "`yazses camera off`" in text
+    assert "`yazses camera on`" in text
+    assert "systemctl" not in text  # stopping the daemon would stop dictation too
 
 
 def test_released_message_says_the_camera_is_free_again():

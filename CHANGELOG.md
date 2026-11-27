@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses camera on` retries a camera another app was holding, and says whether it worked ([#922](https://github.com/MSKazemi/yazses/issues/922))
+
+With `[perception]` on, a shared camera that failed to open (a call still running when you typed `camera on`, or when the daemon started) stayed failed: running `yazses camera on` again did nothing, and only `camera off` followed by `on` brought it back. It now retries. For the face switch on its own camera, `camera on` used to reply before the device had been tried, so the reply could not name a failure; it now waits up to 5 s for that attempt, and `camera off` also waits for an open still in progress, so the camera is not reported free while it is being taken. When a feature could not reopen, the CLI says to close the other app and run `camera on` again. The "holding camera N" log line now points at `yazses camera off` instead of at stopping the service, and gaze on its own camera logs it too, with the matching release line. Tested with fake camera handles; not checked against a real webcam or call app. Sharing the camera with a call app remains open (#925).
+
 ### Added — a covered camera is released and comes back by itself ([#923](https://github.com/MSKazemi/yazses/issues/923))
 
 New `[camera] cover_detection` (off by default). YazSes releases a camera whose privacy cover is closed, shows it as covered in the tray, `yazses camera status`, `yazses status` and `yazses doctor`, and resumes the camera features when it is uncovered. On Linux it reads the camera's privacy control or the laptop's lens-cover switch where there is one; otherwise it judges from frames that stay black and even for about 5 seconds, and re-checks a covered camera after 5 s, then at most every 30 s. `yazses camera on` checks at once. The frame thresholds are not yet measured across webcams, and a completely unlit room is indistinguishable from a cover. The `camera` IPC reply gains `covered`, the list of camera indexes released this way.
