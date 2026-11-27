@@ -1725,14 +1725,14 @@
     {
       "type": "library",
       "name": "opentelemetry-api",
-      "version": "1.45.1",
-      "purl": "pkg:pypi/opentelemetry-api@1.45.1",
-      "bom-ref": "pkg:pypi/opentelemetry-api@1.45.1",
+      "version": "1.45.2",
+      "purl": "pkg:pypi/opentelemetry-api@1.45.2",
+      "bom-ref": "pkg:pypi/opentelemetry-api@1.45.2",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "aa38ed19bcc084ba42782a73255b3582283eced7ad6dddbd6695189e69adfb75"
+          "content": "d7b0008e21e5fd61cbe7a7f34ca3b6905a78ab677d9bc395e299359c75cda6b4"
         }
       ]
     },
@@ -1837,28 +1837,28 @@
     {
       "type": "library",
       "name": "opentelemetry-sdk",
-      "version": "1.45.1",
-      "purl": "pkg:pypi/opentelemetry-sdk@1.45.1",
-      "bom-ref": "pkg:pypi/opentelemetry-sdk@1.45.1",
+      "version": "1.45.2",
+      "purl": "pkg:pypi/opentelemetry-sdk@1.45.2",
+      "bom-ref": "pkg:pypi/opentelemetry-sdk@1.45.2",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "63d24a6ca645019a631e6a51999c73e93adcac1196ca640b8ae78a7cc4762bf3"
+          "content": "7eec4de13dd21ff3a1670dcb0e02079e692736f94d733dfdce5af461d884248d"
         }
       ]
     },
     {
       "type": "library",
       "name": "opentelemetry-semantic-conventions",
-      "version": "0.66b1",
-      "purl": "pkg:pypi/opentelemetry-semantic-conventions@0.66b1",
-      "bom-ref": "pkg:pypi/opentelemetry-semantic-conventions@0.66b1",
+      "version": "0.66b2",
+      "purl": "pkg:pypi/opentelemetry-semantic-conventions@0.66b2",
+      "bom-ref": "pkg:pypi/opentelemetry-semantic-conventions@0.66b2",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "497ca63bf383723411e8eaf60c8779e9877633c936bb641080adab59d0eb6ec8"
+          "content": "7da5f1a5dc4383eb66711d4d3d3e71824d9403ac1559fea021cc103c1a4c4976"
         }
       ]
     },
