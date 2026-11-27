@@ -52,7 +52,10 @@ def key_label(key: object) -> str:
 
 
 def word_count(text: str) -> int:
-    return len(text.split())
+    """As the daemon counts: each Chinese or Japanese character is one."""
+    from yazses.postprocess.cjk import count_words
+
+    return count_words(text)
 
 
 def _count(value: object, fallback: int) -> int:

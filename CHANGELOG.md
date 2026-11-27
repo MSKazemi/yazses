@@ -6,6 +6,15 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — settings window: speaker names, export, practice-box counts and one-window locking
+
+- **Meetings → Save speaker names** now takes the meeting's lock, as `yazses meeting relabel` does, and changes nothing while the meeting is being processed. Such a meeting is listed as **in progress**, not "unfinished".
+- **Meetings → Export…** removed group and other permissions from the folder you exported into (your home folder by default). Only the exported file is owner-only now.
+- On a filesystem without file locks, the window reported that it was already open and could not be opened. It now opens, without the one-window guard.
+- The practice boxes count each Chinese or Japanese character as one word, as the rest of YazSes does.
+
+These were found in review before release; the new window pages had not shipped in a release.
+
 ### Fixed — eye-control analysis: summary numbers now have a table and name their source files ([#426](https://github.com/MSKazemi/yazses/issues/426))
 
 The min / median / max across units and the summary of session spreads appeared only in the report, so a paper table had to be copied by hand and no claim said which result files stood behind them. `scripts/eye_eval_figures.py` now writes `tables/across_units.csv` and `tables/session_retest_summary.csv`, and `claim_manifest` has an entry for each. A session-retest claim no longer lists sessions that had too few trials to be compared, and a number with no source file no longer gets an empty claim. The report is now `analysis_version` 1.1; the figures script still reads 1.0 reports. No statistical test was added (that waits for [#425](https://github.com/MSKazemi/yazses/issues/425)), and only synthetic test records were used.
