@@ -17,7 +17,8 @@ tools in this space; some will fit you better.
 ## The 60-second version
 
 ```sh
-pipx install 'yazses[diarization]'     # speaker labels need this extra (~45 MB of models, fetched once)
+pipx install 'yazses[diarization]'     # speaker labels need this extra
+yazses transcribe --download-models    # and ~45 MB of speaker models, fetched once
 
 yazses meeting start                   # hands-free — no key to hold
 # … the meeting happens …

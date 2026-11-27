@@ -58,15 +58,22 @@ cost is one new config section. Either way it is a single key with default `auto
 | Kokoro voice (`tts/kokoro.py` → `tts/download.py`) | implicit: voice built (daemon start with `[tts]` enabled) | yes, policy fixed at `auto` |
 | Whisper (`stt/faster_whisper.py`) | implicit: daemon start, fallback engine, file and meeting decode | no |
 | Parakeet, Moonshine (`stt/parakeet.py`, `stt/moonshine.py`) | implicit: engine start | no |
-| FaceLandmarker (`gaze/download.py`, called by the gaze, perception and face-gesture backends) | implicit: camera feature start | no |
-| ECAPA speaker model (`voiceprint/ecapa.py`) | implicit: voiceprint enrol or match | no |
-| pyannote pipeline (`recimport/pyannote_backend.py`, sends the user's HF token) | implicit: first diarized run on that backend | no |
+| FaceLandmarker (`gaze/download.py`, called by the gaze, perception and face-gesture backends) | implicit: camera feature start | yes, policy fixed at `auto` |
+| ECAPA speaker model (`voiceprint/ecapa.py`, by way of `system/hfcache.py`) | implicit: voiceprint enrol or match | yes, policy fixed at `auto` |
+| pyannote pipeline (`recimport/pyannote_backend.py` by way of `system/hfcache.py`, sends the user's HF token) | implicit: first diarized run on that backend | yes, policy fixed at `auto` |
 | Whisper on purpose (`yazses model download`, `yazses language set`) | explicit | no |
 | Intent-routing GGUF (`commands/model_manager.py`) | explicit | no |
 | sherpa diarization (`recimport/download.py`) | explicit: `yazses transcribe --download-models` | no |
+| Silero VAD (`meeting/silero_vad.py`) | never fetched: the weights ship inside the wheel | not needed |
 
 Until every implicit row says yes, no config key should ship: a `never` that some features
-ignore is worse than no setting.
+ignore is worse than no setting. The explicit rows need routing too before `never` can
+refuse them.
+
+For a model a library fetches by name, "is it cached" is answered by the cache-only load
+itself (`system/hfcache.load_cache_first` with a kind and a name). The ECAPA encoder is
+filed under the `diarization` kind, since the registry has no speaker kind; neither it nor
+pyannote has a `build_registry` row, so `yazses model list` does not show them.
 
 ## Consequences
 

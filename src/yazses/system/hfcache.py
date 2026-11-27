@@ -41,6 +41,11 @@ a download would quietly defeat the setting whose entire purpose is to forbid on
 also what makes `HF_HUB_OFFLINE=1` a real test of whether a model is cached, which
 `docs/how-to/air-gapped.md` tells people to rely on.
 
+A caller that names its model (``kind`` and ``name``) also has the decision to download
+made by :func:`yazses.models.registry.ensure_model` (ADR-035): "cached" is answered by the
+cache-only load itself, and the online load runs only if the policy allows it. The speaker
+encoder and the pyannote pipeline do this today, at ``auto``, which is the behaviour above.
+
 No new outbound call is introduced here (ADR-019); this strictly removes one.
 """
 from __future__ import annotations
@@ -49,7 +54,7 @@ import logging
 import os
 import sys
 from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from typing import Any, TypeVar
 
 log = logging.getLogger(__name__)
@@ -132,26 +137,82 @@ def cache_first() -> Iterator[None]:
                 constants.HF_HUB_OFFLINE = _truthy(prior_env)
 
 
-def load_cache_first(load: Callable[[], T], *, what: str) -> T:
+def load_cache_first(
+    load: Callable[[], T],
+    *,
+    what: str,
+    kind: str = "",
+    name: str = "",
+    policy: str = "auto",
+    manual_hint: str = "",
+) -> T:
     """Run ``load`` against the local cache; download only if that misses.
 
     The fallback is the half that keeps this from trading one failure for another: a model
     that genuinely is not on disk must still be fetched, exactly as before. A first run is
     unchanged; every run after it stops asking the network for permission to use a file it
     already has.
+
+    With *kind* and *name* (a :mod:`yazses.models.registry` kind and a model name) the
+    download is decided by ``ensure_model`` under *policy*: ``auto`` behaves exactly as
+    above; ``ask`` and ``never`` load from the cache only and raise ``RuntimeError`` with
+    the registry's message (which names *manual_hint*) when that misses. *policy* and
+    *manual_hint* are ignored without *kind*.
     """
+    if kind:
+        return _load_under_policy(
+            load, what=what, kind=kind, name=name, policy=policy, manual_hint=manual_hint
+        )
     if offline_requested():
         return load()
     try:
         with cache_first():
             return load()
     except Exception as exc:
-        # Not `log.warning`: on a normal machine this is the ordinary first run, and a
-        # download that is about to succeed is not a problem to warn about.
-        log.info(
-            "%s is not in the local Hugging Face cache (%s) — downloading it once.",
-            what, exc,
-        )
+        _log_miss(what, exc)
     # Outside the `except` block on purpose: a failure here is about the network, and
     # chaining it to the cache miss buries the cause under "During handling of the above".
     return load()
+
+
+def _log_miss(what: str, exc: Exception) -> None:
+    # Not `log.warning`: on a normal machine this is the ordinary first run, and a
+    # download that is about to succeed is not a problem to warn about.
+    log.info(
+        "%s is not in the local Hugging Face cache (%s) — downloading it once.", what, exc
+    )
+
+
+def _load_under_policy(
+    load: Callable[[], T], *, what: str, kind: str, name: str, policy: str, manual_hint: str
+) -> T:
+    """:func:`load_cache_first` for a named model, decided by ``ensure_model``."""
+    from yazses.models.registry import ensure_model
+
+    offline = offline_requested()
+    loaded: list[T] = []
+    misses: list[Exception] = []
+
+    def from_cache(_name: str) -> bool:
+        try:
+            # Offline was already asked for: leave the user's setting alone.
+            with nullcontext() if offline else cache_first():
+                loaded.append(load())
+        except Exception as exc:  # noqa: BLE001 -- a miss; what follows is decided below
+            misses.append(exc)
+            return False
+        return True
+
+    def online(_name: str) -> None:
+        if offline:
+            raise misses[0]  # one attempt only, and its own error
+        _log_miss(what, misses[0])
+        loaded.append(load())
+
+    result = ensure_model(
+        kind, name, policy, is_cached=from_cache, download=online, manual_hint=manual_hint
+    )
+    result.raise_for_failure()
+    if not loaded:  # `ask` / `never`: nothing was fetched
+        raise RuntimeError(result.message)
+    return loaded[0]

@@ -83,8 +83,9 @@ the honest reason to switch if any of them matter to you:
 - **Personal vocabulary** — `yazses vocab add` teaches it words it keeps mis-hearing.
 - **File transcription** — `yazses transcribe <file>` turns an existing recording into text.
 - **Meeting capture** — hands-free whole-meeting recording with speaker labels.
-  Off by default, and the speaker labels need an optional extra plus a one-time
-  ~45 MB model download: `yazses features enable meeting`.
+  Off by default (`yazses features enable meeting`), and the speaker labels need an
+  optional extra plus a one-time ~45 MB model download:
+  `yazses transcribe --download-models`.
 - **Accessibility work** — VAD calibration, dysfluency-friendly filtering, alternative
   activation hardware.
 - **macOS and Windows** (preview) — the same configuration, on all three systems.

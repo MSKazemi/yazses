@@ -6,6 +6,14 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — transcribe: help no longer says a diarized run downloads the speaker models ([#932](https://github.com/MSKazemi/yazses/issues/932))
+
+`yazses transcribe --help` and the progress line said the first diarized run downloads about 45 MB of models. With the default `sherpa` diarizer it never did: without the files the run writes a plain transcript and says so. The help, the progress line and the guides that said the same now point to `yazses transcribe --download-models`. Nothing about what is downloaded changed.
+
+### Changed — models: the camera face model, the speaker encoder and the pyannote pipeline are decided by `ensure_model` ([#932](https://github.com/MSKazemi/yazses/issues/932))
+
+The camera face model, speaker encoder and pyannote downloads, which start on their own, now go through `yazses.models.registry.ensure_model` with policy `auto`, so they behave as before: a cached model loads without a network request, a missing one is downloaded, offline mode still forbids a download, and a failure raises the same error. [ADR-035](design/adr/adr-035-model-download-policy.md) (still **Proposed**) lists what is not routed yet. No config key, CLI command or network path is added.
+
 ### Fixed — models: a `distil-` checkpoint no longer counts as its namesake being downloaded ([#929](https://github.com/MSKazemi/yazses/issues/929))
 
 With only `distil-small.en` in the cache, `small.en` was reported as downloaded, and the same for `medium.en`, `large-v2` and `large-v3`. `yazses model list`, `yazses doctor`, the first-run download notice and `yazses language set` all took that answer. A model name that resolves to a Hugging Face repository now matches only that repository's cache folder.
