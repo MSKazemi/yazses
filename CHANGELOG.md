@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — a covered camera is released and comes back by itself ([#923](https://github.com/MSKazemi/yazses/issues/923))
+
+New `[camera] cover_detection` (off by default). YazSes releases a camera whose privacy cover is closed, shows it as covered in the tray, `yazses camera status`, `yazses status` and `yazses doctor`, and resumes the camera features when it is uncovered. On Linux it reads the camera's privacy control or the laptop's lens-cover switch where there is one; otherwise it judges from frames that stay black and even for about 5 seconds, and re-checks a covered camera after 5 s, then at most every 30 s. `yazses camera on` checks at once. The frame thresholds are not yet measured across webcams, and a completely unlit room is indistinguishable from a cover. The `camera` IPC reply gains `covered`, the list of camera indexes released this way.
+
 ### Fixed — snap on Wayland: dictated text could not reach the clipboard
 
 The snap's private `XDG_RUNTIME_DIR` does not hold the Wayland socket, so `wl-copy` and `wl-paste` failed with "Failed to connect to a Wayland server": when typing failed, the clipboard fallback failed too and the dictation was lost. The clipboard commands are now given the host socket's full path; the daemon's own environment is unchanged. Where the copy works and nothing can press Ctrl+V, the notification now says the words are on the clipboard instead of that they were not typed.

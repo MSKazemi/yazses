@@ -125,6 +125,8 @@ class FaceGestureBackend:
         self._idle.set()
         self._camera_failure = ""
         self._index_override: int | None = None  # `yazses camera use`, runtime only
+        # The covered-camera check (#923): measures own-capture frames, keeps none.
+        self._frame_observer: Callable[[int, object], None] | None = None
         # `.lower()` because `configcheck` validates enum values case-insensitively
         # and then stores what was written: without it `gesture = "Jaw_Open"` passes
         # config validation and is silently replaced by the default here.
@@ -434,6 +436,22 @@ class FaceGestureBackend:
         self._wake.set()
 
     @property
+    def camera_index(self) -> int:
+        """The camera this switch holds, or would open next."""
+        if self._camera_open:
+            return self._open_index
+        if self._index_override is not None:
+            return self._index_override
+        return int(getattr(self._cfg, "camera_index", 0) or 0)
+
+    def set_frame_observer(self, observer: Callable[[int, object], None] | None) -> None:
+        """Call ``observer(camera_index, frame)`` for each own-capture frame (#923).
+
+        On the shared-camera path the shared source's observer sees the frames instead.
+        """
+        self._frame_observer = observer
+
+    @property
     def camera_held(self) -> bool:
         """Whether this backend holds its own capture device right now."""
         return self._camera_open
@@ -679,6 +697,8 @@ class FaceGestureBackend:
         ok, frame = cap.read()
         if not ok or frame is None:
             return None
+        if self._frame_observer is not None:
+            self._frame_observer(self._open_index, frame)
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
         result = landmarker.detect(image)

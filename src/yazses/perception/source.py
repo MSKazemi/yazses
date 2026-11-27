@@ -43,7 +43,8 @@ A frame exists as a local variable inside :meth:`SharedPerceptionSource.observe`
 and nowhere else. It is never stored on the source, never published, never logged
 and never interpolated into a message — the boundary values carry no field that
 could hold one, and this side is where that stops being true if anyone is careless
-(ADR-011). The one hole left is a *processor* that puts frame content into its own
+(ADR-011). A frame observer (:meth:`SharedPerceptionSource.set_frame_observer`, the
+covered-camera check) may measure it there and is bound by the same rule. The one hole left is a *processor* that puts frame content into its own
 exception message, which is why the seam's contract below forbids it.
 
 ## What is deliberately not here
@@ -349,6 +350,7 @@ class SharedPerceptionSource:
         index_setter: Callable[[int], None] | None = None,
     ) -> None:
         self._index_setter = index_setter
+        self._frame_observer: Callable[[object], None] | None = None
         self._capture_factory = capture_factory
         self._processor_factory = processor_factory
         self._interval_s = max(0.0, float(interval_s))
@@ -454,6 +456,12 @@ class SharedPerceptionSource:
         if frame is None:
             # A dropped frame is not a failure, and nothing is restamped for it.
             return False
+        frame_observer = self._frame_observer
+        if frame_observer is not None:
+            try:
+                frame_observer(frame)
+            except Exception as exc:  # a bystander must not end the source
+                log.debug("perception: %s in the frame observer", type(exc).__name__)
         try:
             sample = processor.process(frame, self._clock())
         except Exception as exc:
@@ -484,6 +492,13 @@ class SharedPerceptionSource:
                 return False
             self._sample = sample
         return True
+
+    def set_frame_observer(self, observer: Callable[[object], None] | None) -> None:
+        """Let *observer* measure each frame before it is processed (#923).
+
+        It runs on the capture loop, must not keep the frame and must not block.
+        """
+        self._frame_observer = observer
 
     # -- shutdown ----------------------------------------------------------- #
 

@@ -201,6 +201,12 @@ def _make_focused_cwd() -> Any:
     return LinuxFocusedCwd()
 
 
+def _make_camera_cover() -> Any:
+    from yazses.platform.linux.camera_cover import LinuxCameraCoverSignal
+
+    return LinuxCameraCoverSignal()
+
+
 def _make_click_observer() -> Any:
     from yazses.platform.linux.click_observer_x11 import build_x11_click_observer
 
@@ -268,6 +274,9 @@ def build_platform() -> Platform:
         accessibility_unavailable_reason=accessibility_reason,
         # [context] use_git: X11 only (xdotool's focused PID, then /proc/<pid>/cwd).
         focused_cwd_factory=_focused_cwd_route(),
+        # [camera] cover_detection: the privacy control / lens-cover switch, read only
+        # when that key is on. A factory, so no device node is touched here.
+        camera_cover_factory=_make_camera_cover,
     )
 
 

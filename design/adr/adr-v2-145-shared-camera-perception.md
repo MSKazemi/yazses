@@ -157,3 +157,25 @@ Before this ADR can move from Proposed to Accepted, the implementation plan/PR s
 ## Delivery
 
 See `design/eye-control/ROADMAP.md` Phase 1 and tasks EYE-ARCH-001 through EYE-CAM-003.
+
+## Amendment (2026-11-27): a covered camera (#923)
+
+A camera behind a closed privacy cover delivers frames that carry nothing, while the features
+keep holding it. With `[camera] cover_detection` (off by default) the daemon releases it and
+resumes it afterwards.
+
+- **Covered is a camera state of its own**, beside the user's on/off switch and distinct from
+  "no face in view". It is per camera index, runtime only, and any user `on`/`off`/`use`
+  discards it.
+- **Evidence, in order.** A hardware signal behind the `CameraCoverSignal` platform Protocol
+  where one exists; otherwise frames that are both dark and even for several seconds without a
+  gap. Invariant 3 holds: frames are measured where they already are and only two numbers
+  leave.
+- **A released camera is probed**, briefly and with a backoff. This is the one open outside the
+  single owner (invariant 1); it happens only while every owner of that camera is paused, and
+  `camera off` waits for it to end.
+- **Hands-free safety is unchanged.** No samples arrive, so ADR-v2-148's watchdog suppresses the
+  inputs and its existing re-arm rules apply on return.
+
+**Not established:** the frame thresholds. They are chosen, not measured; whether the fallback is
+reliable across webcams needs measurement on real hardware before it could ship on by default.

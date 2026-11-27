@@ -59,6 +59,7 @@ __all__ = [
     "FAILURE_REMEDIES",
     "PAYLOAD_KEYS",
     "HEAD_STATES",
+    "PERCEPTION_COVERED",
     "PERCEPTION_FAILED",
     "PERCEPTION_RUNNING",
     "PERCEPTION_STOPPED",
@@ -87,6 +88,8 @@ PERCEPTION_STOPPED = "stopped"
 PERCEPTION_UNKNOWN = "unknown"
 #: The shared source opened and then stopped on a contained failure; the reason says why.
 PERCEPTION_FAILED = "failed"
+#: A camera looks covered and was released on purpose (#923); it comes back by itself.
+PERCEPTION_COVERED = "covered"
 
 #: The age past which a sample may no longer act, when the watchdog's own window is not
 #: known (`[handsfree_safety]` off, or a surface that did not read it). Not a new threshold:
@@ -200,7 +203,7 @@ class HandsFreeFacts:
     features_requested: tuple[str, ...] = ()
     #: Whether the camera gate said the device may be opened; ``None`` = not probed.
     camera_ready: bool | None = None
-    #: Shared-perception source state — one of the three ``PERCEPTION_*`` constants.
+    #: Shared-perception source state — one of the ``PERCEPTION_*`` constants.
     perception_state: str = PERCEPTION_UNKNOWN
     #: Channel *names* the newest sample carried (``("gaze", "head_pose", "face")``).
     #: ``None`` and ``()`` are different facts and must stay apart: ``()`` means the
@@ -441,7 +444,7 @@ def _perception_row(facts: HandsFreeFacts) -> HealthRow | None:
     # deliberately pays for no disk read, so `camera_ready` is blank there by design and
     # reading that blank as "cannot tell" printed UNKNOWN for a camera that was running.
     measured = facts.perception_state in (
-        PERCEPTION_RUNNING, PERCEPTION_FAILED, PERCEPTION_STOPPED
+        PERCEPTION_RUNNING, PERCEPTION_FAILED, PERCEPTION_STOPPED, PERCEPTION_COVERED
     )
     if facts.camera_ready is None and not measured:
         return HealthRow(
@@ -486,6 +489,13 @@ def _perception_row(facts: HandsFreeFacts) -> HealthRow | None:
         if facts.camera_ready is None:
             detail.append("the camera permission is checked by `yazses doctor`, not on a poll")
         return HealthRow(label, Health.OK, "; ".join(detail))
+    if facts.perception_state == PERCEPTION_COVERED:
+        return HealthRow(
+            label,
+            Health.DEGRADED,
+            f"covered — {wanted}; a camera looks covered, so YazSes released it",
+            "uncover it and it comes back by itself, or run `yazses camera on` to check now",
+        )
     if facts.perception_state == PERCEPTION_FAILED:
         return HealthRow(
             label,

@@ -774,9 +774,16 @@ class CameraConfig:
     ``device`` is the stable handle of the chosen camera (the Linux ``/dev/v4l/by-id``
     name, otherwise the camera name) so a later release can re-find it after a replug;
     ``index`` is the number it had when chosen and is what is opened today.
+
+    ``cover_detection`` (#923, off by default) releases a camera that is covered -- a
+    privacy shutter or switch the hardware reports, or, on a feature that reads the camera
+    continuously, frames that stay black and even for a few seconds -- and takes it back
+    when it is uncovered. The frame thresholds are not yet measured across webcams
+    (src/yazses/perception/cover.py).
     """
     device: str = ""                  # stable id of the chosen camera; "" = none chosen
     index: int = -1                   # chosen camera index; -1 = not chosen (legacy keys apply)
+    cover_detection: bool = False     # release a covered camera (privacy shutter), resume when uncovered
 
 
 @dataclass

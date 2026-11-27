@@ -208,7 +208,7 @@ Switch the camera on: every enabled camera feature reopens the device.
 
 ### `yazses camera status`
 
-Show whether the camera is on and which YazSes features hold the device.
+Show whether the camera is on or looks covered, and which YazSes features hold it.
 
 ### `yazses camera use`
 

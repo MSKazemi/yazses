@@ -13,18 +13,29 @@ contains failures and the user is told), no resolution or format negotiation (th
 is tuning, and tuning belongs with the measurement the ADR asks for). Everything
 this module could usefully grow is something another file already owns.
 
+:func:`probe_camera_cover` is the one other way in: the brief look the covered-camera
+check takes at a camera it released (#923).
+
 ``cv2`` is the ``gaze`` extra and is imported inside :meth:`OpenCVFrameCapture.open`
-(AGENTS.md rule 3): a base install imports this module fine and only opening a
-camera needs the package, which is exactly the point at which a missing extra is a
-thing the user can be told about.
+and :func:`probe_camera_cover` (AGENTS.md rule 3): a base install imports this module
+fine and only opening a camera needs the package, which is exactly the point at which
+a missing extra is a thing the user can be told about.
 """
 from __future__ import annotations
 
 import logging
 import time
 from collections.abc import Callable
+from typing import Any
 
-__all__ = ["STALL_TIMEOUT_S", "OpenCVFrameCapture", "opencv_capture_factory"]
+from yazses.perception.cover import PROBE_WINDOW_S, ProbeJudge, frame_stats
+
+__all__ = [
+    "STALL_TIMEOUT_S",
+    "OpenCVFrameCapture",
+    "opencv_capture_factory",
+    "probe_camera_cover",
+]
 
 log = logging.getLogger(__name__)
 
@@ -53,6 +64,9 @@ def camera_held_message(index: int, *, released: bool = False) -> str:
 #: one. Uses the monotonic clock, which does not advance across a suspend, so a laptop
 #: that sleeps and wakes is not misread as a stall.
 STALL_TIMEOUT_S = 5.0
+
+#: Seconds between two reads of a probe.
+_PROBE_PAUSE_S = 0.1
 
 #: Said when the OS probe could not add anything.
 _GENERIC_OPEN_FAILURE = (
@@ -188,6 +202,44 @@ class OpenCVFrameCapture:
 def opencv_capture_factory(index: int) -> OpenCVFrameCapture:
     """A ``CaptureFactory``: camera index in, an **unopened** capture out."""
     return OpenCVFrameCapture(index)
+
+
+def probe_camera_cover(
+    index: int,
+    cancelled: Callable[[], bool] = lambda: False,
+    *,
+    window_s: float = PROBE_WINDOW_S,
+    clock: Callable[[], float] = time.monotonic,
+    sleep: Callable[[float], None] = time.sleep,
+) -> str:
+    """Open camera *index* briefly and say whether it shows a picture (#923).
+
+    Returns one of the ``cover.PROBE_*`` verdicts and has released the device when it
+    does. Stops early on a clear picture or when *cancelled*. Never raises; a camera
+    that cannot be opened is ``unknown``, not covered and not clear. Frames are measured
+    and dropped (ADR-011).
+    """
+    judge = ProbeJudge()
+    capture: Any = None
+    try:
+        import cv2  # noqa: PLC0415 - optional extra, needed only to open a camera
+
+        capture = cv2.VideoCapture(int(index))
+        if not capture.isOpened():
+            return judge.verdict
+        deadline = clock() + window_s
+        while clock() < deadline and not cancelled():
+            ok, frame = capture.read()
+            if ok and judge.feed(frame_stats(frame)):
+                break
+            del frame
+            sleep(_PROBE_PAUSE_S)
+    except Exception as exc:  # the type only: nothing about a frame reaches a log
+        log.debug("perception: %s probing camera %d", type(exc).__name__, int(index))
+    finally:
+        if capture is not None:
+            _release(capture)
+    return judge.verdict
 
 
 def _release(capture: object) -> None:

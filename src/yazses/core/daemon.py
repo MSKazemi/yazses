@@ -47,6 +47,7 @@ if TYPE_CHECKING:
     from yazses.learning.edit_watch import EditWatcher
     from yazses.meeting.controller import MeetingController
     from yazses.perception import SharedPerceptionSource
+    from yazses.perception.coverwatch import CoverWatch
     from yazses.perception.switch import CameraSwitch
     from yazses.pilot.service import PilotService
     from yazses.predict.runtime import PredictRuntime
@@ -605,6 +606,9 @@ class Daemon:
         # Built on first use, never at start: the perception package pulls in the gaze
         # package, which a daemon with no camera feature must not import (budget tests).
         self._camera_switch_obj: CameraSwitch | None = None
+        # The covered-camera watch (#923): None unless `[camera] cover_detection` and a
+        # camera feature was built. `_register_camera_consumers` starts it.
+        self._cover_watch: CoverWatch | None = None
         # How `yazses camera list|use` finds cameras (perception/devices.py). Injected so a
         # test never touches /sys; the real one reads sysfs on Linux and probes elsewhere.
         self._camera_enumerator_fn: Callable[[], Any] | None = None
@@ -3176,7 +3180,14 @@ class Daemon:
             from yazses.perception.switch import CameraConsumer
 
             switch = self._camera_switch
+            shared_index: list[int] = []
             if perception is not None:
+                shared_index.append(self._config.perception.camera_index)
+
+                def _set_shared_index(index: int, src=perception) -> None:
+                    src.set_camera_index(index)
+                    shared_index[0] = index
+
                 def _shared_holders(src=perception) -> tuple[str, ...]:
                     status = src.status()
                     if src.suspended or status.state not in (
@@ -3194,7 +3205,8 @@ class Daemon:
                     resume=perception.resume,
                     holders=_shared_holders,
                     failure=_shared_failure,
-                    set_index=perception.set_camera_index,
+                    set_index=_set_shared_index,
+                    camera_index=lambda: shared_index[0],
                 ))
             owners: list[tuple[str, Any]] = [
                 ("facegesture", src) for src in self._extra_activations
@@ -3208,6 +3220,9 @@ class Daemon:
             def _own_failure(owner: Any) -> Callable[[], str]:
                 return lambda: str(owner.camera_failure)
 
+            def _own_index(owner: Any) -> Callable[[], int | None]:
+                return lambda: getattr(owner, "camera_index", None)
+
             for name, owner in owners:
                 switch.register(CameraConsumer(
                     name=name,
@@ -3216,10 +3231,43 @@ class Daemon:
                     holders=_own_holders(name, owner),
                     failure=_own_failure(owner),
                     set_index=getattr(owner, "set_camera_index", None),
+                    camera_index=_own_index(owner),
                 ))
+            self._start_cover_watch(switch, perception, shared_index)
         except Exception:
             log.warning("Camera switch registration failed; `yazses camera` will report "
                         "nothing to switch.", exc_info=True)
+
+    def _start_cover_watch(
+        self, switch: CameraSwitch, perception: Any, shared_index: list[int]
+    ) -> None:
+        """Watch for a covered camera (#923). Off unless `[camera] cover_detection`."""
+        config = getattr(self, "_config", None)
+        if config is None or not config.camera.cover_detection:
+            return
+        try:
+            from yazses.perception.camera import probe_camera_cover
+            from yazses.perception.coverwatch import CoverWatch
+
+            privacy_signal = None
+            factory = getattr(self._platform, "camera_cover_factory", None)
+            if factory is not None:
+                privacy_signal = factory().covered
+            watch = CoverWatch(switch, probe=probe_camera_cover, signal=privacy_signal)
+            if perception is not None:
+                perception.set_frame_observer(
+                    lambda frame: watch.observe(shared_index[0], frame)
+                )
+            for source in self._extra_activations:
+                observe_with = getattr(source, "set_frame_observer", None)
+                if observe_with is not None:
+                    observe_with(watch.observe)
+            watch.start()
+            self._cover_watch = watch
+            log.info("Covered-camera detection is on.")
+        except Exception:
+            log.warning("Covered-camera detection could not start; camera features run "
+                        "without it.", exc_info=True)
 
     def _camera_status_payload(self) -> dict[str, object] | None:
         """The camera switch as a status block, or None -- a status read never fails on it."""
@@ -9770,6 +9818,7 @@ class Daemon:
         """
         try:
             from yazses.handsfree.observability import (
+                PERCEPTION_COVERED,
                 PERCEPTION_FAILED,
                 PERCEPTION_RUNNING,
                 PERCEPTION_STOPPED,
@@ -9855,6 +9904,10 @@ class Daemon:
             if running and shared is not None:
                 if shared.state.value == "failed":
                     perception_state = PERCEPTION_FAILED
+            switch = getattr(self, "_camera_switch_obj", None)
+            if running and switch is not None and switch.covered:
+                perception_state = PERCEPTION_COVERED
+                reason = ""
             # The Head-Pointer's own state and the pointer it would move -- the daemon is
             # the only process that holds them, and `status` printed "unknown" for both.
             head_facts: dict[str, Any] = {}
@@ -10434,6 +10487,11 @@ class Daemon:
                 self._gaze_refinement.stop()  # click hook off, camera lease back
             except Exception:
                 log.exception("Gaze refinement stop raised")
+        if getattr(self, "_cover_watch", None) is not None:
+            try:
+                self._cover_watch.stop()  # no probe or resume while cameras are closing
+            except Exception:
+                log.exception("Covered-camera watch stop raised")
         # ADR-v2-148 shutdown order: suppress actions first, release backends afterwards,
         # so nothing can fire into a half-closed pointer sink -- and before the camera
         # source below is closed under the Head-Pointer's lease.

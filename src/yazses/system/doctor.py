@@ -1854,6 +1854,61 @@ def _camera_check(
     return ("Camera", "WARN" if gate.blocker in soft else "FAIL", detail)
 
 
+def _camera_cover_check(
+    cfg, platform, camera_row: _Check | None, *, daemon_covered=None, signal=None
+) -> _Check | None:
+    """The covered-camera row (#923) — only with `[camera] cover_detection` on.
+
+    Nothing on a default install, and nothing without a camera feature (no camera row).
+    It never captures a frame: it asks the running daemon which cameras it released as
+    covered, and reads the hardware's privacy signal where the platform has one.
+
+    ``daemon_covered`` (a list of camera indexes) and ``signal``
+    (``index -> bool | None``) are the test seams; both are read here in a real run.
+    """
+    if camera_row is None or not cfg.camera.cover_detection:
+        return None
+    label = "Camera cover"
+    covered = _daemon_covered_cameras(platform) if daemon_covered is None else daemon_covered
+    if covered:
+        which = ", ".join(str(i) for i in covered)
+        return (label, "WARN",
+                f"camera {which} looks covered; YazSes released it\n"
+                "uncover it and it comes back by itself, or run `yazses camera on` to check now")
+    if signal is None:
+        factory = getattr(platform, "camera_cover_factory", None)
+        signal = factory().covered if factory is not None else None
+    indices = {s.camera_index for s in (cfg.gaze, cfg.facegesture) if s.enabled}
+    if cfg.perception.enabled or cfg.headpointer.enabled or cfg.gesture.enabled:
+        indices.add(cfg.perception.camera_index)
+    readings = {} if signal is None else {i: signal(i) for i in sorted(indices)}
+    closed = ", ".join(str(i) for i, reading in readings.items() if reading is True)
+    if closed:
+        return (label, "WARN",
+                f"camera {closed}: the privacy shutter or switch reports closed\n"
+                "open it; camera features cannot see anything while it is closed")
+    if any(reading is False for reading in readings.values()):
+        return (label, "OK",
+                "detection on; a hardware privacy signal reports open, and black frames "
+                "are checked as well")
+    return (label, "OK",
+            "detection on; no hardware privacy signal here, so a cover is judged from "
+            "black frames (thresholds not yet measured across webcams) while a face switch "
+            "or the shared camera is reading")
+
+
+def _daemon_covered_cameras(platform) -> list[int]:
+    """The camera indexes the running daemon released as covered. Read-only, never raises."""
+    try:
+        if not platform.lifecycle.is_running():
+            return []
+        client = platform.ipc_client_factory(platform.paths.ipc_socket)
+        reply = client.call("camera", action="status")
+        return [int(i) for i in reply.get("covered") or []]
+    except Exception:  # noqa: BLE001 - no answer is "nothing known", never a doctor failure
+        return []
+
+
 def _camera_ready(camera_row: _Check | None) -> bool | None:
     """Re-read :func:`_camera_check`'s verdict as a tri-state. Pure.
 
@@ -2645,6 +2700,13 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     camera = _camera_check(perms, cfg)
     if camera is not None:
         checks.append(camera)
+    # A covered camera (#923), under the camera row. Nothing unless detection is on.
+    try:
+        cover = _camera_cover_check(cfg, platform, camera)
+    except Exception:  # pragma: no cover - defensive, like the health rows below
+        cover = ("Camera cover", "SKIP", "unknown — the covered-camera probe failed")
+    if cover is not None:
+        checks.append(cover)
     # OpenCV, beside the camera it serves -- whenever an OpenCV build is installed, not
     # only while a camera feature is on: a half-deleted cv2 is found before the user
     # switches one on and wonders why it crashes.
