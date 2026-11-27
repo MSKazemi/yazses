@@ -226,7 +226,8 @@ class SourceState(str, Enum):
     #: Camera and model are open and the loop is observing.
     RUNNING = "running"
     #: Sensing stopped on a contained failure; :attr:`PerceptionStatus.failure_reason`
-    #: says why. Consumers still hold leases; nothing retries under them.
+    #: says why. Consumers still hold leases; nothing retries under them -- only an
+    #: explicit :meth:`SharedPerceptionSource.resume` (``yazses camera on``) does.
     FAILED = "failed"
 
 
@@ -549,20 +550,26 @@ class SharedPerceptionSource:
         self._drain()
 
     def resume(self) -> None:
-        """Undo :meth:`suspend`: reopen once if any consumer still holds a lease.
+        """Undo :meth:`suspend`, or retry a failed source: open once if a lease is held.
 
-        A reopen that fails leaves the source ``FAILED`` with a reason, as an ordinary
-        first open would; nothing propagates.
+        The retry is the way back from a camera another application was holding
+        (#922): a source that ``FAILED`` is opened again when the user asks, never by
+        itself. A source that is running or already opening is left alone. A reopen
+        that fails leaves the source ``FAILED`` with a reason, as an ordinary first
+        open would; nothing propagates.
         """
         with self._lock:
-            if not self._suspended:
+            was_suspended, self._suspended = self._suspended, False
+            failed = self._state is SourceState.FAILED
+            if not (failed or (was_suspended and self._state is SourceState.DORMANT)):
                 return
-            self._suspended = False
-            if not self._leases or self._state is not SourceState.DORMANT:
+            if not self._leases:
                 return
             self._epoch += 1
             token = self._epoch
             self._state = SourceState.STARTING
+            self._failure = ""
+            self._failure_kind = ""
         self._open(token)
 
     # -- internals ---------------------------------------------------------- #

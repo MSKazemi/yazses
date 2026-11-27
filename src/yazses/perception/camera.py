@@ -51,8 +51,8 @@ def camera_held_message(index: int, *, released: bool = False) -> str:
         return f"camera {int(index)} released; other applications can use it again"
     return (
         f"holding camera {int(index)}: other applications (video calls) cannot use it "
-        "until YazSes releases it - turn off [facegesture], or run "
-        "`systemctl --user stop yazses`"
+        "until YazSes releases it - run `yazses camera off` (dictation keeps working), "
+        "and `yazses camera on` to take it back"
     )
 
 #: Seconds without a single good frame before the camera is declared gone.

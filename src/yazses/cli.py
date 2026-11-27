@@ -6830,6 +6830,8 @@ def _echo_camera(result: dict) -> None:
     failures = result.get("failures") or {}
     for name, reason in failures.items():
         typer.echo(f"  {name}: could not reopen the camera -- {reason}")
+    if on and failures:
+        typer.echo("If another app is using the camera, close it, then retry: yazses camera on")
     if on and holders:
         typer.echo("Before a video call: yazses camera off")
     elif not on:

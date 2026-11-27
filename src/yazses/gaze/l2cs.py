@@ -8,11 +8,16 @@ frames are processed in-RAM and never stored or transmitted (ADR-011).
 """
 from __future__ import annotations
 
+import logging
 import threading
 import time
 
+from yazses.perception.camera import camera_held_message
+
 #: Seconds to leave a camera that would not open alone before trying it again.
 _OPEN_BACKOFF_S = 5.0
+
+log = logging.getLogger(__name__)
 
 
 class L2csGazeBackend:
@@ -42,6 +47,8 @@ class L2csGazeBackend:
 
     #: Earliest ``time.monotonic()`` at which a failed open may be retried.
     _open_retry_at = 0.0
+    #: The index the held device was opened with, for the release log line.
+    _open_index = 0
 
     def _ensure_camera(self):
         with self._camera_lock:
@@ -60,6 +67,8 @@ class L2csGazeBackend:
                     self._open_retry_at = time.monotonic() + _OPEN_BACKOFF_S
                     return None
                 self._camera_failure = ""
+                self._open_index = self._camera_index
+                log.info(camera_held_message(self._open_index))
             return self._cap
 
     def _read_frame(self):
@@ -127,3 +136,4 @@ class L2csGazeBackend:
         if self._cap is not None:
             self._cap.release()
             self._cap = None
+            log.info(camera_held_message(self._open_index, released=True))
