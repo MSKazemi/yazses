@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the Hugging Face preflight now rejects external code (#723)
+
+`scripts/hf_preflight.py` accepted a published page that loaded a script, stylesheet, image or frame from any `https` address, and a Space `requirements.txt` that installed from a URL or another package index. Both now fail the preflight, so they also stop the publish workflow. Links a visitor clicks and metadata such as `rel="canonical"` still pass. A file that is not valid UTF-8 is now reported as a failure instead of ending the run with a traceback. The check reads source text: it does not see a URL that a script builds at run time.
+
 ### Fixed — snap on Wayland: dictated text could not reach the clipboard
 
 The snap's private `XDG_RUNTIME_DIR` does not hold the Wayland socket, so `wl-copy` and `wl-paste` failed with "Failed to connect to a Wayland server": when typing failed, the clipboard fallback failed too and the dictation was lost. The clipboard commands are now given the host socket's full path; the daemon's own environment is unchanged. Where the copy works and nothing can press Ctrl+V, the notification now says the words are on the clipboard instead of that they were not typed.

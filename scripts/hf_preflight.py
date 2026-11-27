@@ -30,6 +30,10 @@ exit status is 1 if there is any):
 * every local reference in ``index.html``/CSS/Markdown resolves to a file that is in the
   upload set (not merely on disk), no root-absolute, ``file:``, ``http:`` or
   localhost links, and in-page ``#anchors`` exist;
+* no HTML, CSS, SVG or JavaScript file loads anything from another server (script,
+  stylesheet, image, font, frame, form target, module import): a link a visitor clicks is
+  fine, a request the page makes by itself is not. A Space's ``requirements.txt`` may name
+  packages and versions only, never a URL, a repository, a local path or a pip option;
 * the benchmark exporter's ``--check`` is current (a read-only subprocess);
 * with ``--require-approved``: every selected destination is ``owner_approved`` and
   ``status == "live"``.
@@ -820,7 +824,7 @@ def check_card(root: Path, name: str, dest: dict, files: list[str], report: Repo
         report.error(where, "README.md (the Hub card) must be in the upload set")
         return
     full = f"{dest['source_dir']}/README.md"
-    text = (root / dest["source_dir"] / "README.md").read_text(encoding="utf-8")
+    text = (root / dest["source_dir"] / "README.md").read_text(encoding="utf-8", errors="replace")
     try:
         card = parse_front_matter(text)
     except ValueError as exc:
@@ -1002,7 +1006,7 @@ def check_references(root: Path, name: str, dest: dict, files: list[str], report
     for rel in files:
         if rel.endswith((".html", ".htm")):
             parser = _HtmlRefs()
-            parser.feed((source / rel).read_text(encoding="utf-8"))
+            parser.feed((source / rel).read_text(encoding="utf-8", errors="replace"))
             parser.close()
             ids[rel] = parser.ids
             html_refs[rel] = parser.refs
@@ -1025,7 +1029,7 @@ def check_references(root: Path, name: str, dest: dict, files: list[str], report
     for rel in files:
         text_suffix = posixpath.splitext(rel)[1].lower()
         if text_suffix == ".css":
-            text = (source / rel).read_text(encoding="utf-8")
+            text = (source / rel).read_text(encoding="utf-8", errors="replace")
             for match in list(_CSS_URL.finditer(text)) + list(_CSS_IMPORT.finditer(text)):
                 line = text.count("\n", 0, match.start()) + 1
                 check(rel, match.group("ref"), line, fragments=False)
@@ -1056,7 +1060,7 @@ def _check_markdown(
     where: str,
     report: Report,
 ) -> None:
-    text = (source / rel).read_text(encoding="utf-8")
+    text = (source / rel).read_text(encoding="utf-8", errors="replace")
     body = _FRONT_MATTER.sub("", text.lstrip("﻿"), count=1)
     body = _MD_FENCE.sub("", body)
     anchors = {_slug(m.group(1)) for m in _MD_HEADING.finditer(body)}
@@ -1076,6 +1080,186 @@ def _check_markdown(
             report.warn(where, f"{full}: #{fragment} matches no heading (card anchors are heading slugs)")
         elif fragment and kind == "local" and target in html_ids and unquote(fragment) not in html_ids[target]:
             report.error(where, f"{full}: #{fragment} does not exist in {target}")
+
+
+# --- external code ---------------------------------------------------------------
+# Default-deny, with no manifest switch: a published page is self-contained, and a Space
+# installs only named packages. This reads the source text, so a URL that a script builds
+# at run time is not seen.
+
+#: ``<link rel=...>`` values that describe the page and make the browser fetch nothing.
+_METADATA_RELS = frozenset({"alternate", "author", "canonical", "help", "license", "me", "next", "prev"})
+#: Attributes that make the browser send a request, whatever element carries them.
+_LOAD_ATTRS = frozenset(
+    {"src", "srcset", "data-src", "data-srcset", "poster", "data", "background", "action", "formaction", "ping"}
+)  # fmt: skip
+#: On these elements ``href`` is navigation: nothing is fetched until the visitor clicks.
+_NAVIGATION_TAGS = frozenset({"a", "area"})
+_REMOTE_PREFIXES = ("http:", "https:", "ws:", "wss:", "ftp:", "//")
+_REFRESH_URL = re.compile(r"""url\s*=\s*['"]?(?P<ref>[^'"]+)""", re.IGNORECASE)
+_REMOTE_LITERAL = r"""\s*['"`](?P<ref>(?:https?:)?//[^'"`\s]+)"""
+#: Specific forms that pull code or a resource into the page. A URL that is merely a string
+#: (a link target, a citation, JSON-LD) matches none of them.
+_JS_REMOTE_LOADS = tuple(
+    re.compile(prefix + _REMOTE_LITERAL)
+    for prefix in (
+        r"""\b(?:import|export)\b[^;'"`()]*?\bfrom\b""",
+        r"\bimport\b",
+        r"\bimport\s*\(",
+        r"\bimportScripts\s*\(",
+        r"\bnew\s+(?:Shared)?Worker\s*\(",
+        r"\.src\s*=",
+    )
+)
+_IMPORT_MAP_URL = re.compile(r':\s*"(?P<ref>(?:https?:)?//[^"\s]+)"')
+#: A package name, optional extras, optional version specifiers, optional environment marker.
+_VERSION = r"(?:===|==|~=|!=|<=|>=|<|>)\s*[A-Za-z0-9.*+!_-]+"
+_PLAIN_REQUIREMENT = re.compile(
+    r"[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?"
+    r"(?:\s*\[[A-Za-z0-9._,\s-]*\])?"
+    rf"(?:\s*{_VERSION}(?:\s*,\s*{_VERSION})*)?"
+    r"(?:\s*;(?:(?!\s-)[^@])*)?"
+)
+#: The pip input files a Space build reads.
+_REQUIREMENT_FILES = frozenset({"requirements.txt", "pre-requirements.txt"})
+
+
+def _is_remote(ref: str) -> bool:
+    # Browsers drop tabs and newlines inside a URL and read a backslash as a slash.
+    cleaned = re.sub(r"[\t\r\n]", "", ref).strip().replace("\\", "/")
+    return cleaned.lower().startswith(_REMOTE_PREFIXES)
+
+
+def _css_loads(text: str) -> list[tuple[str, int]]:
+    return [
+        (m.group("ref"), text.count("\n", 0, m.start()) + 1)
+        for regex in (_CSS_URL, _CSS_IMPORT)
+        for m in regex.finditer(text)
+        if _is_remote(m.group("ref"))
+    ]
+
+
+def _js_loads(text: str, *, import_map: bool = False) -> list[tuple[str, int]]:
+    regexes = (*_JS_REMOTE_LOADS, _IMPORT_MAP_URL) if import_map else _JS_REMOTE_LOADS
+    found = {
+        (m.group("ref"), text.count("\n", 0, m.start("ref")) + 1)
+        for regex in regexes
+        for m in regex.finditer(text)
+    }
+    return sorted(found, key=lambda item: (item[1], item[0]))
+
+
+class _RemoteLoads(html.parser.HTMLParser):
+    """Everything in an HTML or SVG document that is fetched from another server."""
+
+    def __init__(self, line_offset: int = 0) -> None:
+        super().__init__(convert_charrefs=True)
+        self.loads: list[tuple[str, int]] = []
+        self._offset = line_offset
+        self._raw: str | None = None  # "style", "script" or "importmap" while inside one
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        line = self._offset + self.getpos()[0]
+        values = {key: value or "" for key, value in attrs}
+        rels = set(values.get("rel", "").lower().split())
+        metadata_link = tag == "link" and bool(rels) and rels <= _METADATA_RELS
+        for key, value in values.items():
+            refs: list[str] = []
+            if key in ("srcset", "data-srcset"):
+                refs = [c.split()[0] for c in value.split(",") if c.split()]
+            elif key in _LOAD_ATTRS:
+                refs = [value]
+            elif key in ("href", "xlink:href"):
+                if tag not in _NAVIGATION_TAGS and not metadata_link:
+                    refs = [value]
+            elif key == "style":
+                refs = [ref for ref, _ in _css_loads(value)]
+            elif key == "srcdoc":
+                nested = _RemoteLoads(line - 1)
+                nested.feed(value)
+                nested.close()
+                self.loads.extend(nested.loads)
+            elif key.startswith("on"):
+                refs = [ref for ref, _ in _js_loads(value)]
+            self.loads.extend((ref, line) for ref in refs if _is_remote(ref))
+        if tag == "meta" and values.get("http-equiv", "").lower() == "refresh":
+            match = _REFRESH_URL.search(values.get("content", ""))
+            if match and _is_remote(match.group("ref")):
+                self.loads.append((match.group("ref"), line))
+        if tag == "style":
+            self._raw = "style"
+        elif tag == "script":
+            self._raw = "importmap" if values.get("type", "").lower() == "importmap" else "script"
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in ("style", "script"):
+            self._raw = None
+
+    def handle_data(self, data: str) -> None:
+        if self._raw is None:
+            return
+        base = self._offset + self.getpos()[0] - 1
+        if self._raw == "style":
+            found = _css_loads(data)
+        else:
+            found = _js_loads(data, import_map=self._raw == "importmap")
+        self.loads.extend((ref, base + line) for ref, line in found)
+
+
+def remote_loads(rel: str, text: str) -> list[tuple[str, int]]:
+    """``(url, line)`` for everything `rel` makes a visitor's browser fetch from elsewhere."""
+    suffix = posixpath.splitext(rel)[1].lower()
+    if suffix in (".html", ".htm", ".svg"):
+        parser = _RemoteLoads()
+        parser.feed(text)
+        parser.close()
+        return parser.loads
+    if suffix == ".css":
+        return _css_loads(text)
+    if suffix == ".js":
+        return _js_loads(text)
+    return []
+
+
+def unsafe_requirement_lines(text: str) -> list[int]:
+    """Line numbers that are anything but a comment or a plain named requirement."""
+    bad = []
+    for number, raw in enumerate(text.splitlines(), start=1):
+        line = re.sub(r"(?:^|\s)#.*$", "", raw).strip()
+        if line and not _PLAIN_REQUIREMENT.fullmatch(line):
+            bad.append(number)
+    return bad
+
+
+def check_external_code(root: Path, name: str, dest: dict, files: list[str], report: Report) -> None:
+    where = f"destination {name}"
+    source = root / dest["source_dir"]
+    for rel in files:
+        suffix = posixpath.splitext(rel)[1].lower()
+        pip_input = posixpath.basename(rel) in _REQUIREMENT_FILES
+        if not pip_input and suffix not in (".html", ".htm", ".svg", ".css", ".js"):
+            continue
+        # Invalid UTF-8 is reported by scan_for_leaks; keep going so every failure is listed.
+        text = (source / rel).read_text(encoding="utf-8", errors="replace")
+        full = f"{dest['source_dir']}/{rel}"
+        if pip_input:
+            for line in unsafe_requirement_lines(text):
+                # The line is not echoed: an index URL can carry a password.
+                report.error(
+                    where,
+                    f"{full}:{line}: only a package name with version specifiers is allowed "
+                    "(no URL, repository, local path or pip option)",
+                )
+            continue
+        for ref, line in remote_loads(rel, text):
+            # Without the query string, which can carry a key.
+            shown = re.split(r"[?#]", ref.strip(), maxsplit=1)[0]
+            if "@" in shown:
+                shown = "(URL not shown)"
+            report.error(
+                where,
+                f"{full}:{line}: loads {shown} from another server; ship the file in the upload set",
+            )
 
 
 # --- export check ----------------------------------------------------------------
@@ -1177,6 +1361,7 @@ def validate_destination(
     scan_for_leaks(root, name, dest, files, report)
     check_card(root, name, dest, files, report)
     check_references(root, name, dest, files, report)
+    check_external_code(root, name, dest, files, report)
     for extra in unlisted_files(root, dest, files):
         report.warn(
             f"destination {name}",
