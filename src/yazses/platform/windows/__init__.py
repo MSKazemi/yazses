@@ -72,6 +72,7 @@ def build_platform() -> Platform:
     from yazses.platform.windows.ipc import (
         NamedPipeIpcClient,
         NamedPipeIpcServer,
+        window_endpoint_name,
     )
     from yazses.platform.windows.lifecycle import WindowsLifecycle
     from yazses.platform.windows.permissions import WindowsPermissions
@@ -107,6 +108,7 @@ def build_platform() -> Platform:
         # The foreground window's process image name ("Code.exe"), for editor command
         # profiles under `[commands] profile = "auto"`. Constructing it reads nothing.
         focused_app_factory=WindowsFocusedApp,
+        local_endpoint=window_endpoint_name,
     )
 
 

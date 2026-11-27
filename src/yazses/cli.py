@@ -2192,13 +2192,25 @@ def tray(
         raise typer.Exit(1) from None
 
 
+#: The keys `settings --page` accepts, spelled out so that `--help` does not import the
+#: window's package; `tests/test_tray_settings_parity.py` holds it equal to `PAGE_KEYS`.
+_SETTINGS_PAGES = (
+    "overview, dictation, meetings, files, commands, features, accessibility, speech, "
+    "audio, general, handsfree, updates"
+)
+
+
 @app.command(
     rich_help_panel=_DAEMON,
     epilog=_examples(
         "yazses settings    open the settings window (needs a graphical session)",
+        "yazses settings --page meetings    open it on the Meetings page",
     ),
 )
 def settings(
+    page: Optional[str] = typer.Option(
+        None, "--page", metavar="KEY",
+        help="Open the window on this page: " + _SETTINGS_PAGES + "."),
     install_launcher: bool = typer.Option(
         False, "--install-launcher",
         help="Add 'YazSes Settings' to your desktop app grid, then exit."),
@@ -2212,6 +2224,9 @@ def settings(
     the two never disagree. Needs a graphical session (no system tray required);
     on a headless or SSH machine use `yazses features` instead. Restart the daemon
     after applying changes: `yazses restart`.
+
+    There is one window: if it is already open, it is brought to the front (on the
+    `--page` asked for) and no second window opens.
 
     `--install-launcher` puts an entry in your application menu. A .deb or snap
     does this for you; a pipx or uv-tool install cannot write outside its own
@@ -2236,9 +2251,16 @@ def settings(
         typer.echo(result.describe())
         raise typer.Exit(0 if result.installed else 1)
 
+    # Imported here: the window's package is not part of an ordinary start.
+    from yazses.settingsui.pages import resolve_page
+
+    if page is not None and resolve_page(page) is None:
+        typer.echo(f"There is no page named {page!r}. Pages: {_SETTINGS_PAGES}", err=True)
+        raise typer.Exit(2)
+
     from yazses.settingsui.app import run as run_settings
 
-    run_settings()
+    run_settings(resolve_page(page))
 
 
 def _warn_unmet_prereqs() -> None:

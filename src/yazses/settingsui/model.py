@@ -17,6 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from yazses.config import Config
+from yazses.settingsui.palette import normalise_theme
 from yazses.system.features import EXPERIMENTAL, Feature, default_state, grouped_features
 
 
@@ -113,6 +114,8 @@ class SettingsModel:
     # `[accessibility] pre_speech_padding_ms` — silence prepended before decode so
     # faster-whisper does not clip the first word.
     pre_speech_padding_ms: int = 300
+    # `[window] theme` — this window's own colours.
+    window_theme: str = "violet-dark"
 
     def rows(self) -> tuple[SettingRow, ...]:
         return tuple(row for group in self.groups for row in group.rows)
@@ -154,6 +157,7 @@ def build_settings_model(cfg: Config) -> SettingsModel:
         initial_prompt=cfg.stt.initial_prompt,
         target_guard=cfg.injection.target_guard,
         pre_speech_padding_ms=cfg.accessibility.pre_speech_padding_ms,
+        window_theme=normalise_theme(cfg.window.theme),
     )
 
 

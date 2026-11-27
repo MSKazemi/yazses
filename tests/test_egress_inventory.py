@@ -233,6 +233,21 @@ _DEPENDENCY_LOADERS = frozenset(
      "download_model", "snapshot_download", "hf_hub_download", "MoonshineOnnxModel"}
 )
 
+#: Local sockets opened through Qt. `_NETWORK_ROOTS` names top-level packages, so a
+#: `PySide6.QtNetwork` import is invisible to the scan above although the same Qt module
+#: also holds TCP, UDP and HTTP clients. It has its own scan, and its own proof that only
+#: the two local-socket classes are taken from it.
+QT_LOCAL = {
+    "settingsui/single_window_qt.py": (
+        "`QLocalServer` / `QLocalSocket`: a Unix domain socket in the user's runtime "
+        "directory, or a named pipe on Windows, through which a second `yazses settings` "
+        "asks the open window to come to the front. Carries a page name and the desktop's "
+        "activation token, never anything the user said"
+    ),
+}
+#: The only names a `QT_LOCAL` module may import from `PySide6.QtNetwork`.
+_QT_LOCAL_CLASSES = frozenset({"QLocalServer", "QLocalSocket"})
+
 ALLOWED = {**FETCH, **SEND, **LOCAL_IPC, **LOCAL_BOUND, **HANDOFF}
 
 #: Programs that can open an outbound connection when spawned. Conservative for the same
@@ -446,6 +461,52 @@ def test_the_ipc_sockets_stay_local_only(module: str):
         f"{module} mentions AF_INET. A network-family IPC socket makes the daemon "
         f"reachable from another machine; that is an ADR-019 change, not a refactor."
     )
+
+
+@scan_once
+def _modules_importing_qt_network() -> dict[str, list[str]]:
+    """Every `yazses` module importing from `PySide6.QtNetwork`, and which names.
+
+    `*` stands for the module taken whole, which could reach any class in it.
+    """
+    found: dict[str, list[str]] = {}
+    for path in sorted(SRC.rglob("*.py")):
+        if "__pycache__" in path.parts:
+            continue
+        text = path.read_text(encoding="utf-8")
+        if "QtNetwork" not in text:
+            continue
+        hits: set[str] = set()
+        for node in ast.walk(ast.parse(text)):
+            if isinstance(node, ast.Import):
+                hits.update("*" for a in node.names if a.name.startswith("PySide6.QtNetwork"))
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                if node.module.startswith("PySide6.QtNetwork"):
+                    hits.update(a.name for a in node.names)
+                elif node.module == "PySide6":
+                    hits.update("*" for a in node.names if a.name == "QtNetwork")
+        if hits:
+            found[path.relative_to(SRC).as_posix()] = sorted(hits)
+    return found
+
+
+def test_every_qt_network_import_is_declared():
+    assert set(_modules_importing_qt_network()) == set(QT_LOCAL), (
+        "the modules importing PySide6.QtNetwork differ from QT_LOCAL. A new one needs a "
+        "row here and in ADR-019; anything that is not a local socket needs a decision"
+    )
+
+
+@pytest.mark.parametrize("module", sorted(QT_LOCAL))
+def test_qt_networking_stays_a_local_socket(module: str):
+    """`QTcpServer` is one word away from `QLocalServer`, in the same Qt module."""
+    names = set(_modules_importing_qt_network()[module])
+    assert names <= _QT_LOCAL_CLASSES, (
+        f"{module} imports {sorted(names - _QT_LOCAL_CLASSES)} from PySide6.QtNetwork — "
+        f"that is an ADR-019 change, not a refactor"
+    )
+    adr = SRC.parent.parent / "design/adr/adr-019-egress-inventory-and-escalation.md"
+    assert module in adr.read_text(encoding="utf-8")
 
 
 def test_the_remote_agent_listens_only_on_loopback():
@@ -936,7 +997,7 @@ def test_the_class_a_count_in_adr_019_is_computed_not_written():
 _INVENTORIES = {
     "FETCH": FETCH, "SEND": SEND, "LOCAL_IPC": LOCAL_IPC, "LOCAL_BOUND": LOCAL_BOUND,
     "HANDOFF": HANDOFF, "SHELL_OUT": SHELL_OUT, "DEPENDENCY_FETCH": DEPENDENCY_FETCH,
-    "FETCH_VIA": FETCH_VIA,
+    "FETCH_VIA": FETCH_VIA, "QT_LOCAL": QT_LOCAL,
 }
 
 

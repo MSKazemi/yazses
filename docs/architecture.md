@@ -71,6 +71,12 @@ zero, because a daemon that dies while loading a model would otherwise be report
 as restarted. Declining keeps a persistent "restart pending" hint. Decisions live
 in `settingsui/restart.py` (Qt-free, IPC injected); the dialog is dumb.
 
+**There is one window.** Two windows editing one config file could overwrite each
+other, so a second launch takes an operating-system lock, finds it held, sends the
+open window the page it was asked for over a local socket (a Unix socket, or a named
+pipe on Windows) and exits. The lock decides who is first, so a crash leaves nothing
+that blocks the next launch (`settingsui/single_window.py`).
+
 **A row you cannot reach cannot explain itself.** `yazses features` has had
 `--on`/`--tier`/`--category` since it was written; the window had none of it, so
 the only way to a capability was to scroll past every other one.
@@ -850,6 +856,10 @@ table of its own, so the same daemon state was a different colour on Windows tha
 command mode and "no text field focused" had no colour at all, and five of the twelve tray
 states — Meeting Mode among them — fell through to idle blue. A second implementation of a
 policy is a second policy.
+
+The same holds for what to do about a problem. The fix at the top of each tray menu and the
+button on the window's Overview page come from one function,
+`settingsui/overview.py::health`, read by the trays through `tray/menu.py::fix_entry`.
 
 **One renderer draws the mark everywhere.** `brandmark.py` redraws `contrib/icons/yazses.svg`
 in Pillow, and the live tray badge, the packaged `.ico`/`.icns` (`scripts/gen-icons.py`) and

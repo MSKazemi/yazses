@@ -26,7 +26,7 @@ from dataclasses import dataclass
 
 from yazses.ipc.client import IpcCallError, IpcUnreachableError
 from yazses.platform import TrayModel, TrayState, get_platform
-from yazses.tray.menu import _RECORDING_STATES
+from yazses.tray.menu import _RECORDING_STATES, DAEMON_DOWN, DAEMON_UNRESPONSIVE
 
 log = logging.getLogger(__name__)
 
@@ -610,6 +610,18 @@ def run() -> None:
                             if isinstance(info.get("permissions"), dict)
                             else None
                         ),
+                        # The menu's fix entry: a loading model offers nothing, and
+                        # the silent-clip limit is the daemon's own.
+                        ready=(
+                            info.get("ready")
+                            if isinstance(info.get("ready"), bool)
+                            else None
+                        ),
+                        silent_streak_threshold=(
+                            info.get("silent_streak_threshold")
+                            if isinstance(info.get("silent_streak_threshold"), int)
+                            else None
+                        ),
                     )
                 )
                 # Toasts the daemon could not show itself (no libnotify — Windows,
@@ -630,12 +642,13 @@ def run() -> None:
                 if unreachable_since is None:
                     unreachable_since = now
                 since = unreachable_since if ever_connected else started
+                # Ask the lifecycle, not the socket: a daemon can be alive and
+                # wedged, and that must not be answered by spawning another.
+                running = _daemon_running(platform)
                 decision = unreachable_decision(
                     ever_connected,
                     now - since,
-                    # Ask the lifecycle, not the socket: a daemon can be alive and
-                    # wedged, and that must not be answered by spawning another.
-                    daemon_running=_daemon_running(platform),
+                    daemon_running=running,
                     relaunches=relaunches,
                     since_relaunch_s=(None if last_relaunch is None else now - last_relaunch),
                     stop_requested=stop_requested_since(
@@ -656,7 +669,10 @@ def run() -> None:
                     # pass reaches the daemon and the icon follows it, so keep looking.
                     tray.set_state(
                         TrayModel(
-                            state=TrayState.ERROR, last_error=_GIVE_UP_REASON, model=""
+                            state=TrayState.ERROR,
+                            last_error=_GIVE_UP_REASON,
+                            model="",
+                            daemon_reach=_daemon_reach(TrayState.ERROR, running),
                         )
                     )
                     stop_event.wait(_GIVE_UP_POLL_INTERVAL_S)
@@ -665,7 +681,12 @@ def run() -> None:
                     # `model=""`: no daemon answered, so no model is known. The
                     # dataclass default ("tiny.en") would otherwise be shown as the
                     # model on the macOS menu's status line.
-                    TrayModel(state=decision.state, last_error=decision.last_error, model="")
+                    TrayModel(
+                        state=decision.state,
+                        last_error=decision.last_error,
+                        model="",
+                        daemon_reach=_daemon_reach(decision.state, running),
+                    )
                 )
                 if decision.relaunch:
                     relaunches += 1
@@ -685,7 +706,13 @@ def run() -> None:
             except IpcCallError as exc:
                 log.warning("status RPC failed: %s", exc)
                 tray.set_state(
-                    TrayModel(state=TrayState.ERROR, last_error=str(exc), model="")
+                    TrayModel(
+                        state=TrayState.ERROR,
+                        last_error=str(exc),
+                        model="",
+                        # It answered, with an error: the window calls that busy.
+                        daemon_reach=DAEMON_UNRESPONSIVE,
+                    )
                 )
             except Exception:
                 crashes += 1
@@ -697,7 +724,12 @@ def run() -> None:
                 try:
                     tray.set_state(
                         TrayModel(
-                            state=TrayState.ERROR, last_error=_POLLER_CRASH_REASON, model=""
+                            state=TrayState.ERROR,
+                            last_error=_POLLER_CRASH_REASON,
+                            model="",
+                            # A fault in the tray says nothing about the daemon, so
+                            # no fix is offered.
+                            daemon_reach=DAEMON_UNRESPONSIVE,
                         )
                     )
                 except Exception:
@@ -809,6 +841,17 @@ def _daemon_running(platform) -> bool:  # noqa: ANN001 - the Platform bundle
     except Exception:
         log.debug("daemon liveness probe failed", exc_info=True)
         return True
+
+
+def _daemon_reach(state: TrayState, running: bool) -> str:
+    """``TrayModel.daemon_reach`` for a poll that got no status reply. Pure.
+
+    Only a reported fault carries it. A daemon that is starting, restarting or stopping on
+    purpose is shown as loading, and the menu must not offer to start it meanwhile.
+    """
+    if state is not TrayState.ERROR:
+        return ""
+    return DAEMON_UNRESPONSIVE if running else DAEMON_DOWN
 
 
 def _state_from_string(s: object) -> TrayState:

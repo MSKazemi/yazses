@@ -27,11 +27,35 @@ class PageSpec:
 
 PAGES: tuple[PageSpec, ...] = (
     PageSpec(
-        "general", "General", "General",
-        "The key you hold to dictate, and how changes here are saved.",
+        "overview", "Overview", "Overview",
+        "Whether dictation works right now, and what to do if it does not.",
     ),
     PageSpec(
-        "speech", "Speech", "Speech",
+        "dictation", "Dictation", "Dictation",
+        "Hold your key, speak, release. Try it here and choose how text is written.",
+    ),
+    PageSpec(
+        "meetings", "Meetings", "Meetings",
+        "Record a meeting hands-free and get a transcript that says who spoke.",
+    ),
+    PageSpec(
+        "files", "File transcription", "File transcription",
+        "Turn an audio or video file into text or subtitles on this computer.",
+    ),
+    PageSpec(
+        "commands", "Voice commands", "Voice commands",
+        "Short phrases that edit, move and save instead of being typed.",
+    ),
+    PageSpec(
+        "features", "Features", "Features",
+        "Turn capabilities on or off. Hover a row, or click ? for details and examples.",
+    ),
+    PageSpec(
+        "accessibility", "Accessibility", "Accessibility",
+        "How YazSes tells you what is happening, and ways to control it without hands.",
+    ),
+    PageSpec(
+        "speech", "Models", "Models and speech",
         "Which model hears you, in what language, and how the text reaches your window.",
     ),
     PageSpec(
@@ -39,8 +63,8 @@ PAGES: tuple[PageSpec, ...] = (
         "Your microphone, and the level below which audio counts as silence.",
     ),
     PageSpec(
-        "features", "Features", "Features",
-        "Turn capabilities on or off. Hover a row, or click ? for details and examples.",
+        "general", "General", "General",
+        "The key you hold to dictate, this window's look, and what can leave this computer.",
     ),
     PageSpec(
         "handsfree", "Hands-free", "Hands-free",
@@ -51,6 +75,38 @@ PAGES: tuple[PageSpec, ...] = (
         "Check for a newer version and finish installing libraries for features you turned on.",
     ),
 )
+
+#: Every page's key: what ``yazses settings --page`` accepts.
+PAGE_KEYS: tuple[str, ...] = tuple(spec.key for spec in PAGES)
+
+#: The option `yazses settings` and `yazses-settings` take to open on a given page.
+PAGE_FLAG = "--page"
+
+
+def resolve_page(name: str | None) -> str | None:
+    """The page key *name* refers to (case and spaces ignored), or ``None`` if none does."""
+    key = (name or "").strip().lower()
+    return key if key in PAGE_KEYS else None
+
+
+def page_from_argv(argv: Sequence[str]) -> str | None:
+    """What followed ``--page`` (or ``--page=``) in *argv*, unchecked; ``None`` if absent.
+
+    The window's own entry point has no argument parser: `yazses-settings`, the bundle's
+    ``--settings`` and ``-m`` all hand it a bare argv, and anything else in it is Qt's.
+    The last occurrence wins, as it does in `yazses settings`.
+    """
+    found: str | None = None
+    for index, arg in enumerate(argv):
+        if arg == PAGE_FLAG:
+            found = argv[index + 1] if index + 1 < len(argv) else ""
+        elif arg.startswith(f"{PAGE_FLAG}="):
+            found = arg[len(PAGE_FLAG) + 1:]
+    return found
+
+
+#: How many pages get a ``Ctrl+<digit>`` shortcut: the keyboard has nine.
+SHORTCUT_PAGES = 9
 
 #: Appended to a sidebar label while its page holds changes that Apply has not written.
 DIRTY_MARK = " •"
@@ -63,6 +119,7 @@ DIRTY_MARK = " •"
 #: honest. Features is absent on purpose: it is dirty because capabilities are staged.
 FIELD_PAGES: dict[str, str] = {
     "_hotkey_baseline": "general",
+    "_theme_baseline": "general",
     "_profile_baseline": "speech",
     "_model_baseline": "speech",
     "_language_baseline": "speech",

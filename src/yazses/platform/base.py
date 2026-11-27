@@ -146,6 +146,14 @@ class TrayModel:
     # daemon. `tray/menu.py::top_warning` turns a refused switch into a menu line. Left
     # out of the hash for the reason `stt_residency` is.
     permissions: dict[str, Any] | None = field(default=None, hash=False)
+    # What the menu's fix entry reads besides the fields above (`tray/menu.py::fix_entry`).
+    # `ready` is False while the model loads; None on a daemon that did not say.
+    ready: bool | None = None
+    # `[audio] silent_streak_threshold`; None means the default of 3.
+    silent_streak_threshold: int | None = None
+    # Set by the poller when no status reply came back: "down" (no daemon process) or
+    # "unresponsive". "" when the daemon answered, or while it is starting or restarting.
+    daemon_reach: str = ""
 
 
 @dataclass(frozen=True)
@@ -770,6 +778,23 @@ because the guard it feeds must fire only on a specific, checkable signal (ADR-0
 """
 
 
+LocalEndpointNamer = Callable[[Paths, str], str]
+"""Names the endpoint a YazSes window listens on for later launches of itself.
+
+Given the platform's paths and a short tag naming one user's window, returns what the local
+socket listens on: a socket file path, or a bare pipe name where local sockets are not files.
+It names; it creates nothing. Never a network address (ADR-019).
+"""
+
+
+def socket_file_endpoint(paths: Paths, tag: str) -> str:
+    """The default `Platform.local_endpoint`: a socket file in the per-user runtime directory.
+
+    The name is short because a Unix socket path is limited to about 104 bytes on macOS.
+    """
+    return str(paths.state_dir / f"ui-{tag}.sock")
+
+
 @dataclass(frozen=True)
 class Platform:
     """Bundle of concrete backends for the current OS."""
@@ -847,4 +872,7 @@ class Platform:
     # `[camera] cover_detection`. Linux sets it (V4L2 privacy control, lens-cover input
     # switch); None elsewhere, where a covered camera is judged from its frames.
     camera_cover_factory: CameraCoverSignalFactory | None = None
+    # Names the local socket through which a second `yazses settings` reaches the open
+    # window. The default is a socket file; Windows names a pipe instead.
+    local_endpoint: LocalEndpointNamer = socket_file_endpoint
     extras: dict[str, Any] = field(default_factory=dict)

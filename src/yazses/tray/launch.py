@@ -38,6 +38,7 @@ def should_launch_tray(
 def settings_command(
     subcommand: str = "settings",
     *,
+    page: str = "",
     frozen: bool | None = None,
     executable: Path | None = None,
     which: Callable[[str], str | None] | None = None,
@@ -45,6 +46,9 @@ def settings_command(
     exists: Callable[[Path], bool] | None = None,
 ) -> list[str]:
     """The argv that runs ``yazses <subcommand>`` on *this* install.
+
+    *page* opens the settings window on that page (``--page <key>``); it is ignored for
+    any other subcommand.
 
     A frozen bundle is asked through its own mode flag; otherwise a console script
     beside the running interpreter wins, then one on PATH, then ``-m``. The full
@@ -61,10 +65,13 @@ def settings_command(
     the Settings button pointed at a file that does not exist. The sibling is now
     tested for rather than assumed from the platform.
     """
+    from yazses.settingsui.pages import PAGE_FLAG
     from yazses.system.relaunch import Mode, command_for
 
     mode = Mode.SETTINGS if subcommand == "settings" else Mode.CLI
-    extra = () if subcommand == "settings" else (subcommand,)
+    extra: tuple[str, ...] = (subcommand,)
+    if mode == Mode.SETTINGS:
+        extra = (PAGE_FLAG, page) if page else ()
     return command_for(
         mode, *extra, frozen=frozen, executable=executable, which=which,
         windows=windows, exists=exists,

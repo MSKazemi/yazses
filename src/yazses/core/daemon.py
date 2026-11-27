@@ -10215,7 +10215,7 @@ class Daemon:
         return {"ok": True, "device": device}
 
     def _handle_recalibrate_mic(self, _request: Request) -> dict[str, object]:
-        """Re-measure the active mic and write vad_threshold. Async (records ~3s)."""
+        """Re-measure the active mic and write vad_threshold. Async (takes about 9 s)."""
         with self._lock:
             busy = self._state.state != TrayState.IDLE
         if busy:

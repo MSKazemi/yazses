@@ -29,8 +29,16 @@ _BLUE = "#1a73e8"       # normal / ready / idle
 _RED = "#e53935"        # problem — error or silent-streak
 # Mirrors AudioConfig.silent_streak_threshold; used when status doesn't carry it.
 _DEFAULT_SILENT_STREAK_LIMIT = 3
-# Label for the menu entry that opens the graphical settings window (`yazses settings`).
+# The entry that opens the desktop window on its first page (`yazses settings`).
+OPEN_LABEL = "Open YazSes"
+# Label for the entry that opens the same window on its settings
+# (`yazses settings --page features`).
 SETTINGS_LABEL = "Settings…"
+#: The page **Settings…** opens on: the list of every capability.
+SETTINGS_PAGE = "features"
+#: ``status["daemon_reach"]``: set by the tray's poller when no status reply came back.
+DAEMON_DOWN = "down"                  # no daemon process
+DAEMON_UNRESPONSIVE = "unresponsive"  # alive, or unknown: no usable answer
 # The three entries that answer the questions a user has *at the icon*: what am I
 # running, where do I get help, is there a newer version. One constant each, imported by
 # all three trays, so the same menu cannot come to mean different things per OS (#63).
@@ -67,6 +75,14 @@ class DeviceItem:
 
 
 @dataclass(frozen=True)
+class FixEntry:
+    """The one fix offered at the top of the menu while the daemon has a problem."""
+
+    action: str   # "start" | "restart" | "recalibrate" (`overview.Health.action`)
+    text: str     # the menu line: the window's button text, then its heading
+
+
+@dataclass(frozen=True)
 class TrayMenuModel:
     """Everything the tray needs to render its menu, derived purely from status."""
 
@@ -84,6 +100,31 @@ class TrayMenuModel:
     # page. The icon turns yellow and the tooltip says so; a menu has to as well, or a
     # tray whose icon cannot be seen (a GNOME appindicator, a crowded panel) hides it.
     target_warning: str | None = None
+    # The first menu entry while there is something one click can fix (`fix_entry`).
+    fix: FixEntry | None = None
+
+
+def fix_entry(status: dict) -> FixEntry | None:
+    """The fix to offer for *status*, or ``None`` when there is nothing to offer. Pure.
+
+    The decision is the window's own (`settingsui/overview.py::health`), so the Overview
+    page and the tray cannot offer different fixes for one daemon. All this adds is the
+    translation of ``daemon_reach`` into the two replies the window gets without a status:
+    ``None`` for a daemon that is not running, and ``UNRESPONSIVE`` for one that is alive
+    but did not answer, which offers nothing.
+    """
+    from yazses.settingsui import overview
+
+    reach = status.get("daemon_reach")
+    if reach == DAEMON_DOWN:
+        found = overview.health(None)
+    elif reach == DAEMON_UNRESPONSIVE:
+        found = overview.health(overview.UNRESPONSIVE)
+    else:
+        found = overview.health(status)
+    if not found.action:
+        return None
+    return FixEntry(found.action, f"{found.action_label} — {found.title}")
 
 
 def build_menu_model(
@@ -128,6 +169,7 @@ def build_menu_model(
         settings_label=SETTINGS_LABEL,
         residency=residency_line(status),
         target_warning=no_target_warning(status),
+        fix=fix_entry(status),
     )
 
 
@@ -573,6 +615,11 @@ def status_from_model(model: TrayModel) -> dict:
         "last_error": model.last_error,
         # The camera switch (#924), read by `tray/camera.py::camera_entry`.
         "camera": model.camera,
+        # What `fix_entry` needs beyond the keys above, so the static menus offer the
+        # same fix as the Linux menu and the window.
+        "ready": model.ready,
+        "silent_streak_threshold": model.silent_streak_threshold,
+        "daemon_reach": model.daemon_reach,
     }
 
 

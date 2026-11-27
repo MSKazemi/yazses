@@ -53,6 +53,7 @@ _SETTING_KEYS = frozenset({
     "position", "preset", "read_back", "reduced_motion", "scheme", "source", "style",
     "target", "target_guard", "tune_model", "vad_backend", "vad_source", "voice",
     "zones",
+    "theme",
 })
 
 #: Non-vacuity. An empty traversal would make every assertion below trivially true,

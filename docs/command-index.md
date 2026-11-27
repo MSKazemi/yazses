@@ -871,6 +871,7 @@ Open a desktop AI app with your text filled in — never sent; you press Enter.
 
 Open the Settings window — every capability as a toggle, grouped by category.
 
+- `--page` — Open the window on this page: overview, dictation, meetings, files, commands, features, accessibility, speech, audio, general, handsfree, updates.
 - `--install-launcher` — Add 'YazSes Settings' to your desktop app grid, then exit.
 - `--uninstall-launcher` — Remove the app-grid entry and its icons, then exit.
 

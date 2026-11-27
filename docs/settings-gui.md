@@ -9,7 +9,7 @@ Everything YazSes can do is a switch, and this is the switchboard. It writes the
 same `config.toml` keys as `yazses features enable/disable`, so the window and the
 CLI can never disagree about what is on.
 
-![The YazSes Settings window on its Features page: a sidebar with General, Speech, Audio, Features, Hands-free and Updates; a search box; a category list with how many capabilities are on in each; the Core dictation capabilities as checkboxes with a one-line description and a ? button each; and Restore defaults / Apply pinned along the bottom](screenshots/settings-window.png)
+![The YazSes Settings window on its Features page: a sidebar of pages under the YazSes mark; a search box; a category list with how many capabilities are on in each; the Core dictation capabilities as checkboxes with a one-line description and a ? button each; and Restore defaults / Apply pinned along the bottom](screenshots/settings-window.png)
 
 ## Opening it
 
@@ -25,28 +25,81 @@ Three ways, all the same window:
 
   (`--uninstall-launcher` removes it again.)
 
-- **From the tray** — click the "Y" badge → **Settings…**. Present on Linux, macOS
-  and Windows.
+- **From the tray** — click the "Y" badge → **Open YazSes** for the Overview page, or
+  **Settings…** for the Features page. Present on Linux, macOS and Windows. When
+  something is wrong, the first entry of that menu offers the same fix as Overview does
+  ([the tray menu](tray-and-overlay.md)).
 
-- **From a terminal** — `yazses settings`.
+- **From a terminal** — `yazses settings`, or `yazses settings --page <key>` to open on
+  a particular page. The keys are `overview`, `dictation`, `meetings`, `files`,
+  `commands`, `features`, `accessibility`, `speech` (the **Models** page), `audio`,
+  `general`, `handsfree` and `updates`.
 
 It needs a graphical session but **not** a system tray. On a headless or SSH
 machine use `yazses features` instead, which does the same job in text.
 
+### One window
+
+There is only one window for your settings file. If it is already open, opening it
+again by any of the three ways starts nothing new: the open window comes to the front,
+on the page you asked for if you named one, with your unapplied changes still staged.
+`yazses settings` then returns at once and says so.
+
+Some desktops, Wayland ones in particular, do not let a program take the focus by
+itself; there the window may only be marked as wanting attention. If the open window
+does not respond within 10 seconds, a message says so and no second window is opened:
+switch to it, or close it (the message names its process) and try again.
+
 ## The layout
 
-A sidebar on the left holds six pages, and one shows at a time:
+A sidebar on the left holds twelve pages, and one shows at a time. The first seven are
+for doing things; the rest configure them. The window opens on **Overview**.
 
 | Page | What is on it | Jump |
 |---|---|---|
-| **General** | the hold-to-talk key | `Ctrl+1` |
-| **Speech** | model, language, vocabulary, text injection and the rest of [Speech and text output](#speech-and-text-output) | `Ctrl+2` |
-| **Audio** | microphone, silence threshold and the live level meter | `Ctrl+3` |
-| **Features** | every capability as a checkbox, with search and a category list | `Ctrl+4` |
-| **Hands-free** | the camera-driven hands-free controls themselves: state, Pause / Resume / Recenter, ways to stop, and setup | `Ctrl+5` |
-| **Updates** | the version you run, **Check for updates**, and **Install now** for dormant features | `Ctrl+6` |
+| **Overview** | whether dictation works right now, with one button to fix it if not, and a system check | `Ctrl+1` |
+| **Dictation** | your key, the level while you hold it, a practice box, and the writing options | `Ctrl+2` |
+| **Meetings** | start and stop a meeting, read stored transcripts, name the speakers, export | `Ctrl+3` |
+| **File transcription** | turn an audio or video file into text or subtitles | `Ctrl+4` |
+| **Voice commands** | example phrases you can search, and the command capabilities | `Ctrl+5` |
+| **Features** | every capability as a checkbox, with search and a category list | `Ctrl+6` |
+| **Accessibility** | one card for each accessibility capability | `Ctrl+7` |
+| **Models** | model, language, vocabulary, text injection and the rest of [Speech and text output](#speech-and-text-output) | `Ctrl+8` |
+| **Audio** | microphone, silence threshold and the live level meter | `Ctrl+9` |
+| **General** | the hold-to-talk key, the window's look, and what can leave this computer | |
+| **Hands-free** | the camera-driven hands-free controls themselves: state, Pause / Resume / Recenter, ways to stop, and setup | |
+| **Updates** | the version you run, **Check for updates**, and **Install now** for dormant features | |
 
 `Ctrl+F` goes straight to the capability search from any page.
+
+### The app pages
+
+![The Overview page in the dark violet look: a sidebar of pages, a green Ready to dictate status, the hold-to-talk key between two sound waves, buttons that open Dictation, Meetings and File transcription, and a system check](screenshots/settings-overview.png)
+
+**Overview** says one thing at a time, most important first: not running (**Start
+YazSes**), an error (**Restart YazSes**), a microphone that heard nothing several times
+in a row (**Recalibrate microphone**), or ready.
+
+**Dictation** has a practice box. Click in it, hold your key, speak and release, and
+your words arrive there like in any other text field. The window does not save them.
+
+**Meetings** needs [Meeting Mode](meeting-notes-offline.md) turned on; the page offers the switch.
+Speaker names are added after you stop. **Save speaker names** does what
+`yazses meeting relabel` does, and **Export…** writes a copy without changing the stored
+meeting.
+
+**File transcription** runs `yazses transcribe` and writes the transcript beside your
+file, asking before it replaces one that is already there. **Cancel** ends it. The list of
+files transcribed lasts until the window closes.
+
+A switch on any of these pages is the same switch as its checkbox on **Features**:
+nothing is written until you click **Apply**.
+
+### The window's look
+
+**General → Window look** offers **Dark violet** (the default), **Light violet** and
+**Match my desktop**. It previews as you choose and is saved by **Apply**, as
+`[window] theme` in `config.toml`. No restart is needed.
 
 Three things stay put whichever page you are on. **Restore defaults** and **Apply** sit in
 a footer that never scrolls away. The line above them says what is staged. And if a

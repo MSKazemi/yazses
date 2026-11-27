@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import threading
 
+import pytest
+
 from yazses.platform.linux.tray import LinuxTray
 from yazses.system.updater import UpdateStatus
 
@@ -222,3 +224,67 @@ def test_a_help_link_that_opens_says_nothing():
     tray._on_open_url("https://example.test/docs")
 
     assert notes == []
+
+
+# ---- opening the window, and the fix at the top ------------------------------
+
+
+class _WindowController:
+    def __init__(self, *, launches: bool = True) -> None:
+        self.pages: list[str] = []
+        self.did: list[str] = []
+        self._launches = launches
+
+    def launch_settings(self, page: str = "") -> bool:
+        self.pages.append(page)
+        return self._launches
+
+    def start_daemon(self) -> dict:
+        self.did.append("start")
+        return {"ok": True}
+
+    def restart(self) -> bool:
+        self.did.append("restart")
+        return True
+
+    def recalibrate(self) -> dict:
+        self.did.append("recalibrate")
+        return {"ok": True, "started": True}
+
+
+def _noting(controller):
+    tray = _tray(controller)
+    shown: list[str] = []
+    tray._notify = lambda title, body: shown.append(body)  # type: ignore[method-assign]
+    return tray, shown
+
+
+def test_open_and_settings_open_the_same_window_on_different_pages():
+    ctrl = _WindowController()
+    tray, shown = _noting(ctrl)
+
+    tray._on_open_window()
+    tray._on_settings()
+
+    assert ctrl.pages == ["", "features"]
+    assert shown == []
+
+
+def test_a_window_that_cannot_open_says_so():
+    tray, shown = _noting(_WindowController(launches=False))
+
+    tray._on_open_window()
+
+    (body,) = shown
+    assert "Could not open" in body
+
+
+@pytest.mark.parametrize("action", ["start", "restart", "recalibrate"])
+def test_each_fix_reaches_its_own_action_and_reports(action):
+    ctrl = _WindowController()
+    tray, shown = _noting(ctrl)
+
+    tray._on_fix(action)
+
+    assert ctrl.did == [action]
+    assert len(shown) == 1

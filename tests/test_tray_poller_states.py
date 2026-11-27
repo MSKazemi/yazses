@@ -20,14 +20,21 @@ from pathlib import Path
 import pytest
 
 import yazses.tray.app as app
-from yazses.ipc.client import IpcUnreachableError
+from yazses.ipc.client import IpcCallError, IpcUnreachableError
+from yazses.ipc.protocol import RpcError
 from yazses.platform import TrayModel, TrayState
 from yazses.tray.app import (
     _DAEMON_BOOT_TIMEOUT_S,
     _RECONNECT_GRACE_S,
     unreachable_decision,
 )
-from yazses.tray.menu import icon_spec, status_from_model
+from yazses.tray.menu import (
+    DAEMON_DOWN,
+    DAEMON_UNRESPONSIVE,
+    fix_entry,
+    icon_spec,
+    status_from_model,
+)
 
 
 class _FakeTray:
@@ -268,6 +275,39 @@ def test_a_crashed_pass_backs_off_never_shows_idle_and_recovers(
     # 1, 2, 4, 8, 10 (capped), then a successful pass resets the backoff to 1 again.
     crash_waits = [w for w in waits if w != app._POLL_INTERVAL_S]
     assert crash_waits == [1.0, 2.0, 4.0, 8.0, 10.0, 1.0]
+
+
+def test_the_poller_says_why_no_status_came_back(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The menu's fix needs to tell "not running" (offer Start) from "did not answer"."""
+    script: list[object] = [
+        IpcUnreachableError("no socket"),  # no daemon process, past the boot timeout
+        RuntimeError("a fault in the tray"),
+        IpcCallError(RpcError(code=-32000, message="handler failed")),
+        {**_IDLE, "ready": False, "silent_streak_threshold": 5},
+    ]
+    states, _waits = _drive_script(monkeypatch, tmp_path, script, boot_timeout=_ALREADY_EXPIRED)
+
+    assert [m.daemon_reach for m in states] == [
+        DAEMON_DOWN, DAEMON_UNRESPONSIVE, DAEMON_UNRESPONSIVE, "",
+    ]
+    assert states[-1].ready is False and states[-1].silent_streak_threshold == 5
+    assert [getattr(fix_entry(status_from_model(m)), "action", None) for m in states] == [
+        "start", None, None, None,
+    ]
+
+
+def test_a_daemon_still_starting_is_not_offered_a_second_start(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    tray = _FakeTray(quit_after_first_state=True)
+    states = _drive(
+        monkeypatch, tmp_path, tray, _Client(IpcUnreachableError("no socket")), boot_timeout=30.0
+    )
+
+    assert states[0].daemon_reach == ""
+    assert fix_entry(status_from_model(states[0])) is None
 
 
 def test_crash_backoff_is_bounded_and_monotonic() -> None:

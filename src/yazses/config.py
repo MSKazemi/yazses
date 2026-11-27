@@ -969,6 +969,16 @@ class OverlayConfig:
 
 
 @dataclass
+class WindowConfig:
+    """The desktop window opened by ``yazses settings``: how it looks.
+
+    ``theme`` is ``violet-dark`` (the default), ``violet-light``, or ``system`` to keep
+    whatever the desktop supplies. An unknown value behaves as the default.
+    """
+    theme: str = "violet-dark"       # violet-dark | violet-light | system
+
+
+@dataclass
 class TrayConfig:
     """System-tray / top-bar indicator icon with a click-menu.
 
@@ -2463,6 +2473,7 @@ class Config:
     learning: LearningConfig = field(default_factory=LearningConfig)
     overlay: OverlayConfig = field(default_factory=OverlayConfig)
     tray: TrayConfig = field(default_factory=TrayConfig)
+    window: WindowConfig = field(default_factory=WindowConfig)
     tts: TtsConfig = field(default_factory=TtsConfig)
     voiceprint: VoiceprintConfig = field(default_factory=VoiceprintConfig)
     gaze: GazeConfig = field(default_factory=GazeConfig)

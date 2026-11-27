@@ -262,6 +262,12 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `enabled` | bool | `true` |  | auto-launch the tray with the daemon |
 | `poll_interval_s` | float | `1.0` | ⚠️ inert | how often the tray refreshes daemon state |
 
+## `[window]`
+
+| Key | Type | Default | Status | Notes |
+|---|---|---|---|---|
+| `theme` | str | `"violet-dark"` |  | violet-dark \| violet-light \| system |
+
 ## `[tts]`
 
 | Key | Type | Default | Status | Notes |

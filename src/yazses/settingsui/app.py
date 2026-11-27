@@ -17,6 +17,11 @@ by touch, and by a screen reader, none of which can hover. The wording is
 its shipped state and leaves them staged, so the change is visible and
 cancellable before Apply commits it — and so a misclick costs nothing.
 
+There is one window per user and config file: a second launch asks the open one to come
+to the front, on the page it asked for, and exits
+(:mod:`yazses.settingsui.single_window`), so two windows cannot overwrite each other's
+settings.
+
 All the bookkeeping (what is staged, what was confirmed, what landed) lives in
 the pure :class:`~yazses.settingsui.controller.PendingChanges` /
 :class:`~yazses.settingsui.controller.SettingsController` pair, so this file only
@@ -30,12 +35,18 @@ import os
 import sys
 from typing import Any
 
+from yazses.settingsui.access_page import AccessibilityPage
+from yazses.settingsui.background import Background
+from yazses.settingsui.commands_page import CommandsPage
+from yazses.settingsui.context import PageContext
 from yazses.settingsui.controller import (
     ApplyReport,
     PendingChanges,
     SettingsController,
     defaults_diff,
 )
+from yazses.settingsui.dictation_page import DictationPage
+from yazses.settingsui.files_page import FilesPage
 from yazses.settingsui.help import (
     accessible_description,
     help_html,
@@ -44,7 +55,9 @@ from yazses.settingsui.help import (
 )
 from yazses.settingsui.launch import has_display, pyside_available
 from yazses.settingsui.maintenance_panel import attach_maintenance
+from yazses.settingsui.meetings_page import MeetingsPage
 from yazses.settingsui.model import SettingRow, SettingsModel, build_settings_model
+from yazses.settingsui.overview_page import OverviewPage
 from yazses.settingsui.pages import (
     PAGES,
     category_entries,
@@ -52,11 +65,26 @@ from yazses.settingsui.pages import (
     category_selectable,
     dirty_page_keys,
     effective_selection,
+    page_from_argv,
+    resolve_page,
     section_visible,
 )
+from yazses.settingsui.palette import THEME_CHOICES
+from yazses.settingsui.privacy_view import privacy_card
 from yazses.settingsui.search import describe_filter, matches, visible_counts
-from yazses.settingsui.shell import SettingsShell, build_page
+from yazses.settingsui.shell import SIDEBAR_WIDTH, SettingsShell, build_page
+from yazses.settingsui.single_window import (
+    ACTIVATION_ENV,
+    ALREADY_OPEN,
+    Outcome,
+    ShowRequest,
+    unanswered_message,
+)
+from yazses.settingsui.single_window_qt import claim_window, raise_window
+from yazses.settingsui.switches import SwitchHub
 from yazses.settingsui.theme import FOCUS_RING_CSS, mute_label, muted_style_for
+from yazses.settingsui.theme_qt import apply_theme
+from yazses.settingsui.widgets import compact_combo as _compact_combo
 from yazses.system.relaunch import Mode, command_for
 
 log = logging.getLogger(__name__)
@@ -102,8 +130,16 @@ _NO_DISPLAY_MSG = (
 )
 
 
-def run() -> None:
-    """Entry point — the `yazses-settings` GUI script / `yazses settings`."""
+def run(page: str | None = None) -> None:
+    """Entry point — the `yazses-settings` GUI script / `yazses settings`.
+
+    *page* is the page to open on (`--page`); when the caller passes none it is read from
+    the command line. An unknown name opens the window on Overview and is logged: a stale
+    shortcut must still open the window.
+
+    If the window is already open, it is asked to come to the front (on *page*, if one was
+    named) and this process exits without opening another.
+    """
     # No console on Windows for a GUI script: sys.stderr is None, which would
     # take down both basicConfig and the print() diagnostics below.
     from yazses.system.wincon import alert, ensure_streams
@@ -182,10 +218,75 @@ def run() -> None:
         raw_config_loader=_raw,
     )
 
+    # Read before Qt starts: a Wayland session's token is consumed by the first window.
+    token = os.environ.get(ACTIVATION_ENV, "")
     app = QApplication.instance() or QApplication(sys.argv)
-    window = SettingsWindow(build_settings_model(_load()), controller)
-    window.show()
-    sys.exit(app.exec())
+    requested = page if page is not None else page_from_argv(sys.argv[1:])
+    key = resolve_page(requested)
+
+    # Before the window is built, so two launches at once cannot both build one.
+    claim = claim_window(platform, config_file, ShowRequest(key or "", token))
+    if claim.outcome is Outcome.FORWARDED:
+        print(ALREADY_OPEN)
+        sys.exit(0)
+    if claim.outcome is Outcome.UNANSWERED:
+        from PySide6.QtWidgets import QMessageBox
+
+        message = unanswered_message(claim.holder)
+        print(message, file=sys.stderr)
+        log.error("%s", message.replace("\n", " "))
+        # A launch from the tray or the app grid has no terminal to read that on.
+        QMessageBox.warning(None, "YazSes Settings", message)
+        sys.exit(1)
+
+    # Connected before the window connects its own `aboutToQuit` slot, which can wait
+    # minutes for an install: a closed window must not still count as the open one.
+    app.aboutToQuit.connect(claim.window.close)
+    try:
+        model = build_settings_model(_load())
+        # Before the window is built, so secondary text is coloured against these colours;
+        # again with the window, which takes the stylesheet.
+        apply_theme(app, None, model.window_theme)
+        window = SettingsWindow(model, controller)
+        apply_theme(app, window._win, model.window_theme)
+        if requested is not None:
+            if key is None:
+                log.warning("There is no page named %r; opening Overview.", requested)
+            else:
+                window.open_page(key)
+        window.show()
+        claim.window.attach(
+            lambda request: window.bring_to_front(request.page, request.token)
+        )
+        sys.exit(app.exec())
+    finally:
+        claim.window.close()
+
+
+def _key_to_hold(configured: str) -> str:
+    """The key behind *configured*: ``auto`` is resolved as the daemon resolves it."""
+    if configured.strip() != "auto":
+        return configured
+    try:
+        from yazses.platform import get_platform
+
+        return str(get_platform().default_hotkey)
+    except Exception:  # noqa: BLE001 - the page then says "your hold-to-talk key"
+        return ""
+
+
+#: The width a page keeps at the narrowest window, beside the sidebar.
+_PAGE_MIN_WIDTH = 592
+
+
+def _data_dir() -> str:
+    """Where YazSes keeps its data, or "" on a platform that cannot say."""
+    try:
+        from yazses.platform import get_platform
+
+        return str(get_platform().paths.data_dir)
+    except Exception:  # noqa: BLE001 - the panel still lists its facts
+        return ""
 
 
 def _rich_text():
@@ -193,28 +294,6 @@ def _rich_text():
     from PySide6.QtCore import Qt
 
     return Qt.TextFormat.RichText
-
-
-#: How many characters a drop-down is wide enough for, whatever it holds.
-_COMBO_MIN_CHARS = 18
-
-
-def _compact_combo():
-    """A QComboBox whose width does not follow its longest item.
-
-    By default a combo asks for the width of its widest entry, and the microphone box
-    holds "Follow the system default (currently <the device's full ALSA name>)": about
-    800 px at 16 pt, which pushed the Audio and Speech pages into a sideways scrollbar.
-    The policy must be set at construction; Qt caches the size hint, so setting it
-    after the box is laid out changes nothing. A long item is elided in the box and
-    shown in full in the list.
-    """
-    from PySide6.QtWidgets import QComboBox
-
-    box = QComboBox()
-    box.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
-    box.setMinimumContentsLength(_COMBO_MIN_CHARS)
-    return box
 
 
 def _top_aligned(*items):
@@ -297,6 +376,7 @@ def _read_profile(widget):
 #: test fails if the window grows a baseline either table does not list.
 _FORM_FIELDS = (
     ("_hotkey_baseline", "_hotkey_box", _read_text),
+    ("_theme_baseline", "_theme_box", _read_data),
     ("_profile_baseline", "_profile_box", _read_profile),
     ("_model_baseline", "_model_box", _read_text),
     ("_language_baseline", "_language_box", _read_data),
@@ -363,9 +443,12 @@ class SettingsWindow:
         )
 
         self._win = _guarded_main_window(QMainWindow, self._close_allowed)
+        # Asked by the Overview page before it starts a restart of its own.
+        self._win._yazses_restarting = lambda: self._restart_thread is not None  # type: ignore[attr-defined]
+        self._restart_thread: Any = None
         self._win.setWindowTitle("YazSes Settings")
-        self._win.resize(900, 640)
-        self._win.setMinimumSize(760, 520)
+        self._win.resize(1060, 760)
+        self._win.setMinimumSize(_PAGE_MIN_WIDTH + SIDEBAR_WIDTH, 520)
 
         central = QWidget()
         self._shell = SettingsShell(central, self._win)
@@ -381,6 +464,8 @@ class SettingsWindow:
         #: category counts can reach a row without walking widgets.
         self._row_holders: dict[str, Any] = {}
         self._staged_rows: set[str] = set()
+        self._switches = SwitchHub(self._rows, self._checkboxes)
+        self._page_context = self._build_page_context()
 
         # The pages. Each builder is the one the single-column window already used; only
         # where its widget lands has changed, so every control keeps its behaviour.
@@ -390,6 +475,8 @@ class SettingsWindow:
         handsfree = self._build_handsfree_page()
         updates = attach_maintenance(self)  # Check for updates; Install now
         features = self._build_features_page(model)
+        # After the Features page: the cards on these mirror its checkboxes.
+        self._app_pages = self._build_app_pages(model)
         contents = {
             "general": _top_aligned(general),
             "speech": _top_aligned(_unframe(speech)),
@@ -397,6 +484,7 @@ class SettingsWindow:
             "features": features,
             "handsfree": _top_aligned(handsfree),
             "updates": _top_aligned(_unframe(updates)),
+            **{key: page.widget for key, page in self._app_pages.items()},
         }
         for spec in PAGES:
             self._shell.add_page(
@@ -443,7 +531,6 @@ class SettingsWindow:
         self._restart_when_installed: str | None = None
         self._install_worker: Any = None
         # The restart after Apply runs on its own worker (it blocks for up to two minutes).
-        self._restart_thread: Any = None
         self._restart_worker: Any = None
         self._restart_summary = ""
         self._restart_relay: Any = None
@@ -473,6 +560,100 @@ class SettingsWindow:
         self._install_shortcuts()
         self._wire_dirty_markers()
         self._refresh_markers()
+        self._start_page_refresh()
+
+    def _build_page_context(self) -> PageContext:
+        """What the app pages may do. Looked up at call time, so each stays replaceable."""
+        background = self._background = Background(self._win)
+
+        def _client_call(method: str, **params: Any) -> Any:
+            try:
+                from yazses.platform import get_platform
+
+                platform = get_platform()
+                client = platform.ipc_client_factory(platform.paths.ipc_socket)
+                return client.call(method, **params)
+            except Exception:  # noqa: BLE001 - "no answer" is the ordinary case
+                logging.getLogger(__name__).debug("%s got no answer", method, exc_info=True)
+                return None
+
+        def _open_path(path: str) -> None:
+            from PySide6.QtCore import QUrl
+            from PySide6.QtGui import QDesktopServices
+
+            if not QDesktopServices.openUrl(QUrl.fromLocalFile(path)):
+                self._warn("Could not open the folder", path)
+
+        return PageContext(
+            load_config=self._controller.load_config,
+            client_call=_client_call,
+            run=background.run,
+            daemon_running=lambda: self._daemon_running(),
+            start_daemon=lambda: self._start_daemon(),
+            restart_daemon=lambda: self._run_restart(),
+            goto=lambda key: self._shell.select(key),
+            open_path=_open_path,
+            switches=self._switches,
+            window=self._win,
+        )
+
+    def _start_daemon(self) -> tuple[bool, str]:
+        """Start YazSes, and nothing more than that. Blocking.
+
+        ``yazses start`` *restarts* a daemon that is already running, without the guard
+        ``restart`` has for a meeting still being written, so a live one is left alone.
+        ``--no-autostart``: a button that says "Start" must not also add a login item.
+        """
+        if self._daemon_running():
+            return True, ""
+        return self._run_cli("start", "--no-autostart")
+
+    def _starting_or_restarting(self) -> bool:
+        background = getattr(self, "_background", None)
+        return background is not None and any(
+            background.running(key) for key in ("start", "restart")
+        )
+
+    def _build_app_pages(self, model: SettingsModel) -> dict[str, Any]:
+        ctx = self._page_context
+        hotkey = _key_to_hold(model.hotkey)
+        return {
+            "overview": OverviewPage(ctx, hotkey),
+            "dictation": DictationPage(ctx, hotkey),
+            "meetings": MeetingsPage(ctx),
+            "files": FilesPage(ctx),
+            "commands": CommandsPage(ctx),
+            "accessibility": AccessibilityPage(ctx, model.groups),
+        }
+
+    def _start_page_refresh(self) -> None:
+        """Poll only the page on screen, and only while the window is."""
+        from PySide6.QtCore import QTimer
+
+        def _tick() -> None:
+            if self._win.isVisible():
+                self._refresh_current_page()
+
+        self._page_timer = QTimer(self._win)
+        self._page_timer.timeout.connect(_tick)
+
+        def _changed(_row: int = 0) -> None:
+            page = self._app_pages.get(self._shell.current_key())
+            interval = getattr(page, "interval_ms", 0)
+            if interval:
+                self._page_timer.start(interval)
+                _tick()
+            else:
+                self._page_timer.stop()
+
+        self._shell.sidebar.currentRowChanged.connect(_changed)
+        self._on_page_changed = _changed
+        _changed()
+
+    def _refresh_current_page(self) -> None:
+        refresh = getattr(self._app_pages.get(self._shell.current_key()), "refresh", None)
+        if refresh is not None:
+            refresh()
 
     def _add_snap_banner(self, outer) -> None:
         """Show the missing-permission banner, if there is one. Never raises."""
@@ -507,6 +688,7 @@ class SettingsWindow:
         layout = QVBoxLayout(page)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addLayout(self._build_hotkey_row(model.hotkey))
+        layout.addLayout(self._build_theme_row(model.window_theme))
 
         note = QLabel(
             "Changes are staged, not saved: nothing is written until you click Apply, and "
@@ -516,7 +698,48 @@ class SettingsWindow:
         note.setWordWrap(True)
         mute_label(note, "margin-top: 8px;")
         layout.addWidget(note)
+        layout.addWidget(privacy_card(self._page_context, _data_dir()))
         return page
+
+    def _build_theme_row(self, current: str):
+        """This window's colours: previewed as you choose, saved by Apply."""
+        from PySide6.QtWidgets import QApplication, QHBoxLayout, QLabel
+
+        line = QHBoxLayout()
+        label = QLabel("Window look:")
+        line.addWidget(label)
+        box = _compact_combo()
+        for text, value in THEME_CHOICES:
+            box.addItem(text, value)
+        box.setCurrentIndex(max(0, box.findData(current)))
+        box.setAccessibleName("Window look")
+        box.setToolTip(
+            "How this window is coloured. 'Match my desktop' leaves the system's own "
+            "colours."
+        )
+        label.setBuddy(box)
+        line.addWidget(box)
+        line.addStretch(1)
+        self._theme_box = box
+        self._theme_baseline = current
+        box.currentIndexChanged.connect(
+            lambda _index: apply_theme(QApplication.instance(), self._win, box.currentData())
+        )
+        return line
+
+    def _apply_theme(self) -> tuple[bool, str | None]:
+        """Save the chosen look if it moved. Returns (changed, error). No restart."""
+        box = getattr(self, "_theme_box", None)
+        if box is None:  # pragma: no cover - the row is always built
+            return False, None
+        chosen = str(box.currentData())
+        if chosen == self._theme_baseline:
+            return False, None
+        result = self._controller.set_window_theme(chosen)
+        if not result.ok:
+            return False, result.error or "Could not save the window look."
+        self._theme_baseline = chosen
+        return True, None
 
     def _build_handsfree_page(self):
         """The hands-free controls, on the page itself.
@@ -1383,7 +1606,7 @@ class SettingsWindow:
         self._filter_status.setVisible(bool(status))
 
     def _install_shortcuts(self) -> None:
-        """Ctrl+F: jump to the capability search. Ctrl+Return: Apply. (Ctrl+1..6 are the shell's.)"""
+        """Ctrl+F: jump to the capability search. Ctrl+Return: Apply. (Ctrl+1..9 are the shell's.)"""
         from PySide6.QtGui import QKeySequence, QShortcut
 
         self._find_shortcut = QShortcut(QKeySequence.StandardKey.Find, self._win)
@@ -1450,6 +1673,7 @@ class SettingsWindow:
 
     def _refresh_staged_views(self) -> None:
         """After a capability box moved, was reset, or was applied: marks and counts."""
+        self._switches.sync()
         self._refresh_markers()
         self._refresh_features_view()
 
@@ -1747,6 +1971,7 @@ class SettingsWindow:
         profile_transaction = self._language_profile_transaction_pending()
         report = self._controller.apply(self._pending)
         hotkey_changed, hotkey_error = self._apply_hotkey()
+        theme_changed, theme_error = self._apply_theme()
         audio_changed, audio_errors = self._apply_audio()
         speech_changed, speech_errors = self._apply_speech(
             skip_profile_owned=profile_transaction
@@ -1779,6 +2004,10 @@ class SettingsWindow:
             report.caveats.update(self._controller.caveats_for(report.enabled))
 
         summary = self._summarise(report)
+        if theme_changed:
+            # "Nothing to apply." would contradict the line saying the look was saved.
+            others = report.applied or report.errors or report.unconfirmed
+            summary = f"Window look saved. {summary if others else ''}".strip()
         if hotkey_changed:
             summary = f"Hold-to-talk key set to {self._hotkey_baseline}. {summary}".strip()
         if speech_changed:
@@ -1790,6 +2019,7 @@ class SettingsWindow:
         errors = [
             *report.errors,
             *([hotkey_error] if hotkey_error else []),
+            *([theme_error] if theme_error else []),
             *audio_errors,
             *speech_errors,
         ]
@@ -2103,6 +2333,14 @@ class SettingsWindow:
         """
         from yazses.settingsui.restart import decide_restart
 
+        if self._starting_or_restarting():
+            self._hint.setText(
+                f"{summary}  YazSes is already starting. Restart it afterwards to use "
+                "the new settings.".strip()
+            )
+            self._restart_pending = True
+            return
+
         # The quick half stays here: it asks the lifecycle and shows the dialog. The slow
         # half (the restart subprocess, up to 90 s, then a poll for up to 30 s more) runs
         # on a worker thread so the window keeps painting and answering.
@@ -2119,6 +2357,16 @@ class SettingsWindow:
         self._restart_pending = outcome.needs_restart_hint
 
     def _close_allowed(self) -> bool:
+        """Restarts and unapplied changes first, then a transcription still running."""
+        if self._starting_or_restarting():
+            self._hint.setText("YazSes is still starting. Close the window when it is done.")
+            return False
+        if not self._other_work_allows_close():
+            return False
+        files_page = getattr(self, "_app_pages", {}).get("files")
+        return files_page is None or files_page.may_close()
+
+    def _other_work_allows_close(self) -> bool:
         """The window may close unless a restart runs or the user keeps unapplied changes.
 
         Closing mid-restart would end the application while `yazses restart` runs, and
@@ -2224,6 +2472,9 @@ class SettingsWindow:
         `quit()` only asks a thread's event loop to stop, and these workers are blocked
         in their job, so `wait()` is what actually holds the process until each is done.
         """
+        files_page = getattr(self, "_app_pages", {}).get("files")
+        if files_page is not None:
+            files_page.cancel()
         for name in ("_restart_thread", "_install_thread", "_language_thread"):
             thread = getattr(self, name, None)
             if thread is None:
@@ -2307,7 +2558,11 @@ class SettingsWindow:
 
     @staticmethod
     def _run_restart() -> tuple[bool, str]:
-        """The same path as `yazses restart`, as a subprocess.
+        return SettingsWindow._run_cli("restart")
+
+    @staticmethod
+    def _run_cli(command: str, *options: str) -> tuple[bool, str]:
+        """The same path as `yazses <command>` (``start``, ``restart``), as a subprocess.
 
         Shelling out rather than importing the CLI keeps the window out of the
         daemon's lifecycle: `restart` stops every daemon including detached ones,
@@ -2326,9 +2581,13 @@ class SettingsWindow:
 
         try:
             result = subprocess.run(
-                command_for(Mode.CLI, "restart"),
+                command_for(Mode.CLI, command, *options),
                 capture_output=True, text=True, encoding="utf-8", errors="replace",
                 timeout=90,
+                # No terminal to answer a question on: a prompt reads end-of-file.
+                stdin=subprocess.DEVNULL,
+                # No console window flashing up on Windows; 0 elsewhere.
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
         except Exception as exc:  # noqa: BLE001 - reported to the user
             # An exception with an empty message (a bare TimeoutError(), an OSError with
@@ -2441,8 +2700,24 @@ class SettingsWindow:
 
         QMessageBox.warning(self._win, title, body, QMessageBox.StandardButton.Ok)
 
+    def open_page(self, key: str) -> None:
+        """Show the page *key*; an unknown key is ignored."""
+        self._shell.select(key)
+
     def show(self) -> None:
         self._win.show()
+        # Not left to the first timer tick: the opening page would sit on "Checking…".
+        self._refresh_current_page()
+
+    def bring_to_front(self, page: str = "", token: str = "") -> None:
+        """A later launch asked for this window: turn to *page*, if named, and raise it.
+
+        Staged changes are untouched; changing page writes nothing.
+        """
+        if page:
+            self.open_page(page)
+        raise_window(self._win, token)
+        self._refresh_current_page()
 
 
 if __name__ == "__main__":  # pragma: no cover - exercised by `python -m yazses.settingsui.app`

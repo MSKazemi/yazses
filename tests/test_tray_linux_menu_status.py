@@ -25,8 +25,12 @@ from PySide6.QtWidgets import QApplication, QMenu  # noqa: E402
 from yazses.platform.linux.tray import LinuxTray  # noqa: E402
 from yazses.stt.factory import fallback_phrase  # noqa: E402
 from yazses.tray.menu import (  # noqa: E402
+    DAEMON_DOWN,
     MEETING_START_LABEL,
     NO_TARGET_WARNING,
+    OPEN_LABEL,
+    SETTINGS_LABEL,
+    fix_entry,
     icon_spec,
     top_warning,
 )
@@ -123,3 +127,51 @@ def test_a_fresh_reading_wins_over_what_the_poller_remembered(qapp):
     menu = _menu(qapp, {"state": "idle", "last_error": None, **_ENGINE}, latest)
     assert any("idle" in t for t in _texts(menu))
     assert not [t for t in _disabled_texts(menu) if "old trouble" in t]
+
+
+# ---- the one fix, at the top ------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "status",
+    [
+        {"state": "error", "last_error": "boom"},
+        {"state": "idle", "silent_streak": 3, **_ENGINE},
+    ],
+)
+def test_a_problem_puts_its_fix_first_and_clickable(qapp, status):
+    entry = fix_entry(status)
+    assert entry is not None
+    menu = _menu(qapp, status)  # a QAction does not keep its QMenu alive
+    first = menu.actions()[0]
+    assert first.text() == entry.text
+    assert first.isEnabled()
+
+
+def test_a_healthy_menu_starts_with_the_state_and_offers_to_open_the_window(qapp):
+    menu = _menu(qapp, {"state": "idle", **_ENGINE})
+    assert _texts(menu)[0].startswith("YazSes")
+    assert _action(menu, OPEN_LABEL).isEnabled()
+    assert _action(menu, SETTINGS_LABEL).isEnabled()
+
+
+def test_a_daemon_that_is_gone_offers_to_start_it(qapp):
+    latest = {"state": "error", "daemon_reach": DAEMON_DOWN}
+    entry = fix_entry(latest)
+    assert entry is not None and entry.action == "start"
+    menu = _menu(qapp, {}, latest)
+    assert menu.actions()[0].text() == entry.text
+
+
+def test_a_daemon_that_answers_again_clears_what_the_poller_said(qapp):
+    latest = {"state": "error", "daemon_reach": DAEMON_DOWN}
+    menu = _menu(qapp, {"state": "idle", "last_error": None, **_ENGINE}, latest)
+    assert _texts(menu)[0].startswith("YazSes — idle")
+
+
+def test_clicking_the_fix_runs_that_fix(qapp, monkeypatch):
+    ran: list[str] = []
+    monkeypatch.setattr(LinuxTray, "_on_fix", lambda self, action: ran.append(action))
+    menu = _menu(qapp, {"state": "error", "last_error": "boom"})
+    menu.actions()[0].trigger()
+    assert ran == ["restart"]
