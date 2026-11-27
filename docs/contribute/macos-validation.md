@@ -75,8 +75,8 @@ the next.
 |---|---|---|---|
 | Gatekeeper | Finder, then System Settings, Privacy & Security | The unsigned-app block, then a way past it | not shown |
 | Accessibility | Privacy & Security, Accessibility | YazSes listed and switched on | Keyboard capture |
-| Input Monitoring | Privacy & Security, Input Monitoring | A prompt the first time you hold the key; then YazSes listed | Input monitoring |
-| Microphone | Privacy & Security, Microphone | A prompt on the first recording; YazSes only appears after that | Microphone |
+| Input Monitoring | Privacy & Security, Input Monitoring | A prompt when YazSes starts; then YazSes listed | Input monitoring |
+| Microphone | Privacy & Security, Microphone | A prompt when YazSes starts (2.43.2 and earlier: on the first recording); YazSes only appears after that | Microphone |
 
 Quit and relaunch YazSes after each grant: the permission is read when the keyboard tap is created.
 To forget one decision for this app only, keep the bundle id; without it the command resets every

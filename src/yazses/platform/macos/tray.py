@@ -41,10 +41,13 @@ from yazses.tray.updates import describe_update
 
 log = logging.getLogger(__name__)
 
-# macOS-only: dictation cannot inject keystrokes without this permission, so the hint the
-# old "Help & permissions" entry carried is kept — as a line in Help, not a menu entry.
+# macOS-only: the hint the old "Help & permissions" entry carried is kept — as lines in
+# About, not a menu entry. It names all three switches (#562): Accessibility alone leaves
+# the dictation key dead.
 _PERMISSIONS_HINT = (
-    "Grant Accessibility access in System Settings → Privacy & Security → Accessibility."
+    "YazSes needs three switches in System Settings → Privacy & Security: "
+    "Accessibility, Input Monitoring and Microphone. After switching one on, quit "
+    "YazSes and open it again."
 )
 
 

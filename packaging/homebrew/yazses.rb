@@ -101,17 +101,16 @@ cask "yazses" do
     Accessibility toggle sitting there enabled — the single most common way a
     working install looks broken.
 
-      1. System Settings → Privacy & Security → Accessibility → enable YazSes
-      2. Launch YazSes and hold the dictation key once. macOS then prompts for
-         Input Monitoring; enable YazSes there too, and relaunch the app.
-      3. Holding the key again prompts for Microphone access. Allow it.
+      1. Open YazSes. It asks macOS for Accessibility, Input Monitoring and
+         the microphone when it starts.
+      2. In System Settings → Privacy & Security, enable YazSes under both
+         Accessibility and Input Monitoring.
+      3. Allow the microphone, then run `yazses restart` and hold the
+         dictation key.
 
     Not in the Input Monitoring list? An app only appears there once it has
-    asked. Hold the key once and look again — the + button cannot add it first.
-
-    No microphone prompt either? That is the same problem upstream: YazSes only
-    records while the key is held, so a key dead for want of Input Monitoring
-    never records, never prompts, and never reaches the Microphone pane.
+    asked, and the + button cannot add it first. Run `yazses restart` so it
+    asks again, then look.
 
     `yazses doctor` reports Accessibility and Input Monitoring as two rows,
     because they are two switches and either one being off kills the key.
@@ -132,9 +131,10 @@ cask "yazses" do
 
     On an Intel Mac this cask will refuse to install: it tracks the Apple Silicon
     build. An Intel .dmg is now produced as well, and this cask will offer it once
-    that build is proven. Until then, install from PyPI, which is architecture
-    independent and is also the path that outlives the Intel bundle — GitHub retires
-    x86_64 macOS runners in 2027:
+    that build is proven. Until then, take that .dmg from the Releases page, or
+    install from PyPI with Python 3.11 to 3.13 (upstream libraries publish no
+    newer Intel macOS builds). PyPI is also the path that outlives the Intel
+    bundle — GitHub retires x86_64 macOS runners in 2027:
 
         pipx install yazses && yazses quickstart
   EOS

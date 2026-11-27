@@ -162,6 +162,29 @@ that the user reopens, so it is where the check was added, and `core/daemon.py` 
 alone. UNVERIFIED: that the restarted daemon's tap actually receives events after the
 grant (§7 item 5).
 
+## 5b. Whose answer `doctor` shows (READ for the code, UNVERIFIED on a Mac)
+
+In #562, `doctor` typed into Terminal reported Accessibility and Input Monitoring denied
+while both panes showed YazSes on. A permission check answers for the process that asks (or,
+possibly, for the app responsible for it), and `doctor` is not the process that dictates.
+The first response was a hedged note on the remedy text. Now the daemon also reports its own
+answers, `permissions: {keyboard_capture, input_monitoring, microphone}` on `status`
+(`system/permission_alerts.daemon_view`): `null` where there is no Input Monitoring check
+(Linux, Windows) and until start-up has probed, re-asked at most every 30 s.
+
+* `doctor` (`reconcile_with_daemon`): daemon *ok* makes the row OK, with the reason the two
+  differ stated as a possibility; daemon *denied* makes it FAIL even if the command's own
+  answer was OK; *unknown*, no daemon or an older daemon leave the row as it was. A stale
+  Input Monitoring grant (§5) is a WARN. The microphone row is not overruled when
+  PortAudio itself will not load.
+* The menu bar's warning line names every refused switch (`permission_menu_line`), below a
+  daemon error and above an engine fallback. Only *denied* speaks (ADR-021).
+
+Limits: a daemon started from a terminal is attributed the way that terminal is, and the
+answer shown is still the one that governs that daemon. Whether macOS lets a running
+process see a changed grant without a restart is unknown, so the advice always includes a
+restart.
+
 ## 6. Findings not acted on
 
 1. `_last_tray_error` can attach another launch's stderr to a later death (section 2).

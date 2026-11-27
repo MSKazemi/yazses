@@ -604,6 +604,12 @@ def run() -> None:
                             if isinstance(info.get("camera"), dict)
                             else None
                         ),
+                        # macOS permission switches as the daemon sees them (#562).
+                        permissions=(
+                            info.get("permissions")
+                            if isinstance(info.get("permissions"), dict)
+                            else None
+                        ),
                     )
                 )
                 # Toasts the daemon could not show itself (no libnotify — Windows,
