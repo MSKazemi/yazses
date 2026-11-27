@@ -93,6 +93,10 @@ From `yazses biosignal check-source thinkgear:<port> --seconds 30` (and its `--j
 |---|---|---|---|---|
 | «fill» | «fill» | «fill» | «fill» | «fill» |
 
+On a commit with #831, also copy the `Result:` line of the **ThinkGear protocol health** block that
+`check-source` prints: «fill: verbatim, or "commit predates #831"». A conformance `PASS` does not
+mean any read was trusted.
+
 ### 3.4 Stalls
 
 | Source of evidence | Count | Over what duration | Command |
@@ -270,7 +274,7 @@ removed each).
 - **Misses after a reconnect.** After a contact fault the detector resets, and a double blink in the first few seconds can be missed (CHANGELOG #829: 3 s after was rejected, 5 s after was accepted in the synthetic trace). Count such misses here rather than hiding them.
 - **One known gate difference.** After a silence longer than the 1.5 s watchdog, the daemon resets its detectors; `monitor` and `field-test` do not.
 - **`calibrate` is not watched by the contact veto** (it does not use `source_gates`). Contact was checked by hand just before each calibration.
-- **No `check-source` health summary** (#831). The packet and contact counts come from the local counter script.
+- **The packet and contact counts of section 3** come from the local counter script. On a commit with #831, `check-source` also prints its own protocol-health counts for its own run; it uses fewer contact bins than the script, so keep the two apart.
 - **Lost samples are unknowable:** ThinkGear has no sequence numbers or sensor timestamps.
 - **The µV scale is nominal**, with no per-headset gain calibration, and the spec has no `uv_scale` option.
 - **Cue latency includes reaction time.** It is not detector latency.

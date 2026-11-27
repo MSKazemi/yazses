@@ -48,6 +48,14 @@ parser's reject and skipped-byte deltas for the read, and the monotonic time the
 happened. It returns an immutable :class:`BatchHealth` that holds counts and reasons
 only: no samples, no timestamps, no port, no device address.
 
+## What a run showed (local diagnostics)
+
+The machine also adds each session's reads up into a :class:`HealthTally`, which a source
+turns into a :class:`ProtocolHealth` for ``yazses biosignal check-source``: counts, reason
+codes and one duration. It is a statement about the *protocol* (contact reports, rejected
+packets, whether any read was trusted), never about the waveform, a gesture or device
+support, and it holds no sample, port, address or timestamp.
+
 Pure: standard library only, no I/O, no clock of its own, no threads.
 """
 
@@ -55,7 +63,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import Any
 
@@ -69,7 +77,9 @@ __all__ = [
     "BatchHealth",
     "HealthReason",
     "HealthState",
+    "HealthTally",
     "PacketReport",
+    "ProtocolHealth",
     "ThinkGearHealth",
 ]
 
@@ -116,6 +126,10 @@ class HealthReason(str, Enum):
     def describe(self) -> str:
         return _DESCRIPTIONS[self]
 
+    def category(self) -> str:
+        """Which kind of problem holds the events, or ``""`` when trusted."""
+        return _CATEGORIES[self]
+
 
 _DESCRIPTIONS: dict[HealthReason, str] = {
     HealthReason.UNKNOWN_CONTACT: "the headset has not reported electrode contact yet",
@@ -127,6 +141,18 @@ _DESCRIPTIONS: dict[HealthReason, str] = {
     HealthReason.TRANSPORT_STALLED: "the serial stream stalled",
     HealthReason.CLOCK_INVALID: "the monotonic clock is unusable, so freshness is unknown",
     HealthReason.REARMING: "recovering: waiting for fresh contact reports and clean signal",
+    HealthReason.TRUSTED: "",
+}
+
+_CATEGORIES: dict[HealthReason, str] = {
+    HealthReason.UNKNOWN_CONTACT: "contact unknown",
+    HealthReason.NO_CONTACT: "contact contaminated",
+    HealthReason.CONTACT_CONTAMINATED: "contact contaminated",
+    HealthReason.CONTACT_STALE: "contact stale",
+    HealthReason.CORRUPT_PACKET: "corrupt framing",
+    HealthReason.TRANSPORT_STALLED: "stream integrity failure",
+    HealthReason.CLOCK_INVALID: "stream integrity failure",
+    HealthReason.REARMING: "rearm in progress",
     HealthReason.TRUSTED: "",
 }
 
@@ -178,6 +204,127 @@ class BatchHealth:
         return out
 
 
+@dataclass
+class HealthTally:
+    """One session's reads added up. Counts, reason codes and one duration only.
+
+    A contact report is counted once per packet that carries one. ``held_reads`` counts the
+    untrusted reads under the reason each was held for; ``trust_breaks`` counts the fault
+    epochs under the reason that opened each (including one seen on a read with no bytes).
+    ``longest_report_gap_s`` is the longest stretch of the host's monotonic clock, from the
+    first read on, in which no contact report arrived.
+    """
+
+    reads: int = 0                    # serial reads that carried bytes
+    trusted_reads: int = 0
+    raw_samples: int = 0
+    zero_reports: int = 0
+    contaminated_reports: int = 0     # nonzero and not 200
+    no_contact_reports: int = 0       # 200
+    rejected_packets: int = 0
+    skipped_bytes: int = 0
+    longest_report_gap_s: float = 0.0
+    held_reads: dict[str, int] = field(default_factory=dict)
+    trust_breaks: dict[str, int] = field(default_factory=dict)
+    last_trusted: bool = False
+    last_reason: str = "unknown_contact"
+
+    @property
+    def quality_reports(self) -> int:
+        return self.zero_reports + self.contaminated_reports + self.no_contact_reports
+
+
+@dataclass(frozen=True)
+class ProtocolHealth:
+    """What a ThinkGear run observed about the protocol, for a local diagnostic report.
+
+    Never evidence that the waveform is usable, that a gesture works or that a device is
+    supported. Holds no sample, port, address or timestamp.
+    """
+
+    tally: HealthTally
+    packets_ok: int = 0
+    bad_checksum: int = 0
+    bad_length: int = 0
+    malformed: int = 0
+
+    @property
+    def result(self) -> str:
+        """``not_observed``, ``no_contact_report``, ``never_trusted`` or ``trusted_reads_seen``."""
+        t = self.tally
+        if t.reads == 0:
+            return "not_observed"
+        if t.quality_reports == 0:
+            return "no_contact_report"
+        if t.trusted_reads == 0:
+            return "never_trusted"
+        return "trusted_reads_seen"
+
+    def as_dict(self) -> dict[str, Any]:
+        out = asdict(self.tally)
+        out["longest_report_gap_s"] = round(self.tally.longest_report_gap_s, 1)
+        out.update(
+            packets_ok=self.packets_ok, bad_checksum=self.bad_checksum,
+            bad_length=self.bad_length, malformed=self.malformed,
+            # Packets carry no sequence number: after any loss the count is unknowable.
+            lost_samples=("unknown" if self.tally.rejected_packets or self.tally.skipped_bytes
+                          else "none detected"),
+            result=self.result,
+        )
+        return out
+
+    def lines(self) -> list[str]:
+        """The summary in words, for a terminal."""
+        t = self.tally
+        out = ["ThinkGear protocol health (what this run observed; not evidence of a usable "
+               "waveform,", "a working gesture or device support):"]
+        if t.reads == 0:
+            out.append(f"  Result: {_RESULTS[self.result]}")
+            return out
+        out.append(f"  serial reads with bytes: {t.reads}, trusted: {t.trusted_reads}")
+        if t.quality_reports:
+            out.append(f"  contact reports (POOR_SIGNAL 0x02): {t.quality_reports} seen "
+                       f"(zero {t.zero_reports}, contaminated {t.contaminated_reports}, "
+                       f"no skin contact {t.no_contact_reports})")
+        else:
+            out.append("  contact reports (POOR_SIGNAL 0x02): none seen")
+        out.append(f"  longest stretch without a contact report: "
+                   f"{t.longest_report_gap_s:.1f} s (host clock; events are held past "
+                   f"{CONTACT_TTL_S:g} s)")
+        rejected = self.bad_checksum + self.bad_length + self.malformed
+        out.append(f"  packets: {self.packets_ok} accepted, {rejected} rejected "
+                   f"(bad checksum {self.bad_checksum}, bad length {self.bad_length}, "
+                   f"malformed {self.malformed}); {t.skipped_bytes} byte(s) skipped")
+        if t.rejected_packets or t.skipped_bytes:
+            out.append("  lost samples: unknown (packets carry no sequence number)")
+        out.append(f"  raw samples delivered: {t.raw_samples}")
+        for title, counts in (("reads held, by reason", t.held_reads),
+                              ("trust broke, by reason", t.trust_breaks)):
+            if counts:
+                listed = ", ".join(f"{k} {n}" for k, n in sorted(counts.items()))
+                out.append(f"  {title}: {listed}")
+        if t.last_trusted:
+            out.append("  latest verdict: trusted")
+        else:
+            reason = HealthReason(t.last_reason)
+            out.append(f"  latest verdict: not trusted ({reason.value}: {reason.describe()})")
+        out.append(f"  Result: {_RESULTS[self.result]}")
+        out.append("  Note: t0 counts delivered samples at the nominal "
+                   f"{THINKGEAR_FS:g} Hz, so the rate_t0 clause is not a")
+        out.append("  measurement of throughput; rate_arrival is.")
+        return out
+
+
+_RESULTS: dict[str, str] = {
+    "not_observed": "NOT OBSERVED. No bytes arrived, so nothing about the protocol was checked.",
+    "no_contact_report": "UNQUALIFIED, needs investigation. No contact report was seen, so "
+                         "every event would be held.",
+    "never_trusted": "UNQUALIFIED, needs investigation. No read was trusted (trust needs two "
+                     "zero reports and 1 s of clean samples).",
+    "trusted_reads_seen": "trusted reads were seen. This covers the protocol only.",
+}
+
+
 def _finite(x: float) -> bool:
     try:
         return math.isfinite(x)
@@ -201,6 +348,7 @@ class ThinkGearHealth:
         self.rearm_samples = math.ceil(REARM_CLEAN_SAMPLE_S * fs)
         self.session = 1
         self.epoch = 0
+        self._new_tally()
         self._clear()
 
     # ---- lifecycle -----------------------------------------------------------
@@ -209,11 +357,18 @@ class ThinkGearHealth:
         """A fresh transport session: nothing from the previous one is trusted."""
         self.session += 1
         self.epoch = 0
+        self._new_tally()
         self._clear()
 
     def invalidate(self) -> None:
-        """Stop / disconnect / unavailable: back to UNKNOWN, counters and clocks cleared."""
+        """Stop / disconnect / unavailable: back to UNKNOWN, counters and clocks cleared.
+        :attr:`tally` is kept, so a finished run can still be described."""
         self._clear()
+
+    def _new_tally(self) -> None:
+        # Diagnostics only: nothing here is read when a verdict is decided.
+        self.tally = HealthTally()
+        self._gap_mark: float | None = None
 
     def _clear(self) -> None:
         self.state = HealthState.UNKNOWN
@@ -229,6 +384,7 @@ class ThinkGearHealth:
 
     def observe_idle(self, now: float) -> None:
         """A read that returned no bytes: only the clock moved."""
+        self._tally_gap(now, reported=False)
         fault = self._timing_fault(now)
         if fault is not None:
             self._enter_untrusted(fault)
@@ -285,6 +441,7 @@ class ThinkGearHealth:
             if zeros or nonzero:
                 self._last_report_t = now
 
+        self._tally_gap(now, reported=bool(zeros or nonzero))
         trusted = False
         if fault is not None:
             self._enter_untrusted(fault)
@@ -310,6 +467,7 @@ class ThinkGearHealth:
             self.reason = HealthReason.TRUSTED
             trusted = True
 
+        self._tally_read(trusted, raw_total, zeros, packets, rejected_packets, skipped_bytes)
         return BatchHealth(
             session=self.session, epoch=self.epoch, trusted=trusted, state=self.state,
             reason=self.reason, raw_samples=raw_total, nonzero_quality_reports=nonzero,
@@ -321,6 +479,35 @@ class ThinkGearHealth:
         )
 
     # ---- internals -----------------------------------------------------------
+
+    def _tally_gap(self, now: float, *, reported: bool) -> None:
+        if not _finite(now):
+            return
+        if self._gap_mark is None or now < self._gap_mark:
+            self._gap_mark = now
+        self.tally.longest_report_gap_s = max(self.tally.longest_report_gap_s,
+                                              now - self._gap_mark)
+        if reported:
+            self._gap_mark = now
+
+    def _tally_read(self, trusted: bool, raw_total: int, zeros: int,
+                    packets: Sequence[PacketReport], rejected: int, skipped: int) -> None:
+        t = self.tally
+        t.reads += 1
+        t.raw_samples += raw_total
+        no_contact = sum(1 for p in packets if p.poor_signal == POOR_SIGNAL_NO_CONTACT)
+        reported = sum(1 for p in packets if p.poor_signal is not None)
+        t.zero_reports += zeros
+        t.no_contact_reports += no_contact
+        t.contaminated_reports += reported - zeros - no_contact
+        t.rejected_packets += rejected
+        t.skipped_bytes += skipped
+        t.last_trusted = trusted
+        t.last_reason = self.reason.value
+        if trusted:
+            t.trusted_reads += 1
+        else:
+            t.held_reads[self.reason.value] = t.held_reads.get(self.reason.value, 0) + 1
 
     def _maybe_ready(self) -> None:
         # The read that gets here stays vetoed: READY admits from the *next* clean read.
@@ -351,6 +538,10 @@ class ThinkGearHealth:
     def _enter_untrusted(self, reason: HealthReason) -> None:
         if self.state is not HealthState.UNTRUSTED:
             self.epoch += 1
+            breaks = self.tally.trust_breaks
+            breaks[reason.value] = breaks.get(reason.value, 0) + 1
+        self.tally.last_trusted = False
+        self.tally.last_reason = reason.value
         self.state = HealthState.UNTRUSTED
         self.reason = reason
         self._good_reports = 0

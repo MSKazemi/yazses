@@ -1,6 +1,6 @@
 ---
 title: Hardware for the muscle, blink and jaw-clench switch
-description: Choose between a DIY serial muscle sensor and a BrainFlow board, see which channels YazSes reads for squeeze, blink and jaw clench, set the mains frequency, and follow the safety rules for electrodes.
+description: Choose between a DIY serial muscle sensor and a BrainFlow board, investigate a Bluetooth headset on Linux, run the first-use preflight in order, see which channels YazSes reads, set the mains frequency, and follow the safety rules for electrodes.
 ---
 
 # Hardware for the muscle, blink and jaw-clench switch
@@ -8,8 +8,8 @@ description: Choose between a DIY serial muscle sensor and a BrainFlow board, se
 This page helps you pick and connect the hardware for the
 [biosignal switch](biosignal-switch.md). It is deliberately modest: YazSes has been tested on synthetic and
 replayed signals, and **no specific board, electrode or placement has been shown to work for a particular
-person**. Treat everything here as a starting point and check it with `yazses biosignal doctor` and
-`yazses biosignal monitor`.
+person**. Treat everything here as a starting point and check your own setup in the order given in
+[First use, in order](#first-use-in-order).
 
 !!! danger "Safety first"
 
@@ -101,6 +101,68 @@ install, a placeholder that still needs a port, a stream name or an address).
 None of these devices has been tested with YazSes on real hardware yet. They were built and tested
 against their published protocol documents.
 
+## Investigate a Bluetooth headset on Linux
+
+This is a way to **find out** whether your unit offers a serial stream that Linux can open. It is not a
+working recipe for any model: **YazSes does not promise that any headset exposes a Serial Port Profile
+(SPP) or RFCOMM channel**, and none has been tried. A product that advertises Bluetooth may offer only a
+profile that this path cannot read. It needs no vendor app and no account; if your unit does, stop here.
+
+1. **Discover and pair** with your distribution's own Bluetooth tool, for example
+   [`bluetoothctl`](https://manpages.debian.org/trixie/bluez/bluetoothctl.1.en.html): `power on`, `scan on`,
+   wait for the device, `scan off`, then `pair <address>` and `trust <address>`. Use only a pairing code the
+   product's own documentation gives.
+2. **Look at what it offers**: `info <address>` lists service UUIDs. A serial stream is advertised as
+   *Serial Port*, service class `0x1101`
+   ([Bluetooth Assigned Numbers](https://www.bluetooth.com/specifications/assigned-numbers/)). If it is
+   not listed, record that the raw transport is unavailable and stop.
+3. **Bind a serial device** only if it is listed. [`rfcomm`](https://manpages.debian.org/experimental/bluez/rfcomm.1.en.html)
+   `bind` creates a device node such as `/dev/rfcomm0`; binding does not connect, the connection is made
+   when a program opens the node. The channel number depends on the device, so take it from the device's
+   service record. Some distributions ship `rfcomm` in a separate package or not at all.
+4. **Check permission** with `ls -l` on the node and use your distribution's normal mechanism (often a
+   serial group). Do not make a device node world-writable.
+
+Use your own port in the source spec, for example `thinkgear:/dev/rfcomm0`. Keep the device address and
+any pairing code to yourself: neither belongs in an issue, a report or a commit.
+
+## First use, in order
+
+For a first headset, do not skip ahead. Each step answers one question, and a "no" is a result worth
+reporting. Replace `<source>` with your spec.
+
+| Step | Do | What it answers |
+|---|---|---|
+| 1 | Pair the device and confirm a local port or stream exists ([Linux Bluetooth](#investigate-a-bluetooth-headset-on-linux)). | Is there anything local to open? |
+| 2 | Install the optional extra for your source, for a ThinkGear headset `yazses[emg]` ([how](biosignal-switch.md#install-what-it-needs)). | Can YazSes load the transport library? |
+| 3 | `yazses biosignal doctor --source <source>` | Is the setup sensible? It does not open the device. |
+| 4 | `yazses biosignal check-source <source> --seconds 30` | Do well-formed data arrive, and at what arrival rate? For ThinkGear, does the headset report contact? |
+| 5 | `yazses biosignal monitor --source <source>`; lift an electrode and put it back | Is the signal usable, and are events held while contact is lost? Nothing is acted on. |
+| 6 | Put the source in `[biosignal]`, leave `enabled = false`, then `yazses biosignal calibrate` | Can your thresholds be learned? |
+| 7 | `yazses biosignal field-test` | How often does it fire by mistake, and does it catch your cued gestures? Nothing is acted on. |
+| 8 | Only then set `enabled = true` and `yazses restart`, with the keyboard and your normal hotkey in reach. `yazses stop` ends YazSes. | Does it behave in real use? |
+
+Stop at the first step that fails. On a ThinkGear headset, which has no muscle channel, also set
+`emg = false`, and run only one of these commands at a time, because one program holds the port.
+
+### What each result does and does not show
+
+| Level | Shown by | Does not show |
+|---|---|---|
+| **Parser valid**: the packet format is decoded correctly | The project's tests on hand-built bytes; on your unit, accepted packets in `check-source` | That your unit behaves like those bytes in other respects |
+| **Local transport accessible**: your computer opens the device and bytes arrive | `check-source` on your machine | That the data are the right data, or stay that way |
+| **Waveform usable**: contact, stream and signal-quality gates all allow events | `check-source` and `monitor`, for the minutes you watched | That any gesture is detected, or tomorrow's seating |
+| **Gesture validated**: your cued gestures are caught and false ones are rare enough | `field-test` and `report`, with their bounds, for **you**, that unit and that configuration | Anything about another person, unit or day |
+| **General support**: the device is known to work for users | Nothing yet. It needs the wider [validation protocol](https://github.com/MSKazemi/yazses/blob/main/design/specs/biosignal-validation-protocol.md) on physical hardware | |
+
+For a ThinkGear source, `check-source` ends with a **ThinkGear protocol health** block: reads that carried
+bytes and how many were trusted, contact reports (zero, contaminated, no skin contact), the longest
+stretch without one, accepted and rejected packets, why reads were held, and a result line. It holds
+counts and reason codes only. A conformance `PASS` with `UNQUALIFIED` underneath is possible and means the
+stream is well-formed but every event would be held. Lost samples are reported as unknown, because the
+packets carry no sequence number, and `rate_t0` is not a throughput measurement for this source (its
+timestamps count samples at the nominal 512 Hz); read `rate_arrival`.
+
 ## Which channels are read
 
 What YazSes can detect depends on which channels your hardware gives it:
@@ -112,7 +174,8 @@ What YazSes can detect depends on which channels your hardware gives it:
 | **Jaw clench** | Temporal or frontal channels. By default `T7`, `T8`, `TP9`, `TP10`, `F7`, `F8`, `AF7`, `AF8`, `Fp1`, `Fp2` | The jaw-closing muscle sits under the temporal sites; the frontal ones pick it up too. `TP9` and `TP10` are the behind-the-ear sites of a Muse-style headband. Off by default. |
 
 If you do not have a channel for an event, that detector has nothing to read. `yazses biosignal doctor`
-reports the channels it found, and `calibrate` skips a step your source cannot support and says so.
+lists what a board declares without opening it, `monitor` shows the channels it actually reads, and
+`calibrate` skips a step your source cannot support and says so.
 
 ### Where to put the electrodes
 
@@ -121,7 +184,7 @@ For the exact position, electrode type, skin preparation and reference or ground
 board's manual**. Two practical points that apply whatever the hardware:
 
 - **Good contact matters more than the exact spot.** A flat, clipped or noisy channel is ignored by the
-  quality gate, on purpose, and `doctor` and `monitor` tell you which.
+  quality gate, on purpose, and `monitor` tells you which.
 - **Re-calibrate after you move an electrode.** A profile made for one placement is wrong for another.
 
 ## Set the mains frequency
@@ -132,9 +195,9 @@ Powerline hum is far larger than the signals YazSes wants, so the filters place 
 - **50** for most of Europe, Africa, Asia and Oceania (the default);
 - **60** for the Americas, South Korea, Taiwan and western Japan.
 
-A wrong value leaves real hum in the signal and raises the false-positive rate. `yazses biosignal doctor`
-and `monitor` report interference they see, so if they flag mains noise on an electrode that is well seated,
-check `mains_hz` first. Keep leads away from power cables and power supplies.
+A wrong value leaves real hum in the signal and raises the false-positive rate. `yazses biosignal monitor`
+reports interference it sees, so if it flags mains noise on an electrode that is well seated, check
+`mains_hz` first. Keep leads away from power cables and power supplies.
 
 On a blink (EOG) channel the mains check reads the signal through the same low-pass the blink detector
 applies, so hum that the detector already removes is not counted against the channel. This is measured only
@@ -143,16 +206,17 @@ on synthetic signals; see [Honest limitations](biosignal-switch.md#honest-limita
 ## Check it before you rely on it
 
 ```bash
-yazses biosignal doctor      # chain, sample rate, mains, flat or clipped channels, profile
-yazses biosignal calibrate   # your own thresholds
-yazses biosignal monitor     # what makes it fire
-yazses biosignal field-test  # how often it fires by mistake, by activity
+yazses biosignal doctor                   # setup and profile; does not open your device
+yazses biosignal check-source <source>    # is the stream well-formed?
+yazses biosignal monitor                  # signal quality, and what makes it fire
+yazses biosignal calibrate                # your own thresholds
+yazses biosignal field-test               # how often it fires by mistake, by activity
 ```
 
 Start with `doctor` and read its last line, the **`Verdict:`**: it says either that you are ready or the one
-thing to fix next (a missing library, a source that will not open, no calibration). It is the quickest way
-to tell a hardware problem from a configuration one. The quality gate behind it also recognises an electrode
-that has lifted off (an abrupt step followed by a flat line) and movement shared by every channel at once,
+thing to fix next (a missing library, a malformed source, a device still to be checked, no calibration). It
+does not read your signal. The quality gate that `monitor` shows recognises an electrode that has lifted
+off (an abrupt step followed by a flat line) and movement shared by every channel at once,
 which usually points at the cable or your posture rather than one badly seated electrode.
 
 ### Measure your own rate

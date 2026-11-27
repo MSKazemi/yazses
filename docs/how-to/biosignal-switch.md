@@ -107,13 +107,15 @@ any of them on a real person yet, which is why the next sections show you how to
 
 Run `yazses biosignal --help` for exact options. The ones you will use first, in order:
 
-1. **`yazses biosignal doctor`** checks the chain before you trust it: the extra is installed, the source
-   opens, samples arrive at the expected rate, `mains_hz` matches the interference it sees, the signal is
-   not flat or clipped, and a calibration profile exists and matches your channels. It opens the
-   `synthetic`, `file:` and `brainflow:` sources. For an `lsl:`, `thinkgear:`, `bitalino:` or `myo:` source
-   it describes the device without opening it and sends you to `check-source` (see
-   [Other devices](biosignal-hardware.md#other-devices-and-recordings)); the system-wide `yazses doctor`
-   row has their advice too. Each problem comes with the reason and the fix, and the output ends with one
+1. **`yazses biosignal doctor`** checks your setup before you trust it: your `[biosignal]` settings,
+   whether a calibration profile exists and what is wrong with it for this source, whether BrainFlow is
+   installed, the serial ports it can list, and a self-check of the pipeline on a **generated** signal.
+   **It never opens your device or recording**, so it cannot tell you that samples arrive, at what rate,
+   or whether the signal is flat, clipped or full of mains hum: `check-source` and `monitor` do that. For
+   an `lsl:`, `thinkgear:`, `bitalino:` or `myo:` source it describes the device and sends you to
+   `check-source` (see [Other devices](biosignal-hardware.md#other-devices-and-recordings)); the
+   system-wide `yazses doctor` row has their advice too. Each problem comes with the reason and the fix,
+   and the output ends with one
    **`Verdict:`** line: either that you are ready, or the single most important next step (pick a source,
    install a library, calibrate). Read that line first. Once `[biosignal] enabled = true`, a ready verdict
    points you to `yazses biosignal field-test`; while the feature is off, it tells you to set
@@ -137,6 +139,9 @@ Run `yazses biosignal --help` for exact options. The ones you will use first, in
    timestamp went backwards, a packet was lost or repeated, or the stream stalled), it holds events and
    prints `Events HELD: the stream-integrity gate is closed. Reason: ...` with how much clean signal is
    still needed (`Cleared? not yet: ...`), then `Stream integrity: cleared (...)` once the hold ends.
+   [Why events are held](#why-events-are-held) lists the other reasons it prints. `monitor` and
+   `field-test` judge your calibration against the source they read, including one named with `--source`
+   (a `file:` recording names no board, so it is judged against `[biosignal] source`).
 4. **`yazses biosignal replay <recording>`** runs a saved recording through the same detectors with no
    hardware, so you can try a threshold change on yesterday's data or check a bug report.
 5. **`yazses biosignal report`** summarises how often each event fired and how often you cancelled it,
@@ -169,6 +174,26 @@ yazses biosignal field-test   # how often does it fire by mistake, by activity?
 yazses restart
 ```
 
+### Why events are held
+
+An event is accepted only when every gate allows it. `monitor` says which one does not.
+
+| `monitor` prints | Kind of problem | What to try |
+|---|---|---|
+| `Source health: events HELD (unknown_contact: ...) [contact unknown]` | The headset has not reported electrode contact yet. | Wait a few seconds. If it never reports, the held state is the answer: run `check-source`. |
+| `... (no_contact: ...) [contact contaminated]` or `(contact_contaminated: ...)` | The headset reports no skin contact, or contamination. | Re-seat the electrode and ear clip; sit still. |
+| `... (contact_stale: ...) [contact stale]` | No contact report for more than 3 seconds. | Check range, battery and the link. |
+| `... (corrupt_packet: ...) [corrupt framing]` | A rejected packet or skipped bytes. How many samples were lost is unknown. | Check the link and the port settings in your source spec. |
+| `... (transport_stalled: ...)` or `(clock_invalid: ...)` `[stream integrity failure]` | Bytes stopped arriving during recovery, or the computer's monotonic clock is unusable. | Check the link. |
+| `... (rearming: ...) [rearm in progress]` | Healthy again, but the required clean stretch is not complete. | Wait. |
+| `Events HELD: the stream-integrity gate is closed. Reason: ...` | **Stream integrity failure** on any source: gaps, overlaps, rate drift, stalls, layout changes or non-finite samples. | Run `check-source`. |
+| `Events HELD: waveform quality failure ...` | **Waveform quality failure**: the signal itself is judged bad. The channel table and the lines under it say why. | Fix contact, wiring or `mains_hz`. |
+
+The `Source health:` lines appear only for a `thinkgear:` source, the one source that reports its own
+health. More than one gate can be closed at once. These lines carry reason codes only, never a value from
+the signal. The 3-second limit and the recovery requirement (two separate good contact reports and one
+second of clean samples) are engineering choices that have not been tested on a physical headset.
+
 ## Try it with no hardware
 
 Everything here uses the built-in `synthetic` source, a generated signal with scripted gestures. The output
@@ -183,18 +208,19 @@ yazses biosignal monitor --source synthetic --seconds 12 --clench
 `doctor` runs a self-check through the real pipeline and ends with a verdict:
 
 ```text
-Self-check (synthetic signal through the real pipeline):
+Self-check (synthetic signal through the real pipeline; your source is not opened):
   [OK]   scripted double blink detected
   [OK]   quality gate: degraded
 Verdict: ready. Nothing is switched on yet; to use it, set [biosignal] enabled = true and run `yazses restart`.
 ```
 
-`monitor` prints the signal quality and each detection as it happens. Its demo repeats scripted double
+The rate in `monitor`'s first line is what the source declares, not a measured throughput; `check-source`
+measures the arrival rate of a live device. `monitor` prints the signal quality and each detection as it happens. Its demo repeats scripted double
 blinks, a jaw clench and a squeeze every 8 seconds. `--clench` turns the jaw-clench detector on for the
 run, since it is off by default. From one 12-second run:
 
 ```text
-Monitoring synthetic  (fs 500 Hz, 4 channels; detectors: emg, double_blink, jaw_clench).  Ctrl-C to stop.  Demo gestures are scripted every 8 s.
+Monitoring synthetic  (declared fs 500 Hz, not a measurement; 4 channels; detectors: emg, double_blink, jaw_clench).  Ctrl-C to stop.  Demo gestures are scripted every 8 s.
   Muscle squeeze: off until you calibrate (`yazses biosignal calibrate`).
        4.63s  double_blink   conf=0.53  ch=Fp1,Fp2
        7.02s  jaw_clench     conf=0.69  ch=Fp1,Fp2
@@ -381,8 +407,8 @@ A switch that fires when you did not mean it is worse than no switch, so YazSes 
   `monitor` for what is triggering it, make sure the electrode contact is good, and prefer a squeeze on
   a muscle you do not otherwise use while you are working.
 - **If it misses you:** the signal may be below the threshold, the budget guard may have desensitized the
-  detectors, or the quality gate may be suppressing events because the contact is poor. `monitor` shows
-  which, and `doctor` names the cause.
+  detectors, or a gate may be holding events because the contact or the signal is poor. `monitor` says
+  [which gate holds them](#why-events-are-held).
 
 There is no recommended setting yet. The community has not measured these rates over real workdays, and
 your own `field-test` and `report` are currently the best evidence available. The guard is not a
@@ -450,14 +476,18 @@ Everything stays on your machine. The electrodes are read locally, and no networ
 Your calibration profile and the activation log are local files; the profile is readable only by you.
 A recording of your signal is **biometric-adjacent** data: it is written only when you ask for one, and
 you should not paste one into a public issue. For a bug report, share the output of
-`yazses biosignal doctor` instead, which contains no signal values.
+`yazses biosignal doctor` instead. It contains no signal values, but it does print your source spec (which
+can hold a serial port path, a stream name or a Bluetooth address), the serial ports it lists and the path
+of your calibration file (which usually contains your user name): remove those before you share it. The
+same applies to `check-source`: the `source` field of its `--json` output and the text of a failed clause
+can name your port or address.
 
 ## Troubleshooting
 
 | Symptom | What to check |
 |---|---|
 | `doctor` says the library is missing | Install the `emg-band` (BrainFlow) or `emg` (serial) extra with the command it prints for your install method, then `yazses restart`. |
-| `doctor` cannot open the source | The device is unplugged, in use by another program, or the serial port or board id is wrong. On Linux your user may need to be in the `dialout` group for a serial port. A missing device is a logged no-op, not a crash. |
+| `check-source` or `monitor` says the source is not available | The device is unplugged, in use by another program, or the serial port or board id is wrong. On Linux your user may need access to the serial device (often a serial group such as `dialout`). A missing device is a logged no-op, not a crash. |
 | Nothing ever fires, `monitor` says the channel is untrusted | Flat line (no contact or a dead lead), clipping (gain too high), or strong mains noise. Re-seat the electrode, keep leads away from power cables, and check `mains_hz`. |
 | Mains interference reported although the electrode is fine | `mains_hz` is the wrong frequency for where you are (50 or 60). |
 | It fires when you chew or yawn | Expected to a degree on a jaw clench. Re-run `calibrate`, or use a squeeze on another muscle. The speech guard covers dictation, not chewing. |
