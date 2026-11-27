@@ -6,6 +6,14 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — Windows: `yazses restart` could stop an unrelated process after a sign-out or crash
+
+The daemon's PID file stays behind when Windows ends the daemon at sign-out or shutdown. YazSes read the number in it as the daemon, and Windows reuses process numbers: `yazses restart` stops that number without first asking whether it is a daemon, the one-click update waits for it, and if it now belonged to a Python or YazSes process, `yazses status` said "running" and the tray did not start a daemon. The Windows backend now asks the daemon's instance lock first, as Linux does: held means running and names the PID, free means not running. The PID file is used only where there is no lock file. Found by reading the code and tested with stand-ins; not run on Windows.
+
+### Fixed — Windows: autostart opened a console window on some pip installs
+
+On a Python installed on its own (not a virtual environment), pip puts `yazses-tray.exe` under `Scripts`. `yazses autostart enable` and `yazses start` looked only beside `python.exe`, so the sign-in entry ran the tray with the console interpreter. It now finds the launcher under `Scripts`, and without one uses `pythonw.exe`. The next `yazses start` rewrites an entry this interpreter wrote the old way. Found by reading the code and tested with stand-ins; not run on Windows.
+
 ### Fixed — snap on Wayland: dictated text could not reach the clipboard
 
 The snap's private `XDG_RUNTIME_DIR` does not hold the Wayland socket, so `wl-copy` and `wl-paste` failed with "Failed to connect to a Wayland server": when typing failed, the clipboard fallback failed too and the dictation was lost. The clipboard commands are now given the host socket's full path; the daemon's own environment is unchanged. Where the copy works and nothing can press Ctrl+V, the notification now says the words are on the clipboard instead of that they were not typed.
