@@ -167,6 +167,12 @@ full lane.
 A change that skips the full lane loses no test: the Linux baseline still runs the whole
 suite, including every test that reads `docs/`, `design/` or `android/`.
 
+The jobs marked `fast` in this table are the **fast PR gate** that the §12.1 report
+measures against §12 (`FAST_GATE_JOBS` in `scripts/ci_telemetry.py`).
+`tests/test_ci_telemetry.py` keeps the two equal, and keeps those jobs free of `needs:`,
+`if:` and a matrix. Changing the fast lane means changing both, and the report's definition
+of execution time with them.
+
 The fixtures below are pinned by `tests/test_ci_lanes.py`. Every row also runs the fast
 lane, the Linux baseline and `ci-gate`, plus the workflows that have no path filter
 (CodeQL, dependency review, the labeler, campaign preflight).
@@ -870,8 +876,9 @@ has nothing to do with the product, which collects no telemetry (AGENTS.md rule 
 | `tests/test_ci_telemetry.py` | Pins every metric on a synthetic fixture (`tests/fixtures/ci_telemetry/`). Also covers the privacy guards, the fetcher bounds through a fake transport, and the workflow contract. No network. |
 
 **What it reports.** Runs by workflow and by event. Success, failure, cancelled and other
-percentages. Job queue latency and run duration, p50 and p95, per workflow. Job-minutes
-per workflow, which shows what is consuming CI. Superseded PR runs: how many there were,
+percentages. Job queue latency and run duration, p50 and p95, per workflow. Queue latency,
+job-minutes and jobs cancelled before starting, per runner class. Job-minutes per
+workflow, which shows what is consuming CI. Superseded PR runs: how many there were,
 the share cancelled, the cancellation delay, and which workflows let a superseded run
 finish. The longest jobs. Workflows with no successful run, and active workflows with no
 run at all. Repeated failures by workflow, job and first failed step. Workflows red on the
@@ -883,6 +890,22 @@ default branch, with how long they have been red. The table of §12 targets, eac
 - *Queue latency* is per job: `started_at - created_at`. A job with `needs:` is created
   when its dependencies finish, so this is time spent waiting for a runner. Skipped jobs
   are excluded.
+- *Cancelled before starting*: a `cancelled` job with no steps. The API gives it a
+  `started_at` equal to its `created_at` and a `completed_at` at the cancellation, so
+  read literally it is a 0 s queue followed by runner time that nothing used. It is left
+  out of queue latency, durations and job-minutes, and counted per runner class. Jobs of a
+  superseded PR run are counted apart, because that cancellation is §2 working. The rest
+  are shown with how long they waited; a cancellation by hand, or by a concurrency group
+  outside a PR, lands there too. Until the report's `yazses-ci-telemetry/2` schema these
+  jobs were counted as 0 s queues and as runner time, so older reports understate queue
+  latency and overstate job-minutes whenever a runner pool starved.
+- *Runner class*: `linux`, `linux-arm64`, `macos`, `windows` or `other`, derived from the
+  job's `runs-on` labels.
+- *Fast PR gate*: the `fast` jobs of §5 on pull-request runs of `test.yml`. Queue delay is
+  the queue latency of each such job. Execution is, per run, the longest of their
+  durations, because they start independently; a run counts only when every one of them
+  ended in success or failure. Queue time is not part of execution. The all-PR-jobs queue
+  figure is reported beside the runner table, without a target.
 - *Run duration* is the last job's `completed_at` minus `run_started_at`. It is never
   computed from `updated_at`, because GitHub rewrites `updated_at` on finished runs. On
   2026-10-16 it moved a dozen failed PR runs' `updated_at` up to 22 hours past their end.
@@ -907,7 +930,8 @@ it is read. The report never contains PR titles or bodies, commit messages, auth
 or emails, actor logins, branch or fork names, runner names, or log text. Logs are never
 downloaded. A PR is identified only by an opaque grouping key, and that key is never
 written out. The only text that remains is workflow, job and step names, events and
-conclusions, plus numeric run ids so a reader can open a failing run. Names are escaped
+conclusions, plus numeric run ids so a reader can open a failing run. Runner labels are
+reduced to the five runner classes as they are read, so no label reaches the report. Names are escaped
 before they become Markdown, because a pull request runs its own copy of the workflow
 file and can choose its own job names. Two tests check this: one looks for the fixture's
 personal values in the output, and one fails on any JSON key outside a reviewed
@@ -915,10 +939,11 @@ allow-list.
 
 **What it does not do.** It changes no gate. A missed target does not turn it red. It
 fails only when the API cannot be read. It is not in `test.yml`, is not a `ci-gate` need
-and is not a required check. Two targets cannot be measured yet. *Fast PR gate execution*
-waits for #535 to define the fast lane; until then the queue target is reported over all
-PR jobs. *Without a linked issue* cannot be seen from Actions data, so the report gives
-how long a workflow has been red and leaves the issue check to a person.
+and is not a required check. One part of a target cannot be measured. *Without a linked
+issue* cannot be seen from Actions data, so the report gives how long a workflow has been
+red and leaves the issue check to a person. Job-level numbers come from the runs whose job
+lists were fetched, failures first (see Bounds), and the coverage notes say when that was
+not every run.
 
 Run it locally (read-only; any token that can read the repository's Actions data works):
 
@@ -999,8 +1024,10 @@ serialise the macOS leg, then move macOS 3.12 to `main` plus a label-gated PR le
 trades OS evidence for capacity, so it needs a measurement and an owner decision first.
 To re-measure, list the jobs of the next 30 `test.yml` runs (`gh api
 repos/MSKazemi/yazses/actions/runs/<id>/jobs`) and compare the macOS cancel rate and queue
-wait with the 29% and 2.1 minutes above. The §12.1 report gives queue latency per
-workflow, not per OS, so it will not show this by itself.
+wait with the 29% and 2.1 minutes above. The §12.1 report's **Queue by runner** table
+gives the macOS queue latency, and the number of jobs cancelled before starting outside
+superseded runs with how long they waited. It covers every workflow and the report's own
+window, so compare trends there and use the API listing for an exact `test.yml` figure.
 
 ---
 

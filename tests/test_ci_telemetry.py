@@ -279,14 +279,188 @@ def test_red_on_the_default_branch(report: dict) -> None:
 def test_slo_rows_report_facts_and_never_raise(report: dict) -> None:
     status = {row["name"].split(" (")[0]: row["status"] for row in report["slo"]}
     assert status == {
-        "PR job queue delay p95": "met",                 # 120 s < 5 min
-        "Fast PR gate execution p95": "n/a",             # no fast lane yet (#535)
+        # the fixture's `Tests` runs carry no fast-lane job, so there is nothing to judge
+        "Fast PR gate queue delay p95": "no data",
+        "Fast PR gate execution p95": "no data",
         "Superseded PR run cancellation delay p95": "met",  # 30 s < 2 min
         "Default-branch workflows red > 24 h": "missed",  # Tests, 48 h
         "Scheduled workflows red > 7 days": "met",       # Nightly, under 4 days
     }
     empty = ct.build_report([], {}, window_start=START, window_end=END)
-    assert {row["status"] for row in empty["slo"]} <= {"no data", "n/a", "met"}
+    assert {row["status"] for row in empty["slo"]} <= {"no data", "met"}
+    # The all-PR queue figure is still reported, outside the SLO table.
+    assert report["pr_job_queue"]["p95_s"] == 120.0
+
+
+# ------------------------------------------------------- never-started jobs, runners
+
+
+def _job(name: str, conclusion: str, created: str, started: str, completed: str,
+         *, label: str = "ubuntu-latest", steps: int = 1) -> dict:
+    """A synthetic job record; times are `HH:MM:SS` on 2026-10-02."""
+    def at(clock: str) -> str:
+        return f"2026-10-02T{clock}Z"
+
+    return {"name": name, "status": "completed", "conclusion": conclusion, "labels": [label],
+            "created_at": at(created), "started_at": at(started), "completed_at": at(completed),
+            "steps": [{"name": "Set up job", "conclusion": "success"}] * steps}
+
+
+def _unstarted(name: str, created: str, cancelled: str, **kwargs: Any) -> dict:
+    """As the API reports a job cancelled before a runner took it: `started_at` equals
+    `created_at`, `completed_at` is the cancellation, and there are no steps."""
+    return _job(name, "cancelled", created, created, cancelled, steps=0, **kwargs)
+
+
+def _pr_run(run_id: int, created: str, *, pr: int = 1, conclusion: str = "success",
+            path: str = ".github/workflows/test.yml", event: str = "pull_request") -> dict:
+    return {"id": run_id, "name": "Tests", "path": path, "event": event, "status": "completed",
+            "conclusion": conclusion, "created_at": f"2026-10-02T{created}Z",
+            "run_started_at": f"2026-10-02T{created}Z", "pull_requests": [{"number": pr}]}
+
+
+def _build(runs: list[dict], jobs: dict[int, list[dict]]) -> dict:
+    return ct.build_report(runs, jobs, window_start=START, window_end=END)
+
+
+def _slo(out: dict, name: str) -> dict:
+    return _row(out["slo"], name=name)
+
+
+def test_a_job_cancelled_before_starting_is_not_a_zero_queue_or_runner_time() -> None:
+    out = _build(
+        [_pr_run(1, "10:00:00", conclusion="cancelled")],
+        {1: [_job("ran", "success", "10:00:00", "10:02:00", "10:05:00"),
+             _unstarted("starved", "10:00:00", "10:33:00", label="macos-latest")]},
+    )
+    assert out["totals"]["job_queue"] == {"n": 1, "p50_s": 120.0, "p95_s": 120.0, "max_s": 120.0}
+    assert out["pr_job_queue"]["n"] == 1
+    assert out["totals"]["job_minutes"] == 3.0  # not 36: nothing ran the starved job
+    assert out["coverage"]["jobs_ran"] == 1
+    assert [j["job"] for j in out["longest_jobs"]] == ["ran"]
+
+
+def test_a_cancelled_job_that_ran_steps_still_counts() -> None:
+    job = ct.project_job(_job("build", "cancelled", "10:00:00", "10:01:00", "10:46:00"), run_id=1)
+    assert not job.never_started and job.ran
+    assert job.queue_s == 60.0 and job.duration_s == 45 * 60
+    assert job.wait_before_cancel_s is None
+
+
+def test_a_skipped_job_is_not_counted_as_cancelled_before_starting() -> None:
+    skipped = _job("gated", "skipped", "10:00:00", "10:00:00", "10:00:00", steps=0)
+    job = ct.project_job(skipped, run_id=1)
+    assert not job.never_started and not job.ran
+
+
+def test_runner_report_splits_starvation_from_superseded_cancellation() -> None:
+    out = _build(
+        [_pr_run(1, "10:00:00", conclusion="cancelled"),   # superseded by run 2
+         _pr_run(2, "10:01:00"),
+         _pr_run(3, "11:00:00", pr=2, conclusion="cancelled")],
+        {1: [_unstarted("mac", "10:00:00", "10:01:10", label="macos-latest")],
+             2: [_job("mac", "success", "10:01:00", "10:03:00", "10:09:00", label="macos-latest"),
+                 _job("lin", "success", "10:01:00", "10:01:05", "10:02:05")],
+             3: [_unstarted("mac", "11:00:00", "11:15:00", label="macos-latest")]},
+    )
+    assert [r["runner"] for r in out["runners"]] == ["linux", "macos"]
+    mac = _row(out["runners"], runner="macos")
+    assert mac["jobs_ran"] == 1 and mac["job_minutes"] == 6.0
+    assert mac["job_queue"]["p95_s"] == 120.0
+    assert mac["never_started"] == 2 and mac["never_started_superseded"] == 1
+    # Only the run nothing superseded measures starvation: 15 minutes, not 70 seconds.
+    assert mac["never_started_wait"] == {"n": 1, "p50_s": 900.0, "p95_s": 900.0, "max_s": 900.0}
+    page = ct.render_markdown(out)
+    assert "| macos | 1 | 2m 00s / 2m 00s / 2m 00s | 6 | 2 | 1 | 15m 00s / 15m 00s |" in page
+
+
+@pytest.mark.parametrize(("labels", "runner"), [
+    (["ubuntu-latest"], "linux"), (["ubuntu-24.04"], "linux"),
+    (["ubuntu-24.04-arm"], "linux-arm64"), (["macos-latest"], "macos"),
+    (["macos-15-intel"], "macos"), (["windows-latest"], "windows"),
+    (["windows-11-arm"], "windows"), (["self-hosted", "ubuntu-latest"], "other"),
+    (["SYNTHETIC-CUSTOM-LABEL"], "other"), ([], "other"), (None, "other"), ([7], "other"),
+])
+def test_runner_class_is_a_fixed_vocabulary(labels: Any, runner: str) -> None:
+    assert ct.runner_class(labels) == runner
+    assert runner in ct.RUNNER_CLASSES
+
+
+def test_a_runner_label_never_reaches_the_report() -> None:
+    out = _build([_pr_run(1, "10:00:00")], {1: [_job(
+        "x", "success", "10:00:00", "10:00:05", "10:01:00", label="SYNTHETIC-CUSTOM-LABEL")]})
+    assert "SYNTHETIC-CUSTOM-LABEL" not in json.dumps(out) + ct.render_markdown(out)
+    assert [r["runner"] for r in out["runners"]] == ["other"]
+
+
+# ------------------------------------------------------------------- the fast PR gate
+
+
+def test_fast_gate_rows_measure_only_the_fast_lane_of_pr_runs() -> None:
+    out = _build(
+        [_pr_run(1, "10:00:00"),
+         _pr_run(2, "12:00:00", pr=2, event="push"),                           # not a PR
+         _pr_run(3, "13:00:00", pr=3, path=".github/workflows/docs.yml")],     # not test.yml
+        {1: [_job("changes", "success", "10:00:00", "10:01:00", "10:01:20"),
+             _job("repo-hygiene", "failure", "10:00:00", "10:03:00", "10:03:50"),
+             _job("freebsd", "success", "10:00:00", "10:30:00", "10:59:00")],  # full lane
+             2: [_job("changes", "success", "12:00:00", "12:20:00", "12:40:00"),
+                 _job("repo-hygiene", "success", "12:00:00", "12:20:00", "12:40:00")],
+             3: [_job("changes", "success", "13:00:00", "13:20:00", "13:40:00"),
+                 _job("repo-hygiene", "success", "13:00:00", "13:20:00", "13:40:00")]},
+    )
+    queue = _slo(out, "Fast PR gate queue delay p95")
+    assert (queue["value_s"], queue["n"], queue["status"]) == (180.0, 2, "met")
+    # The longer of the two parallel jobs, 50 s; not their sum, and not the queue.
+    execution = _slo(out, "Fast PR gate execution p95")
+    assert (execution["value_s"], execution["n"], execution["status"]) == (50.0, 1, "met")
+    assert queue["note"] == ""
+
+
+def test_fast_gate_targets_can_be_missed() -> None:
+    out = _build([_pr_run(1, "10:00:00")], {1: [
+        _job("changes", "success", "10:00:00", "10:06:00", "10:06:10"),
+        _job("repo-hygiene", "timed_out", "10:00:00", "10:00:30", "10:11:30")]})
+    assert _slo(out, "Fast PR gate queue delay p95")["status"] == "missed"
+    assert _slo(out, "Fast PR gate execution p95")["status"] == "missed"
+
+
+def test_a_partial_fast_gate_gives_no_execution_sample_and_says_what_is_missing() -> None:
+    out = _build([_pr_run(1, "10:00:00", conclusion="cancelled")], {1: [
+        _job("changes", "success", "10:00:00", "10:00:30", "10:00:40"),
+        _unstarted("repo-hygiene", "10:00:00", "10:15:00")]})
+    queue = _slo(out, "Fast PR gate queue delay p95")
+    assert (queue["value_s"], queue["n"]) == (30.0, 1)
+    assert queue["note"] == "1 job(s) cancelled before starting, not in this figure"
+    assert _slo(out, "Fast PR gate execution p95")["status"] == "no data"
+    assert "30s (1 job(s) cancelled before starting" in ct.render_markdown(out)
+
+
+def test_a_superseded_fast_job_is_not_reported_as_starved() -> None:
+    out = _build(
+        [_pr_run(1, "10:00:00", conclusion="cancelled"), _pr_run(2, "10:01:00")],
+        {1: [_unstarted("repo-hygiene", "10:00:00", "10:01:10")], 2: []},
+    )
+    assert _slo(out, "Fast PR gate queue delay p95")["note"] == ""
+
+
+def test_fast_gate_jobs_match_the_policy_table_and_the_workflow() -> None:
+    """A renamed or re-wired fast job would leave both SLO rows at "no data" in silence."""
+    policy = (ROOT / ".github" / "CI_POLICY.md").read_text(encoding="utf-8")
+    section = policy.split("### How `test.yml` implements it")[1].split("\n### ")[0].split("\n## ")[0]
+    rows = [[cell.strip() for cell in line.strip("|").split("|")]
+            for line in section.splitlines() if line.startswith("|")]
+    listed = [cells[0].split("`")[1] for cells in rows if len(cells) > 1 and cells[1] == "fast"]
+    assert sorted(listed) == sorted(ct.FAST_GATE_JOBS)
+
+    jobs = yaml.safe_load((ROOT / ct.FAST_GATE_WORKFLOW).read_text(encoding="utf-8"))["jobs"]
+    for name in ct.FAST_GATE_JOBS:
+        job = jobs[name]
+        # The API reports a job by its `name:`, falling back to its id.
+        assert job.get("name", name) == name
+        # Execution is "the longest of the jobs", which holds only while neither waits
+        # for the other, and a fast job must run on every pull request.
+        assert "needs" not in job and "if" not in job and "strategy" not in job
 
 
 # ------------------------------------------------------------------------- privacy
@@ -313,7 +487,8 @@ ALLOWED_KEYS = {
     "no_runs", "repeated_failures", "step", "events", "last_seen", "last_run_id",
     "red_on_default_branch", "failed_runs_in_streak", "red_since", "red_for_s",
     "slo_limit_s", "over_slo", "latest_run_id", "slo", "name", "target_s", "value_s",
-    "status", "note", "generated_at",
+    "status", "note", "generated_at", "pr_job_queue", "runners", "runner", "never_started",
+    "never_started_superseded", "never_started_wait",
 }
 
 
@@ -370,7 +545,7 @@ def test_fmt_duration(seconds: float | None, text: str) -> None:
 
 def test_render_markdown_has_every_section(report: dict) -> None:
     page = ct.render_markdown(report)
-    for heading in ("## SLO facts", "## What is consuming CI", "## Runs by workflow and event",
+    for heading in ("## SLO facts", "## Queue by runner", "## What is consuming CI", "## Runs by workflow and event",
                     "## Superseded pull-request runs", "## Longest jobs",
                     "## Red on the default branch", "## Workflows with no successful run",
                     "## Repeated failures"):

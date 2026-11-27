@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — CI telemetry: a job that never got a runner counted as a zero-second queue and as runner time ([#539](https://github.com/MSKazemi/yazses/issues/539))
+
+GitHub reports a job cancelled before any runner took it with a start time equal to its creation time and an end time at the cancellation. The daily report read that as a 0 s queue followed by minutes of runner time, so queue delay looked shorter and job-minutes higher exactly when a runner pool was starved. Such jobs are now left out of both and counted per runner class (Linux, Linux arm64, macOS, Windows, other), with superseded pull-request runs counted apart and the wait shown for the rest. The two fast-gate targets of `.github/CI_POLICY.md` §12 are now measured on the `changes` and `repo-hygiene` jobs: queue delay (previously approximated by all pull-request jobs, which is still shown) and execution time (previously not measured). The report's schema is `yazses-ci-telemetry/2`. This is CI-only: no gate changes and the product still collects no telemetry.
+
 ### Added — biosignal: `field-test --cues`, and `field-test-pool` to combine saved results ([#889](https://github.com/MSKazemi/yazses/issues/889), items 4 and 5)
 
 `yazses biosignal field-test --cues N` sets the number of cues per gesture phase (5 to 100, default still 8), so one session can reach the 16 scored cues that an 80% hit-rate floor needs. The new `yazses biosignal field-test-pool FILE...` adds several saved results together and recomputes every rate and bound from the totals; it refuses a file named twice and warns about two files with identical contents. The field-test and pooled reports now print the exact one-sided 95% Poisson upper bound beside the approximation (`exact 95% /h`; JSON `phantom_exact_upper_per_hour`): no phantom in 120 s is 89.9 per hour exactly, against 89.1. The verdict still uses the approximation. A saved result with negative or non-finite numbers is now refused when read back.
