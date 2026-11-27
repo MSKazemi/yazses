@@ -108,7 +108,8 @@ def test_the_manifest_runs_the_installed_mcp_server(built: Path) -> None:
     assert server["mcp_config"]["args"] == ["${__dirname}/server/launcher.js"]
     with zipfile.ZipFile(built) as zf:
         launcher = zf.read("server/launcher.js").decode("utf-8")
-    assert 'spawn("yazses", ["mcp-server"' in launcher
+    assert re.search(r'const COMMANDS = .*\["yazses"\];', launcher)
+    assert 'spawn(command, ["mcp-server"' in launcher
 
 
 def test_the_manifest_points_at_the_install_page(built: Path) -> None:
@@ -231,6 +232,107 @@ def test_the_launcher_runs_the_installed_yazses_and_passes_its_status_through(
     assert result.stdout.strip() == "args:mcp-server"
     assert result.returncode == 3
     assert INSTALL_URL not in result.stderr
+
+
+# --- the Windows installer's command name (#638) -----------------------------------
+
+
+def test_the_windows_fallback_is_the_console_exe_the_installer_ships() -> None:
+    """The installer puts `yazses.cmd` and `yazses-cli.exe` on PATH and no
+    `yazses.exe`, so the launcher's second name must be the one those files use."""
+    windows = ROOT / "packaging" / "windows"
+    assert 'name="yazses-cli"' in (windows / "yazses.spec").read_text(encoding="utf-8")
+    assert '"%~dp0yazses-cli.exe" %*' in (windows / "yazses.cmd").read_text(encoding="utf-8")
+    assert '["yazses", "yazses-cli"]' in LAUNCHER.read_text(encoding="utf-8")
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the fake command is a POSIX shell script")
+@pytest.mark.parametrize(
+    ("platform", "on_path", "status"),
+    [
+        ("win32", ["yazses-cli"], 3),
+        ("win32", ["yazses", "yazses-cli"], 4),
+        ("linux", ["yazses-cli"], 127),
+    ],
+    ids=["windows-falls-back", "windows-prefers-yazses", "elsewhere-no-fallback"],
+)
+@needs_node
+def test_the_launcher_picks_the_command_by_platform(
+    built: Path, tmp_path: Path, platform: str, on_path: list[str], status: int
+) -> None:
+    """The real launcher with `process.platform` overridden by a preload, so the
+    choice of names is exercised on the POSIX legs too."""
+    launcher = _extract_launcher(built, tmp_path)
+    preload = tmp_path / "platform.js"
+    preload.write_text(
+        f'Object.defineProperty(process, "platform", {{ value: "{platform}" }});\n',
+        encoding="utf-8",
+    )
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    statuses = {"yazses": 4, "yazses-cli": 3}
+    for name in on_path:
+        fake = bin_dir / name
+        fake.write_text(
+            f'#!/bin/sh\necho "{name}:$*"\nexit {statuses[name]}\n', encoding="utf-8"
+        )
+        fake.chmod(0o755)
+    result = subprocess.run(
+        [NODE, "-r", str(preload), str(launcher)],
+        env={"PATH": str(bin_dir)},
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == status
+    if status == 127:
+        assert result.stdout == ""
+        assert INSTALL_URL in result.stderr
+    else:
+        ran = "yazses" if "yazses" in on_path else "yazses-cli"
+        assert result.stdout.strip() == f"{ran}:mcp-server"
+        assert INSTALL_URL not in result.stderr
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="needs a real Windows .exe lookup")
+@needs_node
+def test_on_windows_the_launcher_runs_the_installers_layout(built: Path, tmp_path: Path) -> None:
+    """A PATH directory laid out like the installer's: a `yazses.cmd` shim beside
+    `yazses-cli.exe`. A copy of node stands in for the executable, so the argument
+    `mcp-server` names a script in the working directory."""
+    launcher = _extract_launcher(built, tmp_path)
+    node_exe = subprocess.run(
+        [NODE, "-p", "process.execPath"],
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=30,
+    ).stdout.strip()
+    app_dir = tmp_path / "app"
+    app_dir.mkdir()
+    shutil.copy(node_exe, app_dir / "yazses-cli.exe")
+    (app_dir / "yazses.cmd").write_text("@echo off\nexit /b 9\n", encoding="utf-8")
+    work_dir = tmp_path / "work"
+    work_dir.mkdir()
+    (work_dir / "mcp-server").write_text(
+        'process.stdout.write("console exe ran");\nprocess.exitCode = 3;\n', encoding="utf-8"
+    )
+    env = {"PATH": str(app_dir)}
+    for name in ("SYSTEMROOT", "SystemRoot", "WINDIR", "TEMP", "TMP"):
+        if name in os.environ:
+            env[name] = os.environ[name]
+    result = subprocess.run(
+        [NODE, str(launcher)],
+        cwd=work_dir,
+        env=env,
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.stdout == "console exe ran", result.stderr
+    assert result.returncode == 3
 
 
 # --- the version really comes from pyproject ---------------------------------

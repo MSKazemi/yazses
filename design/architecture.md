@@ -726,7 +726,8 @@ the daemon's TTS backend to speak the question (without one, the call is refused
 answer with the pure `endpoint/answer.py::AnswerEndpoint` once the user stops speaking (ADR-032 §3,
 `[mcp] ask_human_end_silence_s` / `ask_human_no_speech_s`). ADR-032 §1's one-click `.mcpb` bundle
 (`packaging/mcpb/`, built by `scripts/build-mcpb.py`) contains no YazSes; its launcher runs the
-installed `yazses mcp-server`.
+installed `yazses mcp-server`, trying `yazses-cli` second on Windows, where the `.exe` installer
+puts only a `yazses.cmd` shim beside it on PATH.
 
 Send to is **not** an MCP tool. It lives in `sendto/` (below) and is reached by phrase, by the IPC
 method `send_to` and by `yazses send-to` ([ADR-031](adr/adr-031-send-to-prefill-handoff.md)).

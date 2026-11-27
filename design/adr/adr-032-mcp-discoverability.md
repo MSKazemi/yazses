@@ -57,6 +57,12 @@ schema [F]. A verbatim copy of that schema is vendored under `tests/fixtures/mcp
 `tests/test_mcpb_manifest_schema.py` validates the manifest of every built bundle against
 it, offline [M]. Whether a real client installs the bundle is still a test-day check [U].
 
+*Implementation note (2026-11-27, #638):* the bundle's launcher starts `yazses` without a
+shell. On Windows that lookup tries only `.com` and `.exe`
+([libuv `process.c`](https://github.com/libuv/libuv/blob/v1.x/src/win/process.c)) [F], and the
+`.exe` installer puts `yazses.cmd` and `yazses-cli.exe` on PATH [M], so the launcher tries
+`yazses-cli` second on Windows. Not tried on a Windows install [U].
+
 The bundle is built in CI from a template, attached to each GitHub release beside the
 other assets, and covered by the release checksum file.
 

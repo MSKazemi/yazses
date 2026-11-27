@@ -58,6 +58,12 @@ and the test suite checks every build against the spec's published JSON schema. 
 [install page](../get-started.md) to its error output and exits with status 127,
 instead of leaving only a bare "command not found".
 
+On Windows, the `.exe` installer (also used by winget and Chocolatey) names the program
+`yazses-cli.exe` and puts a `yazses.cmd` shortcut script beside it. The launcher tries
+`yazses` first and then `yazses-cli`. Releases up to and including v2.52.0 tried only
+`yazses`, so their bundle cannot start YazSes on such a machine; use
+[route 2](#route-2-add-it-to-the-clients-configuration-by-hand) with `yazses-cli` there.
+
 The bundle has not yet been tried in a real client, so if a step above does not match what
 your client shows, please [open an issue](https://github.com/MSKazemi/yazses/issues).
 
@@ -86,6 +92,10 @@ With Claude Code, one command does the same:
 claude mcp add yazses -- yazses mcp-server
 ```
 
+If you installed YazSes on Windows with the `.exe` installer, winget or Chocolatey, write
+`yazses-cli` instead of `yazses` in these examples. `yazses` is a `.cmd` script there, and
+many programs cannot start a `.cmd` script directly.
+
 ## Route 3: the MCP registry
 
 The official [MCP registry](https://registry.modelcontextprotocol.io) lists servers that
@@ -112,8 +122,9 @@ installed with `pipx` or `uv tool`, which put `yazses` in `~/.local/bin`.
 
 Use the full path instead. Run `which yazses` (macOS, Linux) or `where yazses` (Windows) in
 a terminal, and put the result in the `command` field of route 2, for example
-`{"command": "/Users/you/.local/bin/yazses", "args": ["mcp-server"]}`. The bundle in
-route 1 always uses the bare `yazses` command, so this fix needs route 2.
+`{"command": "/Users/you/.local/bin/yazses", "args": ["mcp-server"]}`. On Windows, if
+`where yazses` shows a file ending in `.cmd`, run `where yazses-cli` and use that result.
+The bundle in route 1 looks the command up by name only, so this fix needs route 2.
 
 ## Turn on `ask_human`
 

@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the `.mcpb` bundle finds YazSes installed with the Windows installer
+
+The installer, which winget and Chocolatey also run, puts `yazses.cmd` and `yazses-cli.exe` on PATH and no `yazses.exe`. The bundle's launcher starts programs without a shell, which looks only for `.com` and `.exe` files, so it reported that YazSes was not installed. On Windows it now tries `yazses-cli` after `yazses`. The [connect guide](docs/how-to/connect-mcp-client.md) says to write `yazses-cli` in a hand-written client configuration on such an install. Not tried on a Windows install or in a real MCP client (#638).
+
 ### Fixed — snap on Wayland: dictated text could not reach the clipboard
 
 The snap's private `XDG_RUNTIME_DIR` does not hold the Wayland socket, so `wl-copy` and `wl-paste` failed with "Failed to connect to a Wayland server": when typing failed, the clipboard fallback failed too and the dictation was lost. The clipboard commands are now given the host socket's full path; the daemon's own environment is unchanged. Where the copy works and nothing can press Ctrl+V, the notification now says the words are on the clipboard instead of that they were not typed.

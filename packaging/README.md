@@ -517,7 +517,8 @@ and attaches both files to the GitHub Release; `checksums.yml` adds the bundle t
 (`python3 scripts/build-mcpb.py --out-dir /tmp/mcpb` in a checkout of `v<version>`) and
 compare `sha256sum /tmp/mcpb/*.mcpb` with the published line. The bundle holds three
 files: the manifest, the icon and `server/launcher.js` (source: `mcpb/launcher.js`), which
-runs the installed `yazses mcp-server` and, if `yazses` is not on PATH, prints the install
+runs the installed `yazses mcp-server` (on Windows it tries `yazses-cli` next, because the
+`.exe` installer puts no `yazses.exe` on PATH) and, if neither is found, prints the install
 URL on stderr and exits 127. Not yet installed in a real client.
 
 **The MCP registry entry.** `python3 scripts/render-mcp-server-json.py` writes
