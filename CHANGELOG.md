@@ -6,6 +6,24 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses punch-in` reported "Daemon is not running" while it was recording
+
+The daemon records for `[punch_in] record_seconds` (4 s by default) before it answers, and the command waited 2 s. It now waits for the recording and the decode, and says when to re-speak the phrase.
+
+### Fixed — `yazses enroll` with the daemon running did nothing you could see
+
+It asked the daemon to run the wizard, which needs you to press Enter in a terminal a background daemon does not have. The wizard now always runs in your terminal; apply its result with `yazses restart`.
+
+### Fixed — command-line errors end in a sentence and a next step instead of a traceback
+
+- A daemon older than the command, a failed daemon request, or a reply that cannot be read now says so (`yazses restart` or `yazses logs`). A slow daemon is no longer reported as not running.
+- A config or data file you cannot write, or one another YazSes process is changing, is named.
+- `mic-level`, `enroll`, `enroll-voice`, `inject`, `test`, `tray`, `meeting relabel`, `meeting notes`, `meeting recover`, `report -o`, `vocab export -o` and `wordfind --lexicon` explain what failed.
+- `transcribe` checks the `--out` path before loading the model, refuses a folder or the audio file itself, and prints the transcript if it cannot be written.
+- `test` exits 1 when the daemon typed nothing, and no longer types a second time after a daemon timeout.
+- An unknown `case --style`, `outline render --format`, `braille --grade`, `meeting relabel --format` or `scratch` action is refused with exit code 2. It was ignored before, and a bad `relabel --format` crashed after rewriting `transcript.json`.
+- `enroll-voice` advised `systemctl`, which only exists on Linux; it now says `yazses restart`. The `punch-in` and `mark-wrong` refusals name the command that turns the feature on, and `doctor` says what to do about an unknown session type or a missing model cache.
+
 ### Fixed — snap on Wayland: dictated text could not reach the clipboard
 
 The snap's private `XDG_RUNTIME_DIR` does not hold the Wayland socket, so `wl-copy` and `wl-paste` failed with "Failed to connect to a Wayland server": when typing failed, the clipboard fallback failed too and the dictation was lost. The clipboard commands are now given the host socket's full path; the daemon's own environment is unchanged. Where the copy works and nothing can press Ctrl+V, the notification now says the words are on the clipboard instead of that they were not typed.

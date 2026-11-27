@@ -4,13 +4,15 @@ PID-file fallback for status.
 
 import sys
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 import typer
+from typer.core import TyperGroup
 
 from yazses import branding
 from yazses.hotkeys.names import SETTABLE_HOTKEYS, SUPPORTED_HOTKEYS, canonical
 from yazses.ipc.client import IpcCallError, IpcTimeoutError, IpcUnreachableError
+from yazses.ipc.protocol import METHOD_NOT_FOUND
 from yazses.platform import get_paths, get_platform
 from yazses.system.logtail import tail_records
 from yazses.system.outcomes import describe_outcomes
@@ -60,6 +62,70 @@ def _maybe_point_at_project(data_dir, *, succeeded: bool) -> None:
         pass
 
 
+def _daemon_is_running() -> bool | None:
+    """Whether a daemon is running, or ``None`` when that cannot be asked. Never raises."""
+    try:
+        return bool(get_platform().lifecycle.is_running())
+    except Exception:  # noqa: BLE001 — this only words an error that already happened
+        return None
+
+
+def _ipc_failure_message(exc: IpcCallError, running: bool | None) -> str:
+    """One sentence and a next step for a daemon request that failed.
+
+    The order matters: a timeout *is* an ``IpcUnreachableError``, and reporting a slow
+    daemon as "not running" invites a second run of something it may already have done.
+    """
+    if isinstance(exc, IpcTimeoutError):
+        waited = f" within {exc.timeout_s:g} s" if exc.timeout_s else " in time"
+        return (
+            f"YazSes did not answer{waited}. It may still be doing what you asked — check "
+            "`yazses status` before running this again, and `yazses logs` if it stays slow."
+        )
+    if isinstance(exc, IpcUnreachableError):
+        if running:
+            return (
+                "YazSes is running but not answering yet (it may still be starting). Try "
+                "again in a moment; `yazses logs` shows why if it stays that way."
+            )
+        return "Daemon is not running. Start it with: yazses start"
+    error = getattr(exc, "error", None)
+    if getattr(error, "code", None) == METHOD_NOT_FOUND:
+        return "The running daemon is older than this command — run `yazses restart`."
+    reason = getattr(error, "message", "") or str(exc)
+    return f"YazSes could not complete the request: {reason}\n  `yazses logs` has the details."
+
+
+class _FriendlyGroup(TyperGroup):
+    """The root command group: ordinary failures end in a sentence, not a traceback.
+
+    Here rather than around each command, so a command added tomorrow is covered, and
+    here rather than in `main()`, so the tests that invoke the app see the same thing
+    a user does. Only failures with a known next step are caught.
+    """
+
+    def invoke(self, ctx: Any) -> Any:
+        try:
+            return super().invoke(ctx)
+        except IpcCallError as exc:
+            typer.echo(_ipc_failure_message(exc, _daemon_is_running()), err=True)
+        except PermissionError as exc:
+            typer.echo(
+                f"Permission denied: {exc.filename or exc}\n"
+                "  Check that the file and its folder belong to you; running YazSes with "
+                "sudo or as another user can leave files you cannot change.",
+                err=True,
+            )
+        except RuntimeError as exc:
+            # Imported here: the config editor is not part of every command's start-up.
+            from yazses.system.configedit import ConfigEditBusyError
+
+            if not isinstance(exc, ConfigEditBusyError):
+                raise
+            typer.echo(f"{exc}\n  Wait a moment, then run the command again.", err=True)
+        raise typer.Exit(1)
+
+
 _APP_EPILOG = (
     _examples(
         "yazses quickstart            new here? the 3 steps to get dictating",
@@ -82,6 +148,7 @@ _APP_EPILOG = (
 
 app = typer.Typer(
     name="yazses",
+    cls=_FriendlyGroup,
     help=branding.TAGLINE,
     context_settings=CONTEXT_SETTINGS,
     no_args_is_help=True,          # bare `yazses` shows help instead of an error
@@ -547,6 +614,16 @@ def _meeting_dir(meeting_id: str):
     return store.meetings_dir(cfg.meeting) / meeting_id
 
 
+def _bad_transcript(meeting_id: str, meeting_dir: Path, exc: Exception) -> typer.Exit:
+    """A stored ``transcript.json`` that cannot be read. Returns the Exit to raise."""
+    typer.echo(
+        f"Could not read {meeting_dir / 'transcript.json'}: {exc!r}\n"
+        f"  If the recording was kept, rebuild it: yazses meeting recover {meeting_id} --force",
+        err=True,
+    )
+    return typer.Exit(1)
+
+
 def _parse_pairs(items):
     """Parse ``["a=b", "c=d"]`` into ``{"a": "b", "c": "d"}`` for --merge/--rename."""
     out = {}
@@ -628,11 +705,7 @@ def meeting_start(
     """
     platform = get_platform()
     client = platform.ipc_client_factory(platform.paths.ipc_socket)
-    try:
-        result = client.call("meeting_start", speakers=speakers)
-    except IpcUnreachableError:
-        typer.echo("Daemon is not running. Start it with: yazses start", err=True)
-        raise typer.Exit(1)
+    result = client.call("meeting_start", speakers=speakers)
     if result.get("ok"):
         if result.get("warning"):
             typer.echo(f"⚠ {result['warning']}", err=True)
@@ -697,8 +770,8 @@ def meeting_status() -> None:
     client = platform.ipc_client_factory(platform.paths.ipc_socket)
     try:
         result = client.call("meeting_status")
-    except IpcUnreachableError:
-        typer.echo("Daemon is not running.", err=True)
+    except IpcCallError as exc:
+        typer.echo(_ipc_failure_message(exc, _daemon_is_running()), err=True)
         raise typer.Exit(1)
     if result.get("active"):
         typer.echo(f"● Recording {result['id']} — {result['elapsed_s']:.0f}s, "
@@ -894,14 +967,22 @@ def meeting_relabel(
     re-renders from the stored `transcript.json`). Runs locally, no daemon needed.
     """
     from yazses.meeting import store
+    from yazses.recimport.render import VALID_FORMATS
 
+    # Refused first: the re-render writes transcript.json before it reaches the format.
+    fmt = (fmt or "md").lower()
+    if fmt not in VALID_FORMATS:
+        typer.echo(f"Unknown --format {fmt!r}; expected one of {', '.join(VALID_FORMATS)}.", err=True)
+        raise typer.Exit(2)
     d = _meeting_dir(meeting_id)
     if not (d / "transcript.json").exists():
         typer.echo(f"No transcript for meeting {meeting_id} in {d}.", err=True)
         raise typer.Exit(1)
-    written = store.relabel(
-        d, merges=_parse_pairs(merge), renames=_parse_pairs(rename), fmt=fmt
-    )
+    merges, renames = _parse_pairs(merge), _parse_pairs(rename)
+    try:
+        written = store.relabel(d, merges=merges, renames=renames, fmt=fmt)
+    except (ValueError, KeyError, TypeError, AttributeError) as exc:
+        raise _bad_transcript(meeting_id, d, exc) from None
     typer.echo(f"Re-rendered {meeting_id}:")
     for name, path in written.items():
         typer.echo(f"  {name}: {path}")
@@ -937,7 +1018,16 @@ def meeting_recover(
         typer.echo(reason, err=True)
         raise typer.Exit(1)
     typer.echo(f"Recovering {meeting_id} from {d / 'audio.wav'}… (this can take a while)")
-    info = recover_meeting(d, cfg.meeting, stt=cfg.stt)
+    try:
+        info = recover_meeting(d, cfg.meeting, stt=cfg.stt)
+    except Exception as exc:  # noqa: BLE001 — model, memory or disk: all retryable
+        typer.echo(
+            f"Recovery failed: {exc}\n"
+            f"  The recording was not deleted ({d / 'audio.wav'}), so you can run this "
+            "again once the cause is fixed. `yazses doctor` checks the model.",
+            err=True,
+        )
+        raise typer.Exit(1) from None
     if archived := info.get("archived_previous"):
         typer.echo(f"Previous outputs archived to {archived} (nothing was deleted).")
     for name, path in info["files"].items():
@@ -1068,7 +1158,10 @@ def meeting_notes(
         )
         raise typer.Exit(1)
 
-    view = store.load_result_view(d)
+    try:
+        view = store.load_result_view(d)
+    except (ValueError, KeyError, TypeError, AttributeError) as exc:
+        raise _bad_transcript(meeting_id, d, exc) from None
     # Checked BEFORE the announcement. This printed "Generating minutes locally… (this
     # can take a few minutes)" and then, immediately, that notes were off — promising
     # work that had already been ruled out. The precondition costs nothing to ask.
@@ -1997,9 +2090,13 @@ def tray(
         )
         typer.echo("Tray launched. Look for the microphone icon in your top bar.")
         return
-    from yazses.tray.app import run as run_tray
+    try:
+        from yazses.tray.app import run as run_tray
 
-    run_tray()
+        run_tray()
+    except (ImportError, RuntimeError) as exc:  # no Qt, no tray library, ...
+        typer.echo(f"Could not show the tray: {exc}", err=True)
+        raise typer.Exit(1) from None
 
 
 @app.command(
@@ -3334,8 +3431,12 @@ def vocab_export(
         if not streams.write_out(text):
             raise typer.Exit(1)  # no console (windowed build): fail loudly, not silently
         return
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(text, encoding="utf-8")
+    try:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(text, encoding="utf-8")
+    except OSError as exc:
+        typer.echo(f"Could not write {output}: {exc.strerror or exc}", err=True)
+        raise typer.Exit(1) from None
     typer.echo(f"Wrote {len(text.splitlines())} word(s) to {output}.")
 
 
@@ -3595,6 +3696,8 @@ def _staged_call(action: str) -> dict | None:
     client = platform.ipc_client_factory(platform.paths.ipc_socket)
     try:
         return client.call("staged", action=action)
+    except IpcTimeoutError:
+        raise  # slow, not starting: it may already have typed or dropped the buffer
     except IpcUnreachableError:
         typer.echo("YazSes is starting up — try again in a moment.")
         return None
@@ -3908,6 +4011,10 @@ def outline_render(
     from yazses.outline.store import load_outline
     from yazses.outline.tree import render
 
+    fmt = fmt.strip().lower()
+    if fmt not in ("markdown", "md", "opml"):
+        typer.echo(f"Unknown --format {fmt!r}; expected markdown or opml.", err=True)
+        raise typer.Exit(2)
     out = render(load_outline(_outline_path()), fmt)
     typer.echo(out if out else "(empty outline)")
 
@@ -4190,7 +4297,15 @@ def report(
         return
 
     target = Path(out) if out else platform.paths.data_dir / "yazses-report.json"
-    bundle = report_mod.write(data, target)
+    try:
+        bundle = report_mod.write(data, target)
+    except OSError as exc:
+        typer.echo(
+            f"Could not write {target}: {exc.strerror or exc}\n"
+            "  Choose another file with -o, or use --print.",
+            err=True,
+        )
+        raise typer.Exit(1) from None
     typer.echo(f"Wrote {bundle.path}")
     typer.echo(f"  {bundle.summary}")
     typer.echo("\nNothing was sent anywhere. Read it, then attach it to an issue if you like:")
@@ -5214,6 +5329,16 @@ def _request_daemon_shutdown() -> None:
         typer.echo(f"  (could not reach the daemon to stop it: {exc})")
 
 
+def _microphone_failed(what: str, exc: Exception) -> typer.Exit:
+    """Say why a command that records could not, and where to look. Returns the Exit."""
+    typer.echo(
+        f"{what}: {exc}\n"
+        "  Check the microphone with `yazses audio devices` and `yazses doctor`.",
+        err=True,
+    )
+    return typer.Exit(1)
+
+
 def _calibrate_mic(*, seconds: float = 4.0, set_threshold: bool = False) -> bool:
     """Measure the room, then measure the voice, and put the gate between them.
 
@@ -5244,12 +5369,20 @@ def _calibrate_mic(*, seconds: float = 4.0, set_threshold: bool = False) -> bool
 
     typer.secho(f"1/2  Stay quiet — measuring the room for {ambient_seconds:.0f}s...",
                 fg=typer.colors.BRIGHT_CYAN, bold=True)
-    ambient = analyze(record(ambient_seconds, sr, device=cfg.audio.device or None), sr)
+    try:
+        ambient = analyze(record(ambient_seconds, sr, device=cfg.audio.device or None), sr)
+    except Exception as exc:  # noqa: BLE001 — no microphone, no PortAudio, ...
+        _microphone_failed("  could not record from the microphone", exc)
+        return False
     typer.echo(f"  room level:            {ambient.mean_abs:.4f}")
 
     typer.secho(f"\n2/2  Now speak normally for {seconds:.0f}s...",
                 fg=typer.colors.BRIGHT_CYAN, bold=True)
-    speech = analyze(record(seconds, sr, device=cfg.audio.device or None), sr)
+    try:
+        speech = analyze(record(seconds, sr, device=cfg.audio.device or None), sr)
+    except Exception as exc:  # noqa: BLE001
+        _microphone_failed("  could not record from the microphone", exc)
+        return False
 
     typer.echo(f"  speech level:          {speech.mean_abs:.4f}")
     typer.echo(f"  peak level:            {speech.peak:.4f}")
@@ -5420,7 +5553,10 @@ def inject(
     # the selector wrapping it -- "LinuxInjector" is true on every Linux box and tells
     # nobody anything, least of all whether it matches `yazses status`.
     apply_injection_config(load_config(platform.paths.config_file).injection)
-    injector = platform.injector_factory()
+    try:
+        injector = platform.injector_factory()
+    except Exception as exc:  # noqa: BLE001 — any backend failure, same next step
+        raise _injection_failed(exc) from None
     typer.echo(f"Backend: {describe_injector(injector)}")
 
     if delay > 0:
@@ -5431,8 +5567,22 @@ def inject(
         for line in _focus_report_lines():
             typer.echo(line)
 
-    injector.inject(text)
+    try:
+        injector.inject(text)
+    except Exception as exc:  # noqa: BLE001
+        raise _injection_failed(exc) from None
     typer.echo(f"Injected: {text!r}")
+
+
+def _injection_failed(exc: Exception) -> typer.Exit:
+    """Say why nothing was typed, and where to look. Returns the Exit to raise."""
+    typer.echo(
+        f"Could not type into the focused window: {exc}\n"
+        "  `yazses doctor` names what is missing; `yazses inject-backend` shows the "
+        "other ways to type.",
+        err=True,
+    )
+    return typer.Exit(1)
 
 
 def _focus_report_lines() -> list[str]:
@@ -5555,11 +5705,7 @@ def say(text: str = typer.Argument(..., help="Text to speak aloud.")) -> None:
     """
     platform = get_platform()
     client = platform.ipc_client_factory(platform.paths.ipc_socket)
-    try:
-        result = client.call("readback_speak", text=text)
-    except IpcUnreachableError:
-        typer.echo("Daemon is not running. Start it with: yazses start", err=True)
-        raise typer.Exit(1)
+    result = client.call("readback_speak", text=text)
     if result.get("ok"):
         typer.echo(f"Speaking via {result.get('backend')}...")
     else:
@@ -5745,7 +5891,8 @@ def gitvoice(
 )
 def braille(
     text: Optional[str] = typer.Argument(None, help="Text to translate (omit to read stdin)."),
-    grade: int = typer.Option(2, "--grade", help="UEB grade: 1 (uncontracted) or 2 (contracted)."),
+    grade: int = typer.Option(
+        2, "--grade", min=1, max=2, help="UEB grade: 1 (uncontracted) or 2 (contracted)."),
 ) -> None:
     """Translate text to Unicode Braille (UEB subset) — fully offline.
 
@@ -5792,6 +5939,13 @@ def case(
     import sys as _sys
 
     from yazses.casetransform.transform import split_style_command, transform_case
+
+    styles = ("snake", "kebab", "camel", "pascal", "title", "sentence", "upper", "lower", "constant")
+    if style is not None:
+        style = style.strip().lower()
+        if style not in styles:
+            typer.echo(f"Unknown --style {style!r}. Valid styles: {', '.join(styles)}.", err=True)
+            raise typer.Exit(2)
 
     src = text if text is not None else _sys.stdin.read()
     chosen = style
@@ -5943,6 +6097,13 @@ def wordfind(
         except (OSError, ValueError) as exc:
             typer.echo(f"Could not read --lexicon: {exc}", err=True)
             raise typer.Exit(1)
+        if not isinstance(user_lex, dict) or not all(isinstance(v, str) for v in user_lex.values()):
+            typer.echo(
+                "--lexicon must be a JSON object mapping each word to its definition, "
+                'e.g. {"serendipity": "finding something good by accident"}.',
+                err=True,
+            )
+            raise typer.Exit(1)
     results = rank_candidates(description, user_lex, limit=limit)
     if not results:
         typer.echo("No candidates — try describing it differently.", err=True)
@@ -6073,26 +6234,22 @@ def remote(
         raise typer.Exit(1)
     platform = get_platform()
     client = platform.ipc_client_factory(platform.paths.ipc_socket)
-    try:
-        if stop:
-            result = client.call("remote_stop")
-            if result.get("ok"):
-                typer.echo("Remote session disconnected.")
-            else:
-                # Matches the start branch below: a failed teardown may have left the
-                # tunnel up, so it must not exit 0 on stdout like a success.
-                typer.echo(f"Error: {result.get('reason', result)}", err=True)
-                raise typer.Exit(1)
+    if stop:
+        result = client.call("remote_stop")
+        if result.get("ok"):
+            typer.echo("Remote session disconnected.")
         else:
-            result = client.call("remote_start", host=host, port=port, key_file=key_file)
-            if result.get("ok"):
-                typer.echo(f"Connecting to {host}:{port}... (use --stop to disconnect)")
-            else:
-                typer.echo(f"Error: {result.get('reason', result)}", err=True)
-                raise typer.Exit(1)
-    except IpcUnreachableError:
-        typer.echo("Daemon is not running. Start it with: yazses start", err=True)
-        raise typer.Exit(1)
+            # Matches the start branch below: a failed teardown may have left the
+            # tunnel up, so it must not exit 0 on stdout like a success.
+            typer.echo(f"Error: {result.get('reason', result)}", err=True)
+            raise typer.Exit(1)
+    else:
+        result = client.call("remote_start", host=host, port=port, key_file=key_file)
+        if result.get("ok"):
+            typer.echo(f"Connecting to {host}:{port}... (use --stop to disconnect)")
+        else:
+            typer.echo(f"Error: {result.get('reason', result)}", err=True)
+            raise typer.Exit(1)
 
 
 @app.command(
@@ -6249,23 +6406,30 @@ def enroll() -> None:
 
     Records 20 short utterances to derive vad_threshold and min_silence_ms
     values tuned to your voice and microphone. Results are written to config.toml.
+    The wizard runs in this terminal; if YazSes is running, apply the result with
+    `yazses restart`.
     """
+    from yazses.accessibility.enroll import run_wizard
+
     platform = get_platform()
-    client = platform.ipc_client_factory(platform.paths.ipc_socket)
-    if client.is_reachable():
-        try:
-            result = client.call("enroll_start")
-            if result.get("ok"):
-                typer.echo("Enrollment started. Follow the prompts in the daemon terminal.")
-            else:
-                typer.echo(f"Error: {result.get('reason', result)}", err=True)
-                raise typer.Exit(1)
-        except IpcUnreachableError:
-            pass
-    else:
-        # Run wizard locally when daemon is not running
-        from yazses.accessibility.enroll import run_wizard
+    # Always here, never through the daemon: the wizard asks you to press Enter, and a
+    # background daemon has no terminal to ask in. Handing it over reported "started"
+    # and then failed where nobody could see it.
+    try:
         run_wizard(config_path=platform.paths.config_file)
+    except (KeyboardInterrupt, EOFError):
+        typer.echo(
+            "\nEnrollment stopped; nothing was written. It needs a terminal where you "
+            "can press Enter.",
+            err=True,
+        )
+        raise typer.Exit(1) from None
+    except PermissionError:
+        raise
+    except Exception as exc:  # noqa: BLE001 — no microphone, no PortAudio, ...
+        raise _microphone_failed("Enrollment failed", exc) from None
+    if platform.lifecycle.is_running():
+        typer.echo("Apply it:  yazses restart")
 
 
 @app.command(
@@ -6301,11 +6465,14 @@ def enroll_voice() -> None:
 
     secs = cfg.voiceprint.enroll_seconds
     typer.echo(f"Recording {secs:.0f}s — speak normally now...")
-    emb = do_enroll(record, embedder, seconds=secs, sample_rate=cfg.audio.sample_rate)
+    try:
+        emb = do_enroll(record, embedder, seconds=secs, sample_rate=cfg.audio.sample_rate)
+    except Exception as exc:  # noqa: BLE001 — recording or the embedding model
+        raise _microphone_failed("Could not record a voiceprint", exc) from None
     cipher = Cipher(load_or_create_key(platform.paths.data_dir))
     save_voiceprint(emb, platform.paths.data_dir / "voiceprint.enc", cipher)
     typer.echo("Voiceprint saved (encrypted). Restart the daemon to use it:")
-    typer.echo("  systemctl --user restart yazses")
+    typer.echo("  yazses restart")
 
 
 facegesture_app = typer.Typer(
@@ -6636,11 +6803,7 @@ def facegesture_status() -> None:
 
     platform = get_platform()
     client = platform.ipc_client_factory(platform.paths.ipc_socket)
-    try:
-        result = client.call("facegesture", action="status")
-    except IpcUnreachableError:
-        typer.echo("Daemon is not running. Start it with: yazses start", err=True)
-        raise typer.Exit(1)
+    result = client.call("facegesture", action="status")
     if not isinstance(result, dict) or not result.get("ok"):
         reason = result.get("reason") if isinstance(result, dict) else None
         typer.echo(f"Face switch: {reason or 'failed'}", err=True)
@@ -7973,11 +8136,7 @@ def mark_wrong(
     """
     platform = get_platform()
     client = platform.ipc_client_factory(platform.paths.ipc_socket)
-    try:
-        result = client.call("mark_last_wrong", correction=correction or None)
-    except IpcUnreachableError:
-        typer.echo("Daemon is not running. Start it with: yazses start", err=True)
-        raise typer.Exit(1)
+    result = client.call("mark_last_wrong", correction=correction or None)
     if result.get("ok"):
         typer.echo("Flagged the last dictation as wrong. `yazses tune` will use it.")
     else:
@@ -8057,11 +8216,7 @@ def recall(
     q = " ".join(query or [])
     platform = get_platform()
     client = platform.ipc_client_factory(platform.paths.ipc_socket)
-    try:
-        result = client.call("recall", query=q)
-    except IpcUnreachableError:
-        typer.echo("Daemon is not running. Start it with: yazses start", err=True)
-        raise typer.Exit(1)
+    result = client.call("recall", query=q)
     if not result.get("ok"):
         typer.echo(f"Recall unavailable: {result.get('reason')}", err=True)
         raise typer.Exit(1)
@@ -8088,13 +8243,13 @@ def scratch(
     Notes are captured in command mode when `[recall] scratch = true` and stored in
     a plain local file.
     """
+    action = action.strip().lower()
+    if action not in ("list", "clear"):
+        typer.echo(f"Unknown action {action!r}. Use `yazses scratch` or `yazses scratch clear`.", err=True)
+        raise typer.Exit(2)
     platform = get_platform()
     client = platform.ipc_client_factory(platform.paths.ipc_socket)
-    try:
-        result = client.call("scratch", action=action)
-    except IpcUnreachableError:
-        typer.echo("Daemon is not running. Start it with: yazses start", err=True)
-        raise typer.Exit(1)
+    result = client.call("scratch", action=action)
     if not result.get("ok"):
         typer.echo(f"Scratch unavailable: {result.get('reason')}", err=True)
         raise typer.Exit(1)
@@ -8107,6 +8262,10 @@ def scratch(
         return
     for n in notes:
         typer.echo(f"  • {n['text']}")
+
+
+#: Seconds `punch-in` allows for the decode and retype, on top of the recording window.
+_PUNCH_IN_DECODE_WAIT_S = 60.0
 
 
 @app.command(
@@ -8134,13 +8293,20 @@ def punch_in(
     retypes it corrected. Use --dry-run to review candidate spans first, then re-run
     with --choose N to apply a specific one.
     """
+    from yazses.config import load_config
+
     platform = get_platform()
+    punch = load_config(platform.paths.config_file).punch_in
+    window = max(0.0, punch.record_seconds)
     client = platform.ipc_client_factory(platform.paths.ipc_socket)
-    try:
-        result = client.call("punch_in", choose=choose, apply=not dry_run)
-    except IpcUnreachableError:
-        typer.echo("Daemon is not running. Start it with: yazses start", err=True)
-        raise typer.Exit(1)
+    if punch.enabled and _daemon_is_running() is not False:
+        typer.echo(f"Re-speak the phrase now — listening for {window:g} s...")
+    # The daemon records the whole window and decodes it before it answers, so the
+    # client's default 2 s wait reported every punch-in as "daemon is not running".
+    result = client.call(
+        "punch_in", wait_s=window + _PUNCH_IN_DECODE_WAIT_S,
+        choose=choose, apply=not dry_run,
+    )
     cands = result.get("candidates") or []
     if result.get("ok"):
         typer.echo(f"Corrected: {result['old']!r} -> {result['new']!r}")
@@ -8180,11 +8346,7 @@ def _headpointer_call(action: str, **params: object) -> dict:
     """Send one Head-Pointer command to the daemon, or exit with the reason it cannot."""
     platform = get_platform()
     client = platform.ipc_client_factory(platform.paths.ipc_socket)
-    try:
-        result = client.call("headpointer", action=action, **params)
-    except IpcUnreachableError:
-        typer.echo("Daemon is not running. Start it with: yazses start", err=True)
-        raise typer.Exit(1)
+    result = client.call("headpointer", action=action, **params)
     return result if isinstance(result, dict) else {"ok": False, "reason": "bad reply"}
 
 
@@ -8314,9 +8476,8 @@ def _handsfree_call(action: str) -> dict:
     client = platform.ipc_client_factory(platform.paths.ipc_socket)
     try:
         result = client.call("handsfree", action=action)
-    except IpcUnreachableError:
-        typer.echo("Daemon is not running. Start it with: yazses start", err=True)
-        raise typer.Exit(1)
+    except IpcCallError:
+        raise  # worded by the root group, like every other command
     except Exception as exc:  # an older daemon has no such method
         typer.echo(f"Hands-free: the running YazSes did not accept that ({exc}). "
                    "Try `yazses restart`.", err=True)
@@ -8524,11 +8685,7 @@ def _gesture_call(action: str) -> dict:
     """Send one Gesture Chords command to the daemon, or exit with the reason it cannot."""
     platform = get_platform()
     client = platform.ipc_client_factory(platform.paths.ipc_socket)
-    try:
-        result = client.call("gesture", action=action)
-    except IpcUnreachableError:
-        typer.echo("Daemon is not running. Start it with: yazses start", err=True)
-        raise typer.Exit(1)
+    result = client.call("gesture", action=action)
     return result if isinstance(result, dict) else {"ok": False, "reason": "bad reply"}
 
 
@@ -9182,6 +9339,21 @@ def transcribe(
         )
         raise typer.Exit(2)
 
+    # Settled before the model loads: a long recording must not be transcribed only to
+    # find there is nowhere to put the result.
+    out_path = Path(out) if out else Path(audio_file).with_suffix("." + fmt)
+    if out_path.is_dir():
+        typer.echo(f"{out_path} is a folder; give --out a file name inside it.", err=True)
+        raise typer.Exit(2)
+    if out_path.resolve() == Path(audio_file).resolve():
+        typer.echo("--out names the audio file itself; choose another output path.", err=True)
+        raise typer.Exit(2)
+    try:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        typer.echo(f"Cannot create the output folder {out_path.parent}: {exc.strerror or exc}", err=True)
+        raise typer.Exit(1) from None
+
     want_diarize = ri.diarize if diarize is None else diarize
     eff = dataclasses.replace(
         ri,
@@ -9300,8 +9472,17 @@ def transcribe(
             )
 
     text = render_transcript(result, fmt)
-    out_path = Path(out) if out else Path(audio_file).with_suffix("." + fmt)
-    out_path.write_text(text, encoding="utf-8")
+    try:
+        out_path.write_text(text, encoding="utf-8")
+    except OSError as exc:
+        typer.echo(
+            f"Could not write {out_path}: {exc.strerror or exc}\n"
+            "  The transcript follows, so the work is not lost. Next time pass -o with a "
+            "folder you can write to.",
+            err=True,
+        )
+        typer.echo(text)
+        raise typer.Exit(1) from None
     n_spk = len({u.speaker for u in result.utterances if u.speaker})
     summary = f" ({n_spk} speaker{'s' if n_spk != 1 else ''})" if result.diarized else ""
     typer.echo(f"Wrote {out_path}{summary}")
@@ -9519,21 +9700,31 @@ def test() -> None:
     if client.is_reachable():
         typer.echo("Routing through running daemon over IPC.")
         try:
-            from yazses.ipc.client import IpcCallError
-
             result = client.call("inject", text="YazSes OK")
-            typer.echo(f"Result: {result}")
-            return
+        except IpcTimeoutError:
+            raise  # it may still be typing: a local fallback could type it twice
         except IpcCallError as exc:
             typer.echo(f"Daemon inject failed ({exc}); falling back to local.")
+        else:
+            if isinstance(result, dict) and result.get("ok") is False:
+                typer.echo(
+                    f"Nothing was typed: {result.get('reason') or 'the daemon refused'}",
+                    err=True,
+                )
+                raise typer.Exit(1)
+            typer.echo(f"Result: {result}")
+            return
 
     from yazses.config import load_config
     from yazses.inject.auto import apply_injection_config, describe_injector
 
     apply_injection_config(load_config(platform.paths.config_file).injection)
-    injector = platform.injector_factory()
-    typer.echo(f"Local injector: {describe_injector(injector)}")
-    injector.inject("YazSes OK")
+    try:
+        injector = platform.injector_factory()
+        typer.echo(f"Local injector: {describe_injector(injector)}")
+        injector.inject("YazSes OK")
+    except Exception as exc:  # noqa: BLE001
+        raise _injection_failed(exc) from None
     typer.echo("Done. If you saw 'YazSes OK' appear, injection works.")
 
 

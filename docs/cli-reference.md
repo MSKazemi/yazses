@@ -703,7 +703,8 @@ yazses setup --dry-run  # preview the changes + checklist
 
 Accessibility enrollment wizard. Records ~20 short utterances to derive
 `vad_threshold` and `min_silence_ms` values tuned to your voice and microphone,
-then writes them to `config.toml`.
+then writes them to `config.toml`. It runs in the terminal you start it from; if
+YazSes is running, apply the result with `yazses restart`.
 
 > Can set a too-high threshold in a noisy room — verify with `yazses mic-level`.
 

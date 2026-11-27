@@ -831,6 +831,30 @@ def _model_check(model: str, hf_cache: Path) -> _Check:
     )
 
 
+def _session_type_check(session: str, known: bool) -> _Check:
+    """The desktop session row; an unknown one says what that means and what to do."""
+    if known:
+        return ("Session type", "OK", session)
+    return (
+        "Session type",
+        "WARN",
+        f"{session} — neither DISPLAY nor WAYLAND_DISPLAY is set. Run `yazses doctor` "
+        "from a terminal inside your desktop session, not over SSH or from a service.",
+    )
+
+
+def _model_cache_check(hf_cache: Path) -> _Check:
+    """The model cache row; a missing folder says how it gets created."""
+    if hf_cache.exists():
+        return ("Model cache", "OK", str(hf_cache))
+    return (
+        "Model cache",
+        "WARN",
+        f"{hf_cache} — not created yet; the first `yazses model download` (or the first "
+        "`yazses start`) creates it.",
+    )
+
+
 def _autostart_check(platform) -> _Check | None:
     """Answer the question nobody thinks to ask until after a reboot: does it come back?
 
@@ -2675,7 +2699,7 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
         is_x11 = bool(os.environ.get("DISPLAY"))
         session = "Wayland" if is_wayland else ("X11" if is_x11 else "unknown")
         session_ok = is_wayland or is_x11
-        checks.append(("Session type", "OK" if session_ok else "WARN", session))
+        checks.append(_session_type_check(session, session_ok))
 
         # Injection backends are informational (only one is needed per session);
         # the actual pass/fail signal is the "Injection" readiness check below.
@@ -2701,7 +2725,7 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     from yazses.stt.download import hub_cache_dir
 
     hf_cache = hub_cache_dir()
-    checks.append(("Model cache", "OK" if hf_cache.exists() else "WARN", str(hf_cache)))
+    checks.append(_model_cache_check(hf_cache))
 
     # Whether the decoder can load at all. Deliberately *before* the model row: a
     # model that is merely not downloaded yet is a warning, an engine that will not

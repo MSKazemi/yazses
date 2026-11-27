@@ -7696,7 +7696,8 @@ class Daemon:
     def _handle_punch_in(self, request: Request) -> dict[str, object]:
         """IPC: re-record a phrase and correct the last dictation burst (spec-punch-in)."""
         if not self._config.punch_in.enabled:
-            return {"ok": False, "reason": "punch_in disabled in config"}
+            return {"ok": False, "reason": "punch-in is off — turn it on with "
+                                  "`yazses features enable punch-in`"}
         with self._lock:
             ready = self._state.ready
         if not ready:
@@ -10158,7 +10159,8 @@ class Daemon:
 
     def _handle_mark_last_wrong(self, request: Request) -> dict[str, object]:
         if self._corpus is None:
-            return {"ok": False, "reason": "learning capture is disabled"}
+            return {"ok": False, "reason": "learning capture is off — turn it on with "
+                                  "`yazses features enable learning`"}
         params = request.params if isinstance(request.params, dict) else {}
         correction = params.get("correction")
         flagged = self._corpus.mark_last_wrong(correction)
