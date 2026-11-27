@@ -29,7 +29,9 @@ from yazses.platform.macos.tray import MacosTray
 from yazses.stt.factory import fallback_phrase, render_engine_status_lines
 from yazses.tray import menu as tray_menu
 from yazses.tray.menu import (
+    ABOUT_LABEL,
     MEETING_START_LABEL,
+    MEETING_STOP_LABEL,
     SETTINGS_LABEL,
     STATUS_LINE_SLOTS,
     UPDATE_LABEL,
@@ -270,7 +272,8 @@ def test_the_menu_starts_with_the_status_slots_then_the_existing_items(running_t
     # The existing entries follow, in their existing order.
     rest = menu[STATUS_LINE_SLOTS + 1:]
     assert rest[0] == SETTINGS_LABEL
-    assert rest.index(MEETING_START_LABEL) < rest.index("Pause hotkey") < rest.index(UPDATE_LABEL)
+    assert rest.index(MEETING_START_LABEL) < rest.index(MEETING_STOP_LABEL)
+    assert rest.index(MEETING_STOP_LABEL) < rest.index(ABOUT_LABEL) < rest.index(UPDATE_LABEL)
     assert rest[-1] == UPDATE_LABEL
 
 

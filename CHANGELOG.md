@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — macOS: the menu bar no longer offers a "Pause hotkey" that paused nothing
+
+Choosing **Pause hotkey** showed "Pausing the dictation hotkey…" and did nothing else, so the key went on recording while the user had been told it was paused. The daemon has no way to pause the dictation key, so the entry is removed, as the Windows tray's greyed-out placeholder was earlier; the Linux tray never had one. To stop YazSes responding to the key, choose **Quit**, which stops the daemon. `yazses handsfree pause` is a different switch: it stops hands-free inputs, not the key. **Not tested on a real Mac.**
+
 ### Fixed — macOS first run: `doctor` and the menu bar report what the running daemon is allowed to do ([#562](https://github.com/MSKazemi/yazses/issues/562))
 
 `yazses doctor` asked macOS for permissions from its own process, so run from Terminal it could say *denied* while YazSes was switched on in System Settings. The running daemon now reports its own answer for Accessibility, Input Monitoring and the microphone (a new `permissions` field on the `status` reply, `null` off macOS), and `doctor` uses it: a row the daemon says is *ok* is OK and says why the two differ, and a row the daemon says is *denied* fails even if the command's own answer was *ok*. The macOS menu bar names a refused permission in its warning line instead of showing only a ready glyph. In a `.dmg` install, which has no `yazses` command on PATH, `doctor` adds a **Command line** row with the full command to type. The permission advice, the menu's About text, the install guide and the Homebrew cask notes no longer say a prompt appears only when you hold the key or record (YazSes asks when its daemon starts), and About names all three permissions rather than Accessibility alone. **Tested with simulated backends only; none of this has run on a Mac.**
