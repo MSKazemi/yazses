@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — CI telemetry: a job that never got a runner counted as a zero-second queue and as runner time ([#539](https://github.com/MSKazemi/yazses/issues/539))
+
+GitHub reports a job cancelled before any runner took it with a start time equal to its creation time and an end time at the cancellation. The daily report read that as a 0 s queue followed by minutes of runner time, so queue delay looked shorter and job-minutes higher exactly when a runner pool was starved. Such jobs are now left out of both and counted per runner class (Linux, Linux arm64, macOS, Windows, other), with superseded pull-request runs counted apart and the wait shown for the rest. The two fast-gate targets of `.github/CI_POLICY.md` §12 are now measured on the `changes` and `repo-hygiene` jobs: queue delay (previously approximated by all pull-request jobs, which is still shown) and execution time (previously not measured). The report's schema is `yazses-ci-telemetry/2`. This is CI-only: no gate changes and the product still collects no telemetry.
+
 ### Fixed — snap on Wayland: dictated text could not reach the clipboard
 
 The snap's private `XDG_RUNTIME_DIR` does not hold the Wayland socket, so `wl-copy` and `wl-paste` failed with "Failed to connect to a Wayland server": when typing failed, the clipboard fallback failed too and the dictation was lost. The clipboard commands are now given the host socket's full path; the daemon's own environment is unchanged. Where the copy works and nothing can press Ctrl+V, the notification now says the words are on the clipboard instead of that they were not typed.

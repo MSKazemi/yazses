@@ -16,6 +16,19 @@ Definitions (also written up in CI_POLICY.md §12.1):
 - **Queue latency** is per job: `started_at - created_at`. A job with `needs:` is created
   when its dependencies finish, so this is time spent waiting for a runner, not for
   upstream jobs. Skipped jobs never queue and are excluded.
+- **Cancelled before starting**: a `cancelled` job with no steps. No runner executed it,
+  yet the API gives it a `started_at` equal to its `created_at` and a `completed_at` at
+  the cancellation. It is therefore excluded from queue latency, job duration and
+  job-minutes, and counted on its own, per runner class, with the time it waited
+  (`completed_at - created_at`). Jobs of a superseded PR run are counted apart: there
+  the cancellation is the concurrency policy working.
+- **Runner class**: `linux`, `linux-arm64`, `macos`, `windows` or `other`, derived from
+  the job's `runs-on` labels. The labels themselves are not kept.
+- **Fast PR gate**: the jobs of `test.yml` that CI_POLICY.md §5 puts in the fast lane
+  (`FAST_GATE_JOBS`), on pull-request runs. Its queue delay is the queue latency of each
+  such job. Its execution time is, per run, the longest of those jobs' durations (they
+  start independently of each other), counted only when every one of them ended in
+  success or failure.
 - **Run duration** is per run attempt: the last job's `completed_at` minus
   `run_started_at`, for completed runs whose jobs were fetched. `updated_at` is *not*
   used for it, because GitHub rewrites it on finished runs (see `Run.duration_s`). Where
@@ -57,7 +70,7 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from typing import Any
 
-SCHEMA = "yazses-ci-telemetry/1"
+SCHEMA = "yazses-ci-telemetry/2"
 
 PR_EVENTS = frozenset({"pull_request", "pull_request_target"})
 
@@ -68,6 +81,15 @@ OTHER = "other"
 OUTCOMES = (SUCCESS, FAILURE, CANCELLED, OTHER)
 
 _FAILURE_CONCLUSIONS = frozenset({"failure", "timed_out", "startup_failure"})
+
+#: The fast PR gate of CI_POLICY.md §5: these jobs of this workflow. A test keeps both
+#: equal to the policy table and to `test.yml`, so a renamed job cannot silently leave the
+#: SLO rows at "no data".
+FAST_GATE_WORKFLOW = ".github/workflows/test.yml"
+FAST_GATE_JOBS = ("changes", "repo-hygiene")
+
+#: Every runner class a job can be reported under, in report order.
+RUNNER_CLASSES = ("linux", "linux-arm64", "macos", "windows", "other")
 
 #: The targets in CI_POLICY.md §12, in seconds. The report compares facts with these;
 #: it never changes a gate and never fails because one is missed.
@@ -102,10 +124,29 @@ class Job:
     started_at: datetime | None
     completed_at: datetime | None
     steps: tuple[Step, ...] = ()
+    runner: str = "other"
+
+    @property
+    def never_started(self) -> bool:
+        """Cancelled before any step ran, so no runner ever executed it.
+
+        The API still gives such a job a `started_at` equal to its `created_at` and a
+        `completed_at` at the cancellation. Read literally, that is a 0 s queue followed
+        by the whole wait billed as runner time, which hides runner starvation exactly
+        when it happens.
+        """
+        return self.conclusion == "cancelled" and not self.steps
 
     @property
     def ran(self) -> bool:
-        return self.conclusion != "skipped" and self.started_at is not None
+        return (self.conclusion != "skipped" and not self.never_started
+                and self.started_at is not None)
+
+    @property
+    def wait_before_cancel_s(self) -> float | None:
+        if not self.never_started or self.created_at is None or self.completed_at is None:
+            return None
+        return max(0.0, (self.completed_at - self.created_at).total_seconds())
 
     @property
     def queue_s(self) -> float | None:
@@ -272,6 +313,26 @@ def project_run(raw: Mapping[str, Any], *, default_branch: str) -> Run | None:
     )
 
 
+def runner_class(labels: Any) -> str:
+    """One of `RUNNER_CLASSES` for a job's `runs-on` labels.
+
+    A fixed vocabulary: a label is workflow-chosen text, so none of it reaches the report.
+    """
+    if not isinstance(labels, list):
+        return "other"
+    names = [label.lower() for label in labels if isinstance(label, str)]
+    if "self-hosted" in names:
+        return "other"
+    for name in names:
+        if name.startswith("ubuntu-"):
+            return "linux-arm64" if name.endswith("-arm") else "linux"
+        if name.startswith("macos-"):
+            return "macos"
+        if name.startswith("windows-"):
+            return "windows"
+    return "other"
+
+
 def project_job(raw: Mapping[str, Any], *, run_id: int) -> Job:
     steps_raw = raw.get("steps")
     steps = tuple(
@@ -289,6 +350,7 @@ def project_job(raw: Mapping[str, Any], *, run_id: int) -> Job:
         started_at=parse_time(raw.get("started_at")),
         completed_at=parse_time(raw.get("completed_at")),
         steps=steps,
+        runner=runner_class(raw.get("labels")),
     )
 
 
@@ -430,6 +492,61 @@ def _red_on_default_branch(runs: Sequence[Run], window_end: datetime) -> list[di
     return red
 
 
+def _runner_report(
+    jobs: Sequence[tuple[Run, Job]], superseded_ids: set[int]
+) -> list[dict[str, Any]]:
+    """Queue latency, runner time and never-started jobs per runner class."""
+    rows = []
+    for runner in RUNNER_CLASSES:
+        mine = [(run, job) for run, job in jobs if job.runner == runner]
+        ran = [job for _, job in mine if job.ran]
+        unstarted = [(run, job) for run, job in mine if job.never_started]
+        if not ran and not unstarted:
+            continue
+        gave_up = [job for run, job in unstarted if run.id not in superseded_ids]
+        rows.append({
+            "runner": runner,
+            "jobs_ran": len(ran),
+            "job_queue": _stats([q for job in ran if (q := job.queue_s) is not None]),
+            "job_minutes": round(sum(job.duration_s or 0.0 for job in ran) / 60, 1),
+            "never_started": len(unstarted),
+            "never_started_superseded": len(unstarted) - len(gave_up),
+            "never_started_wait": _stats(
+                [w for job in gave_up if (w := job.wait_before_cancel_s) is not None]),
+        })
+    return rows
+
+
+def _fast_gate_rows(
+    jobs_by_run: Mapping[int, Sequence[Job]], runs: Sequence[Run], superseded_ids: set[int]
+) -> list[dict[str, Any]]:
+    """The two fast-gate SLO rows of CI_POLICY.md §12 (queue delay, execution)."""
+    queue: list[float] = []
+    execution: list[float] = []
+    gave_up = 0
+    for run in runs:
+        if run.event not in PR_EVENTS or run.path != FAST_GATE_WORKFLOW:
+            continue
+        fast = [job for job in jobs_by_run.get(run.id, []) if job.name in FAST_GATE_JOBS]
+        queue += [q for job in fast if (q := job.queue_s) is not None]
+        if run.id not in superseded_ids:
+            gave_up += sum(1 for job in fast if job.never_started)
+        decided = {
+            job.name: duration for job in fast
+            if outcome_of(job.conclusion) in (SUCCESS, FAILURE)
+            and (duration := job.duration_s) is not None
+        }
+        if len(decided) == len(FAST_GATE_JOBS):
+            execution.append(max(decided.values()))
+    note = (f"{gave_up} job(s) cancelled before starting, not in this figure" if gave_up else "")
+    return [
+        _slo_row("Fast PR gate queue delay p95", percentile(queue, 95), SLO_PR_QUEUE_P95_S,
+                 len(queue), note=note),
+        _slo_row("Fast PR gate execution p95", percentile(execution, 95), SLO_FAST_GATE_P95_S,
+                 len(execution)),
+    ]
+
+
 def build_report(
     runs_raw: Iterable[Mapping[str, Any]],
     jobs_raw: Mapping[int, Iterable[Mapping[str, Any]]],
@@ -565,12 +682,11 @@ def build_report(
     pr_queue = [job.queue_s for run, job in jobs if run.event in PR_EVENTS and job.queue_s is not None]
     superseded = _superseded_report(runs)
     red = _red_on_default_branch(runs, window_end)
+    superseded_ids = {
+        older.id for older, _ in superseded_runs(runs) if older.conclusion == "cancelled"
+    }
     slo = [
-        _slo_row("PR job queue delay p95 (all PR workflows; fast lane not yet split, #535)",
-                 percentile(pr_queue, 95), SLO_PR_QUEUE_P95_S, len(pr_queue)),
-        {"name": "Fast PR gate execution p95", "target_s": SLO_FAST_GATE_P95_S,
-         "value_s": None, "n": 0, "status": "n/a",
-         "note": "no fast lane exists yet to measure (#535)"},
+        *_fast_gate_rows(jobs_by_run, runs, superseded_ids),
         _slo_row("Superseded PR run cancellation delay p95",
                  superseded["cancel_delay"]["p95_s"], SLO_SUPERSEDED_CANCEL_P95_S,
                  superseded["cancel_delay"]["n"]),
@@ -607,6 +723,8 @@ def build_report(
             "job_queue": _stats(all_queue),
             "job_minutes": round(sum(minutes_by_wf.values()), 1),
         },
+        "pr_job_queue": _stats(pr_queue),
+        "runners": _runner_report(jobs, superseded_ids),
         "workflows": workflows,
         "by_workflow_event": by_event,
         "superseded": superseded,
@@ -619,12 +737,14 @@ def build_report(
     }
 
 
-def _slo_row(name: str, value: float | None, target: float, n: int) -> dict[str, Any]:
+def _slo_row(name: str, value: float | None, target: float, n: int,
+             *, note: str = "") -> dict[str, Any]:
     if value is None:
         status = "no data"
     else:
         status = "met" if value < target else "missed"
-    return {"name": name, "target_s": target, "value_s": _round(value), "n": n, "status": status}
+    return {"name": name, "target_s": target, "value_s": _round(value), "n": n, "status": status,
+            "note": note}
 
 
 def _red_slo_row(name: str, rows: Sequence[Mapping[str, Any]], limit: float) -> dict[str, Any]:
@@ -671,6 +791,15 @@ def _fmt_pct(value: float | None) -> str:
     return "–" if value is None else f"{value:.1f}%"
 
 
+def _observed(row: Mapping[str, Any]) -> str:
+    """The SLO table's observed cell: the value, then whatever qualifies it."""
+    note = md_escape(row["note"]) if row.get("note") else ""
+    if row["value_s"] is None:
+        return note or "–"
+    value = fmt_duration(row["value_s"])
+    return f"{value} ({note})" if note else value
+
+
 def _table(header: Sequence[str], rows: Iterable[Sequence[Any]]) -> list[str]:
     lines = ["| " + " | ".join(header) + " |", "|" + "---|" * len(header)]
     lines += ["| " + " | ".join(str(cell) for cell in row) + " |" for row in rows]
@@ -711,11 +840,32 @@ def render_markdown(report: Mapping[str, Any], *, top: int = 10) -> str:
     out += _table(
         ["Objective", "Target", "Observed", "n", "Status"],
         [
-            (md_escape(row["name"]), fmt_duration(row["target_s"]),
-             fmt_duration(row["value_s"]) if row["value_s"] is not None else
-             md_escape(row.get("note") or "–"),
+            (md_escape(row["name"]), fmt_duration(row["target_s"]), _observed(row),
              row["n"], row["status"])
             for row in report["slo"]
+        ],
+    )
+
+    pr_queue = report["pr_job_queue"]
+    out += [
+        "",
+        "## Queue by runner",
+        "",
+        f"All PR jobs, every workflow: queue p50/p95 {fmt_duration(pr_queue['p50_s'])} / "
+        f"{fmt_duration(pr_queue['p95_s'])} over {pr_queue['n']} jobs. A job cancelled "
+        "before starting is in neither the queue nor the job-minutes figures; its wait is "
+        "shown separately, for runs that no newer PR head superseded.",
+        "",
+    ]
+    out += _table(
+        ["Runner", "Jobs that ran", "Queue p50 / p95 / max", "Job-minutes",
+         "Cancelled before starting", "Of those, superseded", "Wait of the rest p50 / max"],
+        [
+            (r["runner"], r["jobs_ran"],
+             " / ".join(fmt_duration(r["job_queue"][k]) for k in ("p50_s", "p95_s", "max_s")),
+             f"{r['job_minutes']:.0f}", r["never_started"], r["never_started_superseded"],
+             " / ".join(fmt_duration(r["never_started_wait"][k]) for k in ("p50_s", "max_s")))
+            for r in report["runners"]
         ],
     )
 
