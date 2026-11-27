@@ -5136,7 +5136,8 @@ class Daemon:
                     return
 
             # INFO: metadata only (length); DEBUG: the actual text.
-            log.info("Injecting %d chars, %d words.", len(text), count_words(text))
+            words = count_words(text)
+            log.info("Injecting %d chars, %d words.", len(text), words)
             log.debug("Injecting text: %r", text)
             with self._lock:
                 self._state.state = TrayState.INJECTING
@@ -7052,8 +7053,9 @@ class Daemon:
         self._staged.stage(text)
         event["staged_action"] = "stage"
         event["staged_pending_words"] = count_words(self._staged.text)
+        added = count_words(text)
         log.info("Staged %d word(s); %d burst(s) pending.",
-                 count_words(text), len(self._staged.chunks))
+                 added, len(self._staged.chunks))
         return None
 
     def _notify_staged(self, message: str) -> None:

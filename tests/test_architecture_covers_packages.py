@@ -75,7 +75,6 @@ UNDOCUMENTED: dict[str, str] = {
     "mousegrid": _TODO,
     "outline": _TODO,
     "pronunciation": _TODO,
-    "prosodypunct": _TODO,
     "rag": _TODO,
     "readback": _TODO,
     "reask": _TODO,
