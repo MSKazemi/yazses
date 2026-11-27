@@ -16,8 +16,11 @@ what it says:
 Pointer output goes through :class:`yazses.pointer.base.PointerSink`. The sink is built when
 the user first opens a grid, not at start-up, so enabling the feature asks for no pointer
 permission until then. Absolute motion is required: a backend that offers only relative
-motion (the Wayland portal, Windows SendInput) is refused with a reason *at open*, before a
-grid is drawn, rather than driven by guesswork.
+motion (Windows SendInput) is refused with a reason *at open*, before a grid is drawn, rather
+than driven by guesswork. Where the platform already knows that its session has no absolute
+motion (Wayland, whose only pointer is the relative-only portal), the factory is never called:
+the grid asks for no pointer permission it could not use, and the reason does not depend on
+what state the portal session is in.
 
 Thread safety: the daemon's pipeline thread (transcripts) and the IPC server's per-connection
 threads (the overlay polls ``status`` about 12 times a second) share one runtime, so every
@@ -80,6 +83,7 @@ class MousegridRuntime:
         region_provider: Callable[[], Region | None] | None = None,
         paused: Callable[[], bool] = lambda: False,
         clock: Callable[[], float] = time.monotonic,
+        unavailable_reason: str = "",
     ) -> None:
         self._session = GridSession(cols, rows, clock=clock)
         self._sink_factory = sink_factory
@@ -88,8 +92,8 @@ class MousegridRuntime:
         self._paused = paused
         self._sink: Any = None
         #: Set once the pointer backend is known not to work for the grid; permanent.
-        self._unavailable = "" if sink_factory is not None else (
-            "this platform has no pointer backend"
+        self._unavailable = unavailable_reason or (
+            "" if sink_factory is not None else "this platform has no pointer backend"
         )
         self._reported_region: Region | None = None
         self.last_reason = ""
@@ -283,8 +287,12 @@ def _parse_region(value: object) -> Region | None:
 
 
 def build_mousegrid(cfg: Any, *, pointer_factory: Callable[[], Any] | None,
-                    safety: Any = None) -> MousegridRuntime:
-    """The daemon's runtime for an enabled ``[mousegrid]`` section. Never opens a sink."""
+                    safety: Any = None, unavailable_reason: str = "") -> MousegridRuntime:
+    """The daemon's runtime for an enabled ``[mousegrid]`` section. Never opens a sink.
+
+    *unavailable_reason* is ``Platform.absolute_pointer_unavailable_reason``: non-empty means
+    the grid refuses every open with it and *pointer_factory* is never called.
+    """
 
     def paused() -> bool:
         if safety is None:
@@ -302,4 +310,7 @@ def build_mousegrid(cfg: Any, *, pointer_factory: Callable[[], Any] | None,
                     "say cells above %d as digits (\"17\"), or a spoken word closes the grid "
                     "and is typed.", cols, rows, cols * rows, MAX_NUMBER_WORD,
                     MAX_NUMBER_WORD)
-    return MousegridRuntime(cols, rows, sink_factory=pointer_factory, paused=paused)
+    if unavailable_reason:
+        log.warning("Voice Mouse Grid is enabled but cannot run here: %s.", unavailable_reason)
+    return MousegridRuntime(cols, rows, sink_factory=pointer_factory, paused=paused,
+                            unavailable_reason=unavailable_reason)

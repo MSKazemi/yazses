@@ -30,7 +30,11 @@ click. No ML. OFF by default.
   cell is chosen, no zoom below a pixel.
 - `mousegrid/runtime.py`: the daemon's consumer. Built only when `[mousegrid] enabled`; the
   `PointerSink` is built when a grid is first opened and must offer absolute motion (X11,
-  macOS) — relative-only backends are refused with a reason when the grid opens. Honours
+  macOS) — relative-only backends are refused with a reason when the grid opens. A platform
+  that knows its session has no absolute motion says so
+  (`Platform.absolute_pointer_unavailable_reason`, set on Wayland) and the grid then never
+  asks it for a sink, so no pointer permission is requested for a grid that cannot use it.
+  Honours
   the hands-free pause when `[handsfree_safety]` is on. An open grid hands back any
   utterance that is not a grid command, closing itself.
 - Overlay: `overlay/grid.py` (pure parse + poller over the `mousegrid` IPC method) and
