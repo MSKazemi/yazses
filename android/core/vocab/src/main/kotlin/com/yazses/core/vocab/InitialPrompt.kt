@@ -23,8 +23,23 @@ public const val BUILTIN_PROMPT: String = "The app is called YazSes."
 public const val PROMPT_TOKEN_BUDGET: Int = 223
 
 /**
+ * Whether the English [BUILTIN_PROMPT] may condition a decode in [language].
+ *
+ * True for English, and when the language is not pinned: null, empty, `auto` or
+ * `translate` (which decodes the source language). Any other language gets no English
+ * sentence, because Whisper conditions on the prompt and an echo of it on noise would put
+ * English into that language's transcript. A region subtag is ignored (`en-GB` is `en`).
+ */
+public fun builtinPromptApplies(language: String?): Boolean {
+    val code = (language ?: "").trim().lowercase().replace('_', '-')
+    if (code == "auto" || code == "translate") return true
+    val base = code.substringBefore('-')
+    return base == "" || base == "en"
+}
+
+/**
  * Compose the effective `initial_prompt`: any configured or personal vocabulary
- * first, then the built-in name **last**.
+ * first, then, when [builtinPromptApplies] to [language], the built-in name **last**.
  *
  * That order is the opposite of the obvious one and it is the only order that
  * keeps the promise above. Truncation keeps the tail (see [PROMPT_TOKEN_BUDGET]),
@@ -34,15 +49,15 @@ public const val PROMPT_TOKEN_BUDGET: Int = 223
  * `initial_prompt` is preceding context and the tokens nearest the audio weigh
  * most.
  *
- * Blank parts are dropped. Always returns a non-empty string, because the
- * built-in phrase is always present — the nullable return mirrors the optional
- * prompts callers pass in.
+ * Blank parts are dropped, and the parts themselves are never altered by the language.
+ * [language] defaults to null (unset), which keeps the phrase. Returns null when there
+ * is nothing to send: a non-English language with no vocabulary.
  */
-public fun mergeInitialPrompt(vararg parts: String?): String? {
+public fun mergeInitialPrompt(vararg parts: String?, language: String? = null): String? {
     val chunks = mutableListOf<String>()
     parts.forEach { part ->
         if (!part.isNullOrBlank()) chunks += part.trim()
     }
-    chunks += BUILTIN_PROMPT
+    if (builtinPromptApplies(language)) chunks += BUILTIN_PROMPT
     return chunks.joinToString(" ").trim().ifEmpty { null }
 }

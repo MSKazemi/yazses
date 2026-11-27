@@ -39,6 +39,9 @@ public data class FilterResult(val text: String, val charsRemoved: Int)
 
 private const val TRAILING_PUNCTUATION = ".,;:!?…"
 
+/** What may surround a hyphenated hesitation: sentence punctuation, quotes and brackets. */
+private const val HYPHEN_TOKEN_WRAPPERS = TRAILING_PUNCTUATION + "\"'()[]"
+
 /**
  * Full-width (CJK) clause and sentence marks (contract 7.1.0, #501). Separate from
  * [TRAILING_PUNCTUATION] on purpose: that set also feeds the code-identifier and
@@ -145,10 +148,10 @@ private fun dropAllFillerHyphenTokens(text: String, fillers: Set<String>): Strin
     // glued to the next word. Destroying a stuttered word is the worst possible
     // failure for the user this filter exists to serve.
     val kept = text.split(" ").filter { token ->
-        val core = token.trim { it in TRAILING_PUNCTUATION }
-        if ('-' !in core) return@filter true
+        val core = token.trim { it in HYPHEN_TOKEN_WRAPPERS }
         val parts = core.split("-").filter { it.isNotEmpty() }
-        !(parts.isNotEmpty() && parts.all { it.lowercase() in fillers })
+        // Two parts or more: a cut-off "um-" is kept as spoken.
+        !(parts.size > 1 && parts.all { it.lowercase() in fillers })
     }
     return kept.joinToString(" ")
 }
@@ -236,6 +239,25 @@ private fun tidyOrphanedPunctuation(text: String): String =
 
 // ---- Rule B: consecutive 2-gram dedup --------------------------------------
 
+private val ENGLISH_DIGIT_WORDS = setOf(
+    "zero", "one", "two", "three", "four", "five",
+    "six", "seven", "eight", "nine", "ten",
+)
+
+/**
+ * True when [token] holds a decimal digit of any script (Unicode category Nd) or is an
+ * English digit word. A repeated digit pair is data, not a stutter: "4 7 4 7" is a PIN.
+ */
+private fun isSpokenDigit(token: String): Boolean {
+    var i = 0
+    while (i < token.length) {
+        val codePoint = token.codePointAt(i)
+        if (Character.isDigit(codePoint)) return true
+        i += Character.charCount(codePoint)
+    }
+    return token.trim { it in TRAILING_PUNCTUATION }.lowercase() in ENGLISH_DIGIT_WORDS
+}
+
 private fun dedup2Grams(text: String): String {
     var current = text
     while (true) {
@@ -246,7 +268,9 @@ private fun dedup2Grams(text: String): String {
         while (i < tokens.size) {
             if (i + 3 < tokens.size &&
                 tokens[i] == tokens[i + 2] &&
-                tokens[i + 1] == tokens[i + 3]
+                tokens[i + 1] == tokens[i + 3] &&
+                !isSpokenDigit(tokens[i]) &&
+                !isSpokenDigit(tokens[i + 1])
             ) {
                 result += tokens[i]
                 result += tokens[i + 1]
