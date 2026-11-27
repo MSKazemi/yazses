@@ -370,16 +370,21 @@ jobs:
 
             **Snap:**
             ```bash
-            sudo snap install yazses --classic
-            sudo usermod -aG input $USER && logout
+            sudo snap install yazses
+            sudo snap connect yazses:audio-record   # microphone
+            sudo snap connect yazses:raw-input      # hold-to-talk key
+            yazses doctor
+            yazses start
             ```
+            On Wayland, also run `sudo usermod -aG input $USER`, then log out and back in.
 
             **pipx (any Linux):**
             ```bash
-            sudo apt install pipx libportaudio2 xdotool xclip
-            sudo usermod -aG input $USER && logout
+            sudo apt install pipx build-essential python3-dev
             pipx install yazses && pipx ensurepath
-            systemctl --user enable --now yazses.service
+            yazses setup    # audio and typing packages, input group
+            # log out and back in, then:
+            yazses start
             ```
 
             **.deb package:**
