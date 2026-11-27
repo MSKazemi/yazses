@@ -11,10 +11,12 @@ that you can check a download is genuine before you run it.
 !!! info "Current status — releases are not yet code-signed"
 
     As of **v2.52.0**, the Windows `.exe` and macOS `.dmg` are **unsigned**. Windows
-    SmartScreen and macOS Gatekeeper will warn you. Code signing through the
-    [SignPath Foundation](https://signpath.org) programme for open-source projects is
-    being set up; this page documents the policy that governs it. Until then, verify
-    downloads with the checksums described below.
+    SmartScreen and macOS Gatekeeper will warn you. A free
+    code-signing application to the [SignPath Foundation](https://signpath.org) programme
+    for open-source projects was declined on 2026-11-17 for lack of independent evidence
+    of trust, and no other signing is in place. It will be revisited when there is more
+    evidence. This page documents the policy that would govern signing. Until then,
+    verify downloads with the checksums described below.
 
 ## Why this matters
 
@@ -97,7 +99,7 @@ pypi-attestations verify pypi --repository https://github.com/MSKazemi/yazses \
 
 ## Verify a code signature
 
-Once signing is active, Windows releases are Authenticode-signed.
+No release is signed at present. If signing is approved, Windows releases will be Authenticode-signed.
 
 !!! warning "The publisher will read *SignPath Foundation*, not *MSKazemi*"
 
@@ -118,10 +120,10 @@ You want `Status: Valid` and a signer certificate issued to **SignPath Foundatio
 
 This is the policy the project commits to for every signed release.
 
-!!! note "Application pending"
+!!! note "Application not approved"
 
-    YazSes has applied to the [SignPath Foundation](https://signpath.org) programme and
-    is not yet approved, so no release is signed today. Once it is, every signed release
+    The [SignPath Foundation](https://signpath.org) application was declined on 2026-11-17,
+    so no release is signed today. If signing is ever approved, every signed release
     carries this credit:
 
     *Free code signing provided by [SignPath.io](https://about.signpath.io), certificate

@@ -10,8 +10,9 @@ description: "Install YazSes on Windows for offline speech-to-text: winget insta
 > [which version winget gives you](#the-one-line-way--winget-recommended) before you pick a route.
 
 > **Developer preview.** Windows builds are **unsigned**. Windows SmartScreen
-> warns on first launch; the steps below show how to bypass it safely. Code
-> signing is pending approval by the SignPath Foundation; see the
+> warns on first launch; the steps below show how to bypass it safely. A free
+> open-source signing application to the SignPath Foundation was not approved (2026-11-17);
+> see the
 > [code signing policy](code-signing.md#code-signing-policy).
 > Preview also means that testers have reported dictating on Windows 11, but no
 > report yet meets the [evidence standard](contribute/validation.md) on a current

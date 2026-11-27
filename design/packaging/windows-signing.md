@@ -1,5 +1,9 @@
 # Setting up Windows code signing via SignPath
 
+> **Status (2026-11-19):** the SignPath Foundation application was declined on 2026-11-17
+> for insufficient independent evidence of trust. No signing is in place and the secrets
+> below are not set. This page describes the setup if signing is ever approved.
+
 [SignPath.io](https://signpath.io) provides **free Authenticode code signing
 for OSS projects** through their Foundation programme. Once your project is
 approved, the `build-windows.yml` workflow automatically signs the `.exe`
