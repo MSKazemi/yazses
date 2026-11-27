@@ -81,7 +81,7 @@ from yazses.commands.grammar import CommandIntent, IntentType, classify
 from yazses.commands.grammars.registry import resolve_command_language
 from yazses.commands.macros import MacroContext, build_macro_table
 from yazses.commands.revise import DictationLedger, parse_revise
-from yazses.config import Config, load_config
+from yazses.config import Config, RedactionConfig, load_config
 from yazses.inject.streaming import StreamingInjector
 from yazses.ipc.protocol import Request
 from yazses.mcp.budget import InterruptBudget
@@ -410,6 +410,20 @@ _TONE_INSTRUCTIONS: dict[str, str] = {
     "formal": "Use a formal, professional tone.",
 }
 
+
+
+def _redact_for_typing(text: str, cfg: RedactionConfig) -> str:
+    """Redaction Ink (ADR-v2-046) for dictated text on its way to the keyboard.
+
+    Protective, not formatting: verbatim mode bypasses formatting and must still call
+    this, as must every other path that types dictated words. A no-op while
+    ``[redaction]`` is off, and in any mode but ``mask``.
+    """
+    if not cfg.enabled:
+        return text
+    from yazses.redaction.scrub import redact
+
+    return redact(text, mode=cfg.mode).text
 
 
 def _gate_status(gate):
@@ -4525,6 +4539,12 @@ class Daemon:
             )
             self._streaming_active = True
             self._poll_thread.start()
+            if self._config.redaction.enabled and self._config.redaction.mode == "mask":
+                self._warn_feature_inert(
+                    "streaming",
+                    "[redaction] masks the finished text, and a live partial would show a "
+                    "secret before it could be masked, so text is typed on release",
+                )
 
         if self._recorder is not None:
             try:
@@ -5656,9 +5676,7 @@ class Daemon:
                 # Redaction Ink: mask spoken secrets (card/SSN/key/email/...) before they
                 # are typed into another window. Opt-in (ADR-v2-046).
                 if self._config.redaction.enabled:
-                    from yazses.redaction.scrub import redact
-
-                    text = redact(text, mode=self._config.redaction.mode).text
+                    text = _redact_for_typing(text, self._config.redaction)
                     event["final_text"] = text
                 # Emoji & Symbol by Voice: "right arrow" -> "→". Opt-in (ADR-v2-055).
                 if self._config.commands.symbols:
@@ -5728,18 +5746,6 @@ class Daemon:
 
                     text, _ = apply_style(text, self._style_rules)
                     event["final_text"] = text
-                # SafeGlyph: flag confusable homoglyphs (e.g. Cyrillic look-alikes) in the
-                # outgoing text before injection. Non-destructive — logs a warning only.
-                # Opt-in (ADR-v2-123).
-                if self._config.safeglyph.enabled:
-                    from yazses.safeglyph.confusables import scan_confusables
-
-                    _sg = scan_confusables(text)
-                    if _sg:
-                        log.warning(
-                            "SafeGlyph: %d confusable glyph(s) in dictated text: %s",
-                            len(_sg), _sg,
-                        )
                 # Auto-Pairing: append the closers needed to balance brackets/quotes
                 # ("(a plus b" -> "(a plus b)"). Opt-in (ADR-v2-088).
                 if self._config.autopair.enabled:
@@ -5799,10 +5805,27 @@ class Daemon:
                         event["final_text"] = text
                 # Verbatim mode: discard every formatting transform above and inject the
                 # cleaned literal text (ITN/punctuation/reflow/etc. all bypassed).
+                # Verbatim switches formatting off, never protection: whatever the user
+                # enabled to guard the typed text has to be applied to the literal again,
+                # because the line below throws the first application away.
                 if verbatim_active:
                     text = verbatim_literal
+                    text = _redact_for_typing(text, self._config.redaction)
                     event["final_text"] = text
                     event["verbatim"] = True
+                # SafeGlyph: flag confusable homoglyphs (e.g. Cyrillic look-alikes) in the
+                # outgoing text before injection. Non-destructive — logs a warning only. After
+                # the verbatim restore, so it reads the text that will be typed. Opt-in
+                # (ADR-v2-123).
+                if self._config.safeglyph.enabled:
+                    from yazses.safeglyph.confusables import scan_confusables
+
+                    _sg = scan_confusables(text)
+                    if _sg:
+                        log.warning(
+                            "SafeGlyph: %d confusable glyph(s) in dictated text: %s",
+                            len(_sg), _sg,
+                        )
                 # Prepend a separating space when this dictation continues a
                 # recent burst, so consecutive hold-to-talk utterances don't
                 # glue together at the boundary ("words together" + "I mean"
@@ -7275,10 +7298,22 @@ class Daemon:
         injector's own seal is the real guarantee (this thread cannot win a race
         against ``commit``); this just avoids starting work already known to be
         pointless.
+
+        Nothing is typed live while Redaction Ink masks. A partial is a few words of a
+        burst, so a secret split across two of them cannot be recognised, and taking
+        it back afterwards is too late for a screen share or a terminal.
         """
+        redaction = self._config.redaction
+        type_live = not (redaction.enabled and redaction.mode == "mask")
         while not stop.is_set():
             partial = self._stream_engine.get_partial() if self._stream_engine else None
-            if partial and partial.text and self._stream_injector is not None and not stop.is_set():
+            if (
+                type_live
+                and partial
+                and partial.text
+                and self._stream_injector is not None
+                and not stop.is_set()
+            ):
                 log.debug("Streaming partial: %r", partial.text)
                 try:
                     self._stream_injector.inject_partial(partial.text)
@@ -7868,12 +7903,16 @@ class Daemon:
             min_score=self._config.punch_in.min_score,
             choose=choose,
         )
+        redaction = self._config.redaction
         cand_view = [
-            {"old": c.old_text, "new": c.new_text, "score": round(c.score, 3)}
+            {"old": c.old_text, "new": _redact_for_typing(c.new_text, redaction),
+             "score": round(c.score, 3)}
             for c in cands
         ]
         if corrected is None:
             return {"ok": False, "reason": "no confident match", "candidates": cand_view}
+        # The respoken phrase is dictation, so it is masked before it is shown or typed.
+        corrected = _redact_for_typing(corrected, redaction)
         if not apply:
             return {
                 "ok": False, "applied": False, "old": last, "new": corrected,
@@ -7982,6 +8021,11 @@ class Daemon:
         text = result.text or ""
         if not text:
             return False
+
+        # A snippet is text the user stored to be typed as it is; the rest is built
+        # from the words just spoken, so Redaction Ink applies to it.
+        if result.slug != "snippets":
+            text = _redact_for_typing(text, self._config.redaction)
 
         # Same order as the dictation path: the gate sees the final text.
         if self._config.cmdsafety.enabled:
@@ -8685,8 +8729,10 @@ class Daemon:
             # visible, editable fragment is better than the user's words gone. The
             # ledger and [timeline] follow the screen in every outcome, so a later
             # "scratch that" never deletes text before this dictation.
+            # The edit's new words were dictated, so they are masked like any burst.
+            edited = _redact_for_typing(result.text, self._config.redaction)
             outcome = self._replace_last_burst(
-                last, result.text, self._active_injector(), label="Spoken Edit",
+                last, edited, self._active_injector(), label="Spoken Edit",
                 wording=Wording(noun="edit", span="your last dictation",
                                 retry="Say the edit again."),
             )
@@ -8699,9 +8745,9 @@ class Daemon:
                 event["discard_reason"] = "spoken_edit_not_typed"
                 return True
             self._last_dictation_monotonic = time.monotonic()
-            self._last_dictation_tail = result.text[-1:]
+            self._last_dictation_tail = edited[-1:]
             log.info("Spoken Edit: %s applied (%d -> %d chars).",
-                     op, len(last), len(result.text))
+                     op, len(last), len(edited))
             return True
         except Exception:
             log.debug("Spoken Edit failed; ignoring", exc_info=True)

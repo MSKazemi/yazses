@@ -582,7 +582,7 @@ YazSes ships **152 capabilities**. The core and the capabilities marked `recomme
 ### Redaction Ink
 
 - **Toggle:** `redaction`  ·  **Tier:** optional  ·  **Config:** `[redaction] — mask secrets before typing`
-- **What it does:** Detects spoken secrets (card numbers, SSNs, keys, emails) and masks them before they're typed into another window. Regex + Luhn, local-only. Off by default.
+- **What it does:** Detects spoken secrets (card numbers, SSNs, keys, emails) and masks them before they're typed into another window, in verbatim mode too. With streaming on, text is typed on release rather than live. Regex + Luhn, local-only. Off by default.
 - **Use when:** When dictating near secrets (card numbers, SSNs) that must never be typed into another app.
 - **Example:** Speak a card number and it's typed as [CARD], not the digits.
 - **Activate:** `yazses features enable redaction` then `yazses restart`

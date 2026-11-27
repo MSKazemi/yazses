@@ -17,6 +17,10 @@ The failure mode is invisible in the ordinary way — the feature is off by defa
 transform is probably off by default too, and the two only interact for a user who turned
 both on. So this pins the ordering rather than waiting for that report.
 
+The bypass covers *formatting* only. A protective step (Redaction Ink, the SafeGlyph
+warning) has to run below the restore, or verbatim silently removes it:
+`tests/test_redaction_applies_in_verbatim.py` pins that half.
+
 Same technique, and same reason, as `test_guard_chain_order.py`: an invariant that is a
 property of one function's control flow, where every branch is behind a different config
 flag, is cheaper and more honest to assert against the source than to reach by wiring up a
@@ -109,8 +113,8 @@ def test_the_list_is_still_complete() -> None:
     imported = set(re.findall(r"from yazses\.[\w.]+ import ([\w]+)", region))
 
     # Helpers rather than transforms: they load data or classify, they do not rewrite.
-    helpers = {"load_vocab", "vocab_path", "detect_scheme", "parse_structure", "redact",
-               "resolve_temporal", "scan_confusables"}
+    helpers = {"load_vocab", "vocab_path", "detect_scheme", "parse_structure",
+               "resolve_temporal"}
     missing = sorted(imported - helpers - set(TRANSFORMS))
     assert not missing, (
         f"these are imported inside the verbatim-covered region but are not in "

@@ -942,7 +942,8 @@ def _registry() -> list[_Def]:
              lambda c: c.learning.anonymize_audio, cvs_on, cvs_off),
         _Def("redaction", "Redaction Ink", "[redaction] — mask secrets before typing", OPTIONAL,
              "Detects spoken secrets (card numbers, SSNs, keys, emails) and masks them before "
-             "they're typed into another window. Regex + Luhn, local-only. Off by default.",
+             "they're typed into another window, in verbatim mode too. With streaming on, text "
+             "is typed on release rather than live. Regex + Luhn, local-only. Off by default.",
              lambda c: c.redaction.enabled, rd_on, rd_off),
         _Def("fieldaware", "Field-Aware Dictation", "[fieldaware] — shape output by field", OPTIONAL,
              "Reshapes output to the focused control: number field → digits, search box → no "

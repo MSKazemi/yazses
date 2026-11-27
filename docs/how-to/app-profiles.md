@@ -31,7 +31,7 @@ For an email client like Thunderbird or Outlook, or a professional word processo
 ```
 
 ### 3. Verbatim Mode for Terminals
-For IDEs and terminals where you want dictation inserted exactly as heard with no formatting, you can use the `verbatim` mode. This bypasses all text formatting passes.
+For IDEs and terminals where you want dictation inserted exactly as heard with no formatting, you can use the `verbatim` mode. This bypasses the text formatting passes. It does not switch off protection: with `[redaction]` enabled, secrets are still masked in `verbatim`, and the command-safety, check-digit and field guards still apply.
 
 Terminals and code editors already get `verbatim` through Focus-Class Auto-Profile (`focusprofile`), which a fresh install switches on, whenever no `[profiles.app]` glob matches the window. Add a glob only for an app it does not recognise, or to override it.
 
@@ -52,7 +52,7 @@ You can also supply your own custom LLM prompt directly in the configuration.
 
 ## How It Works
 When you stop holding the dictation key, YazSes resolves the window you are focused on and checks for a match.
-If `[filters.disfluency] llm_enabled = true` is set, YazSes will then run the rewrite pass using the specific tone you have configured. If `verbatim` is chosen, the engine skips any processing entirely. Unknown apps get the standard cleaning pass if enabled.
+If `[filters.disfluency] llm_enabled = true` is set, YazSes will then run the rewrite pass using the specific tone you have configured. If `verbatim` is chosen, no tone is added and the formatting passes that follow are skipped; the LLM pass itself, when enabled, still runs with its base prompt. Unknown apps get the standard cleaning pass if enabled.
 
 ---
 
