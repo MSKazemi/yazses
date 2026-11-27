@@ -300,6 +300,31 @@ class HoldSessionTest {
     }
 
     @Test
+    fun `a cancel during delivery forgets the earlier insert, because the new one may have landed`() {
+        val session = session()
+        runToDecoding(session)
+        session.onDecoded("first", fieldIsSecure = false, nowMs = 950L)
+        session.onDelivered(inserted = true, nowMs = 960L)
+        runToDecoding(session, start = 1_000L)
+        session.onDecoded("second!", fieldIsSecure = false, nowMs = 1_950L)
+        session.cancel(1_955L)
+        // The caller's report arrives after the cancel and is ignored.
+        session.onDelivered(inserted = true, nowMs = 1_960L)
+        assertNull(session.undo.undo())
+    }
+
+    @Test
+    fun `a cancel outside delivery keeps the last insert undoable`() {
+        val session = session()
+        runToDecoding(session)
+        session.onDecoded("first", fieldIsSecure = false, nowMs = 950L)
+        session.onDelivered(inserted = true, nowMs = 960L)
+        runToDecoding(session, start = 1_000L)
+        session.cancel(1_950L) // nothing of the second burst was ever inserted
+        assertEquals(5, session.undo.undo()?.length)
+    }
+
+    @Test
     fun `invalidateUndo forgets the last insert, for example after the user typed`() {
         val session = session()
         runToDecoding(session)

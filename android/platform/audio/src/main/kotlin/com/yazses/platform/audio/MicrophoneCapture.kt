@@ -4,30 +4,16 @@ import android.annotation.SuppressLint
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
-import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.concurrent.thread
-
-/**
- * Why capture stopped. The caller has to tell these apart: two of them are the
- * user's doing and one is a fault, and showing "recording failed" for a revoked
- * permission sends someone hunting for a bug that is not there.
- */
-public enum class CaptureStopReason {
-    /** [MicrophoneCapture.stop] was called. */
-    REQUESTED,
-
-    /** The microphone permission went away mid-session. */
-    PERMISSION_LOST,
-
-    /** Another app took the microphone. */
-    PREEMPTED,
-
-    /** `AudioRecord` reported an error. */
-    ERROR,
-}
+import com.yazses.core.audio.CaptureLoop
+import com.yazses.core.audio.CaptureStopReason
+import com.yazses.core.audio.PcmStream
 
 /**
  * Thin `AudioRecord` shim: 16 kHz mono PCM16 on a dedicated thread.
+ *
+ * The threading, the stop rules and the guarantee that the recorder is always released
+ * live in [CaptureLoop] (`:core:audio`), where they are unit-tested without a device.
+ * This class only translates `AudioRecord` into a [PcmStream].
  *
  * Two properties matter more than anything else here.
  *
@@ -40,21 +26,25 @@ public enum class CaptureStopReason {
  * mid-session and another app grabbing the mic both look like read errors, and
  * both must end with a stop and a reason rather than a crash inside an IME — an
  * ANR in a keyboard takes the user's ability to type with it.
- *
- * The samples are normalised to `FloatArray` in −1..1 because that is what
- * `:core:vad` and `:core:stt` accept, and converting once here keeps the
- * PCM16 detail out of every module downstream.
  */
 public class MicrophoneCapture(
     private val sampleRate: Int = 16_000,
-    private val onChunk: (FloatArray) -> Unit,
-    private val onStopped: (CaptureStopReason) -> Unit = {},
+    onChunk: (FloatArray) -> Unit,
+    onStopped: (CaptureStopReason) -> Unit = {},
 ) {
-    private val running = AtomicBoolean(false)
-    private var recorder: AudioRecord? = null
-    private var worker: Thread? = null
+    private val loop = CaptureLoop(::openStream, onChunk, onStopped)
 
-    public val isRunning: Boolean get() = running.get()
+    public val isRunning: Boolean get() = loop.isRunning
+
+    /** Start capturing. Caller must already hold `RECORD_AUDIO`. */
+    public fun start() {
+        loop.start()
+    }
+
+    /** Stop capturing and release the device. Safe to call twice. */
+    public fun stop() {
+        loop.stop()
+    }
 
     /**
      * Minimum buffer the device demands, floored to something that does not wake
@@ -71,11 +61,8 @@ public class MicrophoneCapture(
         return maxOf(minimum, sampleRate / 10 * 2) // ~100 ms of 16-bit samples
     }
 
-    /** Start capturing. Caller must already hold `RECORD_AUDIO`. */
     @SuppressLint("MissingPermission")
-    public fun start() {
-        if (!running.compareAndSet(false, true)) return
-
+    private fun openStream(): PcmStream {
         val size = bufferSize()
         val record = AudioRecord(
             // VOICE_RECOGNITION asks the platform for the processing chain tuned
@@ -90,72 +77,38 @@ public class MicrophoneCapture(
         )
         if (record.state != AudioRecord.STATE_INITIALIZED) {
             record.release()
-            running.set(false)
-            onStopped(CaptureStopReason.ERROR)
-            return
+            throw IllegalStateException("AudioRecord did not initialise")
         }
-        recorder = record
-        record.startRecording()
-
-        worker = thread(name = "yazses-capture", isDaemon = true) {
-            val pcm = ShortArray(size / 2)
-            var reason = CaptureStopReason.REQUESTED
-            try {
-                while (running.get()) {
-                    when (val read = record.read(pcm, 0, pcm.size)) {
-                        AudioRecord.ERROR_INVALID_OPERATION,
-                        AudioRecord.ERROR_BAD_VALUE,
-                        AudioRecord.ERROR_DEAD_OBJECT,
-                        -> {
-                            // A dead object is the platform telling us the
-                            // session is gone: the mic was taken, or the
-                            // permission was revoked. Either way, stop.
-                            reason = if (read == AudioRecord.ERROR_DEAD_OBJECT) {
-                                CaptureStopReason.PREEMPTED
-                            } else {
-                                CaptureStopReason.ERROR
-                            }
-                            break
-                        }
-                        else -> if (read > 0) onChunk(toFloats(pcm, read))
-                    }
-                }
-            } catch (_: SecurityException) {
-                // Permission revoked while we held the stream.
-                reason = CaptureStopReason.PERMISSION_LOST
-            } finally {
-                teardown()
-                onStopped(reason)
-            }
-        }
-    }
-
-    /** Stop capturing and release the device. Safe to call twice. */
-    public fun stop() {
-        if (!running.compareAndSet(true, false)) return
-        worker?.join(STOP_TIMEOUT_MS)
-        worker = null
-    }
-
-    private fun teardown() {
-        running.set(false)
-        recorder?.runCatching {
-            if (recordingState == AudioRecord.RECORDSTATE_RECORDING) stop()
-            release()
-        }
-        recorder = null
-    }
-
-    private companion object {
-        const val STOP_TIMEOUT_MS = 500L
+        return AudioRecordStream(record, size / 2)
     }
 }
 
-/**
- * PCM16 to normalised floats.
- *
- * Kept top-level and pure so it is unit-testable without a device — the one part
- * of this file that can be.
- */
-public fun toFloats(pcm: ShortArray, count: Int = pcm.size): FloatArray =
-    FloatArray(count) { i -> pcm[i] / 32768f }
+private class AudioRecordStream(
+    private val record: AudioRecord,
+    override val bufferSamples: Int,
+) : PcmStream {
+
+    override fun start(): Boolean {
+        record.startRecording()
+        return record.recordingState == AudioRecord.RECORDSTATE_RECORDING
+    }
+
+    override fun read(into: ShortArray): Int {
+        val read = record.read(into, 0, into.size)
+        // Every negative code ends the capture, including the generic AudioRecord.ERROR.
+        // A dead object is the platform telling us the session is gone.
+        return when {
+            read >= 0 -> read
+            read == AudioRecord.ERROR_DEAD_OBJECT -> PcmStream.READ_DEAD
+            else -> PcmStream.READ_FAILED
+        }
+    }
+
+    override fun release() {
+        // A failing stop() must not skip release(), or the microphone stays held.
+        record.runCatching {
+            if (recordingState == AudioRecord.RECORDSTATE_RECORDING) stop()
+        }
+        record.release()
+    }
+}

@@ -21,3 +21,9 @@ android {
 kotlin {
     jvmToolchain(17)
 }
+
+dependencies {
+    // The capture loop and its types are pure JVM and tested there. `api` because
+    // CaptureStopReason is part of MicrophoneCapture's public signature.
+    api(project(":core:audio"))
+}

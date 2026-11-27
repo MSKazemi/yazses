@@ -50,6 +50,46 @@ class PostprocessTest {
     }
 
     @Test
+    fun `a spoken mark replaces the punctuation the recogniser put around it`() {
+        assertEquals("Hello, world.", applyVoicePunctuation("Hello, comma, world period."))
+        assertEquals("I went home.", applyVoicePunctuation("I went home. Period."))
+        assertEquals("really?", applyVoicePunctuation("really, question mark?"))
+        assertEquals("line one\nline two", applyVoicePunctuation("line one new line. line two"))
+    }
+
+    @Test
+    fun `a sentence mark that differs from the spoken one is kept, and so is an inserted one`() {
+        assertEquals("Mr., hello", applyVoicePunctuation("Mr. comma hello"))
+        assertEquals("a,.", applyVoicePunctuation("a comma period"))
+    }
+
+    @Test
+    fun `two spoken tabs stay two tabs`() {
+        assertEquals("a\t\tb", applyVoicePunctuation("a tab key tab key b"))
+    }
+
+    @Test
+    fun `repeated digits are data, not a stutter`() {
+        for (text in listOf(
+            "4 7 4 7",
+            "the code is 3 3 3 3 3 3",
+            "four seven four seven",
+            "Nine. one Nine. one",
+            "\u06F4 \u06F7 \u06F4 \u06F7", // Persian digits
+            "room 12 room 12",
+        )) {
+            assertEquals(text, filterTranscript(text).text)
+        }
+        assertEquals("New York is big", filterTranscript("New York New York is big").text)
+    }
+
+    @Test
+    fun `a hyphenated hesitation is dropped whole, even in quotes, and a cut-off one is kept`() {
+        assertEquals("the meeting", filterTranscript("\"um-um\" the meeting").text)
+        assertEquals("the um- thing", filterTranscript("the um- thing").text)
+    }
+
+    @Test
     fun `a filler is removed and its stranded comma with it`() {
         assertEquals("this is probably fine", filterTranscript("this is probably fine, you know").text)
         assertEquals("the tests are slow", filterTranscript("the tests, you know, are slow").text)

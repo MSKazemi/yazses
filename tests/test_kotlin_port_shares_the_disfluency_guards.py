@@ -33,6 +33,7 @@ from pathlib import Path
 import pytest
 
 from yazses.stt.filters.disfluency import (
+    _ENGLISH_DIGIT_WORDS,
     _NEGATIONS_BEFORE_TRIGGER,
     _PHRASE_CONTEXT_BEFORE_TRIGGER,
 )
@@ -47,6 +48,7 @@ KOTLIN = (
 PAIRS = {
     "GOVERNING_WORDS": _NEGATIONS_BEFORE_TRIGGER,
     "PHRASE_CONTEXT_WORDS": _PHRASE_CONTEXT_BEFORE_TRIGGER,
+    "ENGLISH_DIGIT_WORDS": _ENGLISH_DIGIT_WORDS,
 }
 
 

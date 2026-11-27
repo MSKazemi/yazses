@@ -147,9 +147,15 @@ public class HoldSession(
      * when a decode never reports back. It clears the queued key events. Emits
      * [SessionEffect.StopCapture] only when a capture was running. A decode result that
      * arrives after a cancel is ignored.
+     *
+     * A cancel while text is being delivered also forgets the remembered insert: the text
+     * may or may not have landed, so undoing the earlier insert could delete other characters.
      */
     public fun cancel(nowMs: Long): List<SessionEffect> {
         val wasCapturing = state == SessionState.Capturing
+        // The outcome of an insert in flight is unknown from here on (a late onDelivered is
+        // ignored), so no recorded length can be trusted to delete only dictated text.
+        if (state is SessionState.Delivering) undo.invalidate()
         state = SessionState.Idle
         queued.clear()
         return if (wasCapturing) listOf(SessionEffect.StopCapture) else emptyList()

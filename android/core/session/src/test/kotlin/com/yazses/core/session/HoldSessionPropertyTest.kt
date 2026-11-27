@@ -23,7 +23,8 @@ import kotlin.test.fail
  *  (s) a press in a secure field never emits StartCapture, no call emits StartCapture while the
  *      most recent field report was secure, and the session is never Holding or Capturing then;
  *  (u) undo() returns a given insert at most once, and only the insert a model of the session
- *      says is still undoable (a clipboard delivery or an invalidation forgets it).
+ *      says is still undoable (a clipboard delivery, an invalidation, or a cancel during delivery
+ *      forgets it).
  *
  * The test also fails if the generator reached any situation those invariants depend on (a full
  * queue, a cancel while busy, a stale insert followed by undo, ...) fewer than [MIN_COVERAGE]
@@ -258,6 +259,8 @@ class HoldSessionPropertyTest {
                 SessionState.Capturing -> seen.cancelWhileCapturing++
                 else -> Unit
             }
+            // A cancel with an insert in flight makes the earlier insert unsafe to undo.
+            if (session.state is SessionState.Delivering) expectedUndo = null
             val cancelled = session.cancel(now)
             record("cancel ($label)", cancelled)
             check(cancelled)

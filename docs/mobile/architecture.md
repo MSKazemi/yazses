@@ -82,7 +82,7 @@ emulator (ADR-MOB-002 §3). That rule is what keeps the test suite fast and the 
 | Module | Type | Responsibility | Desktop analogue |
 |---|---|---|---|
 | `:core:config` | JVM | settings model, defaults, TOML import/export, validation against `contract/schema/config.schema.json` (planned; not yet in `contract/`) | `config.py`, `system/configedit.py` |
-| `:core:audio` | JVM | ring buffer, pre-speech padding, resampling, PCM utilities (capture itself is injected) | `audio/padding.py`, `audio/recorder.py` |
+| `:core:audio` | JVM | ring buffer, pre-speech padding, resampling, PCM utilities, and the capture loop (`CaptureLoop`: threading, stop reasons, stream release; the recorder itself is injected) | `audio/padding.py`, `audio/recorder.py` |
 | `:core:vad` | JVM | `VoiceActivityGate` interface + calibrated RMS gate; silent-burst discard | `audio/vad_calibrated.py` |
 | `:core:stt` | JVM | `SttEngine` interface, `DecodeOptions`, `Transcript`, engine factory | `stt/base.py`, `stt/factory.py` |
 | `:core:postprocess` | JVM | cleanText, disfluency filter, voice punctuation, continuation spacing | `postprocess/*` |
@@ -96,7 +96,7 @@ emulator (ADR-MOB-002 §3). That rule is what keeps the test suite fast and the 
 | `:native:whispercpp` | Android lib + CMake | JNI bridge to whisper.cpp (submodule) | — |
 | `:native:sherpaonnx` | Android lib | sherpa-onnx engine, VAD, diarization (optional flavour) | `recimport/diarizer.py` |
 | `:model` | Android lib | **the only module with `INTERNET`** — catalogue, download, SHA-256 verify, storage, sideload import | — |
-| `:platform:audio` | Android lib | `AudioRecord` capture, device selection, audio-focus handling | `audio/recorder.py`, `device_monitor.py` |
+| `:platform:audio` | Android lib | `AudioRecord` shim behind `:core:audio`'s `PcmStream`, device selection, audio-focus handling | `audio/recorder.py`, `device_monitor.py` |
 | `:feature:ime` | Android lib | `InputMethodService`, key view, delivery, password-field guard | `inject/`, `platform/*/injector` |
 | `:feature:recognition` | Android lib | `RecognitionService` | — |
 | `:feature:meeting` | Android lib | foreground service, live transcript, finalize | `meeting/` |
