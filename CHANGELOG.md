@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — Mandarin commands: a sentence after "打开文件" could open a file instead of being typed ([#499](https://github.com/MSKazemi/yazses/issues/499))
+
+With the Mandarin command grammar active, `打开文件` followed by a space and an unspaced clause ending in something like an extension was read as `go_to_file`, which sends Ctrl+P (Print in most applications) and types the clause: `打开文件 的时候用的是版本2.5` and `打开文件 看了一下，问题出在config.toml` both did. A file name with Chinese characters now needs an extension containing a letter, no punctuation beyond `_ . - /`, and no Latin letters in its last path segment before the extension. This also means a mixed name such as `报告v2.docx` is now typed as text. Latin-only file names are unaffected. Found by reading the pattern; the phrases are still unreviewed by a native speaker.
+
 ### Fixed — snap on Wayland: dictated text could not reach the clipboard
 
 The snap's private `XDG_RUNTIME_DIR` does not hold the Wayland socket, so `wl-copy` and `wl-paste` failed with "Failed to connect to a Wayland server": when typing failed, the clipboard fallback failed too and the dictation was lost. The clipboard commands are now given the host socket's full path; the daemon's own environment is unchanged. Where the copy works and nothing can press Ctrl+V, the notification now says the words are on the clipboard instead of that they were not typed.

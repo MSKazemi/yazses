@@ -58,7 +58,18 @@ _NAME = r"\s*([A-Za-z0-9_./\-]+)"
 #: A file may also carry Han characters (開啟檔案 設定.toml), but only as one
 #: whitespace-free token after an explicit space and ending in an ASCII extension,
 #: so "打开文件夹里的config.toml" (no space: 文件夹 is "folder") stays dictation.
-_FILE_NAME = r"(?:\s*(?=[A-Za-z0-9_./\-]+$)|\s+(?=\S+\.[A-Za-z0-9]{1,16}$))(\S+)"
+#: Chinese is written without spaces, so "one token" alone can still be a whole
+#: clause. A name with Han characters therefore also needs an extension containing a
+#: letter ("版本2.5" is a number), no punctuation beyond ``_ . - /``, and no Latin
+#: letters in the last path segment before the extension ("然后修改config.toml").
+_HAN = r"\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\U00020000-\U0003ffff"
+_HAN_DIRS = rf"(?:[A-Za-z0-9_.\-{_HAN}]+/)*"
+_HAN_STEM = rf"[0-9_.\-{_HAN}]+"
+_EXTENSION = r"\.(?=[0-9]*[A-Za-z])[A-Za-z0-9]{1,16}"
+_FILE_NAME = (
+    r"(?:\s*(?=[A-Za-z0-9_./\-]+$)"
+    rf"|\s+(?={_HAN_DIRS}{_HAN_STEM}{_EXTENSION}$))(\S+)"
+)
 
 _OUTER_PUNCT = " \t\r\n.,!?;:\"'`…，。！？；：、“”‘’"
 

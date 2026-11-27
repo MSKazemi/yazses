@@ -129,6 +129,45 @@ def test_a_navigation_name_cannot_swallow_the_rest_of_a_sentence(text):
     assert classify(text, language="zh").intent is IntentType.DICTATE
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "打开文件 看了一下，问题出在config.toml",
+        "開啟檔案 先備份，再改設定.toml",
+        "打开文件 好了。然后看说明.md",
+        "打开文件 的时候用的是版本2.5",
+        "打开文件 然后修改config.toml",
+        "开启文件 之后记得更新到3.14",
+    ],
+)
+def test_an_unspaced_clause_after_open_file_is_not_a_file_name(text):
+    """Regression: Chinese has no word spaces, so ``\\S+`` swallowed whole clauses.
+
+    go_to_file sends Ctrl+P (Print in most applications) before typing the "name".
+    """
+    got = classify(text, language="zh")
+    assert (got.intent, got.action) == (IntentType.DICTATE, "inject")
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "設定.toml",
+        "测试数据.csv",
+        "会议记录_2026.docx",
+        "第2版.7z",
+        "src/設定.toml",
+        "文档/说明.md",
+        "𠮷田.txt",
+        "docs/v2.5/README.md",
+        "notes.v2.txt",
+    ],
+)
+def test_a_bounded_file_name_is_still_a_command(name):
+    got = classify(f"打开文件 {name}。", language="zh")
+    assert (got.action, got.args) == ("go_to_file", {"name": name})
+
+
 def test_no_mandarin_rule_has_an_open_ended_capture():
     for rule in zh.MANDARIN_GRAMMAR.rules:
         source = rule.pattern.pattern
