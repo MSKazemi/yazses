@@ -97,6 +97,19 @@ def source_spec(bio: Any, override: str = "") -> str:
     return (override or str(bio.source or "")).strip()
 
 
+def calibration_spec(bio: Any, spec: str = "") -> str:
+    """The spec a saved calibration (and the count-unit thresholds) are judged against.
+
+    The source actually being read (``spec``, which may be ``--source``). A ``file:``
+    recording does not name the board it came from, so it keeps the configured source, as
+    ``replay`` and ``evaluate`` do (they pass no ``spec``).
+    """
+    configured = str(getattr(bio, "source", "") or "")
+    if not spec or _scheme(spec) == "file":
+        return configured
+    return spec
+
+
 def profile_path(bio: Any, data_dir: Path) -> Path:
     """``[biosignal] calibration_file``, else the default profile in ``data_dir``."""
     from yazses.biosignal.calibration import default_profile_path
@@ -218,7 +231,7 @@ def _open(spec: str, *, realtime: bool = False) -> Any:
 
 def _build_pipeline(
     bio: Any, source: Any, switches: Switches, data_dir: Path,
-    clock: Callable[[], float] | None = None,
+    clock: Callable[[], float] | None = None, spec: str = "",
 ) -> tuple[Any, Any, Any]:
     """The same pipeline the daemon's runner builds, plus a ledger always attached.
 
@@ -226,6 +239,10 @@ def _build_pipeline(
     false-positive governor is on; ``monitor`` and ``replay`` exist to *measure* the rate,
     so they always have one, driven by ``clock`` (data time for a replay, so a recording
     replayed in one second is still measured per hour of recorded signal).
+
+    ``spec`` is the source being read when a command may override ``[biosignal] source``
+    (``monitor``, ``field-test``); the calibration is judged against it
+    (:func:`calibration_spec`).
     """
     from yazses.biosignal.fprate import ActivationLedger
     from yazses.biosignal.pipeline import BiosignalPipeline, PartsRequest, build_parts
@@ -242,7 +259,7 @@ def _build_pipeline(
         max_cancelled_per_hour=0.0,
         calibration_file=str(profile_path(bio, data_dir)),
         channels=tuple(source.channels),
-        source_spec=str(getattr(bio, "source", "") or ""),
+        source_spec=calibration_spec(bio, spec),
         calibration_max_age_days=float(getattr(bio, "calibration_max_age_days", 30.0)),
         min_event_confidence=float(getattr(bio, "min_event_confidence", 0.0)),
     ))
@@ -513,7 +530,7 @@ def run_doctor(cfg: Any, data_dir: Path, *, boards: bool = False, source: str = 
                         "lsl:, thinkgear:, bitalino: or myo:")
 
     _say()
-    _say("Self-check (synthetic signal through the real pipeline):")
+    _say("Self-check (synthetic signal through the real pipeline; your source is not opened):")
     try:
         ok, lines = _self_check()
     except Exception as exc:
@@ -806,10 +823,11 @@ def run_monitor(
     from yazses.biosignal import source_gates
 
     guard = source_gates.guard_source(src, spec)
-    pipeline, parts, ledger = _build_pipeline(bio, src, sw, data_dir)
+    pipeline, parts, ledger = _build_pipeline(bio, src, sw, data_dir, spec=spec)
     parts.quality = source_gates.compose_quality_gate(guard, parts.quality, spec)
     shows_health = source_gates.needs_source_health(src, spec)
-    _say(f"Monitoring {spec}  (fs {src.fs:g} Hz, {len(src.channels)} channels; detectors: "
+    _say(f"Monitoring {spec}  (declared fs {src.fs:g} Hz, not a measurement; "
+         f"{len(src.channels)} channels; detectors: "
          f"{sw.names()}).  Ctrl-C to stop."
          + ("  Demo gestures are scripted every 8 s." if demo else ""))
     if sw.emg and parts.detectors is not None:
@@ -822,7 +840,7 @@ def run_monitor(
     started = time.monotonic()
     state: dict[str, Any] = {"next": started + max(interval, 0.1), "overall": "", "blocks": 0,
                              "dropped": 0, "shown": "", "integrity": (False, 0),
-                             "health": None}
+                             "health": None, "waveform": False}
     # What the pipeline did with each event, newest last. Used unless the pipeline can list
     # its own recent events itself.
     local_recent: list[tuple[float, str, bool, str]] = []
@@ -859,8 +877,10 @@ def run_monitor(
         elif health.trusted:
             _say("  Source health: trusted")
         else:
+            category = getattr(health.reason, "category", None)
+            kind = f" [{category()}]" if callable(category) else ""
             _say(f"  Source health: events HELD ({health.reason.value}: "
-                 f"{health.reason.describe()})")
+                 f"{health.reason.describe()}){kind}")
 
     def on_result(block: Any, result: Any) -> None:
         state["blocks"] += 1
@@ -888,6 +908,14 @@ def run_monitor(
             for line in explain(report)[:6]:
                 _say(f"  - {line}")
             _say()
+        # The third gate, said apart from the other two: the waveform itself.
+        held = (getattr(report, "suppress_events", False) is True
+                or getattr(report, "bad_during_update", False) is True)
+        if held != state["waveform"]:
+            state["waveform"] = held
+            _say("  Events HELD: waveform quality failure (the signal-quality gate judged "
+                 "the waveform bad)." if held
+                 else "  Waveform quality: no longer holding events.")
         if now >= state["next"]:
             state["next"] = now + max(interval, 0.1)
             st = result.status
@@ -1605,16 +1633,37 @@ def run_check_source(
         _warn(f"Cannot open source {spec!r}: {exc}")
         return UNUSABLE
     report = check_source(src, seconds=float(seconds))
+    # A source that judges its own signal also says what it saw (ThinkGear, ADR-v2-155).
+    # Information only: the exit code stays the conformance verdict.
+    health = _protocol_health(src)
     if as_json:
-        _say(json.dumps({
+        payload: dict[str, Any] = {
             "source": spec, "passed": report.passed, "blocks": report.blocks,
             "samples": report.samples, "stream_s": round(report.stream_s, 3),
             "clauses": [{"clause": c.clause, "status": c.status, "detail": c.detail}
                         for c in report.clauses],
-        }, indent=2))
+        }
+        if health is not None:
+            payload["source_health"] = health.as_dict()
+        _say(json.dumps(payload, indent=2))
     else:
         _say(report.format())
+        if health is not None:
+            _say()
+            for line in health.lines():
+                _say(line)
     return OK if report.passed else FAILED
+
+
+def _protocol_health(source: Any) -> Any:
+    """``source.protocol_health()`` when the source type offers it, else ``None``."""
+    if not callable(getattr(type(source), "protocol_health", None)):
+        return None
+    try:
+        return source.protocol_health()
+    except Exception as exc:
+        _warn(f"The source-health summary could not be read ({type(exc).__name__}).")
+        return None
 
 
 def run_boards(*, as_json: bool = False) -> int:
@@ -1867,7 +1916,7 @@ def run_field_test(
                   f"{getattr(guard, 'last_error', '') or 'no data'}")
             return UNUSABLE
 
-        pipeline, parts, _ledger = _build_pipeline(bio, guard, sw, data_dir)
+        pipeline, parts, _ledger = _build_pipeline(bio, guard, sw, data_dir, spec=spec)
         parts.quality = source_gates.compose_quality_gate(guard, parts.quality, spec)
         blocker = _squeeze_blocker(parts, guard) if sw.emg else ""
         if blocker:

@@ -168,6 +168,34 @@ When you add a scheme:
 Parse the options of your spec in a function that raises `ValueError` for a missing port or an unknown
 option. The ThinkGear spec parser does this and is a good model.
 
+## If the device reports its own health
+
+Some devices say whether their own signal can be trusted, for example a contact-quality flag. Such a flag
+is a **veto**: it can hold events back, and it can never create one. It is not a detector, it feeds no
+threshold, and it adds nothing to the public `BlockSource` protocol. The ThinkGear driver is the worked
+example, and [the architecture reference](https://github.com/MSKazemi/yazses/blob/main/design/architecture.md)
+records the seam.
+
+* **Keep the policy pure.** `thinkgear_health.py` takes parser facts and an injected monotonic clock and
+  returns a verdict per read. It is standard library only and is tested without a device.
+* **Judge reads, not the latest value.** One bad report taints the whole read it arrived in. A later good
+  value does not rescue earlier samples. Unknown is untrusted.
+* **Offer `health_for(block)`** on the source. It returns the verdict of the read that produced that exact
+  block (matched by identity) and `None` for any other block. This is an optional method, looked up by the
+  shared composition: `IntegrityGuard` carries the verdict across a sanitized copy of the block, and
+  `source_gates.compose_quality_gate` adds `SourceHealthGate` in front of the stream-integrity and
+  waveform gates. It never replaces them.
+* **The verdict is duck-typed.** The gate reads `trusted` (admits only when it is exactly `True`),
+  `reason` (with a `value` code and a `describe()` text, and optionally `category()` for `monitor`), and
+  `session` and `epoch`, whose change resets detector state.
+* **Fail closed.** A missing verdict or an exception holds events. Add the scheme to `HEALTH_SCHEMES` in
+  `source_gates.py`, so the source is gated even if the method is missing.
+* **Optionally offer `protocol_health()`** for `check-source`. It returns an object with `as_dict()` and
+  `lines()`. Put counts, reason codes and durations in it: no samples, port, device address, serial number
+  or per-event time. It does not change the exit code, and it must say it is about the protocol only.
+* **Keep vendor scores out.** A contact flag may veto. An attention or blink-strength score may not be
+  used at all (see [what not to do](#what-not-to-do)).
+
 ## Run the conformance check
 
 Before you open a pull request, run the conformance check against your spec:
@@ -224,8 +252,8 @@ Source conformance: SyntheticSource — PASS (15 pass, 0 warn, 0 fail, 3 skip)
 ```
 
 A pass means the driver keeps the contract. It does not mean the signal is good. A driver can pass
-with a flat or noisy waveform. Check the signal with `yazses biosignal doctor` and a short
-`yazses biosignal calibrate` on the real device.
+with a flat or noisy waveform. Check the signal with `yazses biosignal monitor` and a short
+`yazses biosignal calibrate` on the real device (`doctor` does not open it).
 
 ## What not to do
 

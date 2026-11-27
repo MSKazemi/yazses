@@ -38,7 +38,7 @@ flowchart TB
     end
 
     SRC -->|SampleBlock| SGH
-    SRC -.->|not through source_gates| CS[yazses biosignal<br/>check-source<br/>conformance.check_source<br/>no health line yet]:::muted
+    SRC -.->|not through source_gates| CS[yazses biosignal<br/>check-source<br/>conformance.check_source<br/>plus protocol health, #831]:::normal
 
     CQ --> DH
     CQ --> MH
@@ -93,10 +93,11 @@ LSL, BITalino, Myo) gets the guard and a plain `IntegrityGate`, the same as befo
 
 Three things the figure shows that a reviewer may want to act on:
 
-- **`yazses biosignal check-source` does not use `source_gates`.** `run_check_source`
-  (`cli_impl.py:1532`) still passes the bare source to `conformance.check_source`
-  (`:1553`). ADR-v2-155 decision 6 asks for a ThinkGear protocol-health line there. That
-  line does not exist yet.
+- **`yazses biosignal check-source` does not use `source_gates`.** `run_check_source` passes
+  the bare source to `conformance.check_source`. Since #831 (added 2026-11-27, after the line
+  numbers above were taken) it then prints the protocol-health block ADR-v2-155 decision 6
+  asks for, from `ThinkGearSource.protocol_health()`. That block counts what the run saw; it
+  gates nothing and does not change the exit code.
 - **The daemon still has one extra reset.** After a silence longer than its watchdog, the
   daemon releases a held squeeze and resets the pipeline (`runner.py:391-399`). `monitor` and
   `field-test` rely on the stream gate's stall check instead. The #830 CHANGELOG entry
@@ -331,7 +332,7 @@ flowchart LR
         G1a[G1a #828<br/>pure health state<br/>IMPLEMENTED<br/>local branch<br/>not merged]:::review
         G1b[G1b #829<br/>compose the gates<br/>IMPLEMENTED<br/>local branch<br/>not merged]:::review
         G2a[G2a #830<br/>field-test parity<br/>IMPLEMENTED<br/>local branch<br/>not merged]:::review
-        G2b[G2b #831<br/>docs: diagnostics,<br/>Linux preflight<br/>NOT STARTED]:::muted
+        G2b[G2b #831<br/>diagnostics, docs,<br/>Linux preflight<br/>IMPLEMENTED 2026-11-27<br/>no hardware run]:::review
         G3[G3 #832<br/>human + device<br/>needs a unit<br/>NOT STARTED]:::muted
         G4[G4 #833<br/>maintainer<br/>claims decision<br/>NOT STARTED]:::muted
         G0 -->|approved| G1a --> G1b --> G2a --> G2b --> G3 --> G4
@@ -346,6 +347,10 @@ this page. They are not on `origin` and not merged into `main`. #831 depends on 
 which are implemented but not merged. #832 needs a physical unit and a person; a cloud agent
 cannot run it.
 
+Update, 2026-11-27: #828, #829 and #830 have since been merged into `main` and closed, and #831
+is implemented and awaiting review (the G2b box). The rest of the figure and the paragraph above
+are the 2026-11-13 snapshot. Nothing here has been run on a physical headset.
+
 ## Keeping this page true
 
 The line numbers point at `97206fb8`. A rebase or merge can move them. Before relying on them,
@@ -356,5 +361,5 @@ grep -n "source_gates\." src/yazses/biosignal/cli_impl.py src/yazses/biosignal/r
 grep -n "def _timing_fault\|def _enter_untrusted\|def _maybe_ready" src/yazses/biosignal/thinkgear_health.py
 ```
 
-If `check-source` gains a health line, or `FieldTestSession` is built from the guard, update
-Figure 1 and the notes under it.
+If `check-source` starts to gate on source health, or `FieldTestSession` stops being built from
+the guard, update Figure 1 and the notes under it.

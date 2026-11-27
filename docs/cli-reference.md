@@ -1654,9 +1654,9 @@ Muscle-squeeze, blink and jaw-clench switches read from an EEG/EMG/EOG board (`[
 | Command | What it does |
 |---|---|
 | `yazses biosignal` | List the commands below. |
-| `yazses biosignal doctor` | Check the board, BrainFlow, serial ports and your calibration profile, then run a synthetic self-check and end with one `Verdict:` line (ready, or the next step). `--boards` lists every board BrainFlow supports. Takes `synthetic`, `file:` and `brainflow:` sources; for `lsl:`, `thinkgear:`, `bitalino:` or `myo:` it reports "unknown source". Use `check-source` for those, and the system `yazses doctor` row for their advice. |
+| `yazses biosignal doctor` | Check the board, BrainFlow, serial ports and your calibration profile, then run a synthetic self-check and end with one `Verdict:` line (ready, or the next step). `--boards` lists every board BrainFlow supports. It never opens your source: the self-check runs on a generated signal. For `lsl:`, `thinkgear:`, `bitalino:` or `myo:` it describes the device and sends you to `check-source`. |
 | `yazses biosignal calibrate` | Guided calibration (relax, light squeeze, hard squeeze, blinks, clenches). Saves a profile; without one the squeeze switch stays off. |
-| `yazses biosignal monitor` | Live signal quality and detections, with your last few events (accepted or dropped, and why). Ctrl-C to stop; `--seconds` limits it. While the stream itself is at fault it holds events and says why (`Events HELD`). |
+| `yazses biosignal monitor` | Live signal quality and detections, with your last few events (accepted or dropped, and why). Ctrl-C to stop; `--seconds` limits it. While events are held it says which gate holds them: the stream (`Events HELD: the stream-integrity gate is closed`), a ThinkGear headset's own health (`Source health: events HELD`, tagged contact unknown, contaminated or stale, corrupt framing, stream integrity failure, or rearm in progress) or the waveform (`Events HELD: waveform quality failure`). The rate in its first line is the declared one, not a measurement. `--source` is also what your calibration is judged against (a `file:` recording keeps the configured source). |
 | `yazses biosignal replay` | Run a recording through the pipeline and print the detections and the false-positive summary. |
 | `yazses biosignal report` | Your own measured activation and cancel rate, with its confidence interval and the note that cancels are a proxy for false positives. |
 | `yazses biosignal record` | Record a session to a CSV, `.npz`, `.edf` or `.bdf` file (mode 0600). EDF+/BDF+ open in EDFbrowser and MNE. Refuses to overwrite without `--force`. |
@@ -1666,7 +1666,7 @@ Muscle-squeeze, blink and jaw-clench switches read from an EEG/EMG/EOG board (`[
 | `yazses biosignal profile` | Which board and channels your calibration profile is for, and how old it is. Never prints an amplitude. |
 | `yazses biosignal profile-clear` | Delete the calibration profile (asks first; `--yes` skips the question). |
 | `yazses biosignal boards` | The boards the switches are known to work with, and the `source` string for each. |
-| `yazses biosignal check-source` | Open a source for a few seconds (`--seconds`) and check the stream is well-formed: start/stop, channels, sample rate, timestamps, gaps. For bringing up a new board or driver; exit 1 if a check fails. |
+| `yazses biosignal check-source` | Open a source for a few seconds (`--seconds`) and check the stream is well-formed: start/stop, channels, sample rate, timestamps, gaps. For bringing up a new board or driver; exit 1 if a check fails. For a `thinkgear:` source it also summarises the protocol health it saw (contact reports, rejected packets, reads trusted and held, by reason; `source_health` with `--json`). That summary does not change the exit code and says nothing about the waveform, a gesture or device support. |
 
 `calibrate` takes `--blink` / `--no-blink` and `--clench` / `--no-clench` to include or skip
 those steps. `monitor`, `replay` and `evaluate` take the same two pairs, plus

@@ -77,8 +77,10 @@ it. The switch never reads thoughts: it sees only the muscle and eye activity de
    double blinks and jaw clenches go through the real detectors; no config change is needed. A squeeze cannot
    be tried this way, because calibration needs a real board or a recording of a real calibration session.
    The [walkthrough](../how-to/biosignal-switch.md#try-it-with-no-hardware) shows the real output.
-3. **Check the real signal.** `yazses biosignal doctor` checks the chain and ends with a `Verdict:` line
-   telling you whether you are ready or what to fix first. Then `yazses biosignal calibrate` learns your
+3. **Check the real signal.** `yazses biosignal doctor` checks your setup without opening the device and
+   ends with a `Verdict:` line telling you whether you are ready or what to fix first.
+   `yazses biosignal check-source <source>` and `yazses biosignal monitor` are the commands that read the
+   signal. Then `yazses biosignal calibrate` learns your
    relaxed level, a light and a hard squeeze, a blink and a clench. `yazses biosignal evaluate` scores the
    detectors on a scripted session or on a recording you labelled.
 4. **Measure how often it fires by mistake.** `yazses biosignal field-test` takes about ten minutes: you sit,
@@ -123,7 +125,8 @@ A trigger that fires when you did not mean it is worse than none. Three guards k
 If you try it, please report what worked and what did not: accessibility feedback is the most useful
 feedback this project can receive, and
 [an issue](https://github.com/MSKazemi/yazses/issues) is the place for it. Do not attach a recording of your
-signal to a public issue; share the output of `yazses biosignal doctor` instead.
+signal to a public issue; share the output of `yazses biosignal doctor` instead, after removing the port
+paths, device addresses and file paths it prints.
 
 ## Related
 

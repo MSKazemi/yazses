@@ -8717,7 +8717,7 @@ def biosignal_doctor(
 ) -> None:
     """Check BrainFlow, serial ports, your calibration, and run a synthetic self-check.
 
-    Needs no hardware: the self-check pushes scripted blinks through the real filters,
+    Needs no hardware and never opens your source (`check-source` does): the self-check pushes scripted blinks through the real filters,
     quality gate and detector. A missing board is reported, not an error; the exit code is
     1 only when the self-check itself fails. The last line is a verdict: ready, or the one
     thing to do next.
@@ -8775,6 +8775,8 @@ def biosignal_monitor(
 
     Prints a per-channel quality table whenever the overall quality changes (with the fix
     for each problem), a status line every interval, and each detection as it happens.
+    While events are held it says which gate holds them: the source's own contact or
+    framing health (ThinkGear), stream integrity, or waveform quality.
     Ctrl-C ends it with a count of what was detected and your measured activation rate.
     """
     from yazses.biosignal.cli_impl import run_monitor
@@ -9016,6 +9018,10 @@ def biosignal_check_source(
     Opens the source for a few seconds and checks start/stop, the declared channels and
     sample rate, block shapes, timestamps, gaps and rate accuracy. Use it when bringing up
     a new board or driver. Exit 1 if any check fails.
+
+    For a `thinkgear:` source it also summarises the protocol health it saw (contact
+    reports, rejected packets, trusted reads). That summary does not change the exit code
+    and does not show that the waveform or a gesture is usable.
     """
     from yazses.biosignal.cli_impl import run_check_source
 

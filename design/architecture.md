@@ -972,14 +972,26 @@ and the thresholds are unmeasured. Validation is synthetic or fake-transport onl
 pipeline, and none of the device parsers (ThinkGear, BITalino, Myo), has been run against real
 hardware**, and no field-test result exists yet (ADR-v2-155, *Context*). ADR-v2-152 and ADR-v2-153 are
 still **Proposed**; the code shipped on `main` under the owner's 2026-11-01 exception to the ADR-030
-breadth freeze (ADR-030, *Amendment 2026-11-01*), which lifts nothing else. Two further records
-bound what may be built next, and **neither authorises code**: [ADR-v2-154](adr/adr-v2-154-eeg-eog-evidence-gates.md)
-(Proposed, research-only: the evidence gates for EEG/EOG) and
-[ADR-v2-155](adr/adr-v2-155-thinkgear-transport-safety.md) (Proposed, awaiting maintainer review:
-a fail-closed ThinkGear source-health veto, with `POOR_SIGNAL` freshness and rearm thresholds that are
-untested engineering values). Until it is decided, the `thinkgear:` source feeds `IntegrityGuard`
-and the quality gate only; the ThinkGear contact value is not a veto, and `biosignal field-test` does
-not compose the same guards as the daemon and `monitor` (ADR-v2-155, *Context*).
+breadth freeze (ADR-030, *Amendment 2026-11-01*), which lifts nothing else.
+[ADR-v2-154](adr/adr-v2-154-eeg-eog-evidence-gates.md) (Proposed, research-only: the evidence gates for
+EEG/EOG) bounds what may be built next and **authorises no code**.
+[ADR-v2-155](adr/adr-v2-155-thinkgear-transport-safety.md) (Accepted 2026-11-13) is implemented: a
+`thinkgear:` source carries a fail-closed source-health veto, composed with the stream-integrity and
+waveform gates through one constructor that the daemon, `monitor` and `field-test` share
+(`source_gates.py`; `calibrate` reads through the same guard). Its contact freshness and rearm thresholds
+are untested engineering values, and acceptance of that record is not a claim that any headset works.
+
+**The vendor-health seam.** A device's own health metadata adds a *veto*, never a detector, and nothing to
+the `BlockSource` Protocol. A source may offer two optional methods, both looked up by capability:
+`health_for(block)` (the verdict for the read that produced that block, carried by `IntegrityGuard` and
+gated by `SourceHealthGate`) and `protocol_health()` (counts, reason codes and one duration, printed by
+`check-source` through `as_dict()` / `lines()`; informational, never the exit code). Diagnostics keep five
+claims apart: parser valid, local transport accessible, waveform usable, gesture validated, general
+support. `doctor` opens no source at all.
+
+**Invariant: a calibration is judged against the source being read.** `monitor` and `field-test` pass the
+effective source (including `--source`) to the calibration check and the count-unit thresholds. A `file:`
+recording names no board, so it, `replay` and `evaluate` use `[biosignal] source`.
 
 | File | Role |
 |---|---|
@@ -997,7 +1009,7 @@ not compose the same guards as the daemon and `monitor` (ADR-v2-155, *Context*).
 | `sources.py` | `SyntheticSource`, `FileReplaySource` (CSV, `.npz`, EDF/BDF, XDF), `BrainFlowBlockSource`, `RecordingTap`, and `open_source` for `synthetic`, `file:`, `brainflow:`, `lsl:`, `thinkgear:`, `bitalino:` and `myo:`; every device module is imported only for its own scheme. |
 | `lsl_source.py` | Lab Streaming Layer inlet; liblsl pinned to machine-only discovery before its first call, foreign hosts refused (ADR-019). `pylsl` lazy (`lsl` extra). |
 | `thinkgear.py`, `bitalino.py` | Pure packet/frame parsers (checksum, CRC-4, sequence gaps) for NeuroSky ThinkGear and PLUX BITalino, plus pyserial transports (`emg` extra). Vendor attention/blink scores are never used. |
-| `thinkgear_health.py` | The ThinkGear source-health state machine of [ADR-v2-155](adr/adr-v2-155-thinkgear-transport-safety.md) (stdlib only, clock injected): each serial read is judged as a whole, in wire order. Any nonzero `POOR_SIGNAL`, parser reject, skipped framing byte, stale (> 3 s) report or backward clock makes it untrusted, and a later zero in the same read cannot clear it. Recovery needs two separate zero reports plus 1 s of contiguous clean samples, and the read that completes it is still untrusted. `ThinkGearSource.health_for(block)` returns the verdict of the read that produced that exact block, and `None` for any other block. Lost packets are never filled in and `t0` never moves for them. |
+| `thinkgear_health.py` | The ThinkGear source-health state machine of [ADR-v2-155](adr/adr-v2-155-thinkgear-transport-safety.md) (stdlib only, clock injected): each serial read is judged as a whole, in wire order. Any nonzero `POOR_SIGNAL`, parser reject, skipped framing byte, stale (> 3 s) report or backward clock makes it untrusted, and a later zero in the same read cannot clear it. Recovery needs two separate zero reports plus 1 s of contiguous clean samples, and the read that completes it is still untrusted. `ThinkGearSource.health_for(block)` returns the verdict of the read that produced that exact block, and `None` for any other block. Lost packets are never filled in and `t0` never moves for them. Each session's reads are also added up (`HealthTally`, `ProtocolHealth`) for `check-source`; the tally is never read when a verdict is decided. |
 | `myo.py` | Myo armband raw EMG over Bluetooth LE (`myohw.h` protocol); bleak on a background thread behind a bounded drop-oldest queue (`ble` extra). |
 | `edf.py`, `xdf.py` | Pure EDF/EDF+/BDF reader and writer (annotations become ground-truth events); XDF via `pyxdf` (`xdf` extra). |
 | `integrity.py`, `conformance.py` | Stream-integrity guard wrapped round every daemon source (gaps, overlaps, rate drift, stalls, layout changes, non-finite samples close the gate until 1 s of clean stream), and the source conformance kit behind `yazses biosignal check-source`. |

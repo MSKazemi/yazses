@@ -462,6 +462,22 @@ On `main` after the #889 follow-up:
 - **8d**: unchanged; the validation protocol now says such a setup does not exercise the hold path.
 - **9**: fixed by #887.
 
+With #831 (section 1 and sections 5 and 6 above record the state before it):
+
+- **1**: `check-source thinkgear:<port>` now ends with a **ThinkGear protocol health** block (and
+  `source_health` in `--json`): reads trusted and held by reason, contact reports as zero,
+  contaminated and no-skin-contact counts, the longest stretch without a report, accepted and
+  rejected packets and skipped bytes. It does not change the exit code, so read its `Result:` line
+  as well as the conformance summary. Keep running `tally.py` (section 5.1): it still gives the
+  four report bins of the template, raw samples per elapsed second and the longest silence.
+- `monitor` tags each `Source health: events HELD (...)` line with the kind of problem in square
+  brackets, prints `Events HELD: waveform quality failure` when the signal gate closes, and calls
+  the rate in its first line `declared fs`.
+- `monitor` and `field-test` now judge the calibration against `--source`, not `[biosignal] source`.
+- `check-source --json` keeps the spec, with the port path, in its `source` field. Keep that file
+  local.
+- None of this has been run on a physical headset.
+
 ## 15. References
 
 - NeuroSky, [ThinkGear Communications Protocol](https://developer.neurosky.com/docs/doku.php?id=thinkgear_communications_protocol): framing, `0x02` POOR_SIGNAL, `0x80` raw at 512 Hz, baud requirements.

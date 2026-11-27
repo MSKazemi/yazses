@@ -94,7 +94,7 @@ import math
 import time
 from collections import deque
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 import numpy as np
@@ -103,6 +103,7 @@ from yazses.biosignal.thinkgear_health import (
     THINKGEAR_FS,
     BatchHealth,
     PacketReport,
+    ProtocolHealth,
     ThinkGearHealth,
 )
 from yazses.biosignal.types import ChannelInfo, SampleBlock, SignalKind
@@ -534,6 +535,18 @@ class ThinkGearSource:
             if emitted is block:
                 return health
         return None
+
+    def protocol_health(self) -> ProtocolHealth:
+        """What the reads since the last successful ``start()`` showed about the protocol:
+        counts, reason codes and one duration, no sample, port or address. Still readable
+        after ``stop()``, so a conformance run can be summarised once it is over."""
+        stats = self.parser.stats
+        tally = self.health.tally
+        return ProtocolHealth(
+            tally=replace(tally, held_reads=dict(tally.held_reads),
+                          trust_breaks=dict(tally.trust_breaks)),
+            packets_ok=stats.packets, bad_checksum=stats.bad_checksum,
+            bad_length=stats.bad_length, malformed=stats.malformed)
 
     def _now(self) -> float:
         try:

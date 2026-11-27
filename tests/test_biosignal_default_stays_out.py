@@ -40,6 +40,52 @@ PROBE = textwrap.dedent(
 ) % (DEVICE_LIBRARIES,)
 
 
+#: A source that is named but not switched on, and the driver module imported on its own.
+HEADSET_PROBE = textwrap.dedent(
+    """
+    import dataclasses
+    import json
+    import sys
+
+    from yazses.config import Config
+    from yazses.core.daemon import Daemon
+    from yazses.platform import get_platform
+
+    config = Config()
+    config.biosignal = dataclasses.replace(config.biosignal, source="thinkgear:/dev/rfcomm0")
+    daemon = Daemon(config=config, platform=get_platform())
+    sources = daemon._build_activation_sources(config)
+    daemon_loaded = sorted(m for m in sys.modules if m.startswith("yazses.biosignal"))
+
+    from yazses.biosignal.runner import build_runner_from_config
+    from yazses.biosignal.thinkgear import ThinkGearSource
+
+    runner = build_runner_from_config(config)
+    ThinkGearSource("/dev/rfcomm0")          # constructing a source opens nothing
+    print(json.dumps({
+        "enabled": config.biosignal.enabled,
+        "sources": len(sources),
+        "daemon_loaded": daemon_loaded,
+        "runner": runner is None,
+        "pyserial": "serial" in sys.modules,
+    }))
+    """
+)
+
+
+def test_a_named_headset_that_is_not_enabled_is_never_opened_or_discovered():
+    """TG-18: with ``enabled = false`` a ``thinkgear:`` source changes nothing, and the
+    driver itself leaves pyserial unimported until a port is actually opened."""
+    result = subprocess.run(
+        [sys.executable, "-c", HEADSET_PROBE], capture_output=True, text=True, timeout=120,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    report = json.loads(result.stdout.strip().splitlines()[-1])
+    assert report == {"enabled": False, "sources": 0, "daemon_loaded": [], "runner": True,
+                      "pyserial": False}
+
+
 def test_a_default_daemon_loads_no_biosignal_code_in_a_fresh_process():
     result = subprocess.run(
         [sys.executable, "-c", PROBE], capture_output=True, text=True, timeout=120, check=False
