@@ -667,7 +667,7 @@ Re-run the post-pass on a meeting whose finalize never completed.
 Fix speaker labels — merge two clusters and/or rename them — and re-render.
 
 - **Arguments:** `meeting_id`
-- `--merge` — Fold one speaker into another: SPEAKER_2=speaker_1 (repeatable).
+- `--merge` — Fold one speaker into another: speaker_2=speaker_1 (repeatable).
 - `--rename` — Name a speaker: speaker_1=Alice (repeatable).
 - `--format`, `-f` — Transcript format to re-render.
 

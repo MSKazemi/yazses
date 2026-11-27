@@ -3,23 +3,33 @@
 Each meeting is a folder ``<meetings_dir>/<id>/`` holding ``meeting.json`` (metadata),
 ``transcript.json`` (lossless canonical: per-word speaker + timestamps), the rendered
 human transcript, an optional ``notes.md``, and optionally ``audio.wav`` (kept only when
-``retain_audio``). ``relabel`` fixes an unknown-count miscount — merge two speaker
+``retain_audio``). Whoever writes into a folder holds its lock (``meeting/lock.py``).
+``relabel`` fixes an unknown-count miscount — merge two speaker
 clusters and/or rename them — by **re-rendering from ``transcript.json``**, never
 re-diarizing (ADR-v2-127 §unknown-count). All functions here are pure filesystem/logic
 and unit-testable with ``tmp_path`` (no models).
 """
 from __future__ import annotations
 
+import errno
 import json
 import logging
+import time
 from pathlib import Path
 
+from yazses.meeting.lock import is_busy
 from yazses.postprocess.cleaner import clean_text
 from yazses.recimport.align import Utterance, merge_utterances
 from yazses.recimport.naming import resolve_names
 from yazses.recimport.pipeline import cleaned_utterance
-from yazses.recimport.render import render_transcript
-from yazses.system.private_files import private_dir, write_private_text
+from yazses.recimport.render import VALID_FORMATS, render_transcript
+from yazses.system.private_files import (
+    new_private_dir,
+    private_dir,
+    replace_private_text,
+    write_private_bytes,
+    write_private_text,
+)
 
 log = logging.getLogger(__name__)
 
@@ -37,6 +47,7 @@ _AUDIO = "audio.wav"
 _LIVE_MD = "live-transcript.md"
 _QUALITY = "quality.json"
 _SUMMARY = "summary.md"
+_NOTES = "notes.md"
 # Previous outputs are moved here rather than overwritten when a meeting is re-run.
 # A retry that replaces a transcript with a worse one is a data loss that looks like a
 # repair, and the whole point of retrying is that the first result was not trusted.
@@ -44,6 +55,9 @@ _ATTEMPTS = "attempts"
 # A `wave` file opened for writing has its 44-byte canonical header on disk before
 # a single frame is appended, so "the file exists" is not "there is a recording".
 _WAV_HEADER_BYTES = 44
+# A meeting id is its local start time. Listings sort on it and users type it.
+_ID_FORMAT = "%Y%m%d-%H%M%S"
+_ID_TRIES = 600
 _EXT = {"md": "transcript.md", "txt": "transcript.txt", "srt": "transcript.srt",
         "vtt": "transcript.vtt", "json": _CANONICAL}
 
@@ -172,6 +186,26 @@ def capture_gap_warning(meta: dict) -> str | None:
     )
 
 
+def audio_write_warning(meta: dict) -> str | None:
+    """One line saying the recording could not be saved in full, else None. Never raises.
+
+    The disk filled up (or the folder stopped being writable) while the meeting ran. The
+    batch transcript is decoded from ``audio.wav``, so it is missing the same audio; the
+    live transcript is decoded from memory and may still hold it.
+    """
+    if not meta.get("audio_write_failed"):
+        return None
+    try:
+        lost = float(meta.get("audio_unsaved_s") or 0.0)
+    except (TypeError, ValueError):
+        lost = 0.0
+    amount = f"about {_span(lost)} of audio is" if lost >= 1 else "some audio may be"
+    return (
+        f"⚠ The recording could not be written to disk in full (disk full?): {amount} "
+        f"missing from {_AUDIO} and the transcript. Check {_LIVE_MD} for what is missing."
+    )
+
+
 def _span(seconds: float) -> str:
     return duration_summary({"duration_s": seconds}) or f"{seconds:.0f}s"
 
@@ -248,9 +282,28 @@ def new_meeting(config, meeting_id: str) -> Path:
     return d
 
 
+def reserve_meeting(config, now: float | None = None) -> tuple[str, Path]:
+    """Create a folder no other meeting has, and return ``(meeting_id, folder)``.
+
+    The id stays a ``%Y%m%d-%H%M%S`` local time. When that second is already taken (two
+    starts within one second would otherwise share a folder, and the second would truncate
+    the first one's recording) the next free second is used.
+    """
+    root = meetings_dir(config)
+    root.mkdir(parents=True, exist_ok=True)
+    start = time.time() if now is None else now
+    for offset in range(_ID_TRIES):
+        meeting_id = time.strftime(_ID_FORMAT, time.localtime(start + offset))
+        try:
+            return meeting_id, new_private_dir(root / meeting_id)
+        except FileExistsError:
+            continue
+    raise FileExistsError(errno.EEXIST, "no free meeting id", str(root))
+
+
 def write_meta(meeting_dir: str | Path, meta: dict) -> Path:
     p = Path(meeting_dir) / _META
-    write_private_text(p, json.dumps(meta, ensure_ascii=False, indent=2) + "\n")
+    replace_private_text(p, json.dumps(meta, ensure_ascii=False, indent=2) + "\n")
     return p
 
 
@@ -292,7 +345,11 @@ def list_meetings(config) -> list[dict]:
         # one that most needs a retry, and it was the one the listing called finished.
         if meta.get("status") != "done" or meta.get("quality_suspect"):
             wav = d / _AUDIO
-            if has_recording(wav):
+            if is_busy(d):
+                # Still recording or being processed. It has not failed to finish, and
+                # `meeting recover` would refuse it, so it is not offered.
+                meta["busy"] = True
+            elif has_recording(wav):
                 meta["recoverable"] = True
                 meta["audio_path"] = str(wav)
             elif (d / _LIVE).exists():
@@ -350,26 +407,34 @@ def read_live_lines(meeting_dir: str | Path) -> list[dict]:
 def write_outputs(meeting_dir: str | Path, result, *, fmt: str = "md", notes_md=None) -> dict:
     """Write the canonical json, the human transcript in *fmt*, and optional notes.
 
-    Returns ``{name: Path}`` for the files written.
+    Everything is rendered before anything is written, so a bad format changes no file,
+    and each file is replaced whole (:func:`replace_private_text`): a full disk leaves
+    the previous version, not an empty one. Returns ``{name: Path}`` for the files
+    written.
     """
     d = Path(meeting_dir)
-    written: dict[str, Path] = {}
-
-    canon = d / _CANONICAL
-    write_private_text(canon, render_transcript(result, "json"))
-    written["json"] = canon
-
     fmt = (fmt or "md").lower()
+    pending = [("json", d / _CANONICAL, render_transcript(result, "json"))]
     if fmt != "json":
-        human = d / _EXT.get(fmt, "transcript.md")
-        write_private_text(human, render_transcript(result, fmt))
-        written[fmt] = human
+        pending.append(
+            (fmt, d / _EXT.get(fmt, "transcript.md"), render_transcript(result, fmt))
+        )
+
+    written: dict[str, Path] = {}
+    for name, path, text in pending:
+        replace_private_text(path, text)
+        written[name] = path
 
     if notes_md:
-        notes = d / "notes.md"
-        write_private_text(notes, notes_md if notes_md.endswith("\n") else notes_md + "\n")
-        written["notes"] = notes
+        written["notes"] = write_notes(d, notes_md)
     return written
+
+
+def write_notes(meeting_dir: str | Path, notes_md: str) -> Path:
+    """Replace ``notes.md`` whole, owner-only like every other file in the folder."""
+    notes = Path(meeting_dir) / _NOTES
+    replace_private_text(notes, notes_md if notes_md.endswith("\n") else notes_md + "\n")
+    return notes
 
 
 class _ResultView:
@@ -411,11 +476,34 @@ def relabel(meeting_dir: str | Path, *, merges=None, renames=None, fmt: str = "m
     ``merges`` maps a source cluster id to the target it folds into
     (``{"speaker_2": "speaker_1"}``); ``renames`` maps a (post-merge) cluster id to a
     display name (``{"speaker_1": "Alice"}``). Prior custom names are preserved unless
-    renamed; anonymous "Speaker N" labels are renumbered. Re-writes json + the human file.
+    renamed (when two named clusters are merged, the target's name stays); anonymous
+    "Speaker N" labels are renumbered. Re-writes json + the human file, after copying
+    the versions being replaced into ``attempts/<n>/``: a merge cannot be undone from
+    its own output, and the human file may hold corrections made by hand.
+
+    Raises ``ValueError``, before any file is touched, for an unknown *fmt* or a merge
+    naming a speaker that is not in the meeting. The caller holds the meeting's lock.
     """
     merges = dict(merges or {})
     renames = dict(renames or {})
+    fmt = (fmt or "md").lower()
+    if fmt not in VALID_FORMATS:
+        raise ValueError(
+            f"unknown format {fmt!r}; expected one of {', '.join(VALID_FORMATS)}"
+        )
     view = load_result_view(meeting_dir)
+
+    known = {spk for spk, *_ in view.assigned} | {u.speaker for u in view.utterances}
+    known |= set(view.speaker_names)
+    known.discard("")
+    # A mistyped target would move one person's words into a cluster that does not exist.
+    unknown = sorted((set(merges) | set(merges.values())) - known)
+    if unknown:
+        present = ", ".join(sorted(known)) or "none (the meeting is not diarized)"
+        raise ValueError(
+            f"no speaker {', '.join(repr(s) for s in unknown)} in this meeting; "
+            f"its speakers are: {present}"
+        )
 
     def remap(spk: str) -> str:
         return merges.get(spk, spk) if spk else spk
@@ -443,7 +531,9 @@ def relabel(meeting_dir: str | Path, *, merges=None, renames=None, fmt: str = "m
 
     # Preserve prior non-anonymous names (mapped through merges), let renames win.
     carried: dict[str, str] = {}
-    for raw, name in view.speaker_names.items():
+    # Merged-away clusters first, so the surviving cluster's own name is written last
+    # and wins: folding Bob into Alice must not rename Alice to Bob.
+    for raw, name in sorted(view.speaker_names.items(), key=lambda kv: remap(kv[0]) == kv[0]):
         if name and not name.startswith("Speaker "):
             carried[remap(raw)] = name
     carried.update({k: v for k, v in renames.items() if v})
@@ -457,6 +547,7 @@ def relabel(meeting_dir: str | Path, *, merges=None, renames=None, fmt: str = "m
         diarized=view.diarized,
         speaker_names=speaker_names,
     )
+    snapshot_outputs(meeting_dir, [_CANONICAL, _EXT[fmt]])
     return write_outputs(meeting_dir, updated, fmt=fmt)
 
 
@@ -606,7 +697,7 @@ def write_live_transcript(meeting_dir: str | Path, meeting_id: str = "") -> Path
         return None
     p = live_markdown_path(meeting_dir)
     try:
-        write_private_text(p, render_live_transcript(records, meeting_id))
+        replace_private_text(p, render_live_transcript(records, meeting_id))
     except OSError:  # pragma: no cover - disk-full / read-only mount
         log.warning("Could not write %s", p)
         return None
@@ -623,7 +714,7 @@ def write_quality(meeting_dir: str | Path, quality) -> Path | None:
     p = Path(meeting_dir) / _QUALITY
     try:
         payload = quality.as_dict() if hasattr(quality, "as_dict") else dict(quality)
-        write_private_text(p, json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
+        replace_private_text(p, json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
     except (OSError, TypeError, ValueError):  # pragma: no cover - defensive
         log.warning("Could not write %s", p)
         return None
@@ -642,18 +733,48 @@ def read_quality(meeting_dir: str | Path) -> dict:
     return data if isinstance(data, dict) else {}
 
 
+def _new_attempt_dir(meeting_dir: Path) -> Path:
+    """Create and return the next free ``attempts/<n>/``. Raises ``OSError``."""
+    root = meeting_dir / _ATTEMPTS
+    n = 1
+    while (root / str(n)).exists():
+        n += 1
+    private_dir(root)
+    return private_dir(root / str(n))
+
+
+def snapshot_outputs(meeting_dir: str | Path, names: list[str]) -> Path | None:
+    """Copy the named files that exist into ``attempts/<n>/``. Returns the dir.
+
+    Called before an in-place edit (relabel, regenerated notes). ``None`` when none of
+    them exists. Raises ``OSError`` when a copy cannot be made, so the caller stops
+    before overwriting the original.
+    """
+    d = Path(meeting_dir)
+    present = [d / name for name in dict.fromkeys(names) if (d / name).exists()]
+    if not present:
+        return None
+    dest = _new_attempt_dir(d)
+    for src in present:
+        write_private_bytes(dest / src.name, src.read_bytes())
+    log.info("Previous meeting outputs copied to %s", dest)
+    return dest
+
+
 def archive_outputs(meeting_dir: str | Path) -> Path | None:
     """Move the current transcript/notes/summary into ``attempts/<n>/``. Returns the dir.
 
     Called before a re-run writes over them. Nothing is ever deleted — a second decode
     can be *worse* than the first (that is the nature of the failure this whole module
     exists for), and the user must be able to compare rather than take the newest on
-    faith. ``None`` when there was nothing to archive.
+    faith. ``None`` when there was nothing to archive. Raises ``OSError``, with the
+    files moved back, when they cannot all be moved: returning would let the caller
+    overwrite the ones that stayed.
     """
     d = Path(meeting_dir)
     movable = [
         d / name
-        for name in (_CANONICAL, _SUMMARY, _QUALITY, "notes.md", *_EXT.values())
+        for name in (_CANONICAL, _SUMMARY, _QUALITY, _NOTES, *_EXT.values())
         if (d / name).exists()
     ]
     # dict.fromkeys: `_EXT` maps "json" to `_CANONICAL`, so the canonical file is named
@@ -662,21 +783,26 @@ def archive_outputs(meeting_dir: str | Path) -> Path | None:
     movable = list(dict.fromkeys(movable))
     if not movable:
         return None
-    root = d / _ATTEMPTS
-    n = 1
-    while (root / str(n)).exists():
-        n += 1
-    dest = root / str(n)
+    dest = _new_attempt_dir(d)
     try:
-        private_dir(root)
-        private_dir(dest)
         for src in movable:
             src.replace(dest / src.name)
-    except OSError:  # pragma: no cover - read-only mount
-        log.warning("Could not archive previous outputs under %s", dest)
-        return None
+    except OSError:
+        restore_outputs(d, dest)
+        raise
     log.info("Previous meeting outputs archived to %s", dest)
     return dest
+
+
+def restore_outputs(meeting_dir: str | Path, archived: str | Path) -> None:
+    """Move an archive made by :func:`archive_outputs` back into place. Never raises."""
+    d, src_dir = Path(meeting_dir), Path(archived)
+    try:
+        for src in list(src_dir.iterdir()):
+            src.replace(d / src.name)
+        src_dir.rmdir()
+    except OSError:
+        log.warning("Could not restore the previous outputs; they are in %s", src_dir)
 
 
 def summary_lines(meta: dict, *, live_lines: int = 0, quality: dict | None = None) -> list[str]:
@@ -704,6 +830,8 @@ def summary_lines(meta: dict, *, live_lines: int = 0, quality: dict | None = Non
         out.append(f"  {warn}")
     if gap_warn := capture_gap_warning(meta):
         out.append(f"  {gap_warn}")
+    if write_warn := audio_write_warning(meta):
+        out.append(f"  {write_warn}")
     if quality.get("suspect"):
         from yazses.meeting.quality import QUALITY_DEGENERATE, QUALITY_THIN
 
@@ -777,7 +905,7 @@ def write_summary(meeting_dir: str | Path, lines: list[str]) -> Path | None:
     # readable — which is the only reason this file is written at all.
     body = "\n".join(["```text", *lines, "```", ""])
     try:
-        write_private_text(p, body)
+        replace_private_text(p, body)
     except OSError:  # pragma: no cover - disk-full / read-only mount
         log.warning("Could not write %s", p)
         return None
@@ -830,12 +958,12 @@ def ensure_quality(meeting_dir: str | Path, meta: dict | None = None) -> dict:
         # runs over meetings finalized by older versions, and dropping a field they wrote
         # would be this function destroying the record it exists to complete.
         #
-        # `dir`/`recoverable`/`audio_path`/`live_transcript_path` are injected into the
-        # dict by `list_meetings` at read time and are not part of the stored record --
+        # `dir`/`busy`/`recoverable`/`audio_path`/`live_transcript_path` are injected
+        # into the dict by `list_meetings` at read time and are not part of the stored record --
         # writing them back bakes this machine's absolute paths into a meeting folder
         # that can be copied, and freezes a "recoverable" flag that is meant to be
         # recomputed from what is on disk.
-        runtime = ("dir", "recoverable", "audio_path", "live_transcript_path")
+        runtime = ("dir", "busy", "recoverable", "audio_path", "live_transcript_path")
         stored = {k: v for k, v in meta.items() if k not in runtime}
         write_meta(d, {**stored, "quality": q.verdict, "quality_suspect": q.suspect})
     return q.as_dict()

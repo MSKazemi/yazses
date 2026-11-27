@@ -97,6 +97,9 @@ class SingleInstanceLock:
     def __init__(self, path: str | os.PathLike[str]) -> None:
         self._path = str(path)
         self._fd: int | None = None
+        # Why the last lock attempt failed, so a caller can tell "someone holds it" from
+        # "this filesystem has no locks".
+        self.error: OSError | None = None
 
     def acquire(self) -> bool:
         """Try to take the lock. True if held by us, False if another holds it."""
@@ -115,14 +118,16 @@ class SingleInstanceLock:
         if fcntl is not None:
             try:
                 fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except OSError:
+            except OSError as exc:
+                self.error = exc
                 os.close(fd)
                 return False
         elif msvcrt is not None:  # Windows byte-range lock, far past any content
             try:
                 os.lseek(fd, _WIN_LOCK_OFFSET, os.SEEK_SET)
                 msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
-            except OSError:
+            except OSError as exc:
+                self.error = exc
                 os.close(fd)
                 return False
         # else: no lock primitive available — degrade to a no-op (still record pid).

@@ -12,7 +12,8 @@ This is that retry, and it is deliberately **not** the daemon's path:
   controller would truncate the recording it is recovering, on the first line.
 * It never deletes the recording. Deleting is what the *successful* live path does with
   audio it has just consumed; on a retry the file is the only copy, and a second failure
-  must leave the user no worse off than the first.
+  must leave the user no worse off than the first. For the same reason the previous
+  outputs are moved aside only once there is a new result to put in their place.
 """
 from __future__ import annotations
 
@@ -88,6 +89,9 @@ def recover_meeting(
     indistinguishable from one that finished normally — except for ``recovered: true``,
     which is recorded because the duration comes from the WAV rather than from a live
     sample count, and a reader deserves to know which.
+
+    The caller holds the meeting's lock (``meeting/lock.py``) from the refusal check to
+    the last write, so this never runs on a meeting the daemon is still recording.
     """
     from yazses.meeting import store
     from yazses.meeting.finalize import finalize_meeting
@@ -97,13 +101,10 @@ def recover_meeting(
     d = Path(meeting_dir)
     prior_meta = store.read_meta(d)
     meeting_id_early = prior_meta.get("id") or d.name
-    # Two things before any decoding, both cheap and both about not being able to end up
-    # worse off than we started. The live transcript is rendered whether or not this run
-    # succeeds; the previous attempt's outputs are moved aside, because a retry is run
-    # precisely when the last result was not trusted -- and this one may be worse.
+    # The live transcript is rendered before any decoding, so it exists whether or not
+    # this run succeeds.
     store.write_live_transcript(d, meeting_id_early)
     live_words = store.live_word_count(d)
-    archived = store.archive_outputs(d)
 
     audio = read_wav_mono_f32(d / AUDIO)
     res = finalize_meeting(
@@ -112,10 +113,20 @@ def recover_meeting(
         live_words=live_words, stt=stt,
     )
     notes_md = render_minutes_md(res.minutes) if res.minutes else None
-    written = store.write_outputs(
-        d, res.transcript,
-        fmt=getattr(config, "output_format", "md"), notes_md=notes_md,
-    )
+    # Moved aside, because a retry is run precisely when the last result was not trusted
+    # -- and this one may be worse. Only now: archiving before the decode meant that a
+    # retry which failed (no model, out of memory, an unreadable WAV, Ctrl-C) left the
+    # meeting with no transcript where it had one.
+    archived = store.archive_outputs(d)
+    try:
+        written = store.write_outputs(
+            d, res.transcript,
+            fmt=getattr(config, "output_format", "md"), notes_md=notes_md,
+        )
+    except BaseException:
+        if archived is not None:
+            store.restore_outputs(d, archived)
+        raise
     store.write_quality(d, res.quality)
     speakers = sorted(set(res.transcript.speaker_names.values()))
     capture = store.capture_state(
@@ -145,6 +156,10 @@ def recover_meeting(
     # run finalized, and a recovery has only the WAV -- no clock to recompute it from.
     if (gap := prior_meta.get("capture_gap_s")) and store.capture_gap_warning(prior_meta):
         meta["capture_gap_s"] = gap
+    # Likewise carried: re-reading the WAV cannot tell what never reached it.
+    for key in ("audio_write_failed", "audio_unsaved_s"):
+        if key in prior_meta:
+            meta[key] = prior_meta[key]
     store.write_meta(d, meta)
     lines = store.summary_lines(
         {**meta, "dir": str(d)},

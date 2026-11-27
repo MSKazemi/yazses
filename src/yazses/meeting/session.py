@@ -8,12 +8,15 @@ clock are injectable, so the whole lifecycle is unit-testable with fakes and no 
 """
 from __future__ import annotations
 
+import logging
 import os
 import wave
 from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
+
+log = logging.getLogger(__name__)
 
 
 def _open_private_wb(path: Path):
@@ -59,6 +62,8 @@ class WavFileSink:
         self._wav.setnchannels(1)
         self._wav.setsampwidth(2)  # int16
         self._wav.setframerate(sample_rate)
+        # Set when closing could not flush the recording to disk.
+        self.close_failed = False
 
     def write(self, chunk: np.ndarray) -> None:
         arr = np.asarray(chunk, dtype="float32")
@@ -66,14 +71,13 @@ class WavFileSink:
         self._wav.writeframes((clipped * 32767.0).astype("<i2").tobytes())
 
     def close(self) -> None:
-        try:
-            self._wav.close()
-        except Exception:  # pragma: no cover - defensive teardown
-            pass
-        try:
-            self._fh.close()
-        except Exception:  # pragma: no cover - defensive teardown
-            pass
+        """Finish the file. Never raises; a failure sets :attr:`close_failed`."""
+        for handle in (self._wav, self._fh):
+            try:
+                handle.close()
+            except Exception:
+                self.close_failed = True
+                log.error("Could not finish writing %s", self._path, exc_info=True)
 
 
 def read_wav_mono_f32(path: str | Path) -> np.ndarray:
@@ -84,6 +88,9 @@ def read_wav_mono_f32(path: str | Path) -> np.ndarray:
     """
     with wave.open(str(path), "rb") as w:
         frames = w.readframes(w.getnframes())
+    # A write cut short (full disk, power loss) can end in half a sample, which would
+    # make the whole recording unreadable. Drop that one byte, keep everything else.
+    frames = frames[: len(frames) - len(frames) % 2]
     if not frames:
         return np.array([], dtype="float32")
     return (np.frombuffer(frames, dtype="<i2").astype("float32") / 32768.0)
@@ -111,17 +118,43 @@ class MeetingSession:
         self.ended_at: float | None = None
         self._clock = clock
         self._n_samples = 0
+        self._n_unsaved = 0
+        self._write_failed = False
         self.live_lines: list[str] = []
         self._closed = False
         self.audio_path = self.dir / "audio.wav"
         self._sink = sink if sink is not None else WavFileSink(self.audio_path, sample_rate)
 
     def append_chunk(self, chunk: np.ndarray) -> None:
-        """Persist one captured audio chunk. No-op after ``stop``."""
+        """Persist one captured audio chunk. No-op after ``stop``.
+
+        Does not raise when the disk write fails: the loss is counted (see
+        :attr:`write_failed` and :meth:`unsaved_s`) and the caller goes on to the live
+        transcript, which is then the only record of this audio.
+        """
         if self._closed:
             return
-        self._n_samples += int(np.asarray(chunk).shape[0])
-        self._sink.write(chunk)
+        n = int(np.asarray(chunk).shape[0])
+        self._n_samples += n
+        try:
+            self._sink.write(chunk)
+        except Exception:  # noqa: BLE001 - a full disk must not stop the live transcript
+            self._n_unsaved += n
+            if not self._write_failed:
+                self._write_failed = True  # logged once, not once per chunk
+                log.error(
+                    "Could not write meeting audio to %s (disk full?)",
+                    self.audio_path, exc_info=True,
+                )
+
+    @property
+    def write_failed(self) -> bool:
+        """True once any part of the recording could not be saved."""
+        return self._write_failed or bool(getattr(self._sink, "close_failed", False))
+
+    def unsaved_s(self) -> float:
+        """Seconds of captured audio whose write failed."""
+        return self._n_unsaved / self.sample_rate if self.sample_rate else 0.0
 
     def add_live_line(self, text: str, t: float | None = None) -> None:
         """Append a finalized live-transcript line for the status view.
