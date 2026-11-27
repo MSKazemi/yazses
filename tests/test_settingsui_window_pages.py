@@ -74,11 +74,11 @@ def _select_category(win, category):
 # --- the frame ---------------------------------------------------------------------
 
 
-def test_the_sidebar_lists_the_six_pages_in_order_and_opens_on_the_first(qapp):
+def test_the_sidebar_lists_the_pages_in_order_and_opens_on_the_first(qapp):
     win = _window(qapp)
     assert _labels(win) == [p.label for p in pages.PAGES]
     assert win._shell.stack.count() == len(pages.PAGES)
-    assert win._shell.current_key() == "general"
+    assert win._shell.current_key() == "overview"
 
 
 def test_selecting_a_sidebar_entry_shows_its_page(qapp):
@@ -92,12 +92,12 @@ def test_selecting_a_sidebar_entry_shows_its_page(qapp):
 def test_an_unknown_page_key_is_ignored(qapp):
     win = _window(qapp)
     win._shell.select("nope")
-    assert win._shell.current_key() == "general"
+    assert win._shell.current_key() == "overview"
 
 
 def test_every_page_has_a_shortcut_and_find_jumps_to_the_features_search(qapp):
     win = _window(qapp)
-    assert len(win._shell._shortcuts) == len(pages.PAGES)
+    assert len(win._shell._shortcuts) == min(len(pages.PAGES), pages.SHORTCUT_PAGES)
     win._focus_filter()
     assert win._shell.current_key() == "features"
 
@@ -217,7 +217,7 @@ def test_the_search_box_explains_its_syntax_where_it_can_be_seen(qapp):
     win = _window(qapp)
     from PySide6.QtWidgets import QLabel
 
-    page = win._shell.stack.widget(3)
+    page = win._shell.stack.widget([s.key for s in pages.PAGES].index("features"))
     text = " ".join(label.text() for label in page.findChildren(QLabel))
     assert "tier:" in text and "on:" in text
 
@@ -244,9 +244,9 @@ def test_changing_a_form_control_marks_its_page_and_putting_it_back_clears_it(qa
     other = next(win._model_box.itemText(i) for i in range(win._model_box.count())
                  if win._model_box.itemText(i) != original)
     win._model_box.setCurrentText(other)
-    assert "Speech" in _marked(win)
+    assert "Models" in _marked(win)
     win._model_box.setCurrentText(original)
-    assert "Speech" not in _marked(win)
+    assert "Models" not in _marked(win)
 
 
 def test_the_hotkey_marks_general_and_the_slider_marks_audio(qapp):
@@ -322,7 +322,7 @@ def test_the_search_hint_says_in_words_what_each_filter_does(qapp):
     from yazses.settingsui.search import parse_query
 
     win = _window(qapp)
-    page = win._shell.stack.widget(3)
+    page = win._shell.stack.widget([s.key for s in pages.PAGES].index("features"))
     hint = next(
         label.text() for label in page.findChildren(QLabel) if label.text().startswith("Type a word")
     )

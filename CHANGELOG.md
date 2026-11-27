@@ -6,6 +6,14 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the settings window is now a desktop app: dictation, meetings and file transcription without a terminal
+
+`yazses settings` opens on a new **Overview** page that says whether dictation works and offers one fix when it does not (start YazSes, restart it, or recalibrate a microphone that heard nothing). New pages: **Dictation** (key, level while recording, a practice box, writing options), **Meetings** (start and stop, live draft, stored transcripts, speaker names, export), **File transcription** (runs `yazses transcribe`, asks before replacing a transcript, can be cancelled), **Voice commands** and **Accessibility**. **General** now lists what can leave the computer, read from your settings. Switches on the new pages are the Features checkboxes, so Apply, confirmation and dependency install behave as before. The pages use only existing daemon calls; no network path was added and the window stores no dictated text.
+
+### Changed — the settings window has a dark violet look, and its pages were reordered
+
+The new `[window] theme` key is `violet-dark` (the default), `violet-light`, or `system`, which keeps your desktop's colours as before; change it under **General → Window look**. The **Speech** page is now called **Models**, and the sidebar runs the new pages first. `Ctrl+1` to `Ctrl+9` jump to the first nine pages.
+
 ### Fixed — snap on Wayland: dictated text could not reach the clipboard
 
 The snap's private `XDG_RUNTIME_DIR` does not hold the Wayland socket, so `wl-copy` and `wl-paste` failed with "Failed to connect to a Wayland server": when typing failed, the clipboard fallback failed too and the dictation was lost. The clipboard commands are now given the host socket's full path; the daemon's own environment is unchanged. Where the copy works and nothing can press Ctrl+V, the notification now says the words are on the clipboard instead of that they were not typed.

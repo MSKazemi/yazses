@@ -33,6 +33,9 @@ AA_NORMAL = 4.5
 #: it is what makes the text read as secondary rather than merely dimmer.
 _MAX_BLEND = 0.55
 
+#: The dynamic property marking a widget styled as secondary text.
+MUTED_PROPERTY = "yzMutedExtra"
+
 #: The focus ring around the focused row of a list. The text colour, not the accent: the ring
 #: must stand off the window *and* the selection fill, and the text colour does both on a
 #: light and a dark palette (checked in ``tests/test_settingsui_keyboard_access.py``).
@@ -133,6 +136,13 @@ def mute_label(label: object, extra: str = "") -> None:
 
 
 def muted_style_for(widget: object, extra: str = "") -> str:
-    """`muted_stylesheet` for a live widget's palette."""
+    """`muted_stylesheet` for a live widget's palette.
+
+    The widget is tagged with *extra*, so ``theme_qt`` can recompute the colour when the
+    theme changes under a window that is already built.
+    """
+    tag = getattr(widget, "setProperty", None)
+    if callable(tag):
+        tag(MUTED_PROPERTY, extra)
     fg, bg = palette_colors(widget)
     return muted_stylesheet(fg, bg, extra)

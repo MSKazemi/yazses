@@ -362,6 +362,8 @@ _ENUMS: Mapping[str, tuple[str, ...]] = _ClosedSets({
     # Held equal to `recimport.render.VALID_FORMATS` by the test -- that constant is the
     # authority, and this is the pair whose consumer raises.
     "recimport.output_format": ("txt", "md", "srt", "vtt", "json"),
+    # Held equal to the themes the window offers by that module's own tests.
+    "window.theme": ("violet-dark", "violet-light", "system"),
     "meeting.output_format": ("txt", "md", "srt", "vtt", "json"),
     # `none` is not a branch in either factory; it falls through to the same "unknown ->
     # disabled" path, which is what it means. Kept because both are documented values.
