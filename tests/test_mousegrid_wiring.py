@@ -366,6 +366,26 @@ def test_no_pointer_backend_on_this_platform_is_a_reason():
     assert "no pointer backend" in str(rt.status()["reason"])
 
 
+def test_a_session_with_no_absolute_motion_never_asks_the_platform_for_a_pointer(caplog):
+    """Opening a sink on Wayland would register for a permission the grid cannot use."""
+    calls: list[int] = []
+
+    def factory():
+        calls.append(1)
+        return FakePointerSink()
+
+    with caplog.at_level(logging.WARNING, logger="yazses.mousegrid.runtime"):
+        rt = build_mousegrid(MousegridConfig(enabled=True), pointer_factory=factory,
+                             unavailable_reason="needs absolute motion: X11 or macOS")
+    rt._region_provider = lambda: SCREEN
+
+    assert any("cannot run here" in r.getMessage() for r in caplog.records)
+    assert rt.status()["available"] is False
+    assert rt.handle_transcript("mouse grid") == "refused"
+    assert "absolute motion" in str(rt.status()["reason"])
+    assert calls == []
+
+
 # ---- the daemon: off means untouched, on means reachable ---------------------
 
 
@@ -408,7 +428,9 @@ def _daemon(*, enabled: bool, sink: FakePointerSink | None = None):
     cfg.injection.continuation_window_ms = 0
     cfg.mousegrid.enabled = enabled
     sink = sink or FakePointerSink()
-    platform = dataclasses.replace(get_platform(), pointer_factory=lambda: sink)
+    # The host's own session type must not decide these tests (a Wayland developer machine).
+    platform = dataclasses.replace(get_platform(), pointer_factory=lambda: sink,
+                                   absolute_pointer_unavailable_reason=None)
     d = Daemon(config=cfg, platform=platform)
     d._recorder = _FakeRecorder(np.full(16000, 0.5, dtype="float32"))
     d._engine = _FakeEngine()
@@ -470,6 +492,19 @@ def test_a_default_daemon_types_the_grid_words_and_touches_no_pointer():
     assert sink.actions == []
 
 
+def test_the_daemon_hands_the_platform_reason_to_the_grid():
+    d, _inj, sink = _daemon(enabled=True)
+    d._platform = dataclasses.replace(
+        d._platform, absolute_pointer_unavailable_reason="no position on this session")
+    d._mousegrid = d._build_mousegrid(d._config)
+
+    reply = d._mousegrid.command("open")
+
+    assert reply["ok"] is False
+    assert "no position on this session" in str(reply["reason"])
+    assert sink.actions == []
+
+
 def test_the_ipc_handler_reports_off_and_drives_when_on():
     from yazses.ipc.protocol import Request
 
@@ -509,6 +544,7 @@ def started(monkeypatch: pytest.MonkeyPatch):
         injector_factory=lambda: types.SimpleNamespace(name="stub"),
         hotkey_factory=lambda *args: types.SimpleNamespace(run=lambda: None, stop=lambda: None),
         pointer_factory=FakePointerSink,
+        absolute_pointer_unavailable_reason=None,
     )
     monkeypatch.setattr(platform.lifecycle, "clear_pid", lambda: None)
     made = []

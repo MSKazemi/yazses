@@ -39,6 +39,13 @@ HEADLESS_CLICK_REASON = (
     "are no clicks to observe"
 )
 
+#: Why nothing on a Wayland session can place the pointer: the portal's absolute motion
+#: addresses a screen-capture stream, and YazSes captures no screen.
+WAYLAND_ABSOLUTE_POINTER_REASON = (
+    "a Wayland session cannot move the pointer to a screen position (the Remote Desktop "
+    "portal pointer is relative-only); this needs absolute motion: X11 or macOS"
+)
+
 
 def _probe_keyboard(key_id: str) -> bool:
     try:
@@ -134,6 +141,22 @@ def build_pointer_sink() -> PointerSink:
     return build_x11_pointer_sink()
 
 
+def _is_wayland(environ: Mapping[str, str]) -> bool:
+    """The one rule for "the pointer here is the portal's", shared by both uses below."""
+    return environ.get("XDG_SESSION_TYPE", "").strip().lower() == "wayland"
+
+
+def _absolute_pointer_route(environ: Mapping[str, str] | None = None) -> str | None:
+    """``Platform.absolute_pointer_unavailable_reason``: set on Wayland, else None.
+
+    There the only pointer output is the RemoteDesktop portal's, which is relative-only
+    (see ``PORTAL_POINTER_CAPABILITIES``), whatever the session was granted.
+    """
+    if _is_wayland(os.environ if environ is None else environ):
+        return WAYLAND_ABSOLUTE_POINTER_REASON
+    return None
+
+
 def _pointer_factory(injector: object | None = None) -> PointerSink:
     """The lazy ``Platform.pointer_factory`` for Linux: X11 where X11 is the real session.
 
@@ -148,8 +171,7 @@ def _pointer_factory(injector: object | None = None) -> PointerSink:
     built through this platform) is a Wayland refusal with its own reason. X11 never reads
     it, so that path is unchanged.
     """
-    session = os.environ.get("XDG_SESSION_TYPE", "").strip().lower()
-    if session == "wayland":
+    if _is_wayland(os.environ):
         open_sink = getattr(injector, "pointer_sink", None)
         if open_sink is None:
             raise PointerUnsupportedError(
@@ -258,6 +280,7 @@ def build_platform() -> Platform:
         # A factory, so nothing is opened here (ADR-v2-146 rule 7): a pointer consumer
         # calls it, and dictation alone never takes a display connection.
         pointer_factory=route.pointer_factory,
+        absolute_pointer_unavailable_reason=_absolute_pointer_route(),
         # X11 only (#607): XInput2 raw presses carry no window and take no grab. None on
         # Wayland, with the reason, rather than an observer that sees only XWayland clients.
         click_observer_factory=click_observer_factory,
@@ -273,6 +296,7 @@ def build_platform() -> Platform:
 
 __all__ = [
     "HEADLESS_CLICK_REASON",
+    "WAYLAND_ABSOLUTE_POINTER_REASON",
     "WAYLAND_CLICK_REASON",
     "build_platform",
     "build_pointer_sink",

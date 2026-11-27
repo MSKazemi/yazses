@@ -1509,8 +1509,9 @@ class Daemon:
         expected. On a background thread because it blocks until answered, and
         the daemon must reach IDLE and be ready for the hotkey regardless.
 
-        A refusal is not fatal: `LinuxInjector` falls back to clipboard paste,
-        and the hot path uses a short budget so it degrades in seconds.
+        A refusal is not fatal: the next dictation negotiates again -- offering the
+        saved approval if there is one -- on a short budget, and `LinuxInjector`
+        falls back to clipboard paste if that fails too.
 
         YazSes explains itself *before* `warm()` opens that dialog. The desktop's
         own wording is "Remote Desktop" confirmed by "Share" -- the only Wayland
@@ -1607,20 +1608,17 @@ class Daemon:
                 if warm():
                     log.info("Wayland portal session established.")
                     return
-                log.warning(
-                    "The desktop asked for permission to type and did not get an "
-                    "answer, so dictation will paste to the clipboard instead. "
-                    "Look for a permission dialog (it may be behind another "
-                    "window), then run `yazses restart`."
+                from yazses.inject.portal import read_token, warmup_failure_notice
+
+                title, body = warmup_failure_notice(
+                    has_saved_token=bool(read_token()),
+                    wants_pointer=bool(getattr(backend, "wants_pointer", False)),
                 )
+                log.warning("%s. %s", title, body)
                 try:
                     from yazses.system.notify import notify
 
-                    notify(
-                        "YazSes needs permission to type",
-                        "Approve the desktop permission dialog — it may be hidden "
-                        "behind another window — then run `yazses restart`.",
-                    )
+                    notify(title, body)
                 except Exception:  # noqa: BLE001 — a toast must never matter here
                     pass
             except Exception:  # noqa: BLE001 — a startup thread must never crash
@@ -4085,8 +4083,14 @@ class Daemon:
         try:
             from yazses.mousegrid.runtime import build_mousegrid
 
-            return build_mousegrid(cfg.mousegrid, pointer_factory=self._platform.pointer_factory,
-                                   safety=self._handsfree_safety)
+            return build_mousegrid(
+                cfg.mousegrid,
+                pointer_factory=self._platform.pointer_factory,
+                safety=self._handsfree_safety,
+                unavailable_reason=getattr(
+                    self._platform, "absolute_pointer_unavailable_reason", None
+                ) or "",
+            )
         except Exception:
             log.warning("Voice Mouse Grid could not be built; it stays off.", exc_info=True)
             return None

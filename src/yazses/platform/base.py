@@ -775,6 +775,11 @@ class Platform:
     # `gaze status` can repeat -- or None when it is not None, or when the platform has
     # simply never had a backend (the generic "no click observer yet" reason then applies).
     click_observer_unavailable_reason: str | None = None
+    # Why this session can never move the pointer to a position, when the OS knows that
+    # without opening a sink, or None when only the sink's capabilities can say. Linux sets
+    # it on Wayland. A consumer that needs absolute motion (the voice mouse grid) then asks
+    # `pointer_factory` for nothing, so no permission is requested that it could not use.
+    absolute_pointer_unavailable_reason: str | None = None
     # None where an update cannot be handed to a detached installer (everything except
     # Windows today). `yazses update` and the tray then keep the manual steps (ADR-027).
     update_launcher: UpdateLauncher | None = None

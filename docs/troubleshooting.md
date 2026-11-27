@@ -113,8 +113,10 @@ sharing. The confirm button says **Share** for the same reason.
 What YazSes actually requests is the keyboard, and nothing else unless you ask for it:
 
 - it asks the portal for `KEYBOARD` devices only — the pointer is added to the same request
-  only while a pointer feature you turned on (the head pointer) needs it, and the dialog
-  wording says so;
+  only while a pointer feature you turned on (the head pointer, for example) needs it, and
+  the dialog wording says so. The voice mouse grid never adds it: it has to place the
+  pointer at a screen position, which this portal pointer cannot do, so on Wayland the grid
+  refuses to open and says why;
 - it never touches the ScreenCast interface, so no screen capture is possible with it;
 - the calls are local D-Bus to your own desktop — no network, consistent with YazSes
   being offline by design.
@@ -139,6 +141,11 @@ stays on.
 The file `portal_remote_desktop_token.devices` beside the token records what you were asked.
 If you approved typing but left the pointer out in the dialog itself, you are not asked
 again until you delete the token file.
+
+If the dialog at start-up is cancelled or not answered, YazSes says it did not get the
+permission. With a saved approval, the next dictation offers it again; without one, run
+`yazses restart` to be asked again, and until you approve, dictation falls back to the
+clipboard (unless `[injection] fallback_to_clipboard` is off).
 
 ### Getting rid of the prompt entirely
 

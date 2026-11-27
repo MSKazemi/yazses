@@ -31,12 +31,23 @@ from enum import Enum
 from typing import Any, Protocol, runtime_checkable
 
 __all__ = [
+    "NO_POINTER_ADVICE",
     "ConsentReport",
     "ConsentReporting",
     "PointerConsent",
     "classify_portal_session",
     "consent_of",
 ]
+
+
+#: What to say when a started session holds no pointer. The grant alone cannot say why: a
+#: desktop with no portal pointer, a user who left it out of the dialog, and a cancelled
+#: dialog followed by the saved keyboard-only approval all look the same.
+NO_POINTER_ADVICE = (
+    "this desktop may offer none, or it was not approved; dictation is unaffected. After a "
+    "cancelled dialog, restart YazSes to be asked again; if you left the pointer out of the "
+    "dialog, delete the saved portal token first"
+)
 
 
 class PointerConsent(str, Enum):
@@ -137,8 +148,8 @@ def classify_portal_session(
             )
         return ConsentReport(
             PointerConsent.UNAVAILABLE,
-            "the desktop answered but granted no pointer device (keyboard only), so this "
-            "compositor offers no portal pointer; dictation is unaffected",
+            "the desktop answered but granted no pointer device (keyboard only): "
+            f"{NO_POINTER_ADVICE}",
         )
     if last_error:
         return ConsentReport(

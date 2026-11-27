@@ -65,7 +65,11 @@ from yazses.pointer.base import (
     require_relative,
     require_scroll,
 )
-from yazses.pointer.consent import ConsentReport, classify_portal_session
+from yazses.pointer.consent import (
+    NO_POINTER_ADVICE,
+    ConsentReport,
+    classify_portal_session,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +135,11 @@ PORTAL_POINTER_CAPABILITIES = PointerCapabilities(
     # output has not been measured here, so this names the specification's claim, not an
     # observation. Treat travel distances on a scaled Wayland session as unverified.
     motion_unit=MotionUnit.COMPOSITOR_LOGICAL,
+)
+
+_NO_POINTER_GRANTED = (
+    "the RemoteDesktop portal did not grant a pointer device for this session: "
+    f"{NO_POINTER_ADVICE}"
 )
 
 TOKEN_FILENAME = "portal_remote_desktop_token"
@@ -311,6 +320,30 @@ def consent_explanation(
         # re-login. Promising "no prompt" without it was advice that cannot work --
         # the user re-runs setup, nothing changes, and the prompt returns.
         body += "\nAvoid it: run  yazses setup  then log out"
+    return title, body
+
+
+def warmup_failure_notice(
+    *, has_saved_token: bool, wants_pointer: bool = False
+) -> tuple[str, str]:
+    """What the daemon says when the start-up negotiation did not produce a session.
+
+    `warm()` answers only yes or no, and "no" covers a cancelled dialog, an unanswered one
+    and a portal that failed, so the copy names all three. What happens next depends on the
+    saved token: it survives a failed negotiation and the next dictation offers it again,
+    so dictation is not necessarily headed for the clipboard.
+    """
+    title = "YazSes did not get the Remote Desktop permission"
+    body = "The dialog was cancelled or not answered, or the desktop portal failed. "
+    if has_saved_token:
+        body += "The next dictation tries your saved approval again."
+        if wants_pointer:
+            body += " The pointer may stay off until `yazses restart` asks again."
+    else:
+        body += (
+            "Run `yazses restart` to be asked again; the dialog may be behind another "
+            "window. Until it is approved, dictation falls back to the clipboard."
+        )
     return title, body
 
 
@@ -1207,11 +1240,7 @@ class DeferredPortalPointerSink:
                 "it and the pointer starts by itself"
             )
         if not session.pointer_granted:
-            raise PointerUnsupportedError(
-                "the RemoteDesktop portal did not grant a pointer device for this "
-                "session, so this compositor offers no portal pointer output "
-                "(dictation is unaffected)"
-            )
+            raise PointerUnsupportedError(_NO_POINTER_GRANTED)
         self._generation = session.generation
         self._inner = PortalPointerSink(session)
         return self._inner
@@ -1252,11 +1281,7 @@ def open_pointer_sink(
 
     if not session.pointer_granted:
         session.release_pointer()
-        raise PointerUnsupportedError(
-            "the RemoteDesktop portal did not grant a pointer device for this session, "
-            "so this compositor offers no portal pointer output (dictation is "
-            "unaffected)"
-        )
+        raise PointerUnsupportedError(_NO_POINTER_GRANTED)
     return PortalPointerSink(session)
 
 
@@ -1274,5 +1299,6 @@ __all__ = [
     "read_token",
     "token_devices",
     "token_path",
+    "warmup_failure_notice",
     "write_token",
 ]
