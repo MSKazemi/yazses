@@ -72,6 +72,7 @@ from yazses.settingsui.pages import (
 from yazses.settingsui.palette import THEME_CHOICES
 from yazses.settingsui.privacy_view import privacy_card
 from yazses.settingsui.search import describe_filter, matches, visible_counts
+from yazses.settingsui.setup_dialog import offer_on_open, open_setup
 from yazses.settingsui.shell import SIDEBAR_WIDTH, SettingsShell, build_page
 from yazses.settingsui.single_window import (
     ACTIVATION_ENV,
@@ -170,13 +171,16 @@ def run(page: str | None = None) -> None:
     except ImportError as exc:  # installed but unusable (missing Qt libs on old distros)
         _fatal(f"{_missing_pyside_message()}\n\nImport failed: {exc}")
 
-    from yazses.config import Config, load_config
+    from yazses.config import Config, legacy_default_config_path, load_config
     from yazses.language.service import apply_language_change, prepare_language_change
     from yazses.platform import get_platform
+    from yazses.settingsui import first_run
     from yazses.system.configedit import set_config_key
 
     platform = get_platform()
     config_file = platform.paths.config_file
+    # Before the config is read: on a new install this writes the one the daemon would.
+    new_install = first_run.prepare(config_file, legacy_default_config_path())
 
     def _load() -> Config:
         return load_config(config_file)
@@ -258,6 +262,8 @@ def run(page: str | None = None) -> None:
         claim.window.attach(
             lambda request: window.bring_to_front(request.page, request.token)
         )
+        if new_install:
+            offer_on_open(window, config_file)
         sys.exit(app.exec())
     finally:
         claim.window.close()
@@ -595,6 +601,7 @@ class SettingsWindow:
             open_path=_open_path,
             switches=self._switches,
             window=self._win,
+            open_setup=lambda: open_setup(self),
         )
 
     def _start_daemon(self) -> tuple[bool, str]:

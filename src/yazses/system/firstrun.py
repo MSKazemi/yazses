@@ -22,6 +22,11 @@ silently stop applying — so startup carries it over once, before seeding. The
 file is moved intact with a rename (comments arrive byte-for-byte), and on
 Linux the legacy path *is* the platform path, so the migration is a no-op there
 by construction — the configuration that was never broken is never touched.
+
+Seeding also leaves a small marker beside the new config saying the settings window's
+setup guide has not been shown yet. An install that already had a config never gets one,
+which is how the guide tells a new install from an existing one
+(``settingsui/first_run.py``).
 """
 from __future__ import annotations
 
@@ -29,6 +34,27 @@ import logging
 from pathlib import Path
 
 log = logging.getLogger(__name__)
+
+#: The marker's file name, beside ``config.toml``, and its two states.
+SETUP_MARKER_NAME = "first-run-setup"
+SETUP_PENDING = "pending"
+SETUP_SEEN = "seen"
+
+
+def setup_marker_path(config_path: Path) -> Path:
+    return Path(config_path).with_name(SETUP_MARKER_NAME)
+
+
+def write_setup_marker(config_path: Path, state: str) -> bool:
+    """Record the setup guide's *state*. Never raises: ``False`` if it was not written."""
+    path = setup_marker_path(config_path)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(f"{state}\n", encoding="utf-8")
+    except OSError:
+        log.debug("could not write %s", path, exc_info=True)
+        return False
+    return True
 
 
 def default_config_path() -> Path:
@@ -65,6 +91,10 @@ def ensure_recommended_config(path: Path | None = None) -> bool:
     )
     for section, key, value, quote in default_enabled_writes():
         set_config_key(p, section, key, value, quote=quote)
+    # A marker already there means the guide was dealt with: a deleted config is a reset,
+    # not a new person.
+    if not setup_marker_path(p).exists():
+        write_setup_marker(p, SETUP_PENDING)
     return True
 
 
