@@ -179,8 +179,6 @@ def run(page: str | None = None) -> None:
 
     platform = get_platform()
     config_file = platform.paths.config_file
-    # Before the config is read: on a new install this writes the one the daemon would.
-    new_install = first_run.prepare(config_file, legacy_default_config_path())
 
     def _load() -> Config:
         return load_config(config_file)
@@ -247,6 +245,9 @@ def run(page: str | None = None) -> None:
     # minutes for an install: a closed window must not still count as the open one.
     app.aboutToQuit.connect(claim.window.close)
     try:
+        # Only the process that opens the window, and before the config is read: on a new
+        # install this writes the one the daemon would.
+        new_install = first_run.prepare(config_file, legacy_default_config_path())
         model = build_settings_model(_load())
         # Before the window is built, so secondary text is coloured against these colours;
         # again with the window, which takes the stylesheet.
