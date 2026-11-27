@@ -508,7 +508,7 @@ outstanding for both.
 
 | Module | Role |
 |---|---|
-| `registry.py` | Pure, lazily-importing read model over `stt/download.py`, `commands/model_manager.py`, `tts/download.py`, `recimport/download.py` and `gaze/download.py`: `build_registry()` lists every model kind (stt, vad, slm, tts, diarization, gaze) with size, on-disk state and owning feature; `remove_entry`/`disk_usage` back `yazses model remove|disk`; `ensure_model(kind, name, policy, is_cached=, download=)` (`auto`/`ask`/`never`) decides without ever touching the network itself. The `[stt] download` key that would feed the policy is not yet added (ADR-030, L3). |
+| `registry.py` | Pure, lazily-importing read model over `stt/download.py`, `commands/model_manager.py`, `tts/download.py`, `recimport/download.py` and `gaze/download.py`: `build_registry()` lists every model kind (stt, vad, slm, tts, diarization, gaze) with size, on-disk state and owning feature; `remove_entry`/`disk_usage` back `yazses model remove|disk`; `ensure_model(kind, name, policy, is_cached=, download=)` (`auto`/`ask`/`never`) decides without ever touching the network itself; a failed fetch keeps the original exception (`EnsureResult.raise_for_failure()`). Only the Read-Back voice (`tts/kokoro.py`) is routed through it so far, at `auto`. [ADR-035](adr/adr-035-model-download-policy.md) (Proposed) lists the fetches still outside it and proposes the config key that would feed the policy; the key is not added (ADR-030, L3). |
 
 ### `src/yazses/recimport/` (Wave O, ADR-v2-125 — Diarized Recording Import)
 
@@ -831,7 +831,7 @@ Read-Back Loop (spec-read-back-loop): offline TTS that speaks the transcript bac
 |---|---|
 | `base.py` | `TtsBackend` Protocol (`name`/`synthesize`/`speak`/`cancel`) — no third-party import, always importable |
 | `chunking.py` | `sentence_chunks(text)` — regex sentence split so audio streams sentence-by-sentence (optimise time-to-first-audio, not full RTF) |
-| `kokoro.py` | `KokoroTtsBackend` — Kokoro-82M int8 ONNX via `kokoro-onnx`, plays each chunk through `sounddevice`; barge-in `cancel()` |
+| `kokoro.py` | `KokoroTtsBackend` — Kokoro-82M int8 ONNX via `kokoro-onnx`, plays each chunk through `sounddevice`; barge-in `cancel()`. A missing voice is fetched through `models.registry.ensure_model` (policy `auto`) |
 | `null.py` | `NullTtsBackend` — silent no-op used when the engine import/model is unavailable |
 | `factory.py` | `build_tts(cfg.tts)` — `None` when dormant, `NullTtsBackend` when enabled-but-unavailable (degrade, never crash) |
 

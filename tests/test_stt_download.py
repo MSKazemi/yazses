@@ -93,6 +93,22 @@ def test_is_cached_is_false_for_a_missing_model(tmp_path):
     assert not download.is_cached("base.en", tmp_path)
 
 
+@pytest.mark.parametrize(
+    ("asked", "cached_repo"),
+    [
+        ("small.en", "Systran/faster-distil-whisper-small.en"),
+        ("medium.en", "Systran/faster-distil-whisper-medium.en"),
+        ("large-v3", "Systran/faster-distil-whisper-large-v3"),
+        ("someorg/small.en", "Systran/faster-whisper-small.en"),
+    ],
+)
+def test_another_repo_with_the_same_suffix_is_not_a_cache_hit(tmp_path, asked, cached_repo):
+    """A false "cached" silences the first-run download notice, and would let a
+    never-download policy promise a model the decoder then cannot find."""
+    _make_snapshot(tmp_path, cached_repo)
+    assert not download.is_cached(asked, tmp_path)
+
+
 def test_a_bare_directory_without_snapshots_is_not_cached(tmp_path):
     """An interrupted download leaves the directory but no snapshots — treating
     that as present would send the daemon back into the failure it just had."""

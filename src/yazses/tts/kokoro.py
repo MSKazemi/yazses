@@ -45,15 +45,25 @@ class KokoroTtsBackend:
         self._claim_lock = threading.Lock()
 
     def _resolve_models(self):
+        from yazses.models.registry import ensure_model
         from yazses.tts.download import download_models, model_paths
 
         default_model, default_voices = model_paths()
         model = self._config.model_path or str(default_model)
         voices = getattr(self._config, "voices_path", "") or str(default_voices)
-        # Only reach for the network when a file is genuinely missing.
-        if not (Path(model).exists() and Path(voices).exists()):
+
+        def fetch(_name: str) -> None:
             log.info("Read-Back voice model missing; downloading (one-time, ~340 MB)…")
             download_models(echo=lambda m: log.info("%s", m))
+
+        # Only reach for the network when a file is genuinely missing. "auto" until a
+        # download-policy key exists (ADR-035, proposed). A failed download raises as
+        # it always did, so the factory's warning names the real cause.
+        ensure_model(
+            "tts", "kokoro", "auto",
+            is_cached=lambda _name: Path(model).exists() and Path(voices).exists(),
+            download=fetch,
+        ).raise_for_failure()
         return model, voices
 
     @property

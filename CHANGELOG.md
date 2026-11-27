@@ -6,6 +6,14 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — models: a `distil-` checkpoint no longer counts as its namesake being downloaded ([#929](https://github.com/MSKazemi/yazses/issues/929))
+
+With only `distil-small.en` in the cache, `small.en` was reported as downloaded, and the same for `medium.en`, `large-v2` and `large-v3`. `yazses model list`, `yazses doctor`, the first-run download notice and `yazses language set` all took that answer. A model name that resolves to a Hugging Face repository now matches only that repository's cache folder.
+
+### Changed — models: the Read-Back voice is the first download decided by `ensure_model` ([#929](https://github.com/MSKazemi/yazses/issues/929))
+
+The Kokoro fetch now goes through `yazses.models.registry.ensure_model` with policy `auto`, so it behaves as before: a missing voice file is downloaded, a cached one is not, and a failed download raises the same error. For the policies that are not yet reachable, the `ask` message now names a command only where one exists (speech model, intent router, diarization) and the manual route otherwise. [ADR-035](design/adr/adr-035-model-download-policy.md) (**Proposed**) sets out `auto` / `ask` / `never`, where the key should live and which downloads are not yet routed. No config key, CLI or network path is added.
+
 ### Fixed — snap on Wayland: dictated text could not reach the clipboard
 
 The snap's private `XDG_RUNTIME_DIR` does not hold the Wayland socket, so `wl-copy` and `wl-paste` failed with "Failed to connect to a Wayland server": when typing failed, the clipboard fallback failed too and the dictation was lost. The clipboard commands are now given the host socket's full path; the daemon's own environment is unchanged. Where the copy works and nothing can press Ctrl+V, the notification now says the words are on the clipboard instead of that they were not typed.
