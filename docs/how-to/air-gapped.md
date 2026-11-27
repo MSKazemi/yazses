@@ -20,7 +20,7 @@ to verify the claim rather than take it on trust.
 | Thing | When | Air-gapped answer |
 |---|---|---|
 | The Whisper model | first use of each model | copy the cache directory |
-| Diarization models | first `--diarize` only | copy the data directory |
+| Diarization models | only when you run `yazses transcribe --download-models` | copy the data directory |
 | The package itself | install | `pip download` on a connected machine |
 | Optional feature models (read-back voice, camera face model, Parakeet/Moonshine, Cocktail voiceprint) and feature packages | first enable / first use | enable and use each once on the connected machine, then copy the caches |
 | **Anything else** | never, unless you enable `[general] update_check` | — |

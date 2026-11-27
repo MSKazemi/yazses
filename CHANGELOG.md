@@ -6,6 +6,14 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — transcribe: help no longer says a diarized run downloads the speaker models ([#932](https://github.com/MSKazemi/yazses/issues/932))
+
+`yazses transcribe --help` and the progress line said the first diarized run downloads about 45 MB of models. With the default `sherpa` diarizer it never did: without the files the run writes a plain transcript and says so. The help, the progress line and the guides that said the same now point to `yazses transcribe --download-models`. Nothing about what is downloaded changed.
+
+### Changed — models: the camera face model, the speaker encoder and the pyannote pipeline are decided by `ensure_model` ([#932](https://github.com/MSKazemi/yazses/issues/932))
+
+The camera face model, speaker encoder and pyannote downloads, which start on their own, now go through `yazses.models.registry.ensure_model` with policy `auto`, so they behave as before: a cached model loads without a network request, a missing one is downloaded, offline mode still forbids a download, and a failure raises the same error. [ADR-035](design/adr/adr-035-model-download-policy.md) (still **Proposed**) lists what is not routed yet. No config key, CLI command or network path is added.
+
 ### Added — a covered camera is released and comes back by itself ([#923](https://github.com/MSKazemi/yazses/issues/923))
 
 New `[camera] cover_detection` (off by default). YazSes releases a camera whose privacy cover is closed, shows it as covered in the tray, `yazses camera status`, `yazses status` and `yazses doctor`, and resumes the camera features when it is uncovered. On Linux it reads the camera's privacy control or the laptop's lens-cover switch where there is one; otherwise it judges from frames that stay black and even for about 5 seconds, and re-checks a covered camera after 5 s, then at most every 30 s. `yazses camera on` checks at once. The frame thresholds are not yet measured across webcams, and a completely unlit room is indistinguishable from a cover. The `camera` IPC reply gains `covered`, the list of camera indexes released this way.

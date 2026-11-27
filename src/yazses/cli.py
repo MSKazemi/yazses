@@ -9144,13 +9144,14 @@ def transcribe(
     --language translate transcribes non-English audio into English text.
 
     With --diarize it also tags who said what, using local sherpa-onnx speaker
-    models (install the `diarization` extra; the first run downloads ~45 MB, or
-    pre-fetch with --download-models). Each utterance is then prefixed by a
-    speaker label; provide --names (positional) or --rename (explicit map) to use
-    real names, force the count with --speakers,
-    or let an enrolled voiceprint name you ("You"). Everything stays on this
-    machine; speaker naming stores no new data and never enrolls anyone
-    automatically.
+    models (install the `diarization` extra, then fetch the ~45 MB of models
+    once with --download-models; a diarized run does not download them, and
+    without them writes a plain transcript and says so). Each utterance is
+    then prefixed by a speaker label; provide --names (positional) or
+    --rename (explicit map) to use real names, force the count with
+    --speakers, or let an enrolled voiceprint name you ("You"). Everything
+    stays on this machine; speaker naming stores no new data and never enrolls
+    anyone automatically.
     """
     import dataclasses
 
@@ -9300,7 +9301,7 @@ def transcribe(
     from yazses.recimport.pipeline import transcribe_file
 
     if want_diarize:
-        typer.echo("Transcribing and diarizing… (first diarized run downloads ~45 MB of models)", err=True)
+        typer.echo("Transcribing and diarizing…", err=True)
     else:
         typer.echo("Transcribing…", err=True)
     try:

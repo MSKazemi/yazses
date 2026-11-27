@@ -30,6 +30,10 @@ class EcapaEmbedder:
                 run_opts={"device": "cpu"},
             ),
             what="the ECAPA speaker encoder",
+            # The download is `ensure_model`'s decision (ADR-035), at "auto".
+            kind="diarization",
+            name="ecapa",
+            manual_hint="https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb",
         )
 
     @property

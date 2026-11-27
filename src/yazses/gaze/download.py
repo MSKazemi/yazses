@@ -120,11 +120,22 @@ def _fetch(url: str, dest: Path) -> None:
 
 def ensure_face_landmarker(dest: Path | None = None, *, echo=None) -> Path:
     """Return the FaceLandmarker model path, downloading it once if absent."""
-    dest = dest or (model_dir() / "face_landmarker.task")
-    if dest.exists() and dest.stat().st_size > 0:
-        return dest
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    if echo:
-        echo(f"Downloading gaze model (~3.7 MB) → {dest} ...")
-    _fetch(FACE_LANDMARKER_URL, dest)
-    return dest
+    from yazses.models.registry import ensure_model
+
+    target = dest or (model_dir() / "face_landmarker.task")
+
+    def fetch(_name: str) -> None:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if echo:
+            echo(f"Downloading gaze model (~3.7 MB) → {target} ...")
+        _fetch(FACE_LANDMARKER_URL, target)
+
+    # The one place all three camera backends reach the asset. "auto" until a
+    # download-policy key exists (ADR-035, proposed); a failed download raises as before.
+    ensure_model(
+        "gaze", "face-landmarker", "auto",
+        is_cached=lambda _name: target.exists() and target.stat().st_size > 0,
+        download=fetch,
+        manual_hint=FACE_LANDMARKER_URL,
+    ).raise_for_failure()
+    return target

@@ -18,9 +18,11 @@ Two halves, both pure:
 
 A config key for the download policy (proposed in ADR-035, not yet in ``config.py``) would
 feed *policy*; adding it is an L3 change awaiting owner sign-off (ADR-030). Until then
-callers pass ``"auto"``, which is today's behaviour. The Read-Back voice
-(``tts/kokoro.py``) is the first fetch routed through :func:`ensure_model`; ADR-035 lists
-the ones that are not yet.
+callers pass ``"auto"``, which is today's behaviour. Routed through :func:`ensure_model` so
+far: the Read-Back voice (``tts/kokoro.py``), the FaceLandmarker asset
+(``gaze/download.py``), and, by way of ``system/hfcache.load_cache_first``, the pyannote
+pipeline and the ECAPA speaker encoder. ADR-035 lists the fetches that are not yet.
+Those last two have no row in :func:`build_registry`.
 """
 from __future__ import annotations
 
@@ -284,9 +286,10 @@ def _fetch_command(kind: str, name: str) -> str:
     """The command that fetches this model on purpose, or "" when YazSes has none.
 
     ``yazses model download`` knows Whisper short names and the intent-routing GGUFs
-    only; pointing anyone else at it ends in "Unknown model".
+    only; pointing anyone else at it ends in "Unknown model". ``--download-models``
+    fetches the sherpa diarization files and nothing else.
     """
-    if kind == "diarization":
+    if kind == "diarization" and name == "sherpa":
         return "yazses transcribe --download-models"
     if kind == "slm":
         return f"yazses model download {name}"

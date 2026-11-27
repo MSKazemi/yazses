@@ -52,6 +52,7 @@ optional extra, so if you do not need it you do not pay for it in install size:
 
 ```sh
 yazses features enable recimport   # or: pipx install 'yazses[diarization]'
+yazses transcribe --download-models  # fetch the speaker models, once
 ```
 
 ### Naming speakers

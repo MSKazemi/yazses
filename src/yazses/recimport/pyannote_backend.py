@@ -288,6 +288,10 @@ class PyannoteDiarizer:
             pipeline = load_cache_first(
                 lambda: Pipeline.from_pretrained(PIPELINE_ID, token=_auth_token()),
                 what=f"the diarization pipeline '{PIPELINE_ID}'",
+                # The download is `ensure_model`'s decision (ADR-035), at "auto".
+                kind="diarization",
+                name="pyannote",
+                manual_hint=f"https://hf.co/{PIPELINE_ID} and https://hf.co/{SEGMENTATION_ID}",
             )
         except Exception as exc:
             if _is_access_failure(exc):
