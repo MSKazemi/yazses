@@ -80,6 +80,9 @@ KNOWN_ORPHANS = {
         "ADR-028 build/test-time catalogue check (tests/test_packs_catalog.py). "
         "scripts/build-packs.py `validate` still carries its own copy of the same check; "
         "make the script call catalogue_problems so there is one.",
+    "core.dictation_pause":
+        "Pause-dictation rules written ahead of their caller: ADR-037 is Proposed, and the "
+        "daemon, IPC, CLI and tray wiring waits for the maintainer to accept it.",
 }
 
 

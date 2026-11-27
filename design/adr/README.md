@@ -77,6 +77,7 @@ Binding for v1.0. Supersede with a new ADR; do not edit in place.
 | [adr-033-reproducible-asr-evaluation-gate](adr-033-reproducible-asr-evaluation-gate.md) | A reproducibility gate for offline ASR comparisons (proposed) | Proposed |
 | [adr-034-parakeet-recommendation](adr-034-parakeet-recommendation.md) | Whether to recommend Parakeet where it loads (default-engine decision, proposed) | Proposed |
 | [adr-035-model-download-policy](adr-035-model-download-policy.md) | Model download policy: `auto`, `ask`, `never` | Proposed |
+| [adr-037-dictation-pause](adr-037-dictation-pause.md) | Pausing dictation (proposed) | Proposed |
 
 ### v0.4 series
 
