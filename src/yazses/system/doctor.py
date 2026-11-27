@@ -11,6 +11,7 @@ import importlib.util
 import os
 import platform as platform_module  # `platform` is a local in run_doctor (the Platform bundle)
 import re
+import shlex
 import shutil
 import sys
 from collections.abc import Callable, Mapping
@@ -1680,6 +1681,53 @@ def _snap_interface_checks() -> list[_Check]:
     return out
 
 
+def _bundle_cli_check(
+    platform_name: str,
+    *,
+    frozen: bool | None = None,
+    executable: str | None = None,
+    which: Callable[[str], str | None] | None = None,
+) -> _Check | None:
+    """macOS app bundle with no `yazses` command: say what to type instead (#562).
+
+    Every other row, and the permission remedies, say `yazses <command>`. A `.dmg`
+    install puts no such command on PATH (the Homebrew cask does), so the advice
+    could not be typed. Returns ``None`` everywhere else.
+    """
+    if platform_name != MACOS_PLATFORM_NAME:
+        return None
+    if not (getattr(sys, "frozen", False) if frozen is None else frozen):
+        return None
+    if (which or shutil.which)("yazses"):
+        return None
+    program = shlex.quote(executable or sys.executable)
+    return (
+        "Command line",
+        "OK",
+        "this app install puts no `yazses` command on PATH. Where YazSes says "
+        f"`yazses <command>`, run: {program} --cli <command>",
+    )
+
+
+def _with_daemon_view(check: _Check, key: str, daemon_info: Mapping[str, object]) -> _Check:
+    """A permission row corrected by the running daemon's own answer (macOS, #562).
+
+    Unchanged when the daemon reports no ``permissions`` block: not running, an older
+    release, or another OS. The rule is `permission_alerts.reconcile_with_daemon`.
+    """
+    from yazses.system.permission_alerts import reconcile_with_daemon
+
+    name, status, detail = check
+    status, detail = reconcile_with_daemon(
+        key,
+        status,
+        detail,
+        daemon_info.get("permissions"),
+        daemon_info.get("stale_permissions"),
+    )
+    return (name, status, detail)
+
+
 def _keyboard_capture_check(perms, platform_name: str) -> _Check:
     """Report keyboard-capture access with an actionable permission fix."""
     state = perms.check_keyboard_capture()
@@ -2555,6 +2603,10 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
         bool(getattr(getattr(cfg, "general", None), "update_check", False)),
         managed_by=_update_managed_by(),
     ))
+    # macOS .app without a `yazses` command: before the first row that says to run one.
+    bundle_cli = _bundle_cli_check(platform.name)
+    if bundle_cli is not None:
+        checks.append(bundle_cli)
     daemon_row, daemon_info = _daemon_check(platform)
     checks.append(daemon_row)
     autostart = _autostart_check(platform)
@@ -2577,7 +2629,9 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     checks.extend(_snap_interface_checks())
 
     # Keyboard capture
-    checks.append(_keyboard_capture_check(perms, platform.name))
+    checks.append(_with_daemon_view(
+        _keyboard_capture_check(perms, platform.name), "keyboard_capture", daemon_info
+    ))
     listener = _snap_hotkey_listener_check(
         platform.name, cfg.hotkey.key if cfg is not None else "auto"
     )
@@ -2589,7 +2643,7 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     # dictation key work?") that macOS splits into two switches in two panes.
     input_mon = _input_monitoring_check(perms, platform.name)
     if input_mon is not None:
-        checks.append(input_mon)
+        checks.append(_with_daemon_view(input_mon, "input_monitoring", daemon_info))
 
     # Windows only: "Keyboard capture: ok" is about installing the hook and says
     # nothing about elevated windows, which UIPI excludes either way. Without
@@ -2613,6 +2667,7 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     # Microphone
     mic = perms.check_microphone()
     mic_detail = mic.value
+    pa_state = None
     if mic not in (PermissionState.OK, PermissionState.NOT_APPLICABLE):
         from yazses.system.setup import portaudio_state, snap_mic_pending
 
@@ -2629,11 +2684,16 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
             platform_name=platform.name,
             advice=perms.how_to_grant_microphone(),
         )
-    checks.append((
+    mic_row: _Check = (
         "Microphone",
         "OK" if mic in (PermissionState.OK, PermissionState.NOT_APPLICABLE) else "FAIL",
         mic_detail,
-    ))
+    )
+    # The daemon answers for the permission only, so it must not overrule a row that is
+    # about an audio library that will not load.
+    if pa_state not in ("missing", "uninitialised"):
+        mic_row = _with_daemon_view(mic_row, "microphone", daemon_info)
+    checks.append(mic_row)
 
     # Opt-in passive mic-level vs VAD threshold (records a short ambient clip).
     if check_mic and cfg is not None:

@@ -142,6 +142,10 @@ class TrayModel:
     # consumers), or None on an older daemon. `tray/camera.py::camera_entry` turns it into
     # the menu's Camera toggle. Left out of the hash for the reason `stt_residency` is.
     camera: dict[str, Any] | None = field(default=None, hash=False)
+    # The daemon's `permissions` block (macOS, #562), or None elsewhere and on an older
+    # daemon. `tray/menu.py::top_warning` turns a refused switch into a menu line. Left
+    # out of the hash for the reason `stt_residency` is.
+    permissions: dict[str, Any] | None = field(default=None, hash=False)
 
 
 @dataclass(frozen=True)

@@ -157,6 +157,25 @@ Opening the app does not by itself grant any permission. YazSes then asks macOS 
 Accessibility, Input Monitoring and the microphone; if no prompt appears, the sections
 below say where to switch each one on.
 
+## First run, in order
+
+1. Open **YazSes.app**. A menu-bar icon appears. The first start downloads the
+   speech model, and the permission prompts come only after it has loaded, so wait
+   until the top of the menu says *idle*.
+2. In **System Settings → Privacy & Security**, switch **YazSes** on under
+   **Accessibility** and under **Input Monitoring**.
+3. Allow the **microphone** when asked.
+4. Restart YazSes, so it starts with all three switches on:
+   `/Applications/YazSes.app/Contents/MacOS/YazSes --cli restart`
+5. Check what the running app sees:
+   `/Applications/YazSes.app/Contents/MacOS/YazSes --cli doctor`
+6. Click into a text field, **hold Right Option**, speak, release.
+
+If the daemon reports a permission as refused, the top of the menu-bar menu names it
+(*"Permission off: …"*). These first-run messages are covered by automated tests but
+have **not been confirmed on a real Mac**; if what you see differs, please say so on
+[#562](https://github.com/MSKazemi/yazses/issues/562).
+
 > If you prefer, do the same from a terminal:
 > ```sh
 > xattr -dr com.apple.quarantine /Applications/YazSes.app
@@ -165,15 +184,15 @@ below say where to switch each one on.
 
 ## Grant Accessibility access
 
-YazSes listens for the dictation key (Right Option by default) using the
-macOS Accessibility API. The OS gates this with a privacy prompt:
+YazSes types your words into the focused app, and macOS gates that behind
+**Accessibility**. `yazses doctor` shows it as the **Keyboard capture** row.
 
-1. On first launch, YazSes triggers macOS to show an **Accessibility** prompt.
-   Click **Open System Settings**.
+1. When YazSes starts without it, it asks macOS to show an **Accessibility**
+   prompt. Click **Open System Settings**. (It asks at most once every five
+   minutes, so a quick restart may show nothing.)
 2. In **System Settings → Privacy & Security → Accessibility**, find
    **YazSes** and **enable the toggle**.
-3. Quit and reopen YazSes (the daemon picks up the new permission on next
-   launch).
+3. Restart YazSes (`yazses restart`, or Quit and reopen).
 
 If the prompt didn't appear, open the pane directly:
 
@@ -189,12 +208,12 @@ it is a separate service granted in a separate pane. YazSes needs both: without
 Input Monitoring the dictation key does nothing at all, in every application,
 while the Accessibility toggle sits there enabled.
 
-1. Launch YazSes and **hold the dictation key once**. macOS shows an
-   **Input Monitoring** prompt the first time.
+1. Launch YazSes. Its daemon asks for **Input Monitoring** each time it starts,
+   so macOS should show a prompt without you pressing anything.
 2. In **System Settings → Privacy & Security → Input Monitoring**, enable
    **YazSes**.
-3. **Quit and relaunch YazSes.** The grant is read when the event tap is
-   created, so a running daemon will not pick it up.
+3. **Restart YazSes** (`yazses restart`, or Quit and reopen). The grant is read
+   when the keyboard listener is created, so a running daemon will not pick it up.
 
 Or open the pane directly:
 
@@ -203,25 +222,23 @@ open 'x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEven
 ```
 
 > **YazSes is not in the list?** An app only appears in Input Monitoring once it
-> has asked for it. Launch YazSes, hold the key once, then look again — you
-> cannot add it with the `+` button before it has asked.
+> has asked for it. Run `yazses restart` so the daemon asks again, then look
+> again — you cannot add it with the `+` button before it has asked.
 
-`yazses doctor` reports **Accessibility** and **Input monitoring** as two rows,
-because they are two switches and either one being off produces the same dead
-key.
+`yazses doctor` reports **Accessibility** (as *Keyboard capture*) and **Input
+monitoring** as two rows, because they are two switches and either one being off
+stops dictation.
 
 ## Grant Microphone access
 
-Hold the dictation key once. The first time, macOS prompts:
-*"YazSes would like to access the microphone."* Click **OK**.
+When YazSes starts and macOS has no answer yet, it asks:
+*"YazSes would like to access the microphone."* Click **OK**. A first recording
+raises the same prompt.
 
 > **No microphone prompt ever appeared, and YazSes is not in the Microphone
-> list?** That is almost always this same problem one step upstream. macOS shows
-> the microphone prompt at the moment an app first records, and YazSes only
-> records while the dictation key is held — so if the key is dead for want of
-> **Input Monitoring**, nothing ever records, no prompt is ever shown, and the
-> app never appears in the Microphone pane. Fix Input Monitoring first, then
-> hold the key again.
+> list?** Run `yazses restart` (the request is made at most once every five
+> minutes) and look again. Then hold the dictation key once. If the key does
+> nothing, fix Input Monitoring first.
 
 If you accidentally clicked **Don't Allow**, re-enable in
 **System Settings → Privacy & Security → Microphone → YazSes**.
@@ -244,7 +261,7 @@ hold_threshold_ms = 500
 model = "base.en"   # the default; "tiny.en" is faster and less accurate, "small.en" more accurate
 ```
 
-The first transcription downloads the default Whisper model (`base.en`, ~147 MB)
+The first start downloads the default Whisper model (`base.en`, ~147 MB)
 into `~/.cache/huggingface/hub/` (the shared Hugging Face cache). Subsequent dictations are fully offline.
 
 ### The menu-bar menu
@@ -269,7 +286,8 @@ Speech model: loaded, idle 45 s of 300 s
   `[latency]` is on), the menu bar appends the governor's extra model to this same line, with
   ` · `, while that model is loaded. Not yet tested on a real Mac.
 - The **third line** shows only the most important warning: why the daemon is in
-  error, then a fallback engine, then a run of silent recordings.
+  error, then a permission the daemon reports as refused (*"Permission off: Input
+  Monitoring"*), then a fallback engine, then a run of silent recordings.
 
 The memory line and the silent-recordings warning use the same words as the Linux tray
 menu and the Windows tooltip. The engine and the fallback warning use the same words as
@@ -284,6 +302,16 @@ The `.app` ships a CLI alongside the tray:
 /Applications/YazSes.app/Contents/MacOS/YazSes --cli doctor
 /Applications/YazSes.app/Contents/MacOS/YazSes --cli status
 ```
+
+Messages in the app say `yazses <command>`. Where that command does not exist,
+type the long form above instead; `doctor` says so in its **Command line** row.
+
+**The permission rows follow the running daemon.** A check made by the command you
+type may be answered about your terminal app. When the daemon is running, `doctor`
+therefore also reads what the daemon is told about Accessibility, Input Monitoring
+and the microphone: if the daemon says *ok*, the row is OK and says so; if the daemon
+says *denied*, the row fails even when your terminal's answer was *ok*. Without a
+running daemon you only get the command's own answer. Not yet confirmed on a Mac.
 
 **Installed with Homebrew?** Since v2.44.0 the cask links a `yazses`
 command onto your `PATH` that runs this CLI, so `yazses doctor` works directly. With the
@@ -324,7 +352,10 @@ tccutil reset Accessibility com.yazses.app
 Keep the bundle id. Without it, `tccutil` clears the Accessibility grant for
 **every** application on the Mac, not just this one.
 
-**"`doctor` says denied, but YazSes is switched on in Settings."** If you ran
+**"`doctor` says denied, but YazSes is switched on in Settings."** Start YazSes first,
+so `doctor` can ask the running daemon (see [Verify with the CLI](#verify-with-the-cli)).
+A row that still says *"The running daemon … reports denied as well"* is not a terminal
+mix-up: reset that permission as below. If you ran
 `doctor` in Terminal (or iTerm, or the VS Code terminal), macOS may judge the
 permission of **that terminal app** rather than YazSes.app. One report showed
 exactly this: Terminal switched off, YazSes switched on, and `doctor` answering
@@ -408,7 +439,7 @@ run a `yazses` binary from somewhere else. `doctor` now prints the executable it
 asked about; if that path is not the one you granted access to, that mismatch is
 the thing to fix first.
 
-**"The hotkey doesn't fire."** Check Accessibility is granted. Also check
+**"The hotkey doesn't fire."** Check Input Monitoring, then Accessibility. Also check
 that no other tool is intercepting Right Option (e.g., Karabiner-Elements,
 some IME apps). Try a different hotkey by editing `config.toml`.
 
@@ -417,9 +448,9 @@ some IME apps). Try a different hotkey by editing `config.toml`.
 Run `--cli doctor` to see what YazSes is detecting — the **Microphone** row now
 carries the fix, not just the word `denied`.
 
-**"Microphone says denied and I never saw a prompt."** macOS only asks the first
-time an app actually records, so before your first dictation there is nothing in
-the Microphone list to enable. Hold the hotkey once and answer the prompt.
+**"Microphone says denied or unknown and I never saw a prompt."** An app that has
+not asked is not in the Microphone list, so there is nothing to enable yet. Run
+`yazses restart` so the daemon asks, or hold the hotkey once, and answer the prompt.
 
 **"Microphone is enabled in Settings and YazSes still says denied."** Same trap as
 Accessibility above: these builds are unsigned, so macOS treats a changed binary as
@@ -460,4 +491,5 @@ rm -f  ~/Library/LaunchAgents/com.yazses.daemon.plist
 ```
 
 Also remove the toggle entry in
-*System Settings → Privacy & Security → Accessibility*.
+*System Settings → Privacy & Security → Accessibility*, and the ones under
+*Input Monitoring* and *Microphone*.

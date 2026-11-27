@@ -826,6 +826,9 @@ class Daemon:
         self._grants_at_start: dict[str, str | None] = {}
         self._stale_checked_at = 0.0
         self._stale_cached: list[str] = []
+        # The permission answers `status` reports (macOS only, see `_permission_view`).
+        self._permissions_checked_at = 0.0
+        self._permissions_cached: dict[str, str] = {}
         # Audio-input resilience: count consecutive silent-discards and watch the OS
         # default input device so a mic that silently switches (e.g. a USB-C monitor
         # stealing capture) is auto-healed to the last-good device + notified, instead
@@ -1467,6 +1470,26 @@ class Daemon:
         current = {"input_monitoring": pa.probe_state(perms, "check_input_monitoring")}
         self._stale_cached = pa.grants_given_since_start(self._grants_at_start, current)
         return self._stale_cached
+
+    def _permission_view(self) -> dict[str, str] | None:
+        """This process's answer for each macOS permission switch, for `status` (#562).
+
+        None, and free, anywhere without Input Monitoring (Linux, Windows) and before
+        start-up has probed. Asked again at most every 30 s because `status` is polled
+        continuously. `doctor` and the menu bar read it: a permission check made in
+        another process may be answered about a terminal instead of about YazSes.
+        """
+        if not self._grants_at_start:
+            return None
+        now = time.monotonic()
+        if not self._permissions_cached or now - self._permissions_checked_at >= 30.0:
+            from yazses.system import permission_alerts as pa
+
+            self._permissions_cached = pa.daemon_view(
+                getattr(self._platform, "permissions", None)
+            )
+            self._permissions_checked_at = now
+        return dict(self._permissions_cached)
 
     def _shown_notices_path(self):
         from yazses.system import toast_memory
@@ -9656,6 +9679,10 @@ class Daemon:
                 # hotkey tap was built without them and needs a restart (#578). A list of
                 # fixed names, [] on every install where nothing was missing at start.
                 "stale_permissions": self._stale_permissions(),
+                # macOS: {"keyboard_capture", "input_monitoring", "microphone"} as this
+                # process is answered ("ok" / "denied" / "unknown"); None elsewhere and
+                # during start-up (#562).
+                "permissions": self._permission_view(),
                 # The overlay reads the dwell progress out of this to draw a ring before a
                 # click fires. States, flags and a 0..1 fraction -- never a pose or position.
                 "headpointer": self._headpointer_payload(),

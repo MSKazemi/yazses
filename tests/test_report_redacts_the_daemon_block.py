@@ -97,13 +97,16 @@ _USER_TEXT = frozenset({"preview"})
 #: precondition sentence, or a `ClickObserverError` that may describe the failure but
 #: never carries pointer or window content -- `gaze/clicks.py`). None while the feature is
 #: off. No coordinate, timestamp or window ever enters it.
+#: `permissions` (#562) is `permission_alerts.daemon_view`: three fixed keys, each "ok",
+#: "denied", "unknown" or "not_applicable", or None off macOS. No free text.
+#:
 _MACHINE_FACTS = frozenset({
     "acoustic", "audio_level", "biosignal", "bursts", "camera", "command_mode", "commands_enabled", "confidence_enabled",
     "decode_latency", "enabled", "engine", "engine_fallback", "engine_model", "gaze_refine", "handsfree", "headpointer", "hotkey", "injection_backend", "input_device",
     "last_error", "last_good_device", "latency_residency", "low_confidence_last", "meeting_active",
     "meeting_enabled", "meeting_finalizing", "modality_roles", "model", "morse", "mouthswitch",
     "notifications",
-    "outcomes", "platform", "read_back", "ready", "remote_connected", "silent_streak",
+    "outcomes", "permissions", "platform", "read_back", "ready", "remote_connected", "silent_streak",
     "silent_streak_threshold", "spoken_commit", "staged", "state", "streaming_enabled",
     "stale_permissions", "stt_residency", "summary", "target_ok", "tts_backend", "uptime_s", "vad_threshold", "version",
     "words",

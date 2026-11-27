@@ -213,22 +213,28 @@ def top_warning(status: dict) -> str | None:
     """The one warning a status line has room for, most important first. Pure.
 
     1. The daemon is in **error** and said why (``last_error``): nothing works.
-    2. The configured engine **fell back** to another (#644): dictation works, but not
+    2. The daemon reports a macOS **permission** as refused (#562): the glyph says ready
+       while the key, the typing or the microphone cannot work.
+    3. The configured engine **fell back** to another (#644): dictation works, but not
        with the engine the user chose, and nothing else on the menu says so.
-    3. A live **silent streak**: the microphone may not be hearing anything.
+    4. A live **silent streak**: the microphone may not be hearing anything.
 
-    ``None`` when none applies. The wording of 2 and 3 is shared: `fallback_phrase` is
+    ``None`` when none applies. The wording of 3 and 4 is shared: `fallback_phrase` is
     `yazses status`'s ``FALLBACK:`` line, and `silent_streak_warning` is the Linux menu's
     warning line. The result is one line (whitespace collapsed) of at most
     ``_WARNING_MAX`` characters.
     """
     from yazses.stt.factory import fallback_phrase
+    from yazses.system.permission_alerts import permission_menu_line
 
     state = str(status.get("state") or "idle")
     error = status.get("last_error")
     fallback = fallback_phrase(status)
+    permission = permission_menu_line(status.get("permissions"))
     if state == "error" and error:
         text = f"⚠ {error}"
+    elif permission is not None:
+        text = permission
     elif fallback is not None:
         text = f"⚠ {fallback}"
     else:
@@ -562,6 +568,8 @@ def status_from_model(model: TrayModel) -> dict:
         "engine": model.engine,
         "engine_model": model.engine_model,
         "engine_fallback": model.engine_fallback,
+        # macOS permission switches (#562), read through `top_warning`.
+        "permissions": model.permissions,
         "last_error": model.last_error,
         # The camera switch (#924), read by `tray/camera.py::camera_entry`.
         "camera": model.camera,

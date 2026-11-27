@@ -168,6 +168,84 @@ def grants_given_since_start(
     )
 
 
+#: The ``permissions`` block of the daemon's `status` reply (macOS only), one row per
+#: switch: ``(key, probe method on the backend, pane in Privacy & Security)``.
+DAEMON_PROBES: tuple[tuple[str, str, str], ...] = (
+    ("keyboard_capture", "check_keyboard_capture", "Accessibility"),
+    ("input_monitoring", "check_input_monitoring", "Input Monitoring"),
+    ("microphone", "check_microphone", "Microphone"),
+)
+
+_PANES = {key: pane for key, _method, pane in DAEMON_PROBES}
+
+
+def daemon_view(perms: object) -> dict[str, str]:
+    """What the calling process is told about each switch. Never raises.
+
+    Called by the daemon, so the answer is about the process that dictates. `doctor`
+    asks the same questions from its own process, which on #562 was started from a
+    terminal and answered denied while System Settings showed YazSes switched on.
+    """
+    return {key: probe_state(perms, method) or UNKNOWN for key, method, _pane in DAEMON_PROBES}
+
+
+def permission_menu_line(view: object) -> str | None:
+    """The tray menu's line for switches the daemon reports as refused, else ``None``.
+
+    Only DENIED speaks, as everywhere in this module: never asked and could not tell
+    are not findings. Anything that is not the daemon's mapping (an older daemon,
+    Linux, Windows) says nothing.
+    """
+    if not isinstance(view, Mapping):
+        return None
+    panes = [pane for key, _method, pane in DAEMON_PROBES if view.get(key) == DENIED]
+    if not panes:
+        return None
+    return f"⚠ Permission off: {', '.join(panes)} (System Settings → Privacy & Security)"
+
+
+def reconcile_with_daemon(
+    key: str, status: str, detail: str, view: object, stale: object = ()
+) -> tuple[str, str]:
+    """A `doctor` permission row, corrected by what the running daemon reports.
+
+    *status* and *detail* are the row as `doctor` computed it in its own process; *view*
+    is the daemon's ``permissions`` block and *stale* its ``stale_permissions``. The
+    daemon's answer wins because the daemon is what dictates. Without a definite answer
+    (no daemon, an older one, "unknown") the row is returned unchanged.
+    """
+    state = view.get(key) if isinstance(view, Mapping) else None
+    if state == OK:
+        if isinstance(stale, (list, tuple)) and key in stale:
+            return (
+                "WARN",
+                "granted now, but the running daemon started before the grant. "
+                "Fix: run `yazses restart`",
+            )
+        if status == "OK":
+            return status, detail
+        return (
+            "OK",
+            "ok in the running daemon, which is what dictates. Only this command got "
+            "a different answer: run from a terminal, macOS may be judging the "
+            "terminal app instead of YazSes. If dictation works, change nothing.",
+        )
+    if state == DENIED:
+        if status == "OK":
+            return (
+                "FAIL",
+                "ok for this command, but the running daemon, which is what dictates, "
+                f"reports denied. System Settings → Privacy & Security → {_PANES[key]} "
+                "→ enable YazSes, then run `yazses restart`.",
+            )
+        return (
+            "FAIL",
+            f"{detail}\nThe running daemon, which is what dictates, reports denied as "
+            "well. After switching it on, run `yazses restart`.",
+        )
+    return status, detail
+
+
 _GRANT_LABELS = {"input_monitoring": "Input Monitoring"}
 
 
@@ -183,6 +261,7 @@ def stale_grant_note(names: list[str]) -> str:
 
 
 __all__ = [
+    "DAEMON_PROBES",
     "DENIED",
     "NOT_APPLICABLE",
     "OK",
@@ -190,8 +269,11 @@ __all__ = [
     "PermissionAlert",
     "PermissionProbe",
     "alerts_for",
+    "daemon_view",
     "grants_given_since_start",
+    "permission_menu_line",
     "probe_state",
+    "reconcile_with_daemon",
     "requests_for",
     "stale_grant_note",
 ]

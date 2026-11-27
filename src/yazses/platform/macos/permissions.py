@@ -360,8 +360,10 @@ class MacosPermissions:
             "dictation key needs BOTH, and Accessibility being on says nothing about\n"
             "this one -- an enabled Accessibility toggle with a dead hotkey is what\n"
             "a missing Input Monitoring grant looks like.\n"
-            "Not listed at all? An app only appears here once it has asked. Launch\n"
-            "YazSes and hold the dictation key once, then look again.\n"
+            "Not listed at all? An app only appears here once it has asked, and\n"
+            "YazSes asks each time its daemon starts: open YazSes, or run\n"
+            "`yazses restart` if it is already running, then look again.\n"
+            "After switching it on, run `yazses restart`.\n"
             "Listed and enabled but still refused? These builds are unsigned, so\n"
             "macOS sees a new identity whenever the binary changes and the old\n"
             "approval stops applying. Reset just this app's decision:\n"
@@ -427,7 +429,7 @@ class MacosPermissions:
             "for every app on the Mac, not only this one)\n"
             "Accessibility is also not the only switch. Since macOS 10.15 the\n"
             "dictation key needs Input Monitoring too, in its own pane -- check the\n"
-            "'Input monitoring' row above before toggling this one again."
+            "'Input monitoring' row of `yazses doctor` before toggling this one again."
             + terminal_attribution_note()
         )
 
@@ -442,11 +444,12 @@ class MacosPermissions:
 
         Two macOS-specific facts a blocked reader needs, and neither is guessable:
 
-        * **"denied" here can mean "never asked".** `AVCaptureDevice` reports
-          `NotDetermined` until something actually opens the microphone, and macOS
-          only shows its one-time prompt at that moment. `check_microphone` maps
-          that to UNKNOWN rather than DENIED, so the honest instruction is to hold
-          the hotkey once and answer the prompt -- not to hunt through Settings.
+        * **There may be no answer yet.** `AVCaptureDevice` reports `NotDetermined`
+          until macOS has asked, and an app that has not asked is not in the pane.
+          `check_microphone` maps that to UNKNOWN rather than DENIED. The daemon
+          asks at start (:meth:`request_microphone`) and a recording asks too, so
+          the instruction is to restart or hold the hotkey and answer the prompt --
+          not to hunt through Settings.
         * **The grant is attached to a code identity, not a name.** These builds
           are unsigned, so a new binary is a new identity and the old approval
           stops applying while the entry still looks enabled -- the same trap
@@ -458,8 +461,9 @@ class MacosPermissions:
             "  System Settings -> Privacy & Security -> Microphone -> enable YazSes.\n"
             "Or open the pane directly:\n"
             "  open 'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone'\n"
-            "Never seen a microphone prompt? macOS only asks the first time an app\n"
-            "actually records: hold the hotkey once and answer it.\n"
+            "Never seen a microphone prompt? YazSes asks when its daemon starts if\n"
+            "macOS has no answer yet: run `yazses restart`, or hold the hotkey once,\n"
+            "and answer the prompt.\n"
             "Listed and enabled but still refused? These builds are unsigned, so\n"
             "macOS sees a new identity whenever the binary changes and the old\n"
             "approval stops applying. Reset just this app's microphone decision:\n"
