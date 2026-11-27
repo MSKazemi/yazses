@@ -6,6 +6,16 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — settings window: speaker names, export, practice-box counts and one-window locking
+
+- **Meetings → Save speaker names** now takes the meeting's lock, as `yazses meeting relabel` does, and changes nothing while the meeting is being processed. Such a meeting is listed as **in progress**, not "unfinished".
+- **Meetings → Export…** removed group and other permissions from the folder you exported into (your home folder by default). Only the exported file is owner-only now.
+- On a filesystem without file locks, the window reported that it was already open and could not be opened. It now opens, without the one-window guard.
+- **File transcription** said the first use of speaker labels downloads the models. It does not; `yazses transcribe --download-models` does.
+- The practice boxes count each Chinese or Japanese character as one word, as the rest of YazSes does.
+
+These were found in review before release; the new window pages had not shipped in a release.
+
 ### Added — example firmware: a muscle switch on a Seeed XIAO RP2040 + Grove EMG Detector (simulated tests only)
 
 `examples/emg-xiao-rp2040/` holds MicroPython for the existing `[emg] device_port` serial path (`design/emg-protocol.md`, wired to the daemon through `EMGBackend`): `emg_detector.py` is a dependency-free squeeze detector (baseline tracking, hysteresis, debounce, the protocol's 100 ms to 30 s hold limits) and `main.py` reads A0 and writes `HOLD_START`, `HOLD_END` and a one-second `HEARTBEAT`. `docs/how-to/emg-xiao-rp2040.md` covers wiring, tuning, the config (`mode = "full_text"` for hold-to-talk) and a general safety note.

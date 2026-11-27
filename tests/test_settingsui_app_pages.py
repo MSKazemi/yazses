@@ -280,6 +280,22 @@ def test_renaming_a_speaker_updates_the_transcript(qapp, tmp_path):
     assert "Alice" in page.transcript.toPlainText()
 
 
+def test_renaming_a_meeting_in_use_says_why_nothing_was_saved(qapp, tmp_path):
+    from yazses.meeting.lock import MeetingLock
+    from yazses.settingsui import meetings
+
+    folder = _meeting_dir(tmp_path / "meetings")
+    win = _window(qapp, _meeting_config(tmp_path))
+    page = win._app_pages["meetings"]
+    page.refresh()
+    page.list.setCurrentRow(0)
+    page.name_fields["speaker_0"].setText("Alice")
+    with MeetingLock(folder):
+        page.rename_button.click()
+    assert meetings.BUSY in _text(page.widget)
+    assert "Alice" not in page.transcript.toPlainText()
+
+
 def test_start_sends_the_speaker_count_and_shows_a_refusal_verbatim(qapp, tmp_path):
     daemon = _Daemon(meeting_start={"ok": False, "reason": "no microphone"},
                      meeting_status={"ok": True, "enabled": True, "active": False})
@@ -553,6 +569,15 @@ def test_a_note_from_a_successful_run_is_shown(qapp, tmp_path):
     page.process.done(0, "Transcribing…\nNote: diarization was unavailable; wrote a plain transcript.\n")
     assert "diarization was unavailable" in page.note.text()
     assert page.note.isVisibleTo(page.widget)
+
+
+def test_the_speaker_label_box_promises_no_download(qapp, tmp_path):
+    """A diarized run fetches no models (#932): `transcribe --download-models` does."""
+    _win, page, _source = _files(qapp, tmp_path)
+    page.extra_installed = lambda: True
+    page.refresh()
+    assert "needs speaker models" in page.speakers.text()
+    assert "first use" not in page.speakers.text()
 
 
 def test_speaker_labels_are_not_offered_without_their_libraries(qapp):

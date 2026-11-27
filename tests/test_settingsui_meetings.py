@@ -2,9 +2,12 @@
 from __future__ import annotations
 
 import json
+import os
+import stat
 
 import pytest
 
+from yazses.meeting.lock import MeetingBusyError, MeetingLock
 from yazses.settingsui import meetings
 
 
@@ -85,6 +88,36 @@ def test_renaming_writes_the_new_name_into_the_meeting(tmp_path):
     meetings.rename(folder, {"speaker_0": "Alice", "speaker_1": ""}, "md")
     assert meetings.speakers(folder)["speaker_0"] == "Alice"
     assert "Alice" in (folder / "transcript.md").read_text(encoding="utf-8")
+
+
+def test_a_meeting_someone_holds_is_in_progress_not_unfinished(tmp_path):
+    folder = _meeting(tmp_path, status="recording", transcript=False)
+    (row,) = meetings.meeting_rows([_listing(folder, status="recording", busy=True)])
+    assert "in progress" in row.detail
+    assert "unfinished" not in row.detail
+
+
+def test_renaming_a_meeting_someone_holds_changes_nothing(tmp_path):
+    folder = _meeting(tmp_path)
+    with MeetingLock(folder):
+        before = {p.name: p.read_bytes() for p in folder.iterdir() if p.name != ".lock"}
+        with pytest.raises(MeetingBusyError):
+            meetings.rename(folder, {"speaker_0": "Alice"}, "md")
+        after = {p.name: p.read_bytes() for p in folder.iterdir() if p.name != ".lock"}
+    assert after == before
+    meetings.rename(folder, {"speaker_0": "Alice"}, "md")  # free again
+    assert meetings.speakers(folder)["speaker_0"] == "Alice"
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX permission bits")
+def test_export_does_not_change_the_permissions_of_the_chosen_folder(tmp_path):
+    folder = _meeting(tmp_path / "meetings")
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    shared.chmod(0o755)
+    dest = meetings.export(folder, "md", shared / "out.md")
+    assert stat.S_IMODE(shared.stat().st_mode) == 0o755
+    assert stat.S_IMODE(dest.stat().st_mode) == 0o600
 
 
 @pytest.mark.parametrize("fmt", ("txt", "md", "srt", "vtt", "json"))

@@ -15,6 +15,11 @@ def _status(**extra) -> dict:
     }
 
 
+def test_the_practice_box_counts_chinese_characters_one_each():
+    assert overview.word_count("one two three") == 3
+    assert overview.word_count("今天测试 YazSes") == 5
+
+
 def test_no_daemon_offers_to_start_it():
     health = overview.health(None)
     assert health.action == "start"

@@ -19,7 +19,11 @@ import threading
 import time
 from pathlib import Path
 
-from yazses.system.single_instance import SingleInstanceLock, holder_pid
+from yazses.system.single_instance import (
+    SingleInstanceLock,
+    holder_pid,
+    locks_unsupported,
+)
 
 log = logging.getLogger(__name__)
 
@@ -29,15 +33,6 @@ LOCK_NAME = ".lock"
 # acquire that meets such a probe waits it out instead of reporting a busy meeting.
 _WAIT_S = 0.5
 _RETRY_S = 0.05
-
-# What a filesystem without file locks answers (some network and FUSE mounts, which
-# `[meeting] output_dir` may point at). Not contention: refusing there would stop every
-# meeting from being recorded.
-_UNSUPPORTED = frozenset(
-    getattr(errno, name)
-    for name in ("ENOLCK", "ENOSYS", "ENOTSUP", "EOPNOTSUPP")
-    if hasattr(errno, name)
-)
 
 # Locks held by this process. Consulted before touching the file: where `flock` is emulated
 # with per-process record locks (NFS), the daemon probing its own meeting would be granted
@@ -67,10 +62,6 @@ def busy_message(meeting_id: str, pid: int | None = None) -> str:
 
 def _key(path: Path) -> str:
     return os.path.normcase(os.path.realpath(path))
-
-
-def _unsupported(error: OSError | None) -> bool:
-    return error is not None and error.errno in _UNSUPPORTED
 
 
 class MeetingLock:
@@ -103,7 +94,9 @@ class MeetingLock:
                 ours = key in _HELD
                 if not ours:
                     taken = self._lock.acquire()
-                    if not taken and _unsupported(self._lock.error):
+                    # A filesystem without locks (`[meeting] output_dir` may be on one)
+                    # is not contention: refusing would stop every meeting.
+                    if not taken and locks_unsupported(self._lock.error):
                         log.warning(
                             "No file locks on the filesystem holding %s (%s); continuing "
                             "without one.", self._dir, self._lock.error,
@@ -151,6 +144,6 @@ def is_busy(meeting_dir: str | Path) -> bool:
             if probe.acquire():
                 probe.release()
                 return False
-            return not _unsupported(probe.error)
+            return not locks_unsupported(probe.error)
     except OSError:
         return False

@@ -5,6 +5,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from yazses.meeting.lock import MeetingBusyError
 from yazses.recimport.render import VALID_FORMATS
 from yazses.settingsui import meetings
 from yazses.settingsui.context import PageContext
@@ -268,6 +269,9 @@ class MeetingsPage:
         names = {key: field.text() for key, field in self.name_fields.items()}
         try:
             meetings.rename(self._shown_dir, names, self._format)
+        except MeetingBusyError:
+            self._say(meetings.BUSY)
+            return
         except (OSError, ValueError, KeyError) as exc:
             self._say(f"The names were not saved: {exc}")
             return

@@ -13,6 +13,7 @@ no-op (``acquire`` returns True), since the IPC layer there is exclusive anyway.
 """
 from __future__ import annotations
 
+import errno
 import logging
 import os
 from pathlib import Path
@@ -33,6 +34,18 @@ log = logging.getLogger(__name__)
 # file content. That guarantees mutual exclusion between daemons while leaving
 # the PID bytes at offset 0 freely readable (a byte-0 lock would block readers).
 _WIN_LOCK_OFFSET = 1 << 30
+
+# What a filesystem without file locks answers (some network and FUSE mounts).
+_UNSUPPORTED = frozenset(
+    getattr(errno, name)
+    for name in ("ENOLCK", "ENOSYS", "ENOTSUP", "EOPNOTSUPP")
+    if hasattr(errno, name)
+)
+
+
+def locks_unsupported(error: OSError | None) -> bool:
+    """Whether a failed lock attempt says "no locks here", not "someone holds it". Pure."""
+    return error is not None and error.errno in _UNSUPPORTED
 
 
 def holder_pid(path: str | os.PathLike[str]) -> int | None:

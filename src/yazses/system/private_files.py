@@ -149,11 +149,13 @@ def new_private_dir(path: str | Path) -> Path:
 
 def write_private_text(
     path: str | Path, text: str, *, append: bool = False, encoding: str = "utf-8",
+    tighten_parent: bool = True,
 ) -> None:
     """``Path.write_text`` / append, creating the file ``0600`` and tightening the rest.
 
     The containing directory is tightened if it exists (it is never created here; call
-    :func:`private_dir` first). The file is opened with mode ``0600`` and, when it already
+    :func:`private_dir` first). Pass ``tighten_parent=False`` for a file written into a
+    folder the user chose, such as an export: that folder's mode is theirs. The file is opened with mode ``0600`` and, when it already
     existed looser, ``fchmod``-ed down *before* any content is written. Raises ``OSError``
     where ``Path.write_text`` would, and with ``ELOOP`` when ``path`` itself is a symlink;
     a failure to change the mode is swallowed.
@@ -166,7 +168,8 @@ def write_private_text(
         else:
             p.write_text(text, encoding=encoding)
         return
-    _tighten(p.parent)
+    if tighten_parent:
+        _tighten(p.parent)
     flags = os.O_WRONLY | os.O_CREAT | _O_NOFOLLOW | (os.O_APPEND if append else os.O_TRUNC)
     fd = os.open(p, flags, PRIVATE_FILE_MODE)
     try:
