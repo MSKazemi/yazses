@@ -99,6 +99,8 @@ speech model. The next time you press the key it loads the model again:
 - **The first words after a long pause arrive late.** If the model is still loading when
   you let go, the tray shows *loading* until it is ready. Then the burst is transcribed and
   typed as usual. Loading `base.en` takes a few seconds; on a slow disk it takes longer.
+- **Spoken answers and re-speaks do the same.** A question asked by an agent
+  (`ask_human`) and a Punch-In re-speak also start the reload when recording starts.
 - **Short values cost more than they save.** Below a few minutes, most presses pay for a
   reload. Start at 300–600 seconds.
 

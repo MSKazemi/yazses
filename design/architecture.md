@@ -187,7 +187,9 @@ Daemon owns the state machine and IPC server:
 positive, `stt/resident.py::IdleUnloadEngine` wraps the engine and the model may be released
 after that many idle seconds; every holder of the engine (`StreamingEngine`, the latency
 governor's `EnginePool`, meeting capture) keeps the wrapper, so nothing has to be rebuilt and a
-decode reloads it transparently. An unload never races a decode: decodes count themselves in, and
+decode reloads it transparently. Every recording the daemon starts for a decode of its own (a hold, the
+`ask_human` listener, Punch-In's re-speak) calls `_prefetch_stt_engine`, which restarts the keep-alive or
+begins the reload beside the capture. An unload never races a decode: decodes count themselves in, and
 the release happens only at zero, from the `stt-idle-unload` tick, while the daemon state is
 IDLE or PAUSED under `_lock`.
 

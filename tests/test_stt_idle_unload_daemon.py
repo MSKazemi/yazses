@@ -10,7 +10,9 @@ The wrapper's own rules are `test_stt_resident.py`; this file pins how the daemo
   the whole burst regardless, the tray shows LOADING while the decode waits for the
   model, and the burst is transcribed and typed — the press's audio is not lost;
 * a burst that is discarded while the reload is still running leaves the daemon IDLE,
-  not stuck on LOADING.
+  not stuck on LOADING;
+* the recordings that bypass the hold path (`ask_human`, Punch-In's re-speak) restart
+  the keep-alive and start the reload while the user speaks.
 
 Real `Daemon` objects with the model, recorder stream and injector replaced, the same
 way `test_stray_hold_release_types_nothing.py` drives the hold path. No model loads, no
@@ -31,6 +33,7 @@ from yazses.core.daemon import Daemon
 from yazses.platform import get_platform
 from yazses.platform.base import TrayState
 from yazses.stt.resident import IdleUnloadEngine
+from yazses.system.residency import MAX_KEEP_ALIVE_S
 
 
 @pytest.fixture()
@@ -210,13 +213,26 @@ def test_a_positive_value_wraps_the_engine_and_reloads_through_the_same_factory(
     assert asked == [d._config.stt], "a reload goes through build_engine with [stt]"
 
 
-def test_a_positive_value_starts_the_tick_thread() -> None:
+def test_the_tick_thread_starts_and_ends_with_the_stop_event() -> None:
     rig = _Rig(60)
+    before = set(threading.enumerate())
     try:
         rig.d._start_stt_idle_unloader()
-        assert "stt-idle-unload" in {t.name for t in threading.enumerate()}
+        started = [
+            t for t in set(threading.enumerate()) - before if t.name == "stt-idle-unload"
+        ]
+        assert len(started) == 1
     finally:
         rig.d._stop_event.set()
+    started[0].join(timeout=5.0)
+    assert not started[0].is_alive(), "the tick thread outlived the daemon's stop event"
+
+
+def test_a_value_too_large_for_a_float_is_capped_instead_of_failing_start_up() -> None:
+    d = _daemon(10**400)
+    wrapped = d._with_idle_unload(_Engine())
+    assert isinstance(wrapped, IdleUnloadEngine)
+    assert wrapped.idle_unload_s == MAX_KEEP_ALIVE_S
 
 
 # ---- the tick ------------------------------------------------------------------------
@@ -356,3 +372,85 @@ def test_the_loaded_hook_only_ends_a_reload_loading_state() -> None:
         d._state.state = TrayState.RECORDING
     d._on_stt_engine_loaded()
     assert d._state.state is TrayState.RECORDING
+
+
+# ---- recordings that do not go through a hold ------------------------------------------
+
+
+class _Recorder:
+    """Notes how many reloads had been asked for by the time recording stopped."""
+
+    def __init__(self, spawned: list) -> None:
+        self._spawned = spawned
+        self.reloads_asked_before_stop: int | None = None
+
+    def start(self) -> None:
+        pass
+
+    def stop(self):
+        self.reloads_asked_before_stop = len(self._spawned)
+        return np.full(16000, 0.5, dtype=np.float32)
+
+
+class _ListenClock:
+    """Stands in for the daemon module's `time`: loud for a second, then quiet."""
+
+    def __init__(self, daemon: Daemon) -> None:
+        self._daemon = daemon
+        self.now = 0.0
+
+    def monotonic(self) -> float:
+        return self.now
+
+    def sleep(self, seconds: float) -> None:
+        self.now += seconds
+        threshold = self._daemon._config.accessibility.vad_threshold
+        self._daemon._state.audio_level = threshold * (3.0 if self.now < 1.0 else 0.1)
+
+
+def _ask(d: Daemon) -> str:
+    return d._ask_human_listener(30.0)
+
+
+def _respeak(d: Daemon) -> str:
+    d._config.punch_in.record_seconds = 0.0
+    return d._record_respeak()
+
+
+@pytest.mark.parametrize("record", [_ask, _respeak])
+def test_a_recording_outside_a_hold_reloads_while_the_user_speaks(
+    monkeypatch, record
+) -> None:
+    import yazses.core.daemon as daemon_mod
+
+    rig = _Rig(60)
+    rig.at(60.0)._stt_idle_unload_tick()
+    d = rig.at(100.0)
+    d._recorder = recorder_ = _Recorder(rig.spawned)
+    monkeypatch.setattr(daemon_mod, "time", _ListenClock(d))
+
+    assert record(d)
+    assert recorder_.reloads_asked_before_stop == 1
+    assert len(rig.reloaded) == 1 and rig.reloaded[0].clips == [16000]
+
+
+@pytest.mark.parametrize("record", [_ask, _respeak])
+def test_a_recording_outside_a_hold_restarts_the_keep_alive(monkeypatch, record) -> None:
+    """Both leave the daemon IDLE, so only the keep-alive stops an unload under them."""
+    import yazses.core.daemon as daemon_mod
+
+    rig = _Rig(60)
+    d = rig.at(50.0)
+    released_mid_recording: list[bool] = []
+
+    class _TickingRecorder(_Recorder):
+        def stop(self):
+            released_mid_recording.append(rig.at(100.0)._stt_idle_unload_tick())
+            return super().stop()
+
+    d._recorder = _TickingRecorder(rig.spawned)
+    monkeypatch.setattr(daemon_mod, "time", _ListenClock(d))
+
+    assert record(d)
+    assert released_mid_recording == [False]
+    assert rig.reloaded == [] and rig.spawned == []

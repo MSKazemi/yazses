@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `[stt] idle_unload_s`: spoken answers and Punch-In re-speaks now reload the model while you speak ([#931](https://github.com/MSKazemi/yazses/issues/931))
+
+Only a hold-to-talk press restarted the model's keep-alive and began the reload. An `ask_human` answer or a Punch-In re-speak records without a hold and leaves the daemon idle, so the model could be released during the recording, and an already released model began loading only after you had finished. Both now do what a press does. A value of `idle_unload_s` too large for a number the daemon can use is now capped at one year instead of stopping start-up. Nothing changes at the default of `0`.
+
 ### Fixed — Mandarin commands: a sentence after "打开文件" could open a file instead of being typed ([#499](https://github.com/MSKazemi/yazses/issues/499))
 
 With the Mandarin command grammar active, `打开文件` followed by a space and an unspaced clause ending in something like an extension was read as `go_to_file`, which sends Ctrl+P (Print in most applications) and types the clause: `打开文件 的时候用的是版本2.5` and `打开文件 看了一下，问题出在config.toml` both did. A file name with Chinese characters now needs an extension containing a letter, no punctuation beyond `_ . - /`, and no Latin letters in its last path segment before the extension. This also means a mixed name such as `报告v2.docx` is now typed as text. Latin-only file names are unaffected. Found by reading the pattern; the phrases are still unreviewed by a native speaker.
