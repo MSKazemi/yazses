@@ -104,6 +104,9 @@ def _run(monkeypatch, argv, page=None) -> list[str]:
         settings_app, "claim_window", lambda *a, **k: Claim(Outcome.OWNER, SingleWindow())
     )
     monkeypatch.setattr(settings_app, "apply_theme", lambda *a: None)
+    # Not a new install: the first-run check writes the config file on one, and the setup
+    # guide it offers needs a real window.
+    monkeypatch.setattr("yazses.settingsui.first_run.prepare", lambda *a, **k: False)
     monkeypatch.setattr("yazses.config.load_config", lambda *a, **k: Config())
     monkeypatch.setattr("sys.argv", ["yazses-settings", *argv])
     with pytest.raises(SystemExit) as exit_:
