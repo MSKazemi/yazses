@@ -6,6 +6,7 @@ that used to crash, report success, or blame the wrong thing.
 
 from __future__ import annotations
 
+import os
 import types
 
 import pytest
@@ -31,6 +32,20 @@ class _Client:
         if isinstance(self.reply, BaseException):
             raise self.reply
         return self.reply
+
+
+@pytest.fixture(autouse=True)
+def _restore_injection_env(monkeypatch):
+    """`yazses inject` and `test` export these for the injector; undo that per test.
+
+    Set first, then deleted: that is what makes monkeypatch remember they were absent.
+    """
+    for name in ("YAZSES_INJECTOR", "YAZSES_INJECT_FALLBACK", "YAZSES_PORTAL_CONSENT"):
+        if name not in os.environ:
+            monkeypatch.setenv(name, "")
+            monkeypatch.delenv(name)
+        else:
+            monkeypatch.setenv(name, os.environ[name])
 
 
 @pytest.fixture
