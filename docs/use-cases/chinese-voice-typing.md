@@ -114,6 +114,13 @@ after it apart from punctuation. "保存文件" saves; "请保存这个文件" o
 is typed as text. Each phrase below is one accepted wording; `N` stands for a number
 (see the limits further down) and `name` for one identifier or file name.
 
+A function or class `name` uses Latin letters, digits and `_ . / -`. A file name may also
+contain Chinese characters, under four conditions: you leave a space before it; it ends in
+an extension with at least one letter (`.toml`, not the `.5` of `2.5`); it has no
+punctuation other than `_ . - /`; and its last path part has no Latin letters before the
+extension. Anything else, such as "打开文件 然后修改config.toml" or a name like
+`报告v2.docx`, is typed as text.
+
 | Action (English equivalent) | Simplified examples | Traditional examples | Native review |
 |---|---|---|---|
 | `undo` (undo) | `撤销` · `撤销操作` | `撤銷` · `復原` | unreviewed |
