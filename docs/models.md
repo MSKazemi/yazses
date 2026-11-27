@@ -61,6 +61,36 @@ not as observed behaviour.
     both help more than a model tier for the words *you* care about. See
     [dictating code and technical vocabulary](use-cases/dictating-code.md).
 
+## Which profile suits this machine
+
+```bash
+yazses model recommend
+```
+
+The command names the three models above as profiles and suggests one. It only
+reads and prints: your config is not edited and nothing is downloaded.
+
+| Profile | English | Any other language, or auto-detect |
+|---|---|---|
+| `fast` | `tiny.en` | `tiny` |
+| `balanced` | `base.en` (default) | `base` |
+| `accurate` | `small.en` | `small` |
+
+The rule is short, and you can overrule it:
+
+- Under 3 GB of installed RAM it suggests `fast`, following the
+  [low-RAM guide](how-to/low-ram-models.md). That guide is arithmetic on footprints
+  measured on larger machines, not a test on small hardware.
+- Otherwise it suggests `balanced`. For Mandarin it suggests `accurate` (`small`),
+  the model `yazses language list` already gives for it.
+- The CPU count is shown but does not change the suggestion: the three models have
+  not been compared across core counts.
+- With `[stt] engine` set to `parakeet` or `moonshine` it suggests nothing, and so
+  it does for a language none of the three models covers.
+
+The figures the command prints are the English rows of the
+[benchmarks](benchmarks.md), each measured on one machine.
+
 ## How to change it
 
 ```toml

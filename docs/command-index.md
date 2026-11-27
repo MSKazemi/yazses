@@ -718,6 +718,10 @@ Download a model: a speech-to-text checkpoint, or a GGUF for intent routing.
 
 List every model YazSes can use, grouped by kind, with size and on-disk state.
 
+### `yazses model recommend`
+
+Suggest a speech profile (fast, balanced or accurate) for this machine.
+
 ### `yazses model remove`
 
 Delete a downloaded model from disk to free space.

@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — models: `yazses model recommend` suggests a speech profile for this machine ([#930](https://github.com/MSKazemi/yazses/issues/930))
+
+Three profiles name the models that already have published measurements: `fast` (`tiny.en`), `balanced` (`base.en`, the default) and `accurate` (`small.en`), with `tiny`, `base` and `small` for other languages. The command reads the installed RAM, the CPU count, `[stt] engine` and `[stt] language`, then prints a suggestion with its reasons; under 3 GB of RAM it suggests `fast`. It does not edit the config or download anything, and no default changes. The error rates and memory figures it shows are copied from `docs/benchmarks.md`, and a test fails if the two differ. `yazses model use` is not included. [ADR-036](design/adr/adr-036-speech-profiles.md) records the rule.
+
 ### Fixed — eye-control analysis: summary numbers now have a table and name their source files ([#426](https://github.com/MSKazemi/yazses/issues/426))
 
 The min / median / max across units and the summary of session spreads appeared only in the report, so a paper table had to be copied by hand and no claim said which result files stood behind them. `scripts/eye_eval_figures.py` now writes `tables/across_units.csv` and `tables/session_retest_summary.csv`, and `claim_manifest` has an entry for each. A session-retest claim no longer lists sessions that had too few trials to be compared, and a number with no source file no longer gets an empty claim. The report is now `analysis_version` 1.1; the figures script still reads 1.0 reports. No statistical test was added (that waits for [#425](https://github.com/MSKazemi/yazses/issues/425)), and only synthetic test records were used.

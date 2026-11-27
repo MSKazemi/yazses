@@ -8198,6 +8198,89 @@ def model_disk() -> None:
 
 
 @model_app.command(
+    "recommend",
+    epilog=_examples(
+        "yazses model recommend    which speech profile suits this machine (changes nothing)",
+    ),
+)
+def model_recommend() -> None:
+    """Suggest a speech profile (fast, balanced or accurate) for this machine.
+
+    Reads the installed RAM, the CPU count and your `[stt]` settings, then prints a
+    suggestion with its reasons. It never edits the config and never downloads
+    anything. The figures shown are from the published benchmarks, each measured on
+    one machine, not on yours.
+    """
+    import os
+
+    from yazses.config import load_config
+    from yazses.language.capability import resolve_engine, resolve_model
+    from yazses.platform import describe_host
+    from yazses.stt.download import is_cached
+    from yazses.stt.profiles import PROFILES, Machine, model_for, recommend
+
+    platform = get_platform()
+    stt = load_config(platform.paths.config_file).stt
+    machine = Machine(ram_gb=describe_host().ram_gb, logical_cpus=os.cpu_count())
+    result = recommend(machine, engine=stt.engine, language=stt.language)
+    engine = resolve_engine(stt.engine)
+    current = resolve_model(engine, stt.model)
+
+    ram = "RAM unknown" if machine.ram_gb is None else f"{machine.ram_gb:g} GB RAM installed"
+    cpus = "CPU count unknown" if machine.logical_cpus is None else f"{machine.logical_cpus} logical CPUs"
+    typer.echo(f"This machine:  {ram}, {cpus}")
+    typer.echo(
+        f"Configured:    engine {engine}, model {current}, language {stt.language or 'auto'}\n"
+    )
+
+    if result.profile is None or result.model is None:
+        for reason in result.reasons:
+            typer.echo(reason)
+        typer.echo("\nNothing was changed or downloaded.")
+        return
+
+    typer.echo("Profiles (* = suggested):\n")
+    for profile in PROFILES:
+        name = model_for(profile, stt.language)
+        mark = "*" if profile == result.profile else " "
+        state = "downloaded" if is_cached(name) else "not downloaded"
+        figures = ""
+        if name == profile.english_model:
+            figures = (
+                f"  WER {profile.wer_pct:.2f} %, peak memory {profile.peak_rss_mb} MB, "
+                f"{profile.disk_mb} MB on disk"
+            )
+        typer.echo(f"  {mark} {profile.id:<9} {name:<9} [{state}]{figures}")
+        if figures:  # the summaries rest on the same English-only measurements
+            typer.echo(f"    {'':<9} {profile.summary}")
+    if result.language == "en":
+        typer.echo(
+            "\n  WER: word error rate on 200 clean read-speech utterances; real dictation "
+            "is harder.\n  Method and machines: docs/benchmarks.md"
+        )
+
+    typer.echo(f"\nSuggested:     {result.profile.id} ({result.model})")
+    for reason in result.reasons:
+        typer.echo(f"  {reason}")
+    if result.notes:
+        typer.echo("\nNotes:")
+        for note in result.notes:
+            typer.echo(f"  - {note}")
+
+    if current == result.model:
+        typer.echo("\nYour config already uses it. Nothing was changed or downloaded.")
+        return
+    typer.echo(f"\nNothing was changed or downloaded. Keeping {current} is fine if it works for you.")
+    typer.echo("To switch:")
+    if not is_cached(result.model):
+        typer.echo(f"  yazses model download {result.model}")
+    typer.echo(f"  edit {platform.paths.config_file}:")
+    typer.echo("    [stt]")
+    typer.echo(f'    model = "{result.model}"')
+    typer.echo("  yazses restart")
+
+
+@model_app.command(
     "download",
     epilog=_examples(
         "yazses model download base.en          fetch the speech model ahead of first use",
