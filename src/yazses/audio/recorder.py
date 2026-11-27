@@ -8,17 +8,21 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from yazses.audio.devices import (
-    hold_portaudio,
-    portaudio_lock,
-    reinit_portaudio,
-    release_portaudio,
-)
-
 if TYPE_CHECKING:  # annotations only -- never imported at runtime by this block
     import sounddevice as sd
 
 log = logging.getLogger(__name__)
+
+
+def _devices():
+    """``audio.devices``, imported at first use.
+
+    The daemon imports this module at start, and ``tests/test_base_weight_budget.py``
+    holds how many modules a start may load.
+    """
+    from yazses.audio import devices
+
+    return devices
 
 
 def _sd():
@@ -92,7 +96,7 @@ def _close_quietly(stream: object) -> None:
             getattr(stream, name)()
         except Exception as exc:
             log.warning("Error during mic stream %s: %s", name, exc)
-    release_portaudio(stream)
+    _devices().release_portaudio(stream)
 
 
 def _refresh_device_list() -> None:
@@ -103,7 +107,7 @@ def _refresh_device_list() -> None:
     else refreshes it, and every later recording failed until the daemon restarted.
     """
     try:
-        reinit_portaudio(_sd())
+        _devices().reinit_portaudio(_sd())
     except Exception as exc:  # PortAudio will not even import; the open reports that
         log.debug("Could not refresh the audio device list: %s", exc)
 
@@ -216,7 +220,7 @@ class AudioRecorder:
                 # Held across resolve and open: the device monitor re-initialises
                 # PortAudio from another thread, which would shift the index or close
                 # the stream between these lines.
-                with portaudio_lock():
+                with _devices().portaudio_lock():
                     device_index = self._resolve_device()
                     stream = _sd().InputStream(
                         samplerate=self._sample_rate,
@@ -226,7 +230,7 @@ class AudioRecorder:
                         device=device_index,
                     )
                     stream.start()
-                    hold_portaudio(stream)
+                    _devices().hold_portaudio(stream)
             except Exception as exc:  # PortAudioError and friends
                 last_exc = exc
                 if stream is not None:
@@ -354,7 +358,7 @@ class AudioRecorder:
                 stream.close()
             except Exception as exc:
                 log.warning("Error closing mic stream: %s", exc)
-            release_portaudio(stream)
+            _devices().release_portaudio(stream)
         self.stream_interrupted = interrupted
         if not self._chunks:
             return np.array([], dtype="float32")
