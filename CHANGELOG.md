@@ -6,6 +6,12 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — privacy: verbatim mode typed secrets that `[redaction]` was set to mask
+
+With `[redaction] enabled = true`, a dictation in verbatim mode was typed unmasked. Verbatim restores the text captured before the transform chain, and Redaction Ink ran inside that chain, so the restore undid it. All three ways into verbatim were affected: the spoken "dictate verbatim", a `[profiles.app]` entry set to `verbatim`, and Focus-Class Auto-Profile, which a fresh install switches on and which selects verbatim in terminals and code editors. The unmasked text also reached whatever follows the transforms (staged buffer, "send to", undo history, read-back, predictive completion, the learning corpus's final text). Redaction now applies to the verbatim text too, formatting stays off as before, and the SafeGlyph warning now reads the text that is actually typed.
+
+The same masking now also covers other places that type dictated words and skipped it: live `[streaming]` partials (while redaction is in `mask` mode nothing is typed live; the text appears on release), the spoken capabilities such as spelling and spoken code (stored snippets are still typed as written), Spoken Edit and Punch-In. `[redaction] mode = "hold"` is unchanged and masks nothing.
+
 ### Fixed — snap on Wayland: dictated text could not reach the clipboard
 
 The snap's private `XDG_RUNTIME_DIR` does not hold the Wayland socket, so `wl-copy` and `wl-paste` failed with "Failed to connect to a Wayland server": when typing failed, the clipboard fallback failed too and the dictation was lost. The clipboard commands are now given the host socket's full path; the daemon's own environment is unchanged. Where the copy works and nothing can press Ctrl+V, the notification now says the words are on the clipboard instead of that they were not typed.

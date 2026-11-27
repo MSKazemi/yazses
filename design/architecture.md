@@ -218,10 +218,21 @@ guarded by its own config flag (`if self._config.<x>.enabled: text = transform(t
 self-repair (ADR-058) → inline compute (086) → phonetic corrector (027) → voice punctuation →
 entity ITN (045) → redaction (046) → symbols (055) → unit convert (056) → temporal (057) →
 grammar repair (050) → diacritize (122) → transliteration (116) → semantic line breaks (111) →
-structured markup (067) → SafeGlyph warn (123) → auto-pairing (088) → prosody (002). Adding a new
+structured markup (067) → auto-pairing (088) → prosody (002) → smart-paste (036) → verbatim
+restore (078) → SafeGlyph warn (123). Adding a new
 pure-text feature = one guarded stanza here plus a `test_v2_daemon_wiring.py` case that enables the
 flag and asserts the effect. (Many other v2 cores are built + tested but not yet wired into a
 runtime path — see an internal planning note.)
+
+**Verbatim turns formatting off, never protection.** Verbatim (the spoken toggle, a `[profiles.app]`
+`verbatim` entry, or Focus-Class Auto-Profile) restores the text captured after `clean_dictation`,
+discarding every transform in the chain. A formatting step belongs above that restore. A step that
+protects the user must act on the restored text: Redaction Ink is re-applied by the restore itself,
+SafeGlyph reads the text after it, and the command-safety, check-digit, re-ask, no-text-target and
+field-aware guards already run later. Redaction Ink in `mask` mode also covers the other paths that
+type dictated words (`daemon.py::_redact_for_typing`: spoken capabilities except stored snippets,
+Spoken Edit, Punch-In), and no live streaming partial is typed while it masks, because a secret split
+across partials cannot be recognised.
 
 ---
 

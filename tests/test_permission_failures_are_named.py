@@ -21,6 +21,7 @@ import types
 
 import pytest
 
+from yazses.config import RedactionConfig
 from yazses.core.daemon import Daemon
 from yazses.system.diagnosis import diagnose
 
@@ -141,6 +142,7 @@ def _daemon(reported, ledger_text="the foo is here"):
     config = types.SimpleNamespace(
         commands=types.SimpleNamespace(spoken_edit_destructive=False),
         punch_in=types.SimpleNamespace(min_score=0.5),
+        redaction=RedactionConfig(),
     )
     ledger = _Ledger(ledger_text)
     injector = _Injector()

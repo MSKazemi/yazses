@@ -33,3 +33,17 @@ is deferred behind a `pii` extra.
 - Privacy (ADR-011): detection is fully local; nothing is sent anywhere.
 - Caveat: regex detectors have recall limits → Luhn cuts card false positives; free-form PII is
   the deferred neural tier; off by default.
+
+## Implementation note (2026-11-27)
+
+Redaction is protection, not formatting, so verbatim mode (ADR-v2-078, ADR-v2-094) does not switch
+it off. It had: the verbatim restore discarded the whole transform chain, redaction included.
+
+"Wired guarded on the DICTATE path" above is now read as every path that types dictated words: the
+dictation path, the spoken capabilities (not stored snippets, which are typed as the user wrote
+them), Spoken Edit and Punch-In. While `mode = "mask"`, live streaming partials are not typed.
+
+Still not covered: `mode = "hold"` only reports categories from the pure core, and the daemon has no
+confirm step, so it types the text unchanged. Storage is a separate control
+(`[learning] redact_patterns`): the corpus's raw and cleaned transcripts are not masked by
+`[redaction]`.

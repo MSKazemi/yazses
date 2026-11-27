@@ -170,7 +170,7 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 | Feature | `features` name | What it does |
 |---|---|---|
 | **Entity ITN** | `itn` | Spoken emails/versions → written form, no command words ("john dot doe at gmail dot com"). |
-| **Redaction Ink** | `redaction` | Masks spoken secrets (cards via Luhn, SSNs, keys) before they're typed. |
+| **Redaction Ink** | `redaction` | Masks spoken secrets (cards via Luhn, SSNs, keys) before they're typed, in verbatim mode too. |
 | **Field-Aware Dictation** | `fieldaware` | Shapes output by the focused field; refuses to type into password fields. |
 | **Corpus Voiceprint Scrub** | `corpus_scrub` | Speaker-anonymizes stored learning audio (keeps content, not voice). |
 | **Grammar Repair** | `gec` | Minimal-edit article/agreement fixes for non-native dictation. |
