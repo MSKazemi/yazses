@@ -664,6 +664,147 @@ def test_card_markdown_links_are_checked_but_code_is_ignored(tmp_path, capsys) -
     assert "missing-in-code" not in text and "also-ignored" not in text
 
 
+# --- external code -----------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        '<script src="https://cdn.example/x.js"></script>',
+        '<script src="HTTPS://cdn.example/x.js"></script>',
+        '<script src=" https://cdn.example/x.js "></script>',
+        '<link rel="stylesheet" href="https://cdn.example/a.css">',
+        '<link rel="alternate stylesheet" href="https://cdn.example/a.css">',
+        '<link rel="preload" href="https://cdn.example/f.woff2">',
+        '<link href="https://cdn.example/a.css">',
+        '<img src="https://cdn.example/p.png">',
+        '<img srcset="assets/a.svg 1x, https://cdn.example/p.png 2x">',
+        '<iframe src="https://cdn.example/f"></iframe>',
+        "<iframe srcdoc='<script src=https://cdn.example/x.js></script>'></iframe>",
+        '<video poster="https://cdn.example/p.png"></video>',
+        '<object data="https://cdn.example/o"></object>',
+        '<base href="https://cdn.example/">',
+        '<form action="https://cdn.example/collect"></form>',
+        '<button formaction="https://cdn.example/collect">b</button>',
+        '<a href="#top" ping="https://cdn.example/p">x</a><i id="top"></i>',
+        '<meta http-equiv="refresh" content="0; url=https://cdn.example/">',
+        '<div style="background:url(https://cdn.example/p.png)"></div>',
+        '<style>@import "https://cdn.example/a.css";</style>',
+        "<style>.a{background:url(https://cdn.example/p.png)}</style>",
+        '<script type="module">import x from "https://cdn.example/x.js";</script>',
+        '<script>import("https://cdn.example/x.js")</script>',
+        '<script type="importmap">{"imports": {"x": "https://cdn.example/x.js"}}</script>',
+        '<script>var s = document.createElement("script"); s.src = "//cdn.example/x.js";</script>',
+        '<body onload="import(\'https://cdn.example/x.js\')">',
+    ],
+)
+def test_a_page_that_loads_from_another_server_is_rejected(body, tmp_path, capsys) -> None:
+    code, err = _run(tmp_path, _manifest(), _page(body), capsys=capsys)
+    assert code == 1
+    assert "from another server" in _failures(err), err
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        '<a href="https://cdn.example/page">link</a>',
+        '<link rel="canonical" href="https://example.org/yazses/">',
+        '<link rel="alternate" hreflang="fa" href="https://example.org/fa/">',
+        '<meta property="og:image" content="https://example.org/p.png">',
+        '<script type="application/ld+json">{"url": "https://example.org/"}</script>',
+        '<script>const docs = "https://example.org/docs"; // from "https://example.org"</script>',
+        "<p>Run <code>import(\'https://cdn.example/x.js\')</code> is only text.</p>",
+        '<img src="data:image/png;base64,AAAA">',
+        '<meta http-equiv="refresh" content="600">',
+    ],
+)
+def test_links_and_metadata_are_not_remote_loads(body, tmp_path, capsys) -> None:
+    code, err = _run(tmp_path, _manifest(), _page(body), capsys=capsys)
+    assert code == 0, err
+
+
+@pytest.mark.parametrize(
+    ("path", "content"),
+    [
+        ("styles.css", '@import "https://cdn.example/a.css";'),
+        ("styles.css", "@font-face { src: url('https://cdn.example/f.woff2'); }"),
+        ("assets/a.svg", '<svg><image href="https://cdn.example/p.png"/></svg>'),
+        ("assets/a.svg", '<svg><use xlink:href="https://cdn.example/s.svg#i"/></svg>'),
+        ("assets/a.svg", '<svg><script href="https://cdn.example/x.js"/></svg>'),
+        ("assets/app.js", 'import "https://cdn.example/x.js";'),
+        ("assets/app.js", 'import {\n  a,\n} from "https://cdn.example/x.js";'),
+        ("assets/app.js", 'export * from "//cdn.example/x.js";'),
+        ("assets/app.js", "importScripts('https://cdn.example/x.js');"),
+        ("assets/app.js", "new Worker(`https://cdn.example/w.js`);"),
+    ],
+)
+def test_stylesheets_vector_images_and_scripts_are_held_to_the_same_rule(path, content, tmp_path, capsys) -> None:
+    files = {**_good_files(), path: content}
+    code, err = _run(tmp_path, _manifest(), files, capsys=capsys)
+    assert code == 1
+    text = _failures(err)
+    assert f"huggingface/showcase/{path}:" in text and "from another server" in text, err
+
+
+def test_a_remote_load_names_the_line_and_drops_the_query_string(tmp_path, capsys) -> None:
+    files = _page('\n\n<script src="https://cdn.example/x.js?key=abc123"></script>')
+    code, err = _run(tmp_path, _manifest(), files, capsys=capsys)
+    assert code == 1
+    assert "index.html:3: loads https://cdn.example/x.js from another server" in _failures(err), err
+    assert "abc123" not in err
+
+
+def _space_with_requirements(text: str) -> tuple[dict, dict]:
+    return _with({"requirements.txt": text}, ["requirements.txt"])
+
+
+def test_plain_requirements_pass(tmp_path, capsys) -> None:
+    text = (
+        "# a comment with https://example.org/\n\n"
+        "faster-whisper>=1.2.1\n"
+        "av>=15,<19  # why: https://example.org/issue\n"
+        "gradio[oauth] == 6.22.0\n"
+        "numpy ; python_version >= '3.11'\n"
+        "torch==2.9.0+cpu\n"
+    )
+    manifest, files = _space_with_requirements(text)
+    code, err = _run(tmp_path, manifest, files, capsys=capsys)
+    assert code == 0, err
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "--index-url https://pypi.example/simple",
+        "--extra-index-url=https://pypi.example/simple",
+        "-f https://pypi.example/wheels",
+        "-r other.txt",
+        "-e .",
+        "git+https://example.org/x/y.git",
+        "https://example.org/pkg-1.0-py3-none-any.whl",
+        "pkg @ https://example.org/pkg.tar.gz",
+        "pkg@https://example.org/pkg.tar.gz",
+        "./vendored",
+        "pkg; python_version > '3' --install-option=x",
+        "pkg \\",
+    ],
+)
+def test_a_requirement_that_fetches_something_else_is_rejected(line, tmp_path, capsys) -> None:
+    manifest, files = _space_with_requirements(f"gradio>=6\n{line}\n")
+    code, err = _run(tmp_path, manifest, files, capsys=capsys)
+    assert code == 1
+    assert "requirements.txt:2: only a package name" in _failures(err), err
+    assert "example.org" not in _failures(err)
+
+
+def test_a_file_that_is_not_utf8_is_reported_without_a_traceback(tmp_path, capsys) -> None:
+    files = {**_good_files(), "index.html": b"<p>\xff</p>", "styles.css": b"a{}\xff"}
+    code, err = _run(tmp_path, _manifest(), files, capsys=capsys)
+    assert code == 1
+    assert "index.html: not valid UTF-8" in _failures(err)
+    assert "styles.css: not valid UTF-8" in _failures(err)
+
+
 # --- selection, approval, plan, export ----------------------------------------------
 
 

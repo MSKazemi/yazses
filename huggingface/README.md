@@ -23,7 +23,11 @@ this repository stays where it is, in particular:
   private results archive, not copied);
 - never the design records, the coding-agent directory, or the strategy tree;
 - never PDFs, audio or video (a tiny synthetic fixture must be named in the manifest),
-  keys, databases, dotfiles, or anything containing a token, a private key, or a home path.
+  keys, databases, dotfiles, or anything containing a token, a private key, or a home path;
+- never code from somewhere else: a published page loads nothing from another server (a
+  clickable link is fine, a remote script, stylesheet, image, font or frame is not), and a
+  Space's `requirements.txt` holds package names and versions only, with no URL, repository,
+  local path or pip option. The manifest cannot switch this off.
 
 `scripts/hf_preflight.py` enforces this offline and read-only. It cannot publish: it
 imports nothing that talks to the Hub, and a test asserts that.
