@@ -947,7 +947,6 @@ class OverlayConfig:
     # window keyboard focus, so the overlay can swallow the dictated text. See
     # docs/troubleshooting.md. Opt in with `yazses features enable overlay`.
     enabled: bool = False            # auto-launch the overlay with the daemon
-    # (on by default; soft no-op when the `overlay` extra / PySide6 is absent)
     style: str = "sonar"             # reserved for future styles
     position: str = "cursor"         # cursor | bottom_center | top_center | corner
     react_to_voice: bool = True      # amplitude-driven vs state-only self-animation

@@ -6,6 +6,12 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — docs: instructions and reference facts that no longer matched the code
+
+- `yazses features enable gaze` and `facegesture` are experimental and refused without `--force`; the capability matrix and two other pages now show it.
+- CLI reference: the overlay was described as on by default with PySide6 in the base install (it is off, and PySide6 comes from the `overlay`/`desktop` extra). `yazses start` setting itself to start at login, `--no-autostart`, and many other shipped options were missing.
+- Architecture pages: wrong configuration defaults, missing daemon states and injection backends, a speech prompt said to include editor context (it does not), and stale ADR paths. A new test holds these facts to the code.
+
 ### Fixed — snap on Wayland: dictated text could not reach the clipboard
 
 The snap's private `XDG_RUNTIME_DIR` does not hold the Wayland socket, so `wl-copy` and `wl-paste` failed with "Failed to connect to a Wayland server": when typing failed, the clipboard fallback failed too and the dictation was lost. The clipboard commands are now given the host socket's full path; the daemon's own environment is unchanged. Where the copy works and nothing can press Ctrl+V, the notification now says the words are on the clipboard instead of that they were not typed.

@@ -619,10 +619,11 @@ Getting characters into the focused window is surprisingly OS- and
 display-server-specific, so on Linux YazSes ships several injector backends and
 picks one automatically (`src/yazses/inject/`):
 
-- **ydotool** — types via the kernel `uinput` device. This works everywhere,
-  **including on Wayland and inside terminals**, which is why it is the default
-  where available.
-- **xdotool** — the classic X11 typing tool; fine on plain X11 sessions.
+- **ydotool** — types via the kernel `uinput` device. It works **on Wayland,
+  inside terminals too**, which is why `auto` takes it first there when
+  `ydotoold` is running.
+- **xdotool** — the classic X11 typing tool, and what `auto` takes on an X11
+  session.
 - **wtype** — a Wayland typing tool, but it is **blocked on GNOME and KDE
   Wayland**, so it can't be relied on there.
 - **clipboard** — copies the text and pastes it. A pragmatic fallback, but a
@@ -632,17 +633,20 @@ picks one automatically (`src/yazses/inject/`):
   `org.freedesktop.portal.RemoteDesktop`, the one Wayland route that survives
   **strict snap confinement**: it needs no `/dev/uinput` device node and no
   `snap connect`, since access rides on the `desktop` plug the snap already
-  declares. Selected on the snap build's Wayland path, after ydotool and before
-  wtype; types by keysym so it stays layout-independent.
+  declares. `auto` ranks it on Wayland after ydotool and before wtype, but takes
+  it only with consent: `[injection] portal_consent = "allow"`, a dialog already
+  answered, or the strict snap. Types by keysym so it stays layout-independent.
 - **unicode** (`inject/unicode.py`, opt-in) — resolves each character
   through `libxkbcommon`'s XKB state and emits key events via a private
   `/dev/uinput` keyboard, to type the non-ASCII characters (accented letters,
   most non-Latin scripts) the ydotool path silently drops on Wayland. Ships
   non-default pending real hardware validation.
 
-At startup, `auto.py` probes the environment and selects the best available
-backend; you can override the choice with the `[injection] backend` config key
-(`auto` | `type` | `clipboard` | `wtype` | `portal` | `unicode`).
+At startup, YazSes probes the environment and selects the best available
+backend from one table (`inject/registry.py`); you can override the choice with
+the `[injection] backend` config key (`auto` | `ydotool` | `type` | `portal` |
+`wtype` | `xdotool` | `unicode` | `clipboard`; `type` is another name for
+`ydotool`).
 
 **Why Wayland needs ydotool.** Wayland deliberately isolates applications from
 one another for security, so an app generally can't synthesise input into a
@@ -733,7 +737,7 @@ Two readings of that chart matter.
 
 **The core is dense and the frontier is thin.** The categories a daily user
 touches — core dictation, formatting, editing — are almost entirely wired. The
-category furthest from done is **multilingual** (5 of 7 designed: `polyglot`,
+category furthest from done is **multilingual** (5 of 8 designed: `polyglot`,
 `langroute`, `compose`, `interpret`, `pronunciation`). Accessibility and input
 modalities is now mostly wired (20 of 25); the five still designed there are
 `loadguard`, `spatialvad`, `lipread`, `sign` and the `[tts] clone_voice` option.

@@ -215,7 +215,7 @@ is Wayland, because neither of those is something a download can fix.
 
 If YazSes came from the macOS `.dmg`, the Windows installer (or winget, Scoop,
 Chocolatey), the MSIX, the snap or the flatpak, the deps cannot be added at all.
-`features enable gaze` says so and writes nothing. Install from PyPI instead
+`features enable gaze --force` says so and writes nothing. Install from PyPI instead
 (`pipx install 'yazses[gaze]'`); see
 [camera permission and packaging](../capability-matrix.md#camera-permission-and-packaging).
 

@@ -130,7 +130,7 @@ state only while it is on screen, and opening it never opens the camera.
 1. Tray icon → **Settings…**.
 2. Under **Accessibility & input modalities**, tick **Hands-Free Preset**, answer **Yes** to the
    experimental warning, then click **Apply**. The window runs the same safety-floor check as
-   `yazses features enable handsfree`: if one of your own settings would weaken it, nothing is written
+   `yazses features enable handsfree --force`: if one of your own settings would weaken it, nothing is written
    and the message names the key. On a Python install (pip, pipx, uv) that lacks the camera libraries,
    Apply installs them (mediapipe and OpenCV) first; the winget and Homebrew app bundles cannot add them.
 3. Tray icon → **Restart daemon**.

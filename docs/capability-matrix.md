@@ -165,9 +165,10 @@ code in that download could do.
 | the flatpak | ❌ no | --device=all | ❌ no |
 
 **If you need the camera features, install from PyPI** — `pipx install 'yazses[gaze]'`
-— and then `yazses features enable gaze`.
+— and then `yazses features enable gaze --force`
+(the camera gaze and face-gesture features are experimental).
 
-In those five formats `yazses features enable gaze` (and `facegesture`, `headpointer`,
+In those five formats `yazses features enable gaze --force` (and `facegesture`, `headpointer`,
 `yazses handsfree enable`, and the tray's Hands-free panel) refuses **before it writes
 your config**. It says the package cannot add libraries and names the PyPI install. The
 camera feature is never switched on in a package that could not run it.
