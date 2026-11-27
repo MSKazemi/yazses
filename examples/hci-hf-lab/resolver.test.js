@@ -381,3 +381,47 @@ test("the ambiguity distance is Euclidean: it separates a corner case that other
   assert.equal(clear.target, "a");
 });
 
+
+// ---- unknown ages and impossible confidences fail closed --------------------------------------
+
+const BAD_AGES = [undefined, null, -1, NaN, Infinity, "0"];
+
+test("an unknown or negative gaze age is never fresh", () => {
+  for (const age of BAD_AGES) {
+    const r = R.resolve(withGaze("correct_target", { age_ms: age }), FX);
+    assert.equal(r.decision, "abstain", String(age));
+    assert.match(r.reasons.join(" "), /Gaze sample age is unknown/);
+    assert.equal(r.stages.gaze.freshness, "unknown");
+    assert.equal(r.stages.gaze.age_ms, null);
+  }
+});
+
+test("an unknown or negative activation age never activates", () => {
+  for (const age of BAD_AGES) {
+    const inputs = scenario("correct_target");
+    inputs.activation.age_ms = age;
+    const r = R.resolve(inputs, FX);
+    assert.equal(r.decision, "abstain", String(age));
+    assert.match(r.reasons.join(" "), /Activation age is unknown/);
+    assert.equal(r.stages.activation.freshness, "unknown");
+    assert.equal(r.stages.activation.age_ms, null);
+  }
+});
+
+test("a confidence above 1 is invalid in every stream, not extra certainty", () => {
+  for (const stream of ["gaze", "voice", "activation"]) {
+    const inputs = scenario("correct_target");
+    inputs[stream].confidence = 92; // a percentage passed where a fraction belongs
+    const r = R.resolve(inputs, FX);
+    assert.equal(r.decision, "abstain", stream);
+    assert.match(r.reasons.join(" "), /above 1, so it is invalid/);
+  }
+});
+
+test("emergency stop still wins over unknown ages", () => {
+  const inputs = scenario("correct_target");
+  delete inputs.gaze.age_ms;
+  delete inputs.activation.age_ms;
+  inputs.emergency_stop = true;
+  assert.equal(R.resolve(inputs, FX).decision, "stop");
+});

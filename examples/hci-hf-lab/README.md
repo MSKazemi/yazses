@@ -56,7 +56,7 @@ with `uv run python -m pytest tests/test_hci_hf_lab.py`.
 | `fixtures.manifest.json` | Generated: schema version, scenario ids and the SHA-256 of the two data files. `node eval/make_manifest.js` writes it; `--check` fails when it is stale. Never edit by hand. |
 | `resolver.test.js` | `node:test` unit tests, including every fixture scenario. |
 | `ui.test.js` | Drives the real `app.js` against a stub DOM for every scenario, so a render that throws or prints `NaN`/`undefined`/`null` fails. Not a browser. |
-| `eval/replay.js` | Deterministic replay report: decision counts, wrong actions, abstention, confirmation burden, simulated latency. `node eval/replay.js [--json]`. |
+| `eval/replay.js` | Deterministic replay report: timing check, decision counts, wrong actions, abstention, confirmation burden, simulated latency, abstention/error trade-off. `node eval/replay.js [--json]`. |
 | `eval/replay.test.js` | `node:test` tests for the report, including cases that force each counter. |
 | `eval/make_manifest.js` | Generator and `--check` for `fixtures.manifest.json`. |
 | `DATASET_CARD.draft.md` | Draft dataset card. Not for upload yet. |
@@ -68,11 +68,12 @@ The first rule that fires decides. Thresholds live in `fixtures.js` under `thres
 1. A stop intent or the emergency stop gives **stop**. Stop always wins; the Escape key triggers it.
 2. No activation gives **abstain**.
 3. An invalid activation gives **abstain** with the specific reason: an activation kind the
-   configuration does not know, low or unknown confidence, a stale sample, an EMG hold shorter than
+   configuration does not know, low, unknown or above-1 confidence, a stale sample or one of
+   unknown age, an EMG hold shorter than
    `emg_min_hold_ms`, or a repeated blink inside `blink_refractory_ms` (or repeated with an unknown
    gap, which is treated as accidental).
-4. Target resolution. If voice names a target and gaze is unusable (disconnected, unknown or
-   low confidence, or stale), the named target is used. If gaze is usable and voice names a
+4. Target resolution. If voice names a target and gaze is unusable (disconnected, unknown, low
+   or above-1 confidence, stale, or of unknown age), the named target is used. If gaze is usable and voice names a
    different window, the modalities conflict: **abstain**. With no named target, unusable
    gaze or a gaze point on no window gives **abstain** and suggests the keyboard or voice.
    Otherwise the gazed window is the target. Then three checks on that target:
@@ -81,13 +82,14 @@ The first rule that fires decides. Thresholds live in `fixtures.js` under `thres
    gaze alone is **ambiguous** (**abstain**) when the gaze point is within
    `ambiguity_margin_pct` of another window. Naming the target by voice settles an
    ambiguous gaze point.
-5. Low voice confidence gives **abstain**.
+5. Low or above-1 voice confidence gives **abstain**.
 6. Risk. Destructive intents (delete, send) and any EEG/EOG activation always give
    **ask_confirmation**.
 7. Otherwise **accept**, which is a proposal only.
 
 A confidence of `null` means **unknown**, which is not zero: the stream is treated as
 unusable and the reason says "unknown"; the page shows it as "unknown" until you move that slider.
+An `age_ms` that is absent, not a number or negative is unknown too, and unknown is never fresh.
 The `quality` annotation (`good`, `degraded`,
 `unknown`) is data for evaluators; the resolver decides from confidence and age only.
 
@@ -126,7 +128,16 @@ intended one. The shipped fixtures contain none; a unit test builds one to prove
 denominators. It is a regression check on the resolver, not a benchmark: the scenarios are
 hand-written, so "21 / 21 match" says the resolver does what the fixture author expected and
 nothing about any device or person. It does not report a false-activation rate per hour, because
-the scenarios cover about 21 simulated seconds and an hourly figure would be invented. Real
+the scenarios cover about 21 simulated seconds and an hourly figure would be invented.
+
+Before resolving a scenario, the harness checks its timing: arrival order, timestamps that never
+go back unless flagged `out_of_order`, no event after the decision, and an `age_ms` that follows
+from the last gaze sample or activation event. A scenario that fails is listed under timing
+violations, nothing is proposed from it (a stop still wins), and the command exits 1.
+
+The trade-off table replays the set with one shared confidence floor, from 0.0 to 1.0, in place of
+the gaze, voice and activation minimums. It shows how wrong actions, abstentions and missed
+accepts move on these hand-written scenarios. It does not recommend a threshold. Real
 participant validation is a separate study (issue
 [#419](https://github.com/MSKazemi/yazses/issues/419)).
 

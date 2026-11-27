@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — HCI lab replay: an unknown signal age is no longer read as fresh, and the harness checks timing ([#700](https://github.com/MSKazemi/yazses/issues/700))
+
+Research prototype under `examples/hci-hf-lab/` only; nothing in YazSes itself changes. The synthetic resolver treated an absent or negative `age_ms` as a fresh sample, and a confidence above 1 as passing; it now abstains on both, and an emergency stop still wins. `eval/replay.js` now checks each scenario's timeline itself (arrival order, monotonic timestamps, ages that follow from the events), proposes nothing from a scenario that breaks a rule, and exits 1. The report also gains an abstention/error trade-off table: the synthetic set replayed over a fixed grid of confidence floors. These are counts on hand-written scenarios, not measurements of a device or a person, and no threshold is recommended.
+
 ### Fixed — the Hugging Face preflight now rejects external code (#723)
 
 `scripts/hf_preflight.py` accepted a published page that loaded a script, stylesheet, image or frame from any `https` address, and a Space `requirements.txt` that installed from a URL or another package index. Both now fail the preflight, so they also stop the publish workflow. Links a visitor clicks and metadata such as `rel="canonical"` still pass. A file that is not valid UTF-8 is now reported as a failure instead of ending the run with a traceback. The check reads source text: it does not see a URL that a script builds at run time.
