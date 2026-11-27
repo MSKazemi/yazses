@@ -287,6 +287,10 @@ The snap used an X11 key grab whenever an X display existed, which on Wayland se
 
 `scripts/check-release-channels.py`, which the release completeness check and the daily channel drift watch run, no longer asks AUR, Flathub or nixpkgs for the new version. None of the three has accepted a first submission, so no tag could publish to them and the completeness check stayed red whatever shipped. Their recipes (`packaging/arch/`, `packaging/flatpak/`, `flake.nix`) are unchanged, and each check can be restored from git history when its channel accepts a submission. The check still fails while a channel the project does publish to lacks the version.
 
+### Fixed — release page: the Snap and pipx install commands did not work as written
+
+The text published on every GitHub release installed the snap with `--classic`, although it is strictly confined, and named neither `snap connect` command, so the result had no microphone. Its pipx steps enabled a systemd service that a pipx install has not created at that point. Both now match the [Linux install guide](docs/install-linux.md). Earlier release pages are unchanged.
+
 ## [2.52.0] - 2026-11-26
 
 ### Fixed — PyAV raised to 18.1.1: 18.1.0 was withdrawn for memory corruption when decoding some audio

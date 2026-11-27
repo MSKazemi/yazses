@@ -51,6 +51,20 @@ def test_snap_store_description_states_the_two_required_connections() -> None:
     assert "yazses setup" not in install_block
 
 
+def test_the_release_page_installs_the_snap_with_both_connections() -> None:
+    """The release body in `release.yml` is published again at every tag.
+
+    It said `snap install yazses --classic` for a strictly confined snap and named
+    neither connection, so following it gave an install with no microphone.
+    """
+    workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+    block = workflow.split("**Snap:**", 1)[1].split("```bash", 1)[1].split("```", 1)[0]
+    assert "--classic" not in block
+    assert "sudo snap connect yazses:audio-record" in block
+    assert "sudo snap connect yazses:raw-input" in block
+    assert "yazses setup" not in block
+
+
 def test_snap_store_description_keeps_the_offline_claim_qualified() -> None:
     """"Offline" without "by default" is a claim the app does not make.
 
