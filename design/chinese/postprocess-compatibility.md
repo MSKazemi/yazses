@@ -17,6 +17,10 @@ cell was produced by running synthetic text through the real pipeline, not infer
 > byte for byte, including the `meeting relabel` round trip
 > (`tests/test_cjk_meeting_outputs.py`). Still model-free: no ASR, LLM or desktop was run.
 
+> **Follow-up (2026-11-27):** findings F12 to F16 in §3 fix opt-in surfaces that were not
+> audited before (staged dictation, Punch-In, Prosody Ink, prosodic punctuation, word
+> counts, field-aware shaping). Model-free (`tests/test_cjk_review_surfaces.py`).
+
 > **Current follow-up (2026-10-29):** The fixed findings below describe
 > landed model-free code, but no real ASR/desktop evidence was performed as
 > part of this audit. The MCP configuration propagation defect (F6) was fixed by `8523d472` on
@@ -47,7 +51,7 @@ revise parser, and continuation spacing. Everything else in the daemon's transfo
 | 8 | Disfluency tail: collapse double spaces | `disfluency.py:69` | on | ASCII spaces | **CJK-safe** | `你好  世界` → `你好 世界` (collapses, never inserts); U+3000 is treated as whitespace by `split()` in step 6 and becomes `" "` | keep; note only | — |
 | 9 | Command classifier + revise parser | `src/yazses/core/daemon.py:2934` (`parse_revise`), `:2855` (`classify`); grammar `[commands] language`, `config.py:433` | on | per-language grammar (`en`, `zh`) | **Language-specific** (a `zh` grammar exists) | None of the identity vectors was classified as a command under either `stt.language`. Command grammar correctness is its own track (`tests/test_chinese_command_grammar.py`). | out of scope here | identity set |
 | 10 | Continuation spacing | `src/yazses/postprocess/spacing.py:32`, `:51-63`; wired at `src/yazses/core/daemon.py:3228`; window default `config.py:259` (30 s) | on | a burst follows another word; closing punctuation is ASCII/Persian only | **ASCII/space-dependent** | Every second burst within 30 s gets a leading space: `今天测试。` → ` 今天测试。`. A full-width closer is not in the suppression set: `，然后` → ` ，然后`. | **F1, F2 — fixed** (`previous_tail`; contract 7.1.0, `contract/vectors/spacing.json`) | `test_second_han_burst_*`, `test_burst_opening_with_a_fullwidth_comma_*` |
-| 11 | Inject log line `len(text.split())` "words" | `src/yazses/core/daemon.py:2719` | on | whitespace words | **ASCII/space-dependent** (log only) | Reports a Han run as 1 word. Metadata only; no behaviour depends on it. | note only — still open; `core/daemon.py` is being edited on another branch | — |
+| 11 | Inject log line `len(text.split())` "words" | `src/yazses/core/daemon.py:2719` | on | whitespace words | **ASCII/space-dependent** (log only) | Reports a Han run as 1 word. Metadata only; no behaviour depends on it. | **Fixed** (2026-11-27, F15: `cjk.count_words`) | `test_count_words_*` |
 
 Not a postprocessor but the same assumption, tracked separately (CHN-R05 in
 [risk-register.md](risk-register.md), COMP-04): `meeting/quality.py::tokenize()` counts each Han
@@ -69,7 +73,7 @@ inert).
 | Step | Evidence | Class | Note |
 |---|---|---|---|
 | Spoken punctuation | `src/yazses/postprocess/voice_punctuation.py:39-51` (`\b` + English phrases) | Language-specific, **ASCII output** | Inert on Han text that holds no English punctuation word. Probed 2026-11-06 (not pinned by a test, because another branch is changing this module): an English mark word spoken between Han clauses becomes an **ASCII** mark and the space before the next clause stays — `你好 comma 世界 period` → `你好, 世界.`; `我说 question mark` → `我说?`. A mark word glued to Han is not matched (`你好comma世界` is unchanged, because a Han character is a `\w` character and there is no `\b`). No Han character is lost. Full-width output and a Chinese spoken-punctuation table are feature work. |
-| Prosody Ink | `src/yazses/postprocess/prosody.py:162-219` (`text.split()` aligned by index to word timings; `" ".join` at `:92`) | ASCII/space-dependent | Whisper word timestamps for Mandarin are not whitespace tokens, so token/word alignment would not hold. Exclude for `zh` until measured (matrix says "exclude if destructive"). |
+| Prosody Ink | `src/yazses/postprocess/prosody.py::annotate` (`text.split()` aligned by index to word timings) | ASCII/space-dependent | Whisper word timestamps for Mandarin are not whitespace tokens, so token/word alignment does not hold. **Excluded** for text holding CJK (F14). |
 | Phonetic corrector | `src/yazses/postprocess/phonetic.py:52` (`[^a-z]` key) | Language-specific | Latin sound keys only; inert on Han. |
 | LLM cleanup | `src/yazses/postprocess/llm_cleanup.py:124-141` (critical-token guard) | not audited | Off; token guard is whitespace-token based. |
 | Han script normaliser | `src/yazses/postprocess/han_script.py:121-135` | CJK-specific | Off until `[stt] chinese_script` is set; no-op without Han (`contains_han`). Wired in the STT factory and, since F6, in the file-transcription engine builder (`recimport/pipeline.py::_build_engine`). |
@@ -90,6 +94,11 @@ inert).
 | F8 | `recimport/align.py`, `recimport/subtitles.py`, `meeting/notes.py`, `meeting/store.py::live_text` | Per-character Mandarin word tokens were re-joined with `" "` (`你 好 ， 世 界`) in utterances, JSON words and captions. Captions were measured in code points and broken only at spaces. A long Mandarin turn could not be split for the notes window. | **Fixed.** See §5. |
 | F9 | `inject/unicode.py`, `inject/ydotool.py` | The XKB/uinput path raised on the first character the layout lacks, but only *after* typing everything before it. The clipboard fallback then typed the prefix a second time (`YazSes YazSes 版本`). | **Fixed.** The whole burst is resolved before the first keystroke. See §5. |
 | F7 | `postprocess/hallucination.py` | Han text erased by `_norm`, so a real sentence could be dropped as a ghost phrase or loop. | **Fixed** (opt-in guard). |
+| F12 | `staged/buffer.py::join_chunks` | Two staged Mandarin bursts were joined with a space, unlike the same bursts typed directly. | **Fixed** (2026-11-27): `cjk.needs_space`. |
+| F13 | `postprocess/punch_in.py` | Spans were whitespace words, so a Han clause was one span and a partial respeak could replace all of it. | **Fixed** (2026-11-27): `cjk.break_units`, one unit per character. A respeak that ends in `。` can still place that mark inside the clause, as a trailing `.` does in English; `--dry-run` shows it. |
+| F14 | `postprocess/prosody.py::annotate`, `prosodypunct/apply.py` | Pause timings were matched to the wrong tokens, paragraph breaks and ASCII marks could land in Han text. | **Excluded** (2026-11-27): text holding CJK is returned unchanged. Pause formatting for Mandarin needs character-level alignment and measurement. |
+| F15 | `core/daemon.py` (staged counts, inject log), `cli.py` `staged commit`, `staged/buffer.py::describe`, `wordgoal/tracker.py` | `split()` counted a Han clause as one word. | **Fixed** (2026-11-27): `cjk.count_words`. |
+| F16 | `fieldaware/profile.py::apply_profile` | A search field kept a trailing `。`. | **Fixed** (2026-11-27). |
 | F10 | `meeting/notes.py` (`window_turns`, `_split_long_text`, `batch_partials`, `line_overhead_chars`) | The minutes window was sized with `CHARS_PER_TOKEN = 3.0`, an English ratio. With the shipped 4096/1024 context that is 8,616 characters, and 8,616 Han characters fit the 2,872 tokens left for transcript only if a tokenizer packs three Han characters into one token. Past that, llama.cpp raises (the window is skipped) or clips `max_tokens` (the JSON is cut off). | **Fixed** (2026-11-06). `notes.budget_len` charges each CJK character its UTF-8 length in tokens (3, or 4 for an astral extension): an upper bound for any tokenizer whose tokens each cover at least one byte (byte-level BPE, SentencePiece with byte fallback). Text without CJK costs exactly `len(text)`, Hypothesis-checked. A bound, not a measurement: no model's Mandarin token rate was measured, so Mandarin windows are likely smaller than they need to be (about 950 Han characters at the defaults); that costs extra map calls, not content. `tests/test_meeting_notes_cjk_budget.py`. |
 | F11 | `meeting/notes.py::_merge_partials` | The lossless fallback used when a reduce call fails joined window summaries with `" "`, so two Mandarin summaries read `会议讨论了进度。 决定下周发布。`. | **Fixed** (2026-11-06): `cjk.join_pieces`, which is `" ".join` for text without CJK. |
 
@@ -126,10 +135,14 @@ checks that property with Hypothesis.
 
 **Not fixed, recorded:**
 
-- `cli.py` `staged commit`, the daemon's `staged discard` reply and `staged/buffer.py` count
-  "words" with `split()`, so a Mandarin buffer reports one "word" per clause. The effect is
-  cosmetic (a message), and Staged mode is off by default.
-- The opt-in surfaces (`srpace`, staged dictation, Prosody Ink) were not re-audited.
+- `srpace/schedule.py` (opt-in) splits only at ASCII punctuation followed by a space, so
+  Mandarin is typed as one unpaced chunk. No character is changed. Pacing it needs a reading
+  rate for Chinese screen readers, which nobody has measured here.
+- Interruptible Proofreading (opt-in) counts `text.split()` words, so a barge-in on Mandarin
+  replaces from the start of the unspaced run, not from the character being read.
+- `yazses tune --retranscribe` builds a bare Whisper engine, so its re-transcription is not
+  converted to `[stt] chinese_script`.
+- The coach and learning analytics tokenise `[a-z0-9']` and see no Han text.
 - Spoken punctuation (opt-in) turns an English mark word between Han clauses into an ASCII mark
   and keeps the space (§2). Recorded, not changed: another branch owns `voice_punctuation.py`.
 - COMP-06..09 (injection on real X11, Wayland, macOS and Windows sessions) need a person on

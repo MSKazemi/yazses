@@ -16,6 +16,7 @@ dependencies, so each caller can stay byte-identical for text that holds no CJK:
   that sits in front of each.
 * :func:`glue_word_tokens` -- regroup a recogniser's word tokens so a Latin word or a
   number decoded in pieces inside Mandarin comes back whole.
+* :func:`count_words` -- the number a "N words" message should show.
 
 **English is unchanged by construction.** Every function here returns what the
 whitespace-only code returned whenever neither side of a seam is CJK; the CJK branch
@@ -193,6 +194,39 @@ def display_width(text: str) -> int:
     return len(text) + sum(1 for ch in text if is_cjk(ch))
 
 
+# --- counting ---------------------------------------------------------------------------
+
+
+def _counts_alone(ch: str) -> bool:
+    """An unspaced letter that is a unit of its own; full-width ``ＡＢＣ１２３`` are not."""
+    return is_unspaced_letter(ch) and not (0xFF10 <= ord(ch) <= 0xFF5A)
+
+
+def count_words(text: str) -> int:
+    """Words in *text*, for a count shown to the user.
+
+    Text with no CJK gives ``len(text.split())``, as before. Otherwise each unspaced
+    letter (Han, kana, Bopomofo) counts one -- the usual 字数 convention -- and each run
+    of other characters holding a letter or digit (``YazSes``, ``v2.0``) counts one.
+    Punctuation counts nothing. These are counting units, not segmented words.
+    """
+    text = text or ""
+    if not contains_cjk(text):
+        return len(text.split())
+    count = 0
+    in_run = False
+    for ch in text:
+        if _counts_alone(ch):
+            count += 1
+            in_run = False
+        elif ch.isspace() or is_cjk_punct(ch):
+            in_run = False
+        elif ch.isalnum() and not in_run:
+            count += 1
+            in_run = True
+    return count
+
+
 # --- line-break units ---------------------------------------------------------------
 
 
@@ -313,6 +347,7 @@ def glue_word_tokens(raw_tokens: Sequence[str]) -> list[list[int]]:
 __all__ = [
     "break_units",
     "contains_cjk",
+    "count_words",
     "display_width",
     "glue_word_tokens",
     "is_cjk",

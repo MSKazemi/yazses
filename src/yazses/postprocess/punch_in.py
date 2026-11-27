@@ -9,11 +9,17 @@ candidates for the user to confirm rather than auto-splicing; the daemon/UI laye
 
 Alignment uses stdlib ``difflib`` (no third-party dependency). Spec:
 design/specs/punch-in.md.
+
+"Words" are ``postprocess/cjk.py::break_units``: whitespace-separated words, and single
+characters inside Chinese or Japanese. With whitespace words a whole Chinese clause was
+one span, so re-speaking part of it replaced all of it (#501).
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 from difflib import SequenceMatcher
+
+from yazses.postprocess.cjk import break_units, render_units
 
 
 @dataclass(frozen=True)
@@ -42,19 +48,19 @@ def propose_corrections(
     Returns up to ``max_candidates`` candidates with similarity >= ``min_score``,
     best first. Empty when either input is blank or nothing clears the threshold.
     """
-    words = buffer.split()
+    words = break_units(buffer)
     respoken = respoken.strip()
     if not words or not respoken:
         return []
 
-    r = len(respoken.split())
+    r = len(break_units(respoken))
     window_sizes = {max(1, r - 1), r, r + 1}
 
     cands: list[Candidate] = []
     for w in window_sizes:
         for start in range(0, len(words) - w + 1):
             end = start + w
-            span = " ".join(words[start:end])
+            span = render_units(words[start:end])
             score = _ratio(span, respoken)
             if score >= min_score:
                 cands.append(Candidate(start, end, score, span, respoken))
@@ -88,6 +94,9 @@ def apply_top_candidate(
     if not cands or choose < 0 or choose >= len(cands):
         return None, cands
     chosen = cands[choose]
-    words = buffer.split()
-    corrected = words[: chosen.start_word] + chosen.new_text.split() + words[chosen.end_word :]
-    return " ".join(corrected), cands
+    words = break_units(buffer)
+    new = break_units(chosen.new_text)
+    # The replacement joins the text before it the way the replaced span did.
+    new[0] = (words[chosen.start_word][0], new[0][1])
+    corrected = words[: chosen.start_word] + new + words[chosen.end_word :]
+    return render_units(corrected), cands

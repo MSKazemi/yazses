@@ -6,6 +6,18 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — Mandarin: opt-in staged dictation, Punch-In, pause formatting and word counts ([#501](https://github.com/MSKazemi/yazses/issues/501))
+
+All of these are off by default, except the count in the daemon's log line, and text with no Chinese or Japanese character behaves as before.
+
+- **Staged dictation** put a space between two Chinese bursts (`你好 世界`). The bursts now join as unstaged dictation does.
+- **Punch-In** saw a Chinese clause as one word, so re-speaking part of it could replace all of it. It now matches single characters.
+- **Prosody Ink and prosodic punctuation** attached pauses to the wrong places in Chinese, whose word timings are not space-separated words, and wrote ASCII marks. Both now leave such text unchanged.
+- **"N words" counts** (staged mode, `yazses wordgoal`, the daemon log) counted a Chinese sentence as one word. Each Chinese or Japanese character now counts as one.
+- **Field-aware search fields** now drop a trailing full-width mark such as `。`, as they already drop `.`.
+
+Tested with synthetic text only; no model, desktop or native-speaker check.
+
 ### Fixed — snap on Wayland: dictated text could not reach the clipboard
 
 The snap's private `XDG_RUNTIME_DIR` does not hold the Wayland socket, so `wl-copy` and `wl-paste` failed with "Failed to connect to a Wayland server": when typing failed, the clipboard fallback failed too and the dictation was lost. The clipboard commands are now given the host socket's full path; the daemon's own environment is unchanged. Where the copy works and nothing can press Ctrl+V, the notification now says the words are on the clipboard instead of that they were not typed.

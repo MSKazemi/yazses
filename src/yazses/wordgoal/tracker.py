@@ -7,14 +7,19 @@ from __future__ import annotations
 
 import re
 
-_WORD = re.compile(r"\S+")
+from yazses.postprocess.cjk import count_words as _count_words
+
 _GOAL = re.compile(r"\b(?:goal|target)\b(?:\s+(?:of|to|is|:))?\s+(\d+)|\bset\s+(?:my\s+)?goal\s+(?:to\s+)?(\d+)",
                    re.IGNORECASE)
 
 
 def count_words(text: str) -> int:
-    """Count whitespace-delimited words in ``text``. Pure."""
-    return len(_WORD.findall(text or ""))
+    """Count the words in ``text``. Pure.
+
+    Whitespace-delimited words; in Chinese or Japanese text, which has no spaces between
+    words, each character counts (``postprocess/cjk.py::count_words``).
+    """
+    return _count_words(text)
 
 
 def render_progress(count: int, goal: int) -> str:

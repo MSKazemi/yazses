@@ -28,6 +28,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from yazses.config import ProsodyConfig
+from yazses.postprocess.cjk import contains_cjk
 
 log = logging.getLogger(__name__)
 
@@ -175,8 +176,13 @@ def annotate(
     ``text`` (post clean_text + disfluency); ``words`` supply timing/emphasis only,
     aligned by index, so a token-count mismatch degrades to plain spacing rather
     than raising. ``latency_ms`` is measured for the spec's latency valve.
+
+    Text holding Chinese or Japanese is returned untouched: its word timings are not
+    whitespace tokens, so a pause would be attached to the wrong place (#501).
     """
     t0 = time.monotonic()
+    if contains_cjk(text):
+        return ProsodyResult(text=text, paragraph_breaks=0, emphasized=0, latency_ms=0.0)
     tokens = text.split()
     if not tokens:
         return ProsodyResult(text="", paragraph_breaks=0, emphasized=0, latency_ms=0.0)

@@ -11,6 +11,8 @@ matter more than coverage, because a punctuation pass that mangles prose is wors
 * **No alignment, no change.** Word timings come from the decoder and the text from many later
   transforms (number normalisation can turn two words into one). When the counts disagree the
   pauses cannot be trusted to belong to the right words, so the text is returned untouched.
+  Chinese and Japanese text is always left alone for the same reason: its word timings are not
+  whitespace tokens, and the marks written here are the ASCII ones (#501).
 
 Pitch cues (``terminal_rise``) are accepted but the daemon does not supply them yet, so today
 this is pause-driven only and never writes a question mark.
@@ -21,6 +23,7 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from yazses.postprocess.cjk import contains_cjk
 from yazses.prosodypunct.punctuate import boundary_marks
 
 _TOKEN = re.compile(r"\S+")
@@ -68,7 +71,7 @@ def punctuate_text(
     wholly lower-case next word is capitalised.
     """
     matches = list(_TOKEN.finditer(text))
-    if len(matches) < 2 or len(matches) != len(word_spans):
+    if contains_cjk(text) or len(matches) < 2 or len(matches) != len(word_spans):
         return PunctuationResult(text, 0, 0)
 
     pause_after_ms = [

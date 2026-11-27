@@ -91,6 +91,7 @@ from yazses.platform.base import (
     IpcServer,
     TrayState,
 )
+from yazses.postprocess.cjk import count_words
 from yazses.postprocess.cleaner import clean_text
 from yazses.postprocess.llm_cleanup import LlmCleaner, build_cleaner
 from yazses.postprocess.prosody import Word, annotate
@@ -5135,7 +5136,7 @@ class Daemon:
                     return
 
             # INFO: metadata only (length); DEBUG: the actual text.
-            log.info("Injecting %d chars, %d words.", len(text), len(text.split()))
+            log.info("Injecting %d chars, %d words.", len(text), count_words(text))
             log.debug("Injecting text: %r", text)
             with self._lock:
                 self._state.state = TrayState.INJECTING
@@ -6455,7 +6456,7 @@ class Daemon:
 
         if action == "discard":
             dropped = self._staged.discard()
-            return {"ok": True, "discarded_words": len(dropped.split()),
+            return {"ok": True, "discarded_words": count_words(dropped),
                     "pending": self.staged_state()}
 
         if action == "undo":
@@ -6470,7 +6471,7 @@ class Daemon:
             "enabled": self._config.staged.enabled,
             "spoken_commit": self._config.staged.spoken_commit,
             "bursts": len([c for c in self._staged.chunks if c.strip()]),
-            "words": len(self._staged.text.split()),
+            "words": count_words(self._staged.text),
             "preview": self._staged.preview(),
             "summary": staged_describe(self._staged),
         }
@@ -7050,9 +7051,9 @@ class Daemon:
             return None
         self._staged.stage(text)
         event["staged_action"] = "stage"
-        event["staged_pending_words"] = len(self._staged.text.split())
+        event["staged_pending_words"] = count_words(self._staged.text)
         log.info("Staged %d word(s); %d burst(s) pending.",
-                 len(text.split()), len(self._staged.chunks))
+                 count_words(text), len(self._staged.chunks))
         return None
 
     def _notify_staged(self, message: str) -> None:
