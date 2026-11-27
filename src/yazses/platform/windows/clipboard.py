@@ -27,7 +27,8 @@ as CF_UNICODETEXT and the app reads it with ``GetClipboardData``. The only
 keystroke sent is Ctrl+V, as ordinary virtual keys.
 
 The cost is the clipboard, so this is **opt-in** (``[injection] backend =
-"clipboard"``) and the previous contents are saved and put back. Terminals where
+"clipboard"``) and the previous contents are saved and put back -- unless Ctrl+V
+could not be sent, when the dictation stays on the clipboard instead. Terminals where
 Ctrl+V is literal, and password fields that refuse paste, are the known
 trade-off — the same one ``inject/clipboard.py`` documents for Linux.
 """
@@ -187,6 +188,11 @@ def _write_unicode_text(user32, kernel32, text: str) -> None:
         raise OSError(f"SetClipboardData failed (lastError={err})")
 
 
+def _windows_newlines(text: str) -> str:
+    """*text* with CR LF line breaks, which CF_UNICODETEXT specifies. Pure."""
+    return text.replace("\r\n", "\n").replace("\n", "\r\n")
+
+
 def _ctrl_v_events() -> list[tuple[int, int]]:
     """(vk, flags) pairs for Ctrl down, V down, V up, Ctrl up.
 
@@ -223,10 +229,17 @@ class WindowsClipboardInjector:
         previous: str | None = None
         with _Clipboard(user32):
             previous = _read_unicode_text(user32, kernel32)
-            _write_unicode_text(user32, kernel32, text)
+            _write_unicode_text(user32, kernel32, _windows_newlines(text))
 
         time.sleep(_SETTLE_S)
-        self._send_ctrl_v(user32)
+        if not self._send_ctrl_v(user32):
+            # Restoring now would remove the only copy of what the user said. Leave
+            # it there and raise, so the daemon says where it is.
+            from yazses.inject.clipboard import PasteUnavailable
+
+            raise PasteUnavailable(
+                "Copied to the clipboard, but Windows did not accept Ctrl+V"
+            )
 
         if previous is None:
             # Nothing restorable was there (empty, or a non-text format we must
@@ -244,23 +257,33 @@ class WindowsClipboardInjector:
                 "the dictated text is still on the clipboard.", exc_info=True
             )
 
-    def _send_ctrl_v(self, user32) -> None:
+    def _send_ctrl_v(self, user32) -> bool:
+        """Press Ctrl+V. False when Windows did not take the whole keystroke."""
         events = _ctrl_v_events()
+        sent = self._send_vk_events(user32, events)
+        if sent == len(events):
+            return True
+        err = ctypes.get_last_error()
+        # As in WindowsInjector.inject: an elevated window never shows up here.
+        log.warning(
+            "SendInput sent %d/%d Ctrl+V events (lastError=%d): keyboard input is "
+            "blocked right now (another program, or the secure desktop).",
+            sent, len(events), err,
+        )
+        if sent:
+            # Part of the chord went down: release it rather than leave Ctrl held.
+            self._send_vk_events(user32, [e for e in events if e[1] & KEYEVENTF_KEYUP])
+        return False
+
+    @staticmethod
+    def _send_vk_events(user32, events: list[tuple[int, int]]) -> int:
         inputs = (_INPUT * len(events))()
         for i, (vk, flags) in enumerate(events):
             inputs[i].type = INPUT_KEYBOARD
             inputs[i].ki = _KEYBDINPUT(
                 wVk=vk, wScan=0, dwFlags=flags, time=0, dwExtraInfo=INJECTED_TAG
             )
-        sent = user32.SendInput(len(inputs), inputs, ctypes.sizeof(_INPUT))
-        if sent != len(inputs):
-            err = ctypes.get_last_error()
-            # As in WindowsInjector.inject: an elevated window never shows up here.
-            log.warning(
-                "SendInput sent %d/%d Ctrl+V events (lastError=%d): keyboard input is "
-                "blocked right now (another program, or the secure desktop).",
-                sent, len(inputs), err,
-            )
+        return user32.SendInput(len(inputs), inputs, ctypes.sizeof(_INPUT))
 
     # ------------------------------------------------------------------
 

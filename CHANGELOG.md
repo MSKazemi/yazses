@@ -6,6 +6,16 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — text injection: dictation that was lost, doubled or altered
+
+- **Wayland, ydotool 1.x:** a backslash in the text was read as an escape (`ydotool type` does this by default from 1.0.4), so `C:\Users` lost two characters and a literal `\n` pressed Enter, with no error. Text containing a backslash is now typed with escapes off.
+- **Wayland, accented or non-Latin text:** where ydotool could type but YazSes could not open `/dev/uinput`, the ASCII start of the sentence was typed and the clipboard fallback then pasted the whole sentence after it. Both paths are now checked before the first keystroke.
+- **Clipboard fallback:** when the copy worked and Ctrl+V failed, the notice said the text could not be typed. It now says the words are on the clipboard.
+- **Linux, a timed-out correction:** a backspace or selection run that timed out part-way was sent again in full through the fallback, which could delete or select your own text. It is no longer replayed; the failure is reported.
+- **Windows:** line breaks and tabs are now sent as the Enter and Tab keys; sent as characters, many applications ignored them. In a chat app, a dictated "new line" therefore presses Enter, as it already did on Linux.
+- **Windows, `backend = "clipboard"`:** when Windows refused Ctrl+V, the previous clipboard was restored over the dictation, which was then gone with no error. The dictation now stays on the clipboard and you are told. Pasted line breaks use the Windows CR LF form.
+- **`backend = "unicode"`:** a line break pressed the Linefeed key or failed the whole burst; it now presses Enter.
+
 ### Fixed — snap on Wayland: dictated text could not reach the clipboard
 
 The snap's private `XDG_RUNTIME_DIR` does not hold the Wayland socket, so `wl-copy` and `wl-paste` failed with "Failed to connect to a Wayland server": when typing failed, the clipboard fallback failed too and the dictation was lost. The clipboard commands are now given the host socket's full path; the daemon's own environment is unchanged. Where the copy works and nothing can press Ctrl+V, the notification now says the words are on the clipboard instead of that they were not typed.

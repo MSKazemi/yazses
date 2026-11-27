@@ -14,11 +14,13 @@ happened. That is the whole mechanism of #153, so the reproducer needs nothing e
 
 Under the fixed `timeout=10` that `XdotoolInjector` had before `e0debe7e`
 ("fix(streaming): stop the correction pass deleting text it never typed (#153)"), a
-long text is typed once by the killed xdotool and again by the clipboard paste, and
-the commit's selection runs past the partials into text the user had already
-written. The last two tests pin exactly that, so the model cannot quietly stop
-charging for keystrokes. The long-dictation test is green since that commit and goes
-red again if the xdotool timeouts (`_timeout_for`, `pacing.typing_timeout`) are put back to a fixed 10 s.
+long text is typed once by the killed xdotool and again by the clipboard paste. The
+commit's selection used to be replayed as well and ran past the partials into text
+the user had already written; `LinuxInjector` no longer replays a timed-out key run.
+The last two tests pin both, so the model cannot quietly stop charging for
+keystrokes. The long-dictation test is green since that commit and goes red again if
+the xdotool timeouts (`_timeout_for`, `pacing.typing_timeout`) are put back to a
+fixed 10 s.
 
 The model is deliberately small: one line, a cursor, a shift-selection anchor, and a
 clipboard. It does not model the literal `DDDD` flood, which #153 records as still
@@ -187,31 +189,27 @@ def test_the_model_types_twice_under_a_fixed_timeout(x11_linux_injector, monkeyp
     assert screen.text == "KEEP THIS. " + final[:833] + final
 
 
-def test_the_model_selects_the_prefix_under_a_fixed_timeout(x11_linux_injector, monkeypatch):
-    """The red half for the deletion: the correction selects text it never typed.
+def test_a_timed_out_selection_is_not_replayed_into_the_users_text(
+    x11_linux_injector, monkeypatch
+):
+    """A `shift+Left` pass killed part-way must not be sent again from the start.
 
-    The commit's `shift+Left` pass is killed at ~833 keystrokes, the clipboard
-    fallback replays the *whole* sequence on top of it, and the selection runs past
-    the start of the partials into "KEEP THIS. ". Whatever is typed next -- the
-    final text, or the user's own next keystroke -- deletes it.
-
-    Whether the commit then *raises* depends on the fallback's own timeout: while
-    `ClipboardInjector`'s key paths had a fixed 10 s too (until QA-004) the replay
-    was killed as well and the commit raised with the prefix still selected; with
-    them scaled the replay completes and the final text types straight over the
-    prefix. The damage is the same either way, so the test asserts the damage.
+    `LinuxInjector` used to replay the *whole* sequence through the clipboard path,
+    so the selection ran past the start of the partials into "KEEP THIS. " and the
+    next keystroke deleted it. Now the timeout surfaces: the selection stops where
+    xdotool stopped and nothing is typed over it.
     """
     injector, screen = x11_linux_injector
-    _fixed_ten_second_timeout(monkeypatch)
     partials, final = _sentence_partials(40)
     stream = StreamingInjector(injector)
     for piece in partials:
         stream.inject_partial(piece)
-    try:
+    typed = screen.text
+    _fixed_ten_second_timeout(monkeypatch)
+
+    with pytest.raises(subprocess.TimeoutExpired):
         stream.commit(final)
-    except subprocess.TimeoutExpired:
-        pass  # the modelled timeout is the point: the assertions below inspect the damage
-    prefix = "KEEP THIS. "
-    deleted = not screen.text.startswith(prefix)
-    selected = screen.anchor is not None and min(screen.anchor, screen.cursor) < len(prefix)
-    assert deleted or selected, "the correction left the prefix the user kept alone"
+
+    assert screen.text == typed
+    assert screen.anchor == len(typed)
+    assert screen.cursor == len(typed) - 833

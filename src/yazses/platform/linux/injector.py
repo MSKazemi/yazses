@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import subprocess
 
 from yazses.inject.auto import get_injector
 from yazses.inject.base import BaseInjector
@@ -74,6 +75,10 @@ class LinuxInjector:
             return
         try:
             self._primary.inject_backspaces(count)
+        except subprocess.TimeoutExpired:
+            # Part of the run may already have been sent. Replaying all of it would
+            # delete that many characters again -- the user's own text.
+            raise
         except Exception as exc:
             if self._fallback is None:
                 raise
@@ -81,7 +86,7 @@ class LinuxInjector:
             self._fallback.inject_backspaces(count)
 
     def inject_key_sequence(self, keys: list[str]) -> None:
-        """Delegate to the primary backend, clipboard on failure (#544).
+        """Delegate to the primary backend, clipboard on failure (#544), not on timeout.
 
         The backends own their Wayland/X11 tool dispatch — this method used to
         hand-roll its own, which had no fallback path at all and needed the
@@ -92,6 +97,9 @@ class LinuxInjector:
             return
         try:
             self._primary.inject_key_sequence(keys)
+        except subprocess.TimeoutExpired:
+            # As in `inject_backspaces`: a replayed selection or delete over-reaches.
+            raise
         except Exception as exc:
             if self._fallback is None:
                 raise

@@ -460,7 +460,7 @@ class YdotoolInjector:
     _KEY_DELAY_MS = 6
     _KEY_HOLD_MS = 6
 
-    def _type_argv(self, text: str, dialect: str) -> list[str]:
+    def _type_argv(self, text: str, dialect: str, *, escapes_off: bool = True) -> list[str]:
         # `[injection] type_delay_ms` (inject/pacing.py) is a per-character budget:
         # 1.x splits it into -d/-H, 0.1.x gets the -d half. Unset keeps 6/6 and 6.
         configured = type_delay_ms()
@@ -472,10 +472,16 @@ class YdotoolInjector:
             # 0.1.x has --key-delay and no hold time; -d and -H are both refused.
             v0_delay = self._KEY_DELAY_MS if configured is None else ydotool_v0_key_delay(configured)
             return ["ydotool", "type", "--key-delay", str(v0_delay), "--", text]
-        return [
-            "ydotool", "type", "-d", str(key_delay),
-            "-H", str(key_hold), "--", text,
-        ]
+        argv = ["ydotool", "type", "-d", str(key_delay), "-H", str(key_hold)]
+        # 1.0.4's `type` interprets backslash escapes in command-line strings unless
+        # told not to (upstream `Client/tool_type.c`: escape defaults to 1 for
+        # arguments). Dictated "C:\\Users" lost the backslash *and* the U, and a literal
+        # backslash-n pressed Enter -- with exit 0, so nothing reported it. Passed only
+        # when the text holds a backslash: every other command line stays as it was,
+        # on builds that may not know the flag. 0.1.x translates nothing.
+        if escapes_off and "\\" in text:
+            argv += ["-e", "0"]
+        return [*argv, "--", text]
 
     def _type_ascii_run(self, run: str) -> None:
         """Type one ASCII run with whichever ydotool command line is installed."""
@@ -487,12 +493,22 @@ class YdotoolInjector:
         dialect = ydotool_dialect()
         try:
             run_ydotool(self._type_argv(run, dialect), timeout=timeout)
+            return
         except YdotoolOptionError:
             # A refused command line typed nothing, so retrying cannot double-type.
             if dialect != DIALECT_V1:
                 raise
-            set_ydotool_dialect(DIALECT_V0)
-            run_ydotool(self._type_argv(run, DIALECT_V0), timeout=timeout)
+        if "\\" in run:
+            # The refused flag may be `-e` alone: 1.x releases before it existed take
+            # everything else and type a backslash literally (1.0.0 and 1.0.1 have no
+            # escape handling). Do not conclude "0.1.x" from that.
+            try:
+                run_ydotool(self._type_argv(run, dialect, escapes_off=False), timeout=timeout)
+                return
+            except YdotoolOptionError:
+                pass
+        set_ydotool_dialect(DIALECT_V0)
+        run_ydotool(self._type_argv(run, DIALECT_V0), timeout=timeout)
 
     def inject(self, text: str) -> None:
         if not text:
@@ -571,7 +587,11 @@ class YdotoolInjector:
         independent: it never shells out to ydotool, so ydotool 0.1.x vs 1.x does
         not enter into it.
 
-        Every non-ASCII character is resolved **before the first keystroke** (#501).
+        Every non-ASCII character is resolved, and the uinput keyboard opened,
+        **before the first keystroke** (#501). A root-run ydotoold can type on a
+        machine where this process may not open ``/dev/uinput`` at all; finding that
+        out at the first accented letter left the ASCII prefix on screen and the
+        clipboard fallback pasted the whole burst after it.
         A Latin layout has no key for 版, so ``"YazSes 版本"`` used to type
         ``"YazSes "`` through ydotool, then fail on the Han run -- and
         ``LinuxInjector``'s clipboard fallback pasted the whole burst after it:
