@@ -77,6 +77,9 @@ class OverviewPage:
         self._check_text = label("")
         checks.addWidget(self._check_text)
         layout.addWidget(self._checks)
+        if ctx.open_setup is not None:
+            self.setup_button = button("Run the setup guide", ctx.open_setup)
+            layout.addLayout(row(self.setup_button))
         layout.addStretch(1)
 
     def refresh(self) -> None:

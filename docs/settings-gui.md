@@ -33,6 +33,38 @@ Three ways, all the same window:
 It needs a graphical session but **not** a system tray. On a headless or SSH
 machine use `yazses features` instead, which does the same job in text.
 
+## The setup guide
+
+On a new install the window opens with a short guide in front of it. It has four steps:
+
+1. **Welcome:** what YazSes does.
+2. **Check your microphone:** hold your key and speak; a bar shows the level and the
+   guide says whether the microphone heard you. **Start YazSes** appears if it is not
+   running. **Recalibrate microphone** measures the room (stay quiet) and then your
+   voice (speak when the guide says so), about ten seconds in all. **Choose another
+   microphone** closes the guide and opens the **Audio** page.
+3. **Choose your hold-to-talk key:** the same list and the same checks as on the
+   **General** page. Unlike that page, **Save key and continue** writes the key at once.
+4. **Try it:** a practice box. If you changed the key, restart YazSes from this step
+   first. The window does not save what appears in the box.
+
+**Skip setup** (or `Esc`) closes it at any step. A key you already saved stays saved.
+
+**When it appears by itself.** Only on a new install, and only once:
+
+- there is no config file yet (the window then writes the same one the first start of
+  YazSes would write, with the recommended features on), or
+- the first start of YazSes created the config within the last seven days and the guide
+  has not been shown.
+
+An install that already had a config file when it got this version is never offered the
+guide. A small file named `first-run-setup`, beside `config.toml`, records whether it
+has been shown. To open it again at any time, use **Run the setup guide** at the bottom
+of the **Overview** page.
+
+The guide is tested headless with a stand-in for the daemon. It has not yet been tried
+with a real microphone, or on macOS or Windows.
+
 ## The layout
 
 A sidebar on the left holds twelve pages, and one shows at a time. The first seven are
@@ -40,7 +72,7 @@ for doing things; the rest configure them. The window opens on **Overview**.
 
 | Page | What is on it | Jump |
 |---|---|---|
-| **Overview** | whether dictation works right now, with one button to fix it if not, and a system check | `Ctrl+1` |
+| **Overview** | whether dictation works right now, with one button to fix it if not, a system check, and the setup guide | `Ctrl+1` |
 | **Dictation** | your key, the level while you hold it, a practice box, and the writing options | `Ctrl+2` |
 | **Meetings** | start and stop a meeting, read stored transcripts, name the speakers, export | `Ctrl+3` |
 | **File transcription** | turn an audio or video file into text or subtitles | `Ctrl+4` |
@@ -61,7 +93,8 @@ for doing things; the rest configure them. The window opens on **Overview**.
 
 **Overview** says one thing at a time, most important first: not running (**Start
 YazSes**), an error (**Restart YazSes**), a microphone that heard nothing several times
-in a row (**Recalibrate microphone**), or ready.
+in a row (**Recalibrate microphone**), or ready. **Run the setup guide** at the bottom
+opens [the setup guide](#the-setup-guide) again.
 
 **Dictation** has a practice box. Click in it, hold your key, speak and release, and
 your words arrive there like in any other text field. The window does not save them.

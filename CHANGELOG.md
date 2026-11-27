@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — a setup guide in the settings window for a new install
+
+On a new install the settings window opens a four-step guide: what YazSes does, a microphone check (live level while the key is held, with recalibration), the hold-to-talk key, and a practice box. It can be skipped at any step and reopened with **Run the setup guide** on the Overview page. It opens by itself at most once, and never on an install that already had a config file: the daemon's first start now leaves a `first-run-setup` marker beside the config it seeds, and the guide is offered for seven days from then. Opening the window before YazSes has ever started writes that same seeded config first, so saving a key there cannot leave a config without the recommended features. The guide uses only the existing `status` and `recalibrate_mic` calls and the controller's `set_hotkey`; it adds no network path and stores no dictated text. Tested headless with a stand-in daemon only, not with a real microphone.
+
 ### Added — the settings window is now a desktop app: dictation, meetings and file transcription without a terminal
 
 `yazses settings` opens on a new **Overview** page that says whether dictation works and offers one fix when it does not (start YazSes, restart it, or recalibrate a microphone that heard nothing). New pages: **Dictation** (key, level while recording, a practice box, writing options), **Meetings** (start and stop, live draft, stored transcripts, speaker names, export), **File transcription** (runs `yazses transcribe`, asks before replacing a transcript, can be cancelled), **Voice commands** and **Accessibility**. **General** now lists what can leave the computer, read from your settings. Switches on the new pages are the Features checkboxes, so Apply, confirmation and dependency install behave as before. The pages use only existing daemon calls; no network path was added and the window stores no dictated text.

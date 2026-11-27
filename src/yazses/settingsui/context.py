@@ -26,6 +26,8 @@ class PageContext:
     open_path: Callable[[str], None]
     switches: Any
     window: Any
+    #: Opens the first-run setup guide again; ``None`` where there is none to open.
+    open_setup: Callable[[], Any] | None = None
 
     def status(self) -> Any:
         """One ``status`` reply that leaves the daemon's notifications for the tray."""
