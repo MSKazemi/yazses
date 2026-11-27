@@ -160,6 +160,13 @@ for p in pooled.phases:
 uv run python ~/tg-pilot/pool.py ~/tg-pilot/ft-*-s*.json      # the files of ONE configuration
 ```
 
+On a revision that has `field-test-pool` (#889), no script is needed. The command prints the same pooled
+counts, the Wilson interval of each gesture phase and both upper bounds per no-intent phase:
+
+```sh
+uv run yazses biosignal field-test-pool ~/tg-pilot/ft-*-s*.json
+```
+
 `report_from_dict` recomputes every derived number from the stored counts, so a file cannot disagree
 with itself. The aggregate cannot detect duplicates, so list each file once.
 
@@ -187,7 +194,7 @@ How to read the interval:
 |---|---|---|
 | Activities during the hour, in words | «fill» | session sheet |
 | Deliberate double blinks during the hour | «fill: should be none; if any, how many, and how they were excluded» | session sheet |
-| False triggers `k` | «fill» | the `double_blink` row of `Detections:` (**not** the `Measured:` rate, which includes single blinks) |
+| False triggers `k` | «fill» | the `double_blink` row of `Detections:` |
 | Usable exposure `h` | «fill: minutes from the `Measured: … over N min` line, and the same in hours» | ungated ledger time. The waveform gate, the integrity gate and the source-health veto all remove time from it. |
 | Wall-clock duration | «fill» | log start and end |
 | Gate closures and source-health refusals | «fill: stream-gate count; health count per reason code; the `dropped` number on the last status line» | the greps in runbook Stage G |

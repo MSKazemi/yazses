@@ -74,8 +74,10 @@ weights in :func:`default_protocol` (rest 0.20, talking 0.25, chewing 0.05, hand
 researchers set their own through ``Phase.workday_weight``. The weighted upper bound sums
 per-phase upper bounds each taken at level ``0.05 / k`` (Bonferroni over the ``k`` phases
 used), so the sum covers the true weighted rate with at least 95% probability under the
-Poisson model and the cube-root (Wilson-Hilferty) approximation also used in
-:mod:`yazses.biosignal.evaluate`. The raw per-phase numbers are always reported next to it.
+Poisson model and the cube-root (Wilson-Hilferty) approximation. The raw per-phase numbers
+are always reported next to it, each with a second upper bound: the **exact** Poisson limit
+(:func:`yazses.biosignal.evaluate.poisson_upper_bound`), which is the one to quote. The
+verdict and the pooled workday estimate use the approximation.
 
 ## Privacy
 
@@ -94,6 +96,7 @@ from dataclasses import dataclass, replace
 from enum import Enum
 from typing import Any
 
+from yazses.biosignal.evaluate import poisson_upper_bound
 from yazses.biosignal.fprate import (
     ACTIVATING_KINDS,
     FalsePositiveBudget,
@@ -104,7 +107,10 @@ from yazses.biosignal.types import BioEvent, EventKind, SampleBlock
 
 __all__ = [
     "CAVEAT",
+    "DEFAULT_CUES",
     "DEFAULT_TRIGGER_KINDS",
+    "MAX_CUES",
+    "MIN_CUES",
     "FieldTestAggregate",
     "FieldTestReport",
     "FieldTestSession",
@@ -129,6 +135,11 @@ SCHEMA = 1
 DEFAULT_MIN_PHASE_S = 30.0       # usable signal a phase needs before it counts
 DEFAULT_SETTLE_S = 3.0           # head start per phase: reading the prompt is a movement
 MAX_OVERRUN = 3.0                # a phase is abandoned after this many times its length
+DEFAULT_CUES = 8                 # cues per gesture phase
+MIN_CUES = 5                     # fewer would make a gesture phase shorter than DEFAULT_MIN_PHASE_S
+MAX_CUES = 100                   # about 8 minutes of one gesture: past this, run more sessions
+_CUE_LEAD_IN_S = 5.0             # before the first cue of a gesture phase
+_CUE_SPACING_S = 5.0             # from one cue to the next, at the standard length
 MIN_SCORED_CUES = 3              # fewer scored cues than this: the hit rate is not reported
 HIT_USABLE = 0.80                # point hit rate a conclusive gesture phase needs for "usable"
 HIT_FAILS_UPPER = 0.50           # Wilson upper bound below this: the switch does not fire
@@ -252,7 +263,7 @@ def default_protocol(
     switches: Iterable[str] = ("squeeze", "double_blink", "jaw_clench"),
     *,
     scale: float = 1.0,
-    cues: int = 8,
+    cues: int = DEFAULT_CUES,
 ) -> tuple[Phase, ...]:
     """The standard guided sequence: five no-intent phases, then one gesture phase per switch.
 
@@ -283,8 +294,9 @@ def default_protocol(
         label, prompt = _GESTURES[sw]
         phases.append(
             Phase(
-                f"gesture_{sw}", label, prompt, 5.0 + 5.0 * cues, True,
-                expected=SWITCHES[sw], cues=cues, response_window_s=3.0, lead_in_s=5.0,
+                f"gesture_{sw}", label, prompt, _CUE_LEAD_IN_S + _CUE_SPACING_S * cues, True,
+                expected=SWITCHES[sw], cues=cues, response_window_s=3.0,
+                lead_in_s=_CUE_LEAD_IN_S,
             )
         )
     return tuple(phases)
@@ -371,10 +383,10 @@ def _finite(x: object) -> bool:
 def _poisson_upper(count: float, hours: float, z: float) -> float | None:
     """One-sided upper bound (events per hour) on a Poisson rate; ``None`` with no exposure.
 
-    The cube-root (Wilson-Hilferty) approximation of the upper quantile, as in
-    ``evaluate._poisson_upper`` but with the level as a parameter so the pooled estimate
-    can use a Bonferroni-adjusted ``z``. Zero events give about ``2.97 / hours`` at
-    ``z = 1.645``: the rule of three, never zero.
+    The cube-root (Wilson-Hilferty) approximation of the upper quantile, with the level as
+    a parameter so the pooled estimate can use a Bonferroni-adjusted ``z``. Zero events give
+    about ``2.97 / hours`` at ``z = 1.645``, against the exact ``3.00 / hours``
+    (``evaluate.poisson_upper_bound``, reported beside it): never zero.
     """
     if hours <= 0:
         return None
@@ -448,6 +460,13 @@ class PhaseResult:
         if self.expects_intent:
             return None
         return _poisson_upper(self.phantom_activations, self.usable_hours, _Z_ONE_SIDED_95)
+
+    @property
+    def phantom_exact_upper_per_hour(self) -> float | None:
+        """The exact one-sided 95% Poisson upper bound: the figure to quote."""
+        if self.expects_intent:
+            return None
+        return poisson_upper_bound(self.phantom_activations, self.usable_hours)
 
     @property
     def phantom_lower_per_hour(self) -> float | None:
@@ -524,7 +543,7 @@ class FieldTestReport:
 def _status_of(r: PhaseResult, min_phase_s: float) -> str:
     if r.signal_s <= 0 and r.usable_s <= 0:
         return "not_run"
-    if r.usable_s < min_phase_s:
+    if r.usable_s <= 0 or r.usable_s < min_phase_s:   # no exposure: never a rate
         return "inconclusive"
     if r.expects_intent and r.cues_total and r.cues_scored < MIN_SCORED_CUES:
         return "inconclusive"
@@ -678,7 +697,7 @@ def _assess(
         reasons.append(
             f"Within budget so far (estimate {w.per_hour:.1f}/h) but not proven: the upper 95% "
             f"bound is {w.upper_per_hour:.1f}/h against {budget:g}/h. Proving it needs {extra}. "
-            "Repeat the session and merge the reports with FieldTestAggregate."
+            "Repeat the session and pool the files with `yazses biosignal field-test-pool`."
         )
     return Verdict.PROMISING, tuple(reasons)
 
@@ -1168,6 +1187,7 @@ def _phase_to_dict(p: PhaseResult) -> dict[str, Any]:
         "phantom_per_hour": _round(p.phantom_per_hour, 2),
         "phantom_lower_per_hour": _round(p.phantom_lower_per_hour, 2),
         "phantom_upper_per_hour": _round(p.phantom_upper_per_hour, 2),
+        "phantom_exact_upper_per_hour": _round(p.phantom_exact_upper_per_hour, 2),
         "cues_total": p.cues_total, "cues_scored": p.cues_scored, "cues_voided": p.cues_voided,
         "hits": p.hits, "hit_rate": _round(p.hit_rate),
         "hit_ci": None if ci is None else [_round(ci[0]), _round(ci[1])],
@@ -1212,7 +1232,8 @@ def report_from_dict(data: Mapping[str, Any]) -> FieldTestReport:
     """Rebuild a report from ``report_to_dict`` output, recomputing every derived number.
 
     Only the counted fields are read, so a stored report cannot disagree with its own
-    counts. Raises ``ValueError`` for a malformed or unsupported dictionary.
+    counts. Raises ``ValueError`` for a malformed or unsupported dictionary, including one
+    with a negative or non-finite number or more hits than scored cues.
     """
     try:
         if int(data.get("schema", 0)) != SCHEMA:
@@ -1237,13 +1258,33 @@ def report_from_dict(data: Mapping[str, Any]) -> FieldTestReport:
                 )
             )
         kinds = [EventKind(str(v)) for v in data["trigger_kinds"]]
+        budget = float(data["budget_per_hour"])
+        min_phase_s = float(data["min_phase_s"])
+        sessions = int(data.get("sessions", 1))
+        if not (_finite(budget) and budget > 0 and _finite(min_phase_s) and min_phase_s >= 0
+                and sessions >= 1):
+            raise ValueError("budget_per_hour, min_phase_s or sessions is out of range")
+        for p in phases:
+            _check_counts(p)
         return _build_report(
-            phases, budget_per_hour=float(data["budget_per_hour"]),
-            min_phase_s=float(data["min_phase_s"]), trigger_kinds=kinds,
-            aborted=bool(data.get("aborted", False)), sessions=int(data.get("sessions", 1)),
+            phases, budget_per_hour=budget, min_phase_s=min_phase_s, trigger_kinds=kinds,
+            aborted=bool(data.get("aborted", False)), sessions=sessions,
         )
-    except (KeyError, TypeError, AttributeError) as exc:
+    except (KeyError, TypeError, AttributeError, OverflowError) as exc:
         raise ValueError(f"malformed field-test report: {exc!r}") from None
+
+
+def _check_counts(p: PhaseResult) -> None:
+    """Refuse a stored phase whose numbers no session could have produced."""
+    numbers: list[float] = [
+        p.planned_s, p.signal_s, p.usable_s, p.degraded_s, p.excluded_s, p.refused_events,
+        p.phantom_activations, p.cues_total, p.cues_scored, p.cues_voided, p.hits,
+        p.extra_activations, p.workday_weight, *(n for _, n in p.counts), *p.latencies_s,
+    ]
+    if not all(math.isfinite(x) and x >= 0 for x in numbers):
+        raise ValueError(f"phase {p.name!r}: a number is negative or not finite")
+    if p.hits > p.cues_scored:
+        raise ValueError(f"phase {p.name!r}: more hits than scored cues")
 
 
 def _num(x: float | None, spec: str = ".1f") -> str:
@@ -1280,10 +1321,14 @@ def format_report(report: FieldTestReport) -> str:
         rows = [
             [f"{p.label}" + ("" if p.status == "ok" else f" [{p.status.replace('_', ' ')}]"),
              str(p.usable_s), _num(None if p.quality_fraction is None else p.quality_fraction * 100, ".0f"),
-             str(p.phantom_activations), _num(p.phantom_per_hour), _num(p.phantom_upper_per_hour)]
+             str(p.phantom_activations), _num(p.phantom_per_hour), _num(p.phantom_upper_per_hour),
+             _num(p.phantom_exact_upper_per_hour)]
             for p in quiet
         ]
-        out += _table(["phase", "usable s", "quality %", "count", "per hour", "upper 95% /h"], rows)
+        out += _table(["phase", "usable s", "quality %", "count", "per hour", "upper 95% /h",
+                       "exact 95% /h"], rows)
+        out.append("  exact is the exact Poisson upper bound: quote that one. upper is the "
+                   "approximation the verdict uses.")
 
     gest = [p for p in report.phases if p.expects_intent]
     if gest:

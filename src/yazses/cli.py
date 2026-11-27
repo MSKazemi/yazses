@@ -8772,12 +8772,14 @@ def biosignal_record(
     epilog=_examples(
         "yazses biosignal field-test                      guided: sit still, talk, chew, type, look around",
         "yazses biosignal field-test --minutes 10         a longer, steadier measurement",
+        "yazses biosignal field-test --cues 16            16 cues per gesture instead of 8",
         "yazses biosignal field-test --json --out ft.json   machine-readable, and keep the counts",
     ),
 )
 def biosignal_field_test(
     source: str = typer.Option("", "--source", help="Test this source instead of [biosignal] source (synthetic | file:<path> | brainflow:<id>[:<port>] | thinkgear:<port>)."),
     minutes: float = typer.Option(0.0, "--minutes", min=0.0, max=120.0, help="Stretch or shrink the test to about this long (0 = the standard length)."),
+    cues: int = typer.Option(8, "--cues", min=5, max=100, help="Cues per deliberate-gesture phase; each adds about 5 s per gesture."),
     as_json: bool = typer.Option(False, "--json", help="Print one JSON object instead of text."),
     out: str = typer.Option("", "--out", "-o", help="Also write the counts to this JSON file (owner-only; never overwrites)."),
 ) -> None:
@@ -8787,12 +8789,38 @@ def biosignal_field_test(
     real detectors run on your signal. Afterwards you get the phantom activations per
     hour for each activity: the number that decides whether a switch is safe to leave on.
     Only those counts are reported or saved, never the signal. Nothing is typed or acted on.
+    Only the switches turned on in [biosignal] are cued, and a squeeze that cannot fire
+    (no muscle channel, no calibration) is skipped with the reason.
     """
     from yazses.biosignal.cli_impl import run_field_test
 
     cfg, data_dir = _biosignal_context()
     raise typer.Exit(run_field_test(
-        cfg, data_dir, source=source, minutes=minutes, as_json=as_json, out=out))
+        cfg, data_dir, source=source, minutes=minutes, cues=cues, as_json=as_json, out=out))
+
+
+@biosignal_app.command(
+    "field-test-pool",
+    epilog=_examples(
+        "yazses biosignal field-test-pool ft-mon.json ft-tue.json   one result from two sessions",
+        "yazses biosignal field-test-pool ft-*.json --json          the same, machine-readable",
+    ),
+)
+def biosignal_field_test_pool(
+    files: list[str] = typer.Argument(..., help="Result files written by `field-test --out` (or --json)."),
+    as_json: bool = typer.Option(False, "--json", help="Print one JSON object instead of text."),
+) -> None:
+    """Pool several field-test results: add their counts and recompute the bounds.
+
+    A short session bounds a rate only loosely; repeated sessions tighten it. Counts and
+    usable seconds are summed and every rate and bound is computed again from the totals,
+    including the exact Poisson upper bound for each activity. Pool one person and one
+    configuration at a time: the files record neither. Reads only the named files, writes
+    nothing; exit 2 when a file cannot be read or the results cannot be combined.
+    """
+    from yazses.biosignal.cli_impl import run_field_test_pool
+
+    raise typer.Exit(run_field_test_pool(files, as_json=as_json))
 
 
 @biosignal_app.command(
