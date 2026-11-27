@@ -6,6 +6,17 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — microphone: a device re-scan can no longer cut a recording or playback short, or leave the daemon without a microphone
+
+- The device watcher re-initialises the audio library every few seconds while idle, which closes every open stream. It checked that the daemon was idle and then re-initialised, so a key press, the **Re-calibrate** recording, a spoken `ask_human` answer, a punch-in, an earcon or a read-back could start in between or run underneath it. Streams and playback now hold the audio library until they finish, and a re-scan waits or is skipped.
+- If re-initialising failed once (for example while the audio service restarted), no later re-scan could recover and every dictation failed until the daemon restarted. It is now retried, and the outage is logged once.
+- A stream that opened but would not start was left open, which could make the retries fail with "device busy". It is now closed.
+- The last of the three open attempts first refreshes the device list, so a replugged microphone is found even with `[audio] device_change_notify = false`.
+- A pinned `[audio] device` that is not found still falls back to the OS default, and now says so in the log instead of doing it silently.
+- Vocal Morse, the Mouth-Sound Switch and the Vocal Joystick stayed deaf for the rest of the session if their stream could not reopen after a re-scan. The reopen is now retried.
+
+These were found by reading the code and are covered by tests with a fake audio library; they were not reproduced on audio hardware.
+
 ### Fixed — snap on Wayland: dictated text could not reach the clipboard
 
 The snap's private `XDG_RUNTIME_DIR` does not hold the Wayland socket, so `wl-copy` and `wl-paste` failed with "Failed to connect to a Wayland server": when typing failed, the clipboard fallback failed too and the dictation was lost. The clipboard commands are now given the host socket's full path; the daemon's own environment is unchanged. Where the copy works and nothing can press Ctrl+V, the notification now says the words are on the clipboard instead of that they were not typed.

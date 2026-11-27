@@ -207,7 +207,10 @@ class VocalJoystickRunner:
             self._rescan_hold = False
             if self._stop_flag():
                 return True, ""
-            return self._start_locked()
+            ok, reason = self._start_locked()
+            # No microphone right now: stay owed a reopen, so the monitor tries again.
+            self._rescan_hold = not ok
+            return ok, reason
 
     def _close(self, *, rescan: bool) -> bool:
         with self._lock:

@@ -256,19 +256,23 @@ def record(
     """
     import sounddevice as sd
 
-    device_index: int | None = None
-    if isinstance(device, int):
-        device_index = device
-    elif isinstance(device, str) and device.strip():
-        from yazses.audio.devices import list_input_devices, resolve_input_device
+    from yazses.audio.devices import list_input_devices, portaudio_in_use, resolve_input_device
 
-        device_index = resolve_input_device(device, list_input_devices())
+    # Held from resolve to the end of the recording: the daemon runs this for the
+    # [Re-calibrate] button while idle, when the device monitor re-initialises PortAudio
+    # every few seconds, which closed the recording part-way.
+    with portaudio_in_use():
+        device_index: int | None = None
+        if isinstance(device, int):
+            device_index = device
+        elif isinstance(device, str) and device.strip():
+            device_index = resolve_input_device(device, list_input_devices())
 
-    frames = int(seconds * sample_rate)
-    buf = sd.rec(
-        frames, samplerate=sample_rate, channels=1, dtype="float32", device=device_index
-    )
-    sd.wait()
+        frames = int(seconds * sample_rate)
+        buf = sd.rec(
+            frames, samplerate=sample_rate, channels=1, dtype="float32", device=device_index
+        )
+        sd.wait()
     return np.asarray(buf, dtype=np.float32).flatten()
 
 

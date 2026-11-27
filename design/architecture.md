@@ -735,11 +735,12 @@ method `send_to` and by `yazses send-to` ([ADR-031](adr/adr-031-send-to-prefill-
 
 | File | Role |
 |---|---|
-| `recorder.py` | `AudioRecorder` — sounddevice → numpy buffer, max_seconds cap |
+| `recorder.py` | `AudioRecorder` — sounddevice → numpy buffer, max_seconds cap. An open stream is registered with `devices.hold_portaudio` until it is closed; the last of the three open attempts re-initialises PortAudio first when nothing else holds it |
+| `devices.py` | Input enumeration, name pinning, the default-input readers, and the process-wide PortAudio guard. Invariant: `reinit_portaudio` runs under `portaudio_lock` (which also covers a stream open) and does nothing while any stream or playback holds PortAudio, so new code that opens a stream or calls `sd.play`/`sd.rec` registers with `hold_portaudio` or `portaudio_in_use` |
 | `vad.py` | `is_silent(audio)` — RMS-based silence gate (hardcoded threshold) |
 | `vad_calibrated.py` | `is_silent_calibrated(audio, config)` — uses `config.vad_threshold` |
 | `padding.py` | `PreSpeechRingBuffer` — fixed-capacity ring buffer, `prepend_padding(audio)` for voice-onset recovery |
-| `device_monitor.py` | `SilentStreakTracker` and `DeviceMonitor` (the default-input watcher). Invariant: PortAudio is never re-initialised while dictation records or under an open stream. When a hands-free level stream (`LevelStreamOwner`) is open, the pure `plan_device_poll` picks a peek without re-init, or a cycle that closes the streams, re-inits and reopens them — deferred while a user is mid-gesture on a stream still delivering audio |
+| `device_monitor.py` | `SilentStreakTracker` and `DeviceMonitor` (the default-input watcher). Invariant: PortAudio is never re-initialised while dictation records or under an open stream. When a hands-free level stream (`LevelStreamOwner`) is open, the pure `plan_device_poll` picks a peek without re-init, or a cycle that closes the streams, re-inits and reopens them — deferred while a user is mid-gesture on a stream still delivering audio. A stream that will not reopen after a cycle is retried at the re-scan cadence and on a device change |
 
 ### `src/yazses/accessibility/`
 

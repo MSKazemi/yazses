@@ -12,9 +12,67 @@ The pure functions take an injected device list so tests never touch real hardwa
 from __future__ import annotations
 
 import logging
+import threading
+import weakref
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 
 log = logging.getLogger(__name__)
+
+# Re-initialising PortAudio closes every open stream in the process and invalidates the
+# handles Python still holds, and an open attempted while it is down fails. The device
+# monitor re-initialises every few seconds from its own thread, so "is anything using
+# PortAudio?" has to be answered under the same lock that opening a stream takes: asking
+# the daemon for its state first and re-initialising afterwards leaves a gap in which a
+# hold-to-talk press, the re-calibrate recording or a spoken read-back can start.
+_PA_LOCK = threading.RLock()
+#: What is using PortAudio right now: open streams and playback/recording markers. Weak,
+#: so an object dropped without being released cannot block re-initialisation for ever.
+_PA_USERS: weakref.WeakSet[object] = weakref.WeakSet()
+#: Set while the last re-initialisation failed, so the warning is logged once per outage.
+_reinit_failed = False
+
+
+class _Use:
+    """Marker for a PortAudio use that has no stream object of its own to register."""
+
+
+def portaudio_lock() -> threading.RLock:
+    """The lock to hold while opening a stream, so no re-initialisation runs under it."""
+    return _PA_LOCK
+
+
+def hold_portaudio(user: object) -> None:
+    """Register ``user`` (normally an open stream): no re-initialisation until released."""
+    with _PA_LOCK:
+        try:
+            _PA_USERS.add(user)
+        except TypeError:  # unhashable or not weak-referenceable: nothing to track
+            log.debug("Cannot track a %s as a PortAudio user", type(user).__name__)
+
+
+def release_portaudio(user: object) -> None:
+    """Release what :func:`hold_portaudio` registered. Safe to call for anything.
+
+    Takes no lock: closing a stream must never wait on another thread's open (shutdown
+    stops streams), and a release racing a re-initialisation only makes that one skip.
+    """
+    try:
+        _PA_USERS.discard(user)
+    except TypeError:  # not weak-referenceable, so it was never registered
+        pass
+
+
+@contextmanager
+def portaudio_in_use() -> Iterator[None]:
+    """Keep PortAudio initialised for the duration of a playback or one-shot recording."""
+    use = _Use()
+    hold_portaudio(use)
+    try:
+        yield
+    finally:
+        release_portaudio(use)
 
 
 @dataclass(frozen=True)
@@ -152,21 +210,52 @@ def resolve_input_device(name: str, devices: list[InputDevice]) -> int | None:
     return matches[0].index if matches else None
 
 
-def reinit_portaudio() -> None:
+def reinit_portaudio(sd=None) -> bool:
     """Re-initialise PortAudio so hotplugged devices become visible.
 
     ``sd.query_devices`` caches the device list at initialisation, so a mic added
     after the daemon started is otherwise invisible. Terminating and re-initialising
-    refreshes it. Best-effort and never raises; must not be called while a stream is
-    open (the device-change monitor only polls when the daemon is idle).
-    """
-    try:
-        import sounddevice as sd
+    refreshes it. Does nothing while anything holds PortAudio (:func:`hold_portaudio`,
+    :func:`portaudio_in_use`), and an open in progress on another thread finishes first.
+    Best-effort and never raises; returns True when PortAudio was re-initialised.
 
-        sd._terminate()
-        sd._initialize()
-    except Exception as exc:  # pragma: no cover - hardware/backend dependent
-        log.debug("PortAudio reinit failed: %s", exc)
+    The two halves fail separately on purpose. If ``Pa_Initialize`` fails once (the
+    audio service is restarting), PortAudio stays down, and the *next* ``terminate``
+    raises "not initialized"; with both calls in one ``try`` that skipped the
+    initialise for ever, so no microphone could be opened until the daemon restarted.
+    """
+    global _reinit_failed
+    with _PA_LOCK:
+        if len(_PA_USERS):
+            log.debug("PortAudio is in use; not re-initialising it")
+            return False
+        try:
+            if sd is None:
+                import sounddevice
+
+                sd = sounddevice
+        except Exception as exc:  # pragma: no cover - hardware/backend dependent
+            log.debug("PortAudio is unavailable: %s", exc)
+            return False
+        try:
+            sd._terminate()
+        except Exception as exc:
+            log.debug("PortAudio terminate failed: %s", exc)
+        try:
+            sd._initialize()
+        except Exception as exc:
+            if not _reinit_failed:
+                log.warning(
+                    "The audio system could not be re-initialised (%s). No microphone "
+                    "can be opened until it comes back; trying again later.",
+                    exc,
+                )
+            _reinit_failed = True
+            return False
+        if _reinit_failed:
+            _reinit_failed = False
+            log.info("The audio system is available again.")
+        return True
 
 
 #: Names PortAudio reports for a *route* rather than a microphone. On ALSA and
