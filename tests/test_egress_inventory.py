@@ -997,7 +997,7 @@ def test_the_class_a_count_in_adr_019_is_computed_not_written():
 _INVENTORIES = {
     "FETCH": FETCH, "SEND": SEND, "LOCAL_IPC": LOCAL_IPC, "LOCAL_BOUND": LOCAL_BOUND,
     "HANDOFF": HANDOFF, "SHELL_OUT": SHELL_OUT, "DEPENDENCY_FETCH": DEPENDENCY_FETCH,
-    "FETCH_VIA": FETCH_VIA,
+    "FETCH_VIA": FETCH_VIA, "QT_LOCAL": QT_LOCAL,
 }
 
 
