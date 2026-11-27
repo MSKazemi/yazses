@@ -516,7 +516,8 @@ yazses restart
 ```
 
 The transcript goes on the clipboard as Unicode text and YazSes sends a real Ctrl+V.
-Your previous clipboard contents are put back afterwards. Two trade-offs come with it,
+Your previous clipboard text is put back afterwards; if Windows refuses the Ctrl+V,
+the dictation stays on the clipboard instead and YazSes tells you. Two trade-offs come with it,
 and they are why typing remains the default: Ctrl+V is literal in most terminals, so
 dictation into a terminal stops working, and applications that refuse paste (some
 password fields) receive nothing.

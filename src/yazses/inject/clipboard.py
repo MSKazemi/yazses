@@ -1,14 +1,19 @@
+import logging
 import os
 import shutil
 import subprocess
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 
 from yazses.inject.payload import hide_payload
 from yazses.inject.wtype import wtype_key_argv
 from yazses.inject.xdotool import _timeout_for as xdotool_timeout_for
 from yazses.inject.xdotool import _xdotool_combo
-from yazses.inject.ydotool import run_ydotool_keys, ydotool_key_timeout
+from yazses.inject.ydotool import YdotoolCliError, run_ydotool_keys, ydotool_key_timeout
 from yazses.system.wayland_env import wayland_run_kwargs
+
+log = logging.getLogger(__name__)
 
 # Milliseconds to wait after wl-copy sets the clipboard before sending Ctrl+V, so
 # the new Wayland selection has propagated to the compositor. Without it the
@@ -34,11 +39,13 @@ def _ydotool_ready() -> bool:
 
 
 class PasteUnavailable(RuntimeError):
-    """The text is on the clipboard and nothing here can press Ctrl+V.
+    """The text is on the clipboard and Ctrl+V could not be sent.
 
-    The ordinary end of the fallback in a snap on GNOME or KDE Wayland, which bundles
-    neither ydotool nor a wtype those compositors accept. ``system/diagnosis.py``
-    matches this message to tell the user where their words are.
+    Either nothing here can press it -- the ordinary end of the fallback in a snap on
+    GNOME or KDE Wayland, which bundles neither ydotool nor a wtype those compositors
+    accept -- or the tool that should have pressed it failed.
+    ``system/diagnosis.py`` matches this class name to tell the user where their words
+    are.
     """
 
 
@@ -55,6 +62,27 @@ def _paste_wayland() -> None:
     raise PasteUnavailable("Copied to the clipboard, but no tool here can send Ctrl+V on Wayland")
 
 
+@contextmanager
+def _copied_but_not_pasted() -> Iterator[None]:
+    """Report any failure of the Ctrl+V step as :class:`PasteUnavailable`.
+
+    The copy has already succeeded by then. A bare ``ydotool``/``xdotool`` error was
+    diagnosed as "could not type it", so the user dictated again while the words were
+    one Ctrl+V away.
+    """
+    try:
+        yield
+    except PasteUnavailable:
+        raise
+    except (OSError, subprocess.SubprocessError, YdotoolCliError, ValueError) as exc:
+        log.warning("Ctrl+V failed after the copy: %s", exc)
+        # The tool's own words stay out of this message: `diagnose` matches on it,
+        # and a stderr mentioning uinput would hide that the text is on the clipboard.
+        raise PasteUnavailable(
+            f"Copied to the clipboard, but sending Ctrl+V failed ({type(exc).__name__})"
+        ) from exc
+
+
 class ClipboardInjector:
     def inject(self, text: str) -> None:
         is_wayland = bool(os.environ.get("WAYLAND_DISPLAY"))
@@ -64,7 +92,8 @@ class ClipboardInjector:
                     ["wl-copy", "--", text], check=True, timeout=5, **wayland_run_kwargs()
                 )
             time.sleep(_CLIPBOARD_SETTLE_S)
-            _paste_wayland()
+            with _copied_but_not_pasted():
+                _paste_wayland()
         else:
             subprocess.run(
                 ["xclip", "-selection", "clipboard"],
@@ -72,11 +101,12 @@ class ClipboardInjector:
                 check=True,
                 timeout=5,
             )
-            subprocess.run(
-                ["xdotool", "key", "--clearmodifiers", "ctrl+v"],
-                check=True,
-                timeout=5,
-            )
+            with _copied_but_not_pasted():
+                subprocess.run(
+                    ["xdotool", "key", "--clearmodifiers", "ctrl+v"],
+                    check=True,
+                    timeout=5,
+                )
 
     def inject_backspaces(self, count: int) -> None:
         if count <= 0:

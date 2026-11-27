@@ -40,6 +40,7 @@ _KEY_RELEASE = 0
 _KEY_LEFTSHIFT = 42
 _KEY_RIGHTALT = 100
 _KEY_BACKSPACE = 14
+_KEY_ENTER = 28
 
 _UINPUT_DEVICE = "/dev/uinput"
 _UINPUT_USER_DEV_SIZE = 1116
@@ -678,7 +679,14 @@ class UnicodeInjector:
         """
         found: dict[str, tuple[int, tuple[int, ...]] | None] = {}
         plan: list[tuple[int, tuple[int, ...]]] = []
-        for character in text:
+        for character in text.replace("\r\n", "\n"):
+            if character == "\n":
+                # Never resolved through XKB: Return produces "\r" there, so the only
+                # key that can answer "\n" is KEY_LINEFEED, which applications do not
+                # treat as Enter (and where the keymap lacks it, a multi-line burst
+                # was refused outright).
+                plan.append((_KEY_ENTER, ()))
+                continue
             if character not in found:
                 found[character] = _find_key_for_character(xkb, character)
             result = found[character]
@@ -690,14 +698,16 @@ class UnicodeInjector:
         return plan
 
     def ensure_producible(self, text: str) -> None:
-        """Raise :class:`UnicodeInjectorError` if the layout cannot produce all of *text*.
+        """Raise :class:`UnicodeInjectorError` unless all of *text* can be typed.
 
-        Types nothing. For a caller that interleaves this injector with another
+        Types nothing: it resolves every character against the layout and then opens
+        the uinput keyboard. For a caller that interleaves this injector with another
         backend (``YdotoolInjector``'s mixed path) and must know before it types its
         own part of the burst that this one will not fail half-way.
         """
         if text:
             self._plan(self._xkb_ready(), text)
+            self._ready()
 
     def inject(self, text: str) -> None:
         if not text:

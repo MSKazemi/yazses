@@ -3,7 +3,8 @@
 Each printable code unit goes out as one down event and one up event. Non-BMP
 characters (e.g. emoji) encode as a UTF-16 surrogate pair — two pairs of
 events, four total per character. This avoids any layout / IME translation
-that scancode-based injection would suffer.
+that scancode-based injection would suffer. Line breaks and tabs are the
+exception: they go out as the Enter and Tab keys.
 """
 
 from __future__ import annotations
@@ -20,6 +21,8 @@ INPUT_KEYBOARD = 1
 KEYEVENTF_KEYUP = 0x0002
 KEYEVENTF_UNICODE = 0x0004
 VK_BACK = 0x08
+VK_TAB = 0x09
+VK_RETURN = 0x0D
 
 # Stamped into every synthetic event's dwExtraInfo so our own WH_KEYBOARD_LL
 # hook can tell the text we type from the keys the user pressed. Without it, a
@@ -79,6 +82,32 @@ def _utf16_units(text: str) -> list[int]:
     """Encode *text* to UTF-16-LE and return code units as ints."""
     encoded = text.encode("utf-16-le")
     return [int.from_bytes(encoded[i : i + 2], "little") for i in range(0, len(encoded), 2)]
+
+
+#: Characters typed as the key they stand for rather than as a Unicode packet.
+_CONTROL_VK = {"\n": VK_RETURN, "\r": VK_RETURN, "\t": VK_TAB}
+
+
+def _text_events(text: str) -> list[tuple[int, int, int]]:
+    """``(wVk, wScan, dwFlags)`` for every event that types *text*. Pure.
+
+    A line break or tab sent as ``KEYEVENTF_UNICODE`` arrives as a character, not a
+    key press, and many applications ignore it: "new line" and multi-line snippets
+    ran together on one line. They go out as Enter and Tab, which is also what the
+    Linux backends press; ``\\r\\n`` is one Enter.
+    """
+    events: list[tuple[int, int, int]] = []
+    for char in text.replace("\r\n", "\n"):
+        vk = _CONTROL_VK.get(char)
+        if vk is not None:
+            events += [(vk, 0, 0), (vk, 0, KEYEVENTF_KEYUP)]
+            continue
+        for unit in _utf16_units(char):
+            events += [
+                (0, unit, KEYEVENTF_UNICODE),
+                (0, unit, KEYEVENTF_UNICODE | KEYEVENTF_KEYUP),
+            ]
+    return events
 
 
 def _load_user32():
@@ -169,28 +198,12 @@ class WindowsInjector:
     def inject(self, text: str) -> None:
         if not text:
             return
-        units = _utf16_units(text)
-        if not units:
-            return
-        inputs = (_INPUT * (len(units) * 2))()
-        for i, unit in enumerate(units):
-            down = inputs[i * 2]
-            down.type = INPUT_KEYBOARD
-            down.ki = _KEYBDINPUT(
-                wVk=0,
-                wScan=unit,
-                dwFlags=KEYEVENTF_UNICODE,
-                time=0,
-                dwExtraInfo=INJECTED_TAG,
-            )
-            up = inputs[i * 2 + 1]
-            up.type = INPUT_KEYBOARD
-            up.ki = _KEYBDINPUT(
-                wVk=0,
-                wScan=unit,
-                dwFlags=KEYEVENTF_UNICODE | KEYEVENTF_KEYUP,
-                time=0,
-                dwExtraInfo=INJECTED_TAG,
+        events = _text_events(text)
+        inputs = (_INPUT * len(events))()
+        for i, (vk, scan, flags) in enumerate(events):
+            inputs[i].type = INPUT_KEYBOARD
+            inputs[i].ki = _KEYBDINPUT(
+                wVk=vk, wScan=scan, dwFlags=flags, time=0, dwExtraInfo=INJECTED_TAG
             )
         sent = _load_user32().SendInput(len(inputs), inputs, ctypes.sizeof(_INPUT))
         if sent != len(inputs):
