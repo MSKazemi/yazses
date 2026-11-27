@@ -14,7 +14,6 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 
 from yazses.config import Config
-from yazses.settingsui.pages import PAGE_FLAG
 
 
 def should_launch_tray(
@@ -66,6 +65,7 @@ def settings_command(
     the Settings button pointed at a file that does not exist. The sibling is now
     tested for rather than assumed from the platform.
     """
+    from yazses.settingsui.pages import PAGE_FLAG
     from yazses.system.relaunch import Mode, command_for
 
     mode = Mode.SETTINGS if subcommand == "settings" else Mode.CLI
