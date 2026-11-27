@@ -6,6 +6,16 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — microphone: an input that refuses 16 kHz can now record
+
+YazSes asked every input for 16 kHz and nothing else, so one that only opens at its own rate (typically a pinned raw ALSA `hw:` device or a Windows WASAPI entry) failed every recording with "Invalid sample rate". When, and only when, the rate is refused, the input is now opened at its default rate (or another common one) and the audio is converted to 16 kHz with an anti-aliasing filter written in NumPy; no new dependency. This covers dictation, Meeting Mode, the hands-free streams, `yazses mic-level` and **Re-calibrate**. The log says once which rate is used.
+
+### Fixed — microphone: a stalled stream is no longer reported as silence
+
+A stream that stayed open for at least a second and delivered no samples was discarded as `Silent audio`, with advice to run `yazses mic-level --set`, and its zero level was fed to the automatic threshold tuning. It is now reported as a stalled stream (`stream_stalled`), with a notification (off with `[audio] silent_streak_notify = false`) and no retune. It still counts toward the silent streak, so auto-heal can switch back to the last microphone that worked.
+
+Both are covered by tests with a fake audio library; neither was reproduced on audio hardware.
+
 ### Fixed — microphone: a device re-scan can no longer cut a recording or playback short, or leave the daemon without a microphone
 
 - The device watcher re-initialises the audio library every few seconds while idle, which closes every open stream. It checked that the daemon was idle and then re-initialised, so a key press, the **Re-calibrate** recording, a spoken `ask_human` answer, a punch-in, an earcon or a read-back could start in between or run underneath it. Streams and playback now hold the audio library until they finish, and a re-scan waits or is skipped.

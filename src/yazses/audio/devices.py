@@ -14,11 +14,14 @@ from __future__ import annotations
 import logging
 import threading
 import weakref
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
+from typing import TypeVar
 
 log = logging.getLogger(__name__)
+
+_T = TypeVar("_T")
 
 # Re-initialising PortAudio closes every open stream in the process and invalidates the
 # handles Python still holds, and an open attempted while it is down fails. The device
@@ -256,6 +259,74 @@ def reinit_portaudio(sd=None) -> bool:
             _reinit_failed = False
             log.info("The audio system is available again.")
         return True
+
+
+#: The rate the speech models take, and the only one capture is converted to.
+_SPEECH_RATE = 16000
+#: PortAudio's ``paInvalidSampleRate``.
+_PA_INVALID_SAMPLE_RATE = -9997
+#: Rates tried, after the device's own default, when the wanted one is refused.
+_COMMON_CAPTURE_RATES = (48000, 44100, 32000, 96000, 22050, 8000)
+
+
+def is_sample_rate_refusal(exc: BaseException) -> bool:
+    """Did PortAudio refuse to open a stream because of its sample rate? Pure.
+
+    ``sounddevice.PortAudioError`` carries the PortAudio error code as its second
+    argument; the message is checked too, for a wrapper that kept only the text.
+    """
+    args = getattr(exc, "args", ())
+    if len(args) > 1 and args[1] == _PA_INVALID_SAMPLE_RATE:
+        return True
+    return "invalid sample rate" in str(exc).lower()
+
+
+def fallback_sample_rates(device_info: object, wanted: int) -> list[int]:
+    """Rates to try when ``wanted`` is refused: the device's default first. Pure.
+
+    ``device_info`` is a ``query_devices`` entry, or anything else (None) when the
+    device could not be queried, which leaves the common rates.
+    """
+    try:
+        native = int(round(float(device_info["default_samplerate"])))  # type: ignore[index]
+    except (KeyError, TypeError, ValueError, OverflowError):
+        native = 0
+    rates: list[int] = []
+    for rate in (native, *_COMMON_CAPTURE_RATES):
+        if rate > 0 and rate != wanted and rate not in rates:
+            rates.append(rate)
+    return rates
+
+
+def open_at_supported_rate(
+    open_at: Callable[[int], _T], wanted: int, device_info: Callable[[], object]
+) -> tuple[_T, int]:
+    """``(open_at(rate), rate)`` for ``wanted``, or else for a rate the device accepts.
+
+    Another rate is tried only when ``wanted`` is 16 kHz and it is refused *for its
+    sample rate*; every other failure is raised unchanged, so a busy or missing device
+    behaves as before. A refused ``[audio] sample_rate`` other than 16000 is raised too:
+    converting to it would only hand the speech model audio it cannot read. When no rate
+    is accepted, the refusal of ``wanted`` is what is raised. The caller resamples when
+    the returned rate differs from ``wanted``.
+    """
+    try:
+        return open_at(wanted), wanted
+    except Exception as refusal:
+        if wanted != _SPEECH_RATE or not is_sample_rate_refusal(refusal):
+            raise
+        try:
+            info = device_info()
+        except Exception as exc:  # pragma: no cover - hardware/backend dependent
+            log.debug("Could not query the input device: %s", exc)
+            info = None
+        for rate in fallback_sample_rates(info, wanted):
+            try:
+                return open_at(rate), rate
+            except Exception as exc:
+                if not is_sample_rate_refusal(exc):
+                    raise
+        raise
 
 
 #: Names PortAudio reports for a *route* rather than a microphone. On ALSA and

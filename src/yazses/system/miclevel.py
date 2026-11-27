@@ -253,10 +253,19 @@ def record(
     list), an explicit PortAudio index, or None to follow the OS default. Pinning lets
     ``yazses mic-level`` and the daemon's re-calibrate action measure the *active* mic
     rather than whatever the OS default happens to be.
+
+    An input that refuses ``sample_rate`` is recorded at a rate it accepts and the clip
+    is resampled, so the result is always at ``sample_rate``.
     """
     import sounddevice as sd
 
-    from yazses.audio.devices import list_input_devices, portaudio_in_use, resolve_input_device
+    from yazses.audio.devices import (
+        list_input_devices,
+        open_at_supported_rate,
+        portaudio_in_use,
+        resolve_input_device,
+    )
+    from yazses.audio.resample import resample
 
     # Held from resolve to the end of the recording: the daemon runs this for the
     # [Re-calibrate] button while idle, when the device monitor re-initialises PortAudio
@@ -268,12 +277,20 @@ def record(
         elif isinstance(device, str) and device.strip():
             device_index = resolve_input_device(device, list_input_devices())
 
-        frames = int(seconds * sample_rate)
-        buf = sd.rec(
-            frames, samplerate=sample_rate, channels=1, dtype="float32", device=device_index
+        def _rec(rate: int):
+            return sd.rec(
+                int(seconds * rate),
+                samplerate=rate,
+                channels=1,
+                dtype="float32",
+                device=device_index,
+            )
+
+        buf, rate = open_at_supported_rate(
+            _rec, sample_rate, lambda: sd.query_devices(device_index, "input")
         )
         sd.wait()
-    return np.asarray(buf, dtype=np.float32).flatten()
+    return resample(np.asarray(buf, dtype=np.float32).flatten(), rate, sample_rate)
 
 
 def _section_span(text: str, section: str):

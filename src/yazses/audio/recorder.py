@@ -4,16 +4,19 @@ import logging
 import threading
 import time
 from collections.abc import Callable
+from functools import partial
 from typing import TYPE_CHECKING
 
 import numpy as np
 
 from yazses.audio.devices import (
     hold_portaudio,
+    open_at_supported_rate,
     portaudio_lock,
     reinit_portaudio,
     release_portaudio,
 )
+from yazses.audio.resample import StreamResampler
 
 if TYPE_CHECKING:  # annotations only -- never imported at runtime by this block
     import sounddevice as sd
@@ -68,6 +71,11 @@ def _sd():
 _OPEN_RETRY_DELAYS_S: tuple[float, ...] = (0.05, 0.55)
 # Derived, so a change to one can never leave the other behind.
 _OPEN_ATTEMPTS = len(_OPEN_RETRY_DELAYS_S) + 1
+
+# A stream that has been open this long without one callback is stalled, not quiet: a
+# working input delivers its first block within a fraction of this, even from a silent
+# room. Shorter takes prove nothing -- a quick tap can end before the first block.
+_STALL_AFTER_S = 1.0
 
 
 def _ended_on_its_own(stream: object) -> bool:
@@ -146,6 +154,16 @@ class AudioRecorder:
         # callback that would exceed the cap (which logs one warning per recording),
         # read after ``stop()`` like ``stream_interrupted``, and reset by ``start()``.
         self.truncated = False
+        # True when the last ``stop()`` found a stream that had been open for at least
+        # ``_STALL_AFTER_S`` and never delivered a block: the device or the audio server
+        # stalled. Read after ``stop()``, reset by ``start()``.
+        self.stream_stalled = False
+        self._callback_seen = False
+        self._opened_at = 0.0
+        # Set only while the open stream runs at another rate than ``sample_rate``.
+        self._resampler: StreamResampler | None = None
+        # (device, rate) pairs already announced, so each is logged at INFO once.
+        self._announced_rates: set[tuple[str | None, int]] = set()
         self._chunks: list[np.ndarray] = []
         self._n_samples = 0
         self._stream: sd.InputStream | None = None
@@ -192,6 +210,25 @@ class AudioRecorder:
         except Exception:
             return None
 
+    def _open_stream(
+        self, device_index: int | None, rate: int
+    ) -> tuple[sd.InputStream, StreamResampler | None]:
+        """Open (not start) an input stream at ``rate``, resampling if that is needed."""
+        resampler = None
+        callback: Callable[..., None] = self._callback
+        if rate != self._sample_rate:
+            # Bound to this stream, so a late callback of an older one cannot reach it.
+            resampler = StreamResampler(rate, self._sample_rate)
+            callback = partial(self._resampled_callback, resampler)
+        stream = _sd().InputStream(
+            samplerate=rate,
+            channels=1,
+            dtype="float32",
+            callback=callback,
+            device=device_index,
+        )
+        return stream, resampler
+
     def start(self) -> None:
         with self._lock:
             generation = self._stop_generation
@@ -207,6 +244,8 @@ class AudioRecorder:
         self._on_chunk_failed = False
         self.truncated = False
         self.stream_interrupted = False
+        self.stream_stalled = False
+        self._callback_seen = False
         last_exc: Exception | None = None
         for attempt in range(1, _OPEN_ATTEMPTS + 1):
             if attempt == _OPEN_ATTEMPTS:
@@ -218,12 +257,10 @@ class AudioRecorder:
                 # the stream between these lines.
                 with portaudio_lock():
                     device_index = self._resolve_device()
-                    stream = _sd().InputStream(
-                        samplerate=self._sample_rate,
-                        channels=1,
-                        dtype="float32",
-                        callback=self._callback,
-                        device=device_index,
+                    (stream, resampler), rate = open_at_supported_rate(
+                        partial(self._open_stream, device_index),
+                        self._sample_rate,
+                        partial(self._query_input, device_index),
                     )
                     stream.start()
                     hold_portaudio(stream)
@@ -260,6 +297,8 @@ class AudioRecorder:
                 superseded = None
                 if not aborted:
                     superseded, self._stream = self._stream, stream
+                    self._resampler = resampler
+                    self._opened_at = time.monotonic()
             if superseded is not None:
                 _close_quietly(superseded)
             if aborted:
@@ -276,10 +315,44 @@ class AudioRecorder:
                 return
             self.current_device_name = self._opened_device_name(device_index)
             log.debug("Audio recording started (device=%s)", self.current_device_name)
+            if rate != self._sample_rate:
+                self._announce_rate(rate)
             return
         raise RuntimeError(
             f"Could not open microphone after {_OPEN_ATTEMPTS} attempts: {last_exc}"
         ) from last_exc
+
+    def _query_input(self, index: int | None) -> object:
+        return _sd().query_devices(index, "input")
+
+    def _announce_rate(self, rate: int) -> None:
+        key = (self.current_device_name, rate)
+        level = logging.DEBUG if key in self._announced_rates else logging.INFO
+        self._announced_rates.add(key)
+        log.log(
+            level,
+            "Input device %r does not accept %d Hz; capturing at %d Hz and resampling.",
+            self.current_device_name,
+            self._sample_rate,
+            rate,
+        )
+
+    def _resampled_callback(
+        self,
+        resampler: StreamResampler,
+        indata: np.ndarray,
+        frames: int,
+        time_info: object,
+        status: sd.CallbackFlags,
+    ) -> None:
+        """Convert a block captured at the device's rate, then treat it like any other."""
+        self._callback_seen = True
+        block = resampler.process(indata)
+        if not block.size:  # too little input yet for one output sample
+            if status:
+                log.warning("Audio callback status: %s", status)
+            return
+        self._callback(block.reshape(-1, 1), block.size, time_info, status)
 
     def _callback(
         self,
@@ -288,6 +361,7 @@ class AudioRecorder:
         time_info: object,
         status: sd.CallbackFlags,
     ) -> None:
+        self._callback_seen = True
         if status:
             log.warning("Audio callback status: %s", status)
         if self._max_seconds and (self._n_samples + frames) > self._max_seconds * self._sample_rate:
@@ -328,13 +402,40 @@ class AudioRecorder:
         """True while recording, or while a clip is held that ``stop()`` has not handed over."""
         return self._stream is not None or bool(self._chunks)
 
+    def _flush_resampler(self, resampler: StreamResampler) -> None:
+        """Keep the last milliseconds the resampling filter was still holding back.
+
+        Only for the buffered clip: ``on_chunk`` is a stream-thread callback and is not
+        called from the thread that stops the recording.
+        """
+        if not self._accumulate or self.truncated:
+            return
+        tail = resampler.flush()
+        if self._max_seconds:
+            tail = tail[: max(0, self._max_seconds * self._sample_rate - self._n_samples)]
+        if tail.size:
+            self._chunks.append(tail)
+            self._n_samples += tail.size
+
     def stop(self) -> np.ndarray:
         interrupted = False
+        stalled = False
         with self._lock:
             self._stop_generation += 1
             stream, self._stream = self._stream, None
+            resampler, self._resampler = self._resampler, None
         if stream is not None:
+            open_s = time.monotonic() - self._opened_at
             interrupted = _ended_on_its_own(stream)
+            stalled = (
+                not interrupted and not self._callback_seen and open_s >= _STALL_AFTER_S
+            )
+            if stalled:
+                log.warning(
+                    "Microphone stream stalled: it was open for %.1f s and delivered no "
+                    "audio at all.",
+                    open_s,
+                )
             if interrupted:
                 log.warning(
                     "Microphone stream ended before recording was stopped (input device "
@@ -355,7 +456,10 @@ class AudioRecorder:
             except Exception as exc:
                 log.warning("Error closing mic stream: %s", exc)
             release_portaudio(stream)
+            if resampler is not None:
+                self._flush_resampler(resampler)
         self.stream_interrupted = interrupted
+        self.stream_stalled = stalled
         if not self._chunks:
             return np.array([], dtype="float32")
         audio = np.concatenate(self._chunks)

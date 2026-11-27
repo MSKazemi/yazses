@@ -735,8 +735,9 @@ method `send_to` and by `yazses send-to` ([ADR-031](adr/adr-031-send-to-prefill-
 
 | File | Role |
 |---|---|
-| `recorder.py` | `AudioRecorder` — sounddevice → numpy buffer, max_seconds cap. An open stream is registered with `devices.hold_portaudio` until it is closed; the last of the three open attempts re-initialises PortAudio first when nothing else holds it |
+| `recorder.py` | `AudioRecorder` — sounddevice → numpy buffer, max_seconds cap. An open stream is registered with `devices.hold_portaudio` until it is closed; the last of the three open attempts re-initialises PortAudio first when nothing else holds it. Invariant: every consumer receives audio at the requested rate; an input that refuses it is opened at a rate it accepts (`devices.open_at_supported_rate`, also used by `system/miclevel.record`) and converted by `resample.py` in the stream callback. `stop()` sets `stream_stalled` when a stream open for at least 1 s delivered no block |
 | `devices.py` | Input enumeration, name pinning, the default-input readers, and the process-wide PortAudio guard. Invariant: `reinit_portaudio` runs under `portaudio_lock` (which also covers a stream open) and does nothing while any stream or playback holds PortAudio, so new code that opens a stream or calls `sd.play`/`sd.rec` registers with `hold_portaudio` or `portaudio_in_use` |
+| `resample.py` | `StreamResampler` / `resample` — **pure** NumPy polyphase windowed-sinc rate conversion with an anti-alias low-pass; chunk-size independent |
 | `vad.py` | `is_silent(audio)` — RMS-based silence gate (hardcoded threshold) |
 | `vad_calibrated.py` | `is_silent_calibrated(audio, config)` — uses `config.vad_threshold` |
 | `padding.py` | `PreSpeechRingBuffer` — fixed-capacity ring buffer, `prepend_padding(audio)` for voice-onset recovery |
