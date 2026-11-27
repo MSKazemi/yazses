@@ -1046,7 +1046,7 @@ from the tree, so a method added to the daemon, or a caller added or removed, fa
 | `punch_in` | CLI | Re-record over a selected span |
 | `readback_speak` | CLI | Speak a phrase through the read-back TTS |
 | `mark_last_wrong` | CLI | Flag the last dictation as a misrecognition (learning signal) |
-| `enroll_start` | CLI | Start the accessibility enrollment wizard |
+| `enroll_start` | nothing | Start the accessibility enrollment wizard. `yazses enroll` runs the wizard in its own terminal, because the daemon has none |
 | `remote_start` | CLI | Start an SSH remote session |
 | `remote_stop` | CLI | Disconnect the remote session |
 | `meeting_start` | CLI, tray | Begin a meeting capture |
@@ -1065,7 +1065,7 @@ from the tree, so a method added to the daemon, or a caller added or removed, fa
 | `streaming_enable` | nothing | Turn streaming transcription on at runtime, building the `StreamingEngine` if it is absent |
 | `streaming_disable` | nothing | Turn it off again |
 
-The last three are registered, implemented, and unreachable: no CLI command, tray entry or
+`enroll_start` and the last three rows are registered, implemented, and unreachable: no CLI command, tray entry or
 MCP tool sends them, so they answer a hand-written JSON-RPC client and nothing else. They
 are recorded as unreachable rather than deleted, because two of them are the only runtime
 streaming toggle that exists. Before wiring one up, note that neither writes `config.toml`,
