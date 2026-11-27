@@ -305,7 +305,7 @@ uv run --extra emg yazses biosignal field-test --out ~/tg-pilot/ft-<date>-s1.jso
   - **Why the threshold sits there.** The cause is the gesture phase: 8 cues with a 3 s window after a 5 s lead-in need at least 29 s, which a total under about 5.35 minutes cannot give it.
   - **Valid values.** With only the double blink enabled, the standard run has 6 phases, and `--minutes 7`, `8` and `60` scale correctly.
   - Whatever happens, record the phase list the run actually printed.
-- Every session scores at most **8** double-blink cues, whatever `--minutes` says: the cue count is fixed and no flag changes it. Reaching the 16 scored cues that ADR-v2-152's 80% floor needs (with no miss) takes at least two complete sessions. Plan for more.
+- Every session scores at most **8** double-blink cues, whatever `--minutes` says: at `2c5480d0` the cue count was fixed. Reaching the 16 scored cues that ADR-v2-152's 80% floor needs (with no miss) then takes at least two complete sessions. Plan for more. A revision with `field-test --cues` (#889) can score 16 or more in one session; the gate is still pooled over participants.
 - Never overwrite a file: `--out` refuses an existing path. Use one file per session.
 - Repeat on a different day and after reseating the electrode. A reseat with a fresh calibration counts as a **new configuration**, so keep its files apart.
 - Do not change thresholds, the budget or the mapping between scored sessions of one round (see the protocol's "Tuning rounds").
@@ -324,7 +324,7 @@ uv run --extra emg yazses biosignal monitor --source thinkgear:/dev/rfcomm0 --bl
 Rules:
 
 - During this hour, make **no deliberate double blinks**. Every `double_blink` detection is then, by construction, a false trigger. Do ordinary desk work (typing, reading, calls, drinking, looking around), and write on the sheet what was actually done.
-- **The false-trigger count** is the `double_blink` row of the `Detections:` table, **not** the `Measured: … activations/h` line. That line counts every activating kind in the ledger, and single `blink` events are among them.
+- **The false-trigger count** is the `double_blink` row of the `Detections:` table. The `Measured: … activations/h` line counts every enabled switch, so with `--blink --no-emg --no-clench` it counts the same events. Single blinks are in neither: the detector never emits them.
 - **The exposure** is the duration at the end of the `Measured:` line (`over N min`). It is the ledger's ungated time: anything the quality gate, the stream-integrity gate or the source-health veto refused is removed from it. On the emulator, a 34 s run with 7 s of no contact reported `over 21 s`, so the 2 s warm-up and the rearm time were also excluded. It prints in whole minutes from 90 s up to two hours.
 - Also record:
   - the wall-clock duration;
@@ -448,6 +448,19 @@ document. Each was first found at `4a83e484` and re-checked at `2c5480d0`.
 | 8c | **`emg = true` is the shipped default.** `doctor` lists `detectors: emg, double_blink` for a ThinkGear source. Set `emg = false` (section 4.3). | **Holds** |
 | 8d | **The default `intent_map` sends a double blink as a one-shot `undo`** (`{'double_blink': 'undo'}`) and opens no microphone hold, so a stuck-mic zero is weak evidence here | **Holds** |
 | 9 | **`calibrate` does not use the source-health veto** (it does not go through `source_gates`) | **New at `2c5480d0`** (code read). See Stage E. |
+
+### Update, 2026-11-27 (the table above records `2c5480d0`)
+
+On `main` after the #889 follow-up:
+
+- **4**: fixed by #888; the shortest accepted `--minutes` now also keeps every phase at 30 s or more.
+- **5**: `field-test --cues N` (5 to 100, default 8).
+- **6**: `yazses biosignal field-test-pool FILE...`; every report prints the exact Poisson bound.
+- **7**: withdrawn. The double-blink detector never emits a single blink, so none reaches the ledger.
+- **8a, 8b**: fixed (`uv_scale=`, and `--source` help names `thinkgear:`).
+- **8c**: the default is unchanged, but `field-test` no longer cues a squeeze that cannot fire.
+- **8d**: unchanged; the validation protocol now says such a setup does not exercise the hold path.
+- **9**: fixed by #887.
 
 ## 15. References
 

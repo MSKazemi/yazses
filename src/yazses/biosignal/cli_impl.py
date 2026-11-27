@@ -45,6 +45,9 @@ UNUSABLE = 2
 #: File name of the persisted activation counters, inside the platform data directory.
 LEDGER_FILENAME = "biosignal_ledger.json"
 
+#: Why ``monitor`` and ``field-test`` leave the squeeze out on an EEG-only source.
+_NO_MUSCLE_CHANNEL = "not available on this source (it has no muscle channel)"
+
 #: Wall seconds between status lines in ``monitor``.
 DEFAULT_MONITOR_INTERVAL_S = 1.0
 
@@ -809,9 +812,11 @@ def run_monitor(
     _say(f"Monitoring {spec}  (fs {src.fs:g} Hz, {len(src.channels)} channels; detectors: "
          f"{sw.names()}).  Ctrl-C to stop."
          + ("  Demo gestures are scripted every 8 s." if demo else ""))
-    if sw.emg and parts.detectors is not None and not any(
-            type(d).__name__.startswith(("Emg", "GradedEmg")) for d in parts.detectors):
-        _say("  Muscle squeeze: off until you calibrate (`yazses biosignal calibrate`).")
+    if sw.emg and parts.detectors is not None:
+        if not squeeze_expected(spec):
+            _say(f"  Muscle squeeze: {_NO_MUSCLE_CHANNEL}.")
+        elif not any(type(d).__name__.startswith(("Emg", "GradedEmg")) for d in parts.detectors):
+            _say("  Muscle squeeze: off until you calibrate (`yazses biosignal calibrate`).")
 
     counts: dict[Any, int] = {}
     started = time.monotonic()
@@ -1682,8 +1687,9 @@ class ProtocolTooShort(ValueError):
     def __init__(self, minutes: float, minimum: float) -> None:
         super().__init__(
             f"--minutes {minutes:g} is too short: every gesture phase must still fit its "
-            f"cues, each followed by its full response window. The shortest test for these "
-            f"switches is --minutes {minimum:.2f} (or 0 for the standard length).")
+            f"cues, each followed by its full response window, and last long enough to "
+            f"count. The shortest test for these switches and this --cues is "
+            f"--minutes {minimum:.2f} (or 0 for the standard length).")
         self.minutes = minutes
         self.minimum = minimum
 
@@ -1700,8 +1706,8 @@ def _cue_floor(phase: Any, duration: float) -> float:
     return (lead + cues * window) / duration
 
 
-def _scaled_protocol(fieldtest: Any, minutes: float,
-                     switches: Any = None) -> tuple[Any, float, str]:
+def _scaled_protocol(fieldtest: Any, minutes: float, switches: Any = None,
+                     cues: int | None = None) -> tuple[Any, float, str]:
     """The default protocol stretched or shrunk to ``minutes`` (0 = as designed).
 
     Returns ``(protocol or None, total_seconds, note)``. ``None`` means "use the module's
@@ -1710,11 +1716,13 @@ def _scaled_protocol(fieldtest: Any, minutes: float,
 
     ``switches`` limits the deliberate-gesture phases to the detectors that are on: a switch
     that is off can never fire, and cueing it would count misses against a feature the user
-    did not enable (dragging the verdict toward "do not enable" for no reason).
+    did not enable (dragging the verdict toward "do not enable" for no reason). ``cues``
+    is the number of cues per gesture phase (``None`` = the module's default).
 
     Raises :class:`ProtocolTooShort` when ``minutes`` would squeeze a gesture phase below
-    what its cues need. It used to fall back to the full, unfiltered default protocol there
-    (#888), silently running the standard length and cueing switches that were off.
+    what its cues need, or below the usable signal a session requires of every phase. It
+    used to fall back to the full, unfiltered default protocol there (#888), silently
+    running the standard length and cueing switches that were off.
     """
     kwargs: dict[str, Any] = {}
     if switches is not None:
@@ -1722,6 +1730,8 @@ def _scaled_protocol(fieldtest: Any, minutes: float,
             name for name, on in (("squeeze", switches.emg),
                                   ("double_blink", switches.double_blink),
                                   ("jaw_clench", switches.jaw_clench)) if on)
+    if cues is not None:
+        kwargs["cues"] = cues
     try:
         phases = list(fieldtest.default_protocol(**kwargs))
     except TypeError:
@@ -1742,12 +1752,20 @@ def _scaled_protocol(fieldtest: Any, minutes: float,
         # Hand the session the protocol built for these switches, not its own default.
         return (phases if kwargs else None), total, ""
     factor = minutes * 60.0 / total
-    floor = max((_cue_floor(p, length(p)) for p in phases), default=0.0)
+    # FieldTestSession refuses a phase shorter than the usable signal it must collect.
+    min_phase = float(getattr(fieldtest, "DEFAULT_MIN_PHASE_S", 0.0))
+    lengths = [length(p) for p in phases if length(p) > 0]
+    floor = max([_cue_floor(p, length(p)) for p in phases]
+                + [min_phase / n for n in lengths], default=0.0)
+
+    def fits(scale: float) -> bool:
+        return scale >= floor and all(n * scale >= min_phase for n in lengths)
+
     # Rounded up to the 0.01 min the message names, so the value it names is accepted.
     minimum = math.ceil(floor * total / 60.0 * 100.0 - 1e-9) / 100.0
-    if minimum * 60.0 / total < floor:
+    while not fits(minimum * 60.0 / total):
         minimum = round(minimum + 0.01, 2)
-    if factor < floor:
+    if not fits(factor):
         raise ProtocolTooShort(minutes, minimum)
     try:
         scaled = []
@@ -1765,9 +1783,28 @@ def _scaled_protocol(fieldtest: Any, minutes: float,
             "The length of this test could not be changed; running the standard one.")
 
 
+def _squeeze_blocker(parts: Any, source: Any) -> str:
+    """Why the built pipeline can never report a squeeze on this source, or ``""``."""
+    from yazses.biosignal.types import SignalKind
+
+    if not any(c.kind is SignalKind.EMG for c in getattr(source, "channels", ())):
+        return _NO_MUSCLE_CHANNEL
+    if not any(type(d).__name__.startswith(("Emg", "GradedEmg")) for d in parts.detectors):
+        return "off without a usable calibration (run `yazses biosignal calibrate`)"
+    return ""
+
+
+def _nothing_to_test(switches: Any) -> bool:
+    return not (switches.emg or switches.double_blink or switches.jaw_clench)
+
+
+_NOTHING_TO_TEST = ("No enabled switch can fire on this source, so there is nothing to test. "
+                    "Calibrate, or turn on [biosignal] double_blink or jaw_clench.")
+
+
 def run_field_test(
     cfg: Any, data_dir: Path, *, source: str = "", minutes: float = 0.0,
-    as_json: bool = False, out: str = "",
+    cues: int | None = None, as_json: bool = False, out: str = "",
 ) -> int:
     """A guided session of ordinary activity, then the phantom activations per hour for each.
 
@@ -1775,6 +1812,10 @@ def run_field_test(
     switch fires on while you do nothing meant for it is a false activation; the report
     gives those as a rate per hour of each activity. Only those counts are reported or
     saved -- never the signal, never an amplitude. Nothing is typed or acted on.
+
+    ``cues`` is the number of cues per gesture phase. A squeeze that is on in the config but
+    cannot fire here (no muscle channel, no calibration) is not cued, and the reason is
+    printed: cues nobody can hit would count against the switch.
     """
     from yazses.biosignal import fieldtest
     bio = cfg.biosignal
@@ -1787,12 +1828,23 @@ def run_field_test(
     if out_path is not None and os.path.lexists(out_path):
         _warn(f"{out_path} already exists; not overwriting. Choose another --out.")
         return UNUSABLE
+    if cues is not None and not fieldtest.MIN_CUES <= cues <= fieldtest.MAX_CUES:
+        _warn(f"--cues must be between {fieldtest.MIN_CUES} and {fieldtest.MAX_CUES}.")
+        return UNUSABLE
     narrate = _warn if as_json else _say          # keep stdout pure JSON when asked
     sw = switches_from(bio)
+    # An EEG-only source is known from its spec, so its squeeze is left out before the
+    # length is judged (and `emg = true`, the shipped default, costs a headset user nothing).
+    if sw.emg and not squeeze_expected(spec):
+        sw = dataclasses.replace(sw, emg=False)
+        narrate(f"Muscle squeeze: not cued, {_NO_MUSCLE_CHANNEL}.")
+        if _nothing_to_test(sw):
+            _warn(_NOTHING_TO_TEST)
+            return UNUSABLE
     # Judged before the source is opened: a length the cues cannot fit is refused with the
     # minimum, never replaced by the standard protocol (#888).
     try:
-        protocol, total, note = _scaled_protocol(fieldtest, minutes, sw)
+        protocol, total, note = _scaled_protocol(fieldtest, minutes, sw, cues)
     except ProtocolTooShort as exc:
         _warn(str(exc))
         return UNUSABLE
@@ -1815,9 +1867,19 @@ def run_field_test(
                   f"{getattr(guard, 'last_error', '') or 'no data'}")
             return UNUSABLE
 
+        pipeline, parts, _ledger = _build_pipeline(bio, guard, sw, data_dir)
+        parts.quality = source_gates.compose_quality_gate(guard, parts.quality, spec)
+        blocker = _squeeze_blocker(parts, guard) if sw.emg else ""
+        if blocker:
+            sw = dataclasses.replace(sw, emg=False)
+            narrate(f"Muscle squeeze: not cued, {blocker}.")
+            if _nothing_to_test(sw):
+                _warn(_NOTHING_TO_TEST)
+                return UNUSABLE
+            # Fewer phases need less time, so a length accepted above is still accepted.
+            protocol, total, note = _scaled_protocol(fieldtest, minutes, sw, cues)
+
         def make_pipeline(_source: Any = None) -> Any:
-            pipeline, parts, _ledger = _build_pipeline(bio, guard, sw, data_dir)
-            parts.quality = source_gates.compose_quality_gate(guard, parts.quality, spec)
             return pipeline
 
         session_kwargs: dict[str, Any] = {}
@@ -1893,6 +1955,67 @@ def run_field_test(
         if out_path is not None:
             _say(f"Saved the counts to {out_path} [mode 0600].")
     return OK if why in ("finished", "stopped early") else FAILED
+
+
+# ---------------------------------------------------------------------------
+# field-test-pool
+
+_MAX_REPORT_BYTES = 5 << 20
+
+_POOL_NOTE = ("Pool one participant and one configuration (board, electrode placement, "
+              "calibration, thresholds, code version) at a time. The files record none of "
+              "these, so nothing here can check it.")
+
+
+def run_field_test_pool(paths: list[str], *, as_json: bool = False) -> int:
+    """Add several saved field-test results into one and recompute every bound.
+
+    Counts and seconds are summed (``FieldTestAggregate``); rates are never averaged. Each
+    file is a ``field-test --out`` (or ``--json``) result. The same file named twice is
+    refused; two files with identical contents are pooled with a warning. Reads only the
+    files named and writes nothing.
+    """
+    from yazses.biosignal import fieldtest
+
+    if not paths:
+        _warn("Name at least one field-test result file.")
+        return UNUSABLE
+    reports: list[Any] = []
+    seen: list[tuple[Path, Any]] = []
+    for name in paths:
+        path = Path(name).expanduser()
+        try:
+            if not path.is_file():
+                raise ValueError("not a file")
+            if any(os.path.samefile(path, other) for other, _ in seen):
+                _warn(f"{path} is named twice; pooling it twice would count it twice.")
+                return UNUSABLE
+            if path.stat().st_size > _MAX_REPORT_BYTES:
+                raise ValueError(f"larger than {_MAX_REPORT_BYTES >> 20} MB")
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                raise ValueError("not a field-test result (expected a JSON object)")
+            reports.append(fieldtest.report_from_dict(data))
+        except (OSError, ValueError, RecursionError) as exc:
+            _warn(f"Cannot read {path}: {exc}")
+            return UNUSABLE
+        for other, earlier in seen:
+            if earlier == data:
+                _warn(f"Warning: {path} and {other} have identical contents. If one is a "
+                      "copy, leave it out: the pool counts both.")
+                break
+        seen.append((path, data))
+    try:
+        pooled = fieldtest.FieldTestAggregate(reports).report()
+    except ValueError as exc:
+        _warn(f"These results cannot be pooled: {exc}")
+        return UNUSABLE
+    if as_json:
+        _say(json.dumps(fieldtest.report_to_dict(pooled), indent=2))
+        return OK
+    _say(fieldtest.format_report(pooled))
+    _say("\n" + _POOL_NOTE)
+    return OK
 
 
 # ---------------------------------------------------------------------------

@@ -6,6 +6,16 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — biosignal: `field-test --cues`, and `field-test-pool` to combine saved results ([#889](https://github.com/MSKazemi/yazses/issues/889), items 4 and 5)
+
+`yazses biosignal field-test --cues N` sets the number of cues per gesture phase (5 to 100, default still 8), so one session can reach the 16 scored cues that an 80% hit-rate floor needs. The new `yazses biosignal field-test-pool FILE...` adds several saved results together and recomputes every rate and bound from the totals; it refuses a file named twice and warns about two files with identical contents. The field-test and pooled reports now print the exact one-sided 95% Poisson upper bound beside the approximation (`exact 95% /h`; JSON `phantom_exact_upper_per_hour`): no phantom in 120 s is 89.9 per hour exactly, against 89.1. The verdict still uses the approximation. A saved result with negative or non-finite numbers is now refused when read back.
+
+### Fixed — biosignal: `field-test` cued a squeeze that could never fire, and the shortest `--minutes` it named was refused ([#889](https://github.com/MSKazemi/yazses/issues/889), item 6)
+
+`[biosignal] emg` is on by default, so a ThinkGear user, or anyone not yet calibrated, was cued to squeeze and scored 0 hits. A squeeze with no muscle channel or no usable calibration is now skipped and the reason printed; if no switch is left that could fire, the test is refused (exit 2). `monitor` no longer tells a ThinkGear user to calibrate a squeeze. Separately, `--minutes` values from about 5.32 to 5.49 (double blink only) passed the length check added in #888 and were then refused by the session, because a gesture phase fell under its 30 s minimum; the check now includes that minimum, and the shortest accepted value for that setup is 5.50.
+
+Item 1 of #889 (single blinks counted in `monitor`'s `Measured:` rate) does not happen: the double-blink detector never emits a single blink. A test now pins that. The default `double_blink = "undo"` mapping is unchanged; the docs now say that it opens no microphone hold, so a zero stuck-mic count from such a setup says nothing about holds.
+
 ### Fixed — snap on Wayland: dictated text could not reach the clipboard
 
 The snap's private `XDG_RUNTIME_DIR` does not hold the Wayland socket, so `wl-copy` and `wl-paste` failed with "Failed to connect to a Wayland server": when typing failed, the clipboard fallback failed too and the dictation was lost. The clipboard commands are now given the host socket's full path; the daemon's own environment is unchanged. Where the copy works and nothing can press Ctrl+V, the notification now says the words are on the clipboard instead of that they were not typed.

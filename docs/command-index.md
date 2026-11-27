@@ -129,8 +129,16 @@ Guided test of how often the switches fire by mistake during ordinary activity.
 
 - `--source` — Test this source instead of [biosignal] source (synthetic | file:<path> | brainflow:<id>[:<port>] | thinkgear:<port>).
 - `--minutes` — Stretch or shrink the test to about this long (0 = the standard length).
+- `--cues` — Cues per deliberate-gesture phase; each adds about 5 s per gesture.
 - `--json` — Print one JSON object instead of text.
 - `--out`, `-o` — Also write the counts to this JSON file (owner-only; never overwrites).
+
+### `yazses biosignal field-test-pool`
+
+Pool several field-test results: add their counts and recompute the bounds.
+
+- **Arguments:** `files`
+- `--json` — Print one JSON object instead of text.
 
 ### `yazses biosignal monitor`
 

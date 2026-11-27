@@ -101,7 +101,7 @@ sequence proportionally.
 | `chew` | Chews gum or a snack throughout | The confound the speech guard does not cover (ADR-v2-152, known limits) | 60 s |
 | `hands_busy` | Types and uses the mouse as in normal work | Arm and hand muscle use on or near the electrode, desk vibration | 120 s |
 | `movement` | Looks around, turns the head, shifts, stretches | Posture, cable motion, electrode shift | 60 s |
-| `gesture_squeeze`, `gesture_double_blink`, `gesture_jaw_clench` | Makes the named gesture on cue (default 8 cues, 3 s response window) | Hit rate and cue-to-event latency per switch | 45 s each |
+| `gesture_squeeze`, `gesture_double_blink`, `gesture_jaw_clench` | Makes the named gesture on cue (default 8 cues, set with `--cues`; 3 s response window) | Hit rate and cue-to-event latency per switch | 45 s each at 8 cues, about 5 s per cue |
 
 A default run is about 7.5 minutes of no-intent phases plus 45 seconds per gesture (about ten minutes for all three). The weights
 the tool applies to build its *workday estimate* (rest 0.20, speech 0.25, chew 0.05, hands busy 0.35,
@@ -123,10 +123,10 @@ hit rate judged on the point estimate (at least 80% of cues) because with the de
 lower bound above 80% is unattainable (eight of eight gives about 68%). It exists to help one person
 decide whether to leave a switch on. **The ADR gates are stricter and are read on the per-phase
 numbers and the conservative interval ends**; a `usable` verdict from one session is neither sufficient
-nor necessary for a gate. The standard session cues every gesture whether or not that switch is on, and the verdict looks at
-every conclusive gesture phase, so a switch that was off (and so could not fire) can drag the headline
-toward `do_not_enable`; in that case read the per-phase rows of the switches that were on, not the
-headline.
+nor necessary for a gate. The session cues only the switches that are on in `[biosignal]`, and skips a
+squeeze that cannot fire (no muscle channel, or no usable calibration) with the reason printed. Reports
+saved by earlier versions may hold gesture phases for switches that could not fire; in those, read the
+per-phase rows of the switches that were on, not the headline.
 
 ## Tuning rounds
 
@@ -143,7 +143,8 @@ Threshold changes are the easiest way to produce a good-looking result that mean
 
 ## Aggregation: `FieldTestAggregate`
 
-A session produces a report (`report_to_dict`, schema 1): per phase the usable and excluded seconds, the
+`yazses biosignal field-test-pool FILE...` runs this merge from the command line. A session produces a
+report (`report_to_dict`, schema 1): per phase the usable and excluded seconds, the
 phantom count and per-kind counts, the cues scored, voided and hit, the extra activations and the
 cue-to-event latencies (to 0.1 s); plus the verdict, its reasons, the budget, the workday figures and the
 caveat. `FieldTestAggregate` (with `report_from_dict`, which recomputes every derived number from the
@@ -156,7 +157,8 @@ aggregating by hand must also do:
 2. **Like with like.** Phases are matched by name. Reports that counted different trigger kinds are
    refused, and so is a phase that is a gesture phase in one report and not in another.
 3. **The aggregate has no notion of participant, configuration or session identity.** It does not
-   deduplicate (adding the same file twice counts it twice) and it cannot show a per-participant row.
+   deduplicate (the command refuses one file named twice and warns about identical contents; the Python
+   class counts whatever it is given) and it cannot show a per-participant row.
    Whoever merges must therefore: build **one aggregate per participant per configuration** and report
    those rows beside the pooled one; add each file once; and report the worst participant next to the
    pool. A pooled bound can hide one participant for whom the switch is unusable, and a pooled pass with
@@ -166,7 +168,8 @@ aggregating by hand must also do:
 5. **Exposure is the denominator.** A session in which the switch was mostly gated or suspended
    contributes little usable time and so a wide bound; it is not discarded and not up-weighted.
 6. **The bound's method is stated, every time:** one-sided 95% Poisson upper bound on frozen thresholds,
-   not an accuracy. The workday figure additionally applies a Bonferroni split across the phases used.
+   not an accuracy. Each phase carries it twice: `phantom_exact_upper_per_hour` is the exact limit and the
+   one to quote; `phantom_upper_per_hour` is the Wilson-Hilferty approximation the verdict uses. The workday figure additionally applies a Bonferroni split across the phases used.
 
 ## Minimum evidence for a claim
 
@@ -237,6 +240,10 @@ always the **safe** behaviour, and for every case a hold, if one is open, is clo
 | Corrupt state files | Truncated, oversized, hostile or wrong-schema profile and ledger | Loaders return "none" and the feature degrades (no profile means the squeeze stays off), never a crash and never a guess. |
 | Profile for a different montage | Profile made for other channels or sampling rate | Refused with a reason; squeeze stays off until recalibrated. |
 | Suspend and resume of the laptop | Sleep the machine mid-session | Treated as a gap; the hold is closed; no activation from the first blocks after wake. |
+
+Only a squeeze (`mode_map`) opens a hold. A configuration without it, such as a double-blink switch with the
+default `intent_map` (a one-shot `undo`), cannot exercise the hold cases above; report its zero stuck-mic
+count as not exercised, not as evidence.
 
 A stress run **fails** on any stuck-mic event, any activation emitted from an untrusted window, or any
 exception that reaches the daemon. A fix restarts the whole list on the new code.

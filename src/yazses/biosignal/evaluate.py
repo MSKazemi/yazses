@@ -61,6 +61,7 @@ __all__ = [
     "format_report",
     "idle_report_to_dict",
     "match_events",
+    "poisson_upper_bound",
     "report_to_dict",
 ]
 
@@ -230,7 +231,7 @@ def _poisson_upper_events(count: int) -> float:
     return (lo + hi) / 2.0
 
 
-def _poisson_upper(count: int, hours: float) -> float | None:
+def poisson_upper_bound(count: int, hours: float) -> float | None:
     """One-sided 95% upper bound on an event rate (per hour) given ``count`` in ``hours``.
 
     The exact Poisson limit (see :func:`_poisson_upper_events`) divided by the exposure.
@@ -239,6 +240,9 @@ def _poisson_upper(count: int, hours: float) -> float | None:
     if hours <= 0:
         return None
     return _poisson_upper_events(count) / hours
+
+
+_poisson_upper = poisson_upper_bound  # the name this module and older scripts use
 
 
 def _percentile(values: Sequence[float], pct: float) -> float | None:

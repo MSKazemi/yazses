@@ -41,23 +41,23 @@ def _minimum(switches: Switches = BLINK_ONLY) -> float:
     return info.value.minimum
 
 
-def test_the_minimum_is_where_the_cues_stop_fitting() -> None:
-    """Measured in #888 at about 5.35 min for a double-blink-only setup: 5.3 failed and 5.35
-    scaled. The analytic floor is (5 s lead-in + 8 cues x 3 s) / 45 s of a 495 s protocol."""
-    expected = (5.0 + 8 * 3.0) / 45.0 * (450.0 + 45.0) / 60.0          # 5.316... min
+def test_the_minimum_is_where_the_gesture_phase_stops_counting() -> None:
+    """The cues alone would fit from about 5.32 min (#888), but a session also refuses a
+    phase under 30 s: the 45 s gesture phase of a 495 s protocol reaches that at 5.50."""
+    expected = 30.0 / 45.0 * (450.0 + 45.0) / 60.0                     # 5.5 min
     minimum = _minimum()
-    assert expected <= minimum < expected + 0.011
-    assert minimum == pytest.approx(5.32)
+    assert expected - 1e-9 <= minimum <= expected + 0.01
+    assert minimum == pytest.approx(5.50)
 
 
-@pytest.mark.parametrize("minutes", [1.5, 5.3])
+@pytest.mark.parametrize("minutes", [1.5, 5.3, 5.35, 5.49])
 def test_below_the_minimum_is_refused_naming_it(minutes: float) -> None:
     with pytest.raises(ProtocolTooShort) as info:
         cli_impl._scaled_protocol(fieldtest, minutes, BLINK_ONLY)
     assert f"--minutes {_minimum():.2f}" in str(info.value)
 
 
-@pytest.mark.parametrize("minutes", ["minimum", 5.35, 10.0, 0.0])
+@pytest.mark.parametrize("minutes", ["minimum", 5.51, 10.0, 0.0])
 def test_every_accepted_length_keeps_only_the_enabled_gestures(minutes: Any) -> None:
     value = _minimum() if minutes == "minimum" else float(minutes)
     phases, total, note = cli_impl._scaled_protocol(fieldtest, value, BLINK_ONLY)
@@ -89,7 +89,7 @@ def test_run_field_test_refuses_a_too_short_run_before_opening_the_source(
     assert code == cli_impl.UNUSABLE
     assert opened == []
     err = capsys.readouterr().err
-    assert "--minutes 1.5 is too short" in err and "--minutes 5.32" in err
+    assert "--minutes 1.5 is too short" in err and "--minutes 5.50" in err
 
 
 def test_run_field_test_hands_the_session_the_filtered_scaled_protocol(

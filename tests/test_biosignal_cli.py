@@ -59,7 +59,7 @@ posix_only = pytest.mark.skipif(os.name != "posix", reason="POSIX file modes")
 
 SUBCOMMANDS = [
     ["doctor"], ["calibrate"], ["monitor"], ["replay"], ["report"], ["record"], ["evaluate"],
-    ["profile"], ["profile-clear"], ["boards"], ["field-test"],
+    ["profile"], ["profile-clear"], ["boards"], ["field-test"], ["field-test-pool"],
 ]
 
 
@@ -164,7 +164,8 @@ def test_biosignal_group_is_registered_on_the_real_app():
     """The group is reachable from the real entry point, with the documented commands."""
     group = typer.main.get_command(cli.app).commands["biosignal"]
     assert {"doctor", "calibrate", "monitor", "replay", "report", "record", "evaluate",
-            "profile", "profile-clear", "boards"} <= set(group.commands)
+            "profile", "profile-clear", "boards", "field-test",
+            "field-test-pool"} <= set(group.commands)
 
 
 def test_group_help_exits_zero_and_lists_commands():

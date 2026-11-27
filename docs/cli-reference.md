@@ -1601,7 +1601,8 @@ Muscle-squeeze, blink and jaw-clench switches read from an EEG/EMG/EOG board (`[
 | `yazses biosignal report` | Your own measured activation and cancel rate, with its confidence interval and the note that cancels are a proxy for false positives. |
 | `yazses biosignal record` | Record a session to a CSV, `.npz`, `.edf` or `.bdf` file (mode 0600). EDF+/BDF+ open in EDFbrowser and MNE. Refuses to overwrite without `--force`. |
 | `yazses biosignal evaluate` | Score the detectors against scripted events: precision, recall, latency and phantom triggers per hour. Synthetic by default, or `--file` with `--truth`; an EDF+ or XDF file's own annotations are used when there is no `--truth`. |
-| `yazses biosignal field-test` | Guided test of how often the switches fire by mistake: prompts you to sit still, talk, chew, type and look around, then reports phantom activations per hour for each activity. `--minutes N` sets the length, `--json` prints one object, `--out FILE` also keeps the counts (owner-only, never overwrites). Counts only, never the signal. |
+| `yazses biosignal field-test` | Guided test of how often the switches fire by mistake: prompts you to sit still, talk, chew, type and look around, then reports phantom activations per hour for each activity. `--minutes N` sets the length, `--cues N` the cues per gesture (5 to 100, default 8), `--json` prints one object, `--out FILE` also keeps the counts (owner-only, never overwrites). Only switches that are on are cued, and a squeeze that cannot fire is skipped with the reason. Counts only, never the signal. |
+| `yazses biosignal field-test-pool` | Add several saved field-test results together and recompute every rate and bound, including the exact Poisson upper bound. `--json` prints one object. Pool one person and one configuration at a time; the files record neither. |
 | `yazses biosignal profile` | Which board and channels your calibration profile is for, and how old it is. Never prints an amplitude. |
 | `yazses biosignal profile-clear` | Delete the calibration profile (asks first; `--yes` skips the question). |
 | `yazses biosignal boards` | The boards the switches are known to work with, and the `source` string for each. |
@@ -1614,7 +1615,8 @@ yazses biosignal monitor --source synthetic --seconds 20
 yazses biosignal record --source synthetic --seconds 30 --out session.csv
 yazses biosignal replay session.csv            # what would have fired, and how often
 yazses biosignal evaluate --json               # precision, recall, latency, phantoms per hour
-yazses biosignal field-test                    # sit still, talk, chew, type: phantoms per hour
+yazses biosignal field-test --out ft-1.json    # sit still, talk, chew, type: phantoms per hour
+yazses biosignal field-test-pool ft-*.json     # several sessions as one result
 yazses biosignal report                        # your own false-activation rate
 yazses biosignal profile                       # which board the profile was made for
 ```

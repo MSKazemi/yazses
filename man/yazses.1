@@ -147,11 +147,22 @@ Test this source instead of [biosignal] source (synthetic | file:<path> | brainf
 \fB\-\-minutes\fR
 Stretch or shrink the test to about this long (0 = the standard length).
 .TP
+\fB\-\-cues\fR
+Cues per deliberate-gesture phase; each adds about 5 s per gesture.
+.TP
 \fB\-\-json\fR
 Print one JSON object instead of text.
 .TP
 \fB\-\-out, \-o\fR
 Also write the counts to this JSON file (owner-only; never overwrites).
+.RE
+.TP
+\fByazses biosignal field-test-pool\fR \fIFILES\fR
+Pool several field-test results: add their counts and recompute the bounds.
+.RS
+.TP
+\fB\-\-json\fR
+Print one JSON object instead of text.
 .RE
 .TP
 \fByazses biosignal monitor\fR

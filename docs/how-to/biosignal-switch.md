@@ -258,28 +258,44 @@ it is only evidence about you, your board and your electrode placement.**
 ```bash
 yazses biosignal field-test                      # the standard guided session, about ten minutes
 yazses biosignal field-test --minutes 20         # stretch it: the bounds tighten with more signal
+yazses biosignal field-test --cues 16            # more cues, a tighter hit rate
 yazses biosignal field-test --json --out ft.json # machine-readable, and keep the counts
+yazses biosignal field-test-pool ft-*.json       # several saved sessions as one result
 ```
 
 The session prompts you on screen to sit still, talk, chew, type and use the mouse, and look around, one
 activity at a time, with your real detectors running on your real signal. Then it asks you for each
-gesture on cue (squeeze, double blink and jaw clench, whether or not you have that switch turned on; a
-switch that is off cannot fire, so ignore the rows for the ones you are not using). **Nothing is typed or acted on, and no signal is saved.** Whatever a switch fires on
+gesture on cue, for the switches that are on in `[biosignal]`. A muscle squeeze that cannot fire (the
+source has no muscle channel, as with a ThinkGear headset, or you have not calibrated) is skipped and the
+reason printed; if nothing is left that could fire, the test does not start. **Nothing is typed or acted on, and no signal is saved.** Whatever a switch fires on
 while you were not trying to trigger it is a *phantom activation*; the report gives those per hour of
 usable signal for each activity, so you can see whether the trouble is the chewing, the talking or the
 desk. A single natural blink is not counted as a phantom (it is not mapped to an action). Time the quality
 gate rejected is left out of the denominator, so a bad contact cannot make the switch look quieter than it
 is, and a phase with too little usable signal is marked inconclusive.
 
-Read the **upper 95%** column, not the estimate. A few minutes of data bound a rate only loosely: *zero*
+Read the **exact 95%** upper column, not the estimate (the **upper 95%** column beside it is the
+approximation the verdict uses). A few minutes of data bound a rate only loosely: *zero*
 phantoms in N minutes still allows a rate of about 180 divided by N per hour (the "rule of three"), so a
 single short session cannot show that a switch is quiet, only that it is not obviously loud. The report ends
 with a verdict (`usable`, `promising`, `needs_tuning`, `do_not_enable` or `inconclusive`) and the reasons
-for it. If you left a switch off, its gesture row will show no hits and can pull the verdict down: read the
-rows of the switches you actually use. Those rungs and every number behind them are design choices that have not been validated on real
+for it. Those rungs and every number behind them are design choices that have not been validated on real
 recordings, and the weighted "workday estimate" uses an assumed mix of activities that is illustrative, not
-data. To tighten a result, repeat the test on different days and with the electrode re-seated, and compare
-the sessions.
+data. To tighten a result, repeat the test on different days and with the electrode re-seated, save each
+run with `--out`, compare the sessions, and combine them:
+
+```bash
+yazses biosignal field-test-pool ft-monday.json ft-tuesday.json
+```
+
+It adds the counts and the usable seconds and computes every rate and bound again from the totals; it never
+averages rates. Pool one person and one configuration (board, placement, calibration, thresholds) at a
+time: the files record none of these, so the command cannot check it. A default session cues each gesture 8
+times; `--cues` raises that.
+
+The test acts on nothing, so it cannot show that a switch never leaves the microphone open. Only a squeeze
+(`mode_map`) opens a hold. The default `intent_map` sends a double blink as a one-off `undo`, which opens
+none, so weeks without a stuck microphone on that setup say nothing about holds.
 
 If you choose to share your result (for example in an
 [issue](https://github.com/MSKazemi/yazses/issues)), share the JSON from `--json` or `--out` and add, in
