@@ -3,23 +3,28 @@
 Each meeting is a folder ``<meetings_dir>/<id>/`` holding ``meeting.json`` (metadata),
 ``transcript.json`` (lossless canonical: per-word speaker + timestamps), the rendered
 human transcript, an optional ``notes.md``, and optionally ``audio.wav`` (kept only when
-``retain_audio``). ``relabel`` fixes an unknown-count miscount — merge two speaker
+``retain_audio``). Whoever writes into a folder holds its lock (``meeting/lock.py``).
+``relabel`` fixes an unknown-count miscount — merge two speaker
 clusters and/or rename them — by **re-rendering from ``transcript.json``**, never
 re-diarizing (ADR-v2-127 §unknown-count). All functions here are pure filesystem/logic
 and unit-testable with ``tmp_path`` (no models).
 """
 from __future__ import annotations
 
+import errno
 import json
 import logging
+import time
 from pathlib import Path
 
+from yazses.meeting.lock import is_busy
 from yazses.postprocess.cleaner import clean_text
 from yazses.recimport.align import Utterance, merge_utterances
 from yazses.recimport.naming import resolve_names
 from yazses.recimport.pipeline import cleaned_utterance
 from yazses.recimport.render import VALID_FORMATS, render_transcript
 from yazses.system.private_files import (
+    new_private_dir,
     private_dir,
     replace_private_text,
     write_private_bytes,
@@ -50,6 +55,9 @@ _ATTEMPTS = "attempts"
 # A `wave` file opened for writing has its 44-byte canonical header on disk before
 # a single frame is appended, so "the file exists" is not "there is a recording".
 _WAV_HEADER_BYTES = 44
+# A meeting id is its local start time. Listings sort on it and users type it.
+_ID_FORMAT = "%Y%m%d-%H%M%S"
+_ID_TRIES = 600
 _EXT = {"md": "transcript.md", "txt": "transcript.txt", "srt": "transcript.srt",
         "vtt": "transcript.vtt", "json": _CANONICAL}
 
@@ -274,6 +282,25 @@ def new_meeting(config, meeting_id: str) -> Path:
     return d
 
 
+def reserve_meeting(config, now: float | None = None) -> tuple[str, Path]:
+    """Create a folder no other meeting has, and return ``(meeting_id, folder)``.
+
+    The id stays a ``%Y%m%d-%H%M%S`` local time. When that second is already taken (two
+    starts within one second would otherwise share a folder, and the second would truncate
+    the first one's recording) the next free second is used.
+    """
+    root = meetings_dir(config)
+    root.mkdir(parents=True, exist_ok=True)
+    start = time.time() if now is None else now
+    for offset in range(_ID_TRIES):
+        meeting_id = time.strftime(_ID_FORMAT, time.localtime(start + offset))
+        try:
+            return meeting_id, new_private_dir(root / meeting_id)
+        except FileExistsError:
+            continue
+    raise FileExistsError(errno.EEXIST, "no free meeting id", str(root))
+
+
 def write_meta(meeting_dir: str | Path, meta: dict) -> Path:
     p = Path(meeting_dir) / _META
     replace_private_text(p, json.dumps(meta, ensure_ascii=False, indent=2) + "\n")
@@ -318,7 +345,11 @@ def list_meetings(config) -> list[dict]:
         # one that most needs a retry, and it was the one the listing called finished.
         if meta.get("status") != "done" or meta.get("quality_suspect"):
             wav = d / _AUDIO
-            if has_recording(wav):
+            if is_busy(d):
+                # Still recording or being processed. It has not failed to finish, and
+                # `meeting recover` would refuse it, so it is not offered.
+                meta["busy"] = True
+            elif has_recording(wav):
                 meta["recoverable"] = True
                 meta["audio_path"] = str(wav)
             elif (d / _LIVE).exists():
@@ -451,7 +482,7 @@ def relabel(meeting_dir: str | Path, *, merges=None, renames=None, fmt: str = "m
     its own output, and the human file may hold corrections made by hand.
 
     Raises ``ValueError``, before any file is touched, for an unknown *fmt* or a merge
-    naming a speaker that is not in the meeting.
+    naming a speaker that is not in the meeting. The caller holds the meeting's lock.
     """
     merges = dict(merges or {})
     renames = dict(renames or {})
@@ -927,12 +958,12 @@ def ensure_quality(meeting_dir: str | Path, meta: dict | None = None) -> dict:
         # runs over meetings finalized by older versions, and dropping a field they wrote
         # would be this function destroying the record it exists to complete.
         #
-        # `dir`/`recoverable`/`audio_path`/`live_transcript_path` are injected into the
-        # dict by `list_meetings` at read time and are not part of the stored record --
+        # `dir`/`busy`/`recoverable`/`audio_path`/`live_transcript_path` are injected
+        # into the dict by `list_meetings` at read time and are not part of the stored record --
         # writing them back bakes this machine's absolute paths into a meeting folder
         # that can be copied, and freezes a "recoverable" flag that is meant to be
         # recomputed from what is on disk.
-        runtime = ("dir", "recoverable", "audio_path", "live_transcript_path")
+        runtime = ("dir", "busy", "recoverable", "audio_path", "live_transcript_path")
         stored = {k: v for k, v in meta.items() if k not in runtime}
         write_meta(d, {**stored, "quality": q.verdict, "quality_suspect": q.suspect})
     return q.as_dict()

@@ -3,6 +3,8 @@ PID-file fallback for status.
 """
 
 import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Literal, Optional
 
@@ -547,6 +549,26 @@ def _meeting_dir(meeting_id: str):
     return store.meetings_dir(cfg.meeting) / meeting_id
 
 
+@contextmanager
+def _locked_meeting(meeting_id: str, meeting_dir: Path) -> Iterator[None]:
+    """Hold a meeting's lock around a command that writes it, or exit 1 saying why."""
+    from yazses.meeting.lock import MeetingBusyError, MeetingLock, busy_message
+
+    lock = MeetingLock(meeting_dir)
+    try:
+        lock.acquire()
+    except MeetingBusyError as exc:
+        typer.echo(busy_message(meeting_id, exc.pid), err=True)
+        raise typer.Exit(1)
+    except OSError as exc:
+        typer.echo(f"Could not lock meeting {meeting_id}: {exc}", err=True)
+        raise typer.Exit(1)
+    try:
+        yield
+    finally:
+        lock.release()
+
+
 def _parse_pairs(items):
     """Parse ``["a=b", "c=d"]`` into ``{"a": "b", "c": "d"}`` for --merge/--rename."""
     out = {}
@@ -801,6 +823,8 @@ def _speaker_summary(m: dict) -> str:
     # and produced an unusable transcript is offered for recovery too, and calling it
     # unfinished is a false statement about a meeting that ran to the end. The status
     # is the fact; recoverability is a consequence, and only one of them belongs here.
+    if m.get("busy") and m.get("status") != "done":
+        return "in progress"
     if m.get("recoverable") and m.get("status") != "done":
         return "unfinished"
     if m.get("diarized") is False:
@@ -898,19 +922,27 @@ def meeting_relabel(
     Corrects an auto-count miscount without re-transcribing or re-diarizing (it only
     re-renders from the stored `transcript.json`). Runs locally, no daemon needed.
     The files it replaces are first copied to `attempts/` in the meeting folder.
+    Refused while the meeting is still recording or being processed.
     """
     from yazses.meeting import store
 
     d = _meeting_dir(meeting_id)
-    if not (d / "transcript.json").exists():
-        typer.echo(f"No transcript for meeting {meeting_id} in {d}.", err=True)
+    no_transcript = f"No transcript for meeting {meeting_id} in {d}."
+    if not d.is_dir():
+        typer.echo(no_transcript, err=True)
         raise typer.Exit(1)
-    merges, renames = _parse_pairs(merge), _parse_pairs(rename)
-    try:
-        written = store.relabel(d, merges=merges, renames=renames, fmt=fmt)
-    except (OSError, ValueError, KeyError) as exc:
-        typer.echo(f"Could not relabel {meeting_id}: {exc}", err=True)
-        raise typer.Exit(1)
+    # Locked before the transcript is looked for: a meeting still recording has none yet,
+    # and "still recording" is the answer that helps.
+    with _locked_meeting(meeting_id, d):
+        if not (d / "transcript.json").exists():
+            typer.echo(no_transcript, err=True)
+            raise typer.Exit(1)
+        merges, renames = _parse_pairs(merge), _parse_pairs(rename)
+        try:
+            written = store.relabel(d, merges=merges, renames=renames, fmt=fmt)
+        except (OSError, ValueError, KeyError) as exc:
+            typer.echo(f"Could not relabel {meeting_id}: {exc}", err=True)
+            raise typer.Exit(1)
     typer.echo(f"Re-rendered {meeting_id}:")
     for name, path in written.items():
         typer.echo(f"  {name}: {path}")
@@ -931,7 +963,8 @@ def meeting_recover(
     The recording is deleted only after a successful post-pass, so a crash, a kill or an
     out-of-memory notes model leaves the whole meeting on disk. This transcribes it,
     diarizes it, and writes the same outputs. Heavy: expect it to take a while
-    on CPU. The recording is never deleted here.
+    on CPU. The recording is never deleted here. Refused while the meeting is still
+    recording or being processed.
 
     One difference from the live path, stated rather than discovered: enrolled
     voiceprints are not applied, so speakers come back as `speaker_N`. Naming them needs
@@ -943,25 +976,31 @@ def meeting_recover(
 
     cfg = load_config(get_platform().paths.config_file)
     d = _meeting_dir(meeting_id)
-    if (reason := recovery_refusal(d, store.read_meta(d), force=force)):
-        typer.echo(reason, err=True)
+    if not d.is_dir():
+        typer.echo(recovery_refusal(d, {}, force=force), err=True)
         raise typer.Exit(1)
-    typer.echo(f"Recovering {meeting_id} from {d / 'audio.wav'}… (this can take a while)")
-    info = recover_meeting(d, cfg.meeting, stt=cfg.stt)
-    if archived := info.get("archived_previous"):
-        typer.echo(f"Previous outputs archived to {archived} (nothing was deleted).")
-    for name, path in info["files"].items():
-        typer.echo(f"Wrote {path}  ({name})")
-    typer.echo("")
-    for line in info.get("summary", []):
-        typer.echo(line)
-    if (warning := store.capture_warning(info)):
-        typer.echo(f"\n{warning}", err=True)
-    # A retry can collapse the same way the first pass did — the input has not changed.
-    # Exiting 0 on that would report a repair that did not happen.
-    if info.get("quality_suspect"):
-        typer.echo(f"\n{info.get('quality_warning', '')}", err=True)
-        raise typer.Exit(1)
+    # Held from the refusal check to the last write: the recording of a running meeting
+    # looks exactly like one a crash left behind.
+    with _locked_meeting(meeting_id, d):
+        if (reason := recovery_refusal(d, store.read_meta(d), force=force)):
+            typer.echo(reason, err=True)
+            raise typer.Exit(1)
+        typer.echo(f"Recovering {meeting_id} from {d / 'audio.wav'}… (this can take a while)")
+        info = recover_meeting(d, cfg.meeting, stt=cfg.stt)
+        if archived := info.get("archived_previous"):
+            typer.echo(f"Previous outputs archived to {archived} (nothing was deleted).")
+        for name, path in info["files"].items():
+            typer.echo(f"Wrote {path}  ({name})")
+        typer.echo("")
+        for line in info.get("summary", []):
+            typer.echo(line)
+        if (warning := store.capture_warning(info)):
+            typer.echo(f"\n{warning}", err=True)
+        # A retry can collapse the same way the first pass did — the input has not changed.
+        # Exiting 0 on that would report a repair that did not happen.
+        if info.get("quality_suspect"):
+            typer.echo(f"\n{info.get('quality_warning', '')}", err=True)
+            raise typer.Exit(1)
 
 
 @meeting_app.command("summary")
@@ -980,6 +1019,7 @@ def meeting_summary(
     """
     from yazses.config import load_config
     from yazses.meeting import store
+    from yazses.meeting.lock import MeetingBusyError, MeetingLock, busy_message
 
     cfg = load_config(get_platform().paths.config_file)
     meetings = store.list_meetings(cfg.meeting)
@@ -995,21 +1035,47 @@ def meeting_summary(
     else:
         meta = meetings[0]
 
-    d = _meeting_dir(str(meta.get("id", "")))
-    # `ensure_quality`, not `read_quality`: a meeting recorded before the quality check
-    # existed has no verdict, and the meeting that motivated the check is one of them.
-    # It is computed from the stored transcript here and written back, so asking about
-    # an old meeting repairs its record instead of reporting a blank.
-    quality = store.ensure_quality(d, meta)
-    # Rendering an old meeting must not describe it as healthy just because its
-    # `meeting.json` predates the field; the freshly computed verdict wins.
-    meta = {**meta, "quality_suspect": bool(quality.get("suspect"))} if quality else meta
-    if store.write_live_transcript(d, str(meta.get("id", ""))):
-        meta["live_transcript_path"] = str(d / "live-transcript.md")
-    lines = store.summary_lines(
-        meta, live_lines=len(store.read_live_lines(d)), quality=quality,
-    )
-    store.write_summary(d, lines)
+    mid = str(meta.get("id", ""))
+    d = _meeting_dir(mid)
+    # Rendering also writes (quality, live transcript, summary.md), so it takes the lock.
+    # A finished meeting somebody else holds is still readable; only the writing is skipped.
+    lock = MeetingLock(d)
+    writable = True
+    try:
+        lock.acquire()
+    except MeetingBusyError as exc:
+        if store.read_meta(d).get("status") != "done":
+            typer.echo(busy_message(mid, exc.pid), err=True)
+            raise typer.Exit(1)
+        writable = False
+        typer.echo(
+            f"Meeting {mid} is in use by another YazSes process: showing what is stored, "
+            "writing nothing. Run this again once it is done.", err=True,
+        )
+    except OSError:
+        pass  # a folder that cannot take a lock file is still worth describing
+    try:
+        # Read again: it may have changed between the listing and the lock.
+        meta = {**meta, **store.read_meta(d)}
+        # `ensure_quality`, not `read_quality`: a meeting recorded before the quality check
+        # existed has no verdict, and the meeting that motivated the check is one of them.
+        # It is computed from the stored transcript here and written back, so asking about
+        # an old meeting repairs its record instead of reporting a blank.
+        quality = store.ensure_quality(d, meta) if writable else store.read_quality(d)
+        # Rendering an old meeting must not describe it as healthy just because its
+        # `meeting.json` predates the field; the freshly computed verdict wins.
+        meta = (
+            {**meta, "quality_suspect": bool(quality.get("suspect"))} if quality else meta
+        )
+        if writable and store.write_live_transcript(d, mid):
+            meta["live_transcript_path"] = str(d / "live-transcript.md")
+        lines = store.summary_lines(
+            meta, live_lines=len(store.read_live_lines(d)), quality=quality,
+        )
+        if writable:
+            store.write_summary(d, lines)
+    finally:
+        lock.release()
     for line in lines:
         typer.echo(line)
     # Exit non-zero on a meeting whose transcript is not a record of the meeting, so a
@@ -1028,7 +1094,8 @@ def meeting_notes(
     """Generate meeting minutes (summary, decisions, action items) from the transcript.
 
     Needs `[meeting] notes = true` and a local `notes_model` GGUF (ADR-v2-128). Runs the
-    model locally — expect this to take a while on CPU.
+    model locally — expect this to take a while on CPU. Refused while the meeting is still
+    recording or being processed.
     """
     from yazses.config import load_config
     from yazses.meeting import store
@@ -1040,71 +1107,79 @@ def meeting_notes(
 
     cfg = load_config(get_platform().paths.config_file)
     d = _meeting_dir(meeting_id)
-    if not (d / "transcript.json").exists():
-        typer.echo(f"No transcript for meeting {meeting_id} in {d}.", err=True)
+    no_transcript = f"No transcript for meeting {meeting_id} in {d}."
+    if not d.is_dir():
+        typer.echo(no_transcript, err=True)
         raise typer.Exit(1)
-    # A transcript produced from a recording with no speech in it is Whisper
-    # answering noise, and minutes are the one output nobody can tell apart from a
-    # real write-up afterwards. `finalize` already skips the notes pass for these;
-    # this is the same rule on the path that regenerates them by hand. Overridable,
-    # because a speech detector can be wrong about a very quiet talker and the
-    # transcript is right there to judge.
-    # Same rule as the capture check below and for the same reason: minutes generated
-    # from a collapsed decode are a confident write-up of a meeting that did not happen,
-    # and no reader can tell them from a real one. `finalize` already skips the notes
-    # pass for these; this is that rule on the by-hand path.
-    quality_note = store.read_quality(d)
-    if quality_note.get("suspect") and not force:
-        from yazses.meeting.quality import warning_from_dict
+    # Held while the model runs, so the transcript cannot be replaced under the minutes.
+    with _locked_meeting(meeting_id, d):
+        if not (d / "transcript.json").exists():
+            typer.echo(no_transcript, err=True)
+            raise typer.Exit(1)
+        # A transcript produced from a recording with no speech in it is Whisper
+        # answering noise, and minutes are the one output nobody can tell apart from a
+        # real write-up afterwards. `finalize` already skips the notes pass for these;
+        # this is the same rule on the path that regenerates them by hand. Overridable,
+        # because a speech detector can be wrong about a very quiet talker and the
+        # transcript is right there to judge.
+        # Same rule as the capture check below and for the same reason: minutes generated
+        # from a collapsed decode are a confident write-up of a meeting that did not happen,
+        # and no reader can tell them from a real one. `finalize` already skips the notes
+        # pass for these; this is that rule on the by-hand path.
+        quality_note = store.read_quality(d)
+        if quality_note.get("suspect") and not force:
+            from yazses.meeting.quality import warning_from_dict
 
-        typer.echo(
-            warning_from_dict(quality_note)
-            or "⚠ this transcript did not pass its quality check.", err=True,
-        )
-        typer.echo(
-            "\nRefusing to write minutes from it. Read the transcript first; pass "
-            "--force if it really does hold the meeting.", err=True,
-        )
-        raise typer.Exit(1)
+            typer.echo(
+                warning_from_dict(quality_note)
+                or "⚠ this transcript did not pass its quality check.", err=True,
+            )
+            typer.echo(
+                "\nRefusing to write minutes from it. Read the transcript first; pass "
+                "--force if it really does hold the meeting.", err=True,
+            )
+            raise typer.Exit(1)
 
-    capture_note = store.capture_warning(store.read_meta(d))
-    if capture_note and not force:
-        typer.echo(f"{capture_note}\n", err=True)
-        typer.echo(
-            "Refusing to write minutes from it — a summary of invented words reads "
-            "exactly like a real one. Read the transcript first; pass --force if it "
-            "does hold speech.",
-            err=True,
-        )
-        raise typer.Exit(1)
+        capture_note = store.capture_warning(store.read_meta(d))
+        if capture_note and not force:
+            typer.echo(f"{capture_note}\n", err=True)
+            typer.echo(
+                "Refusing to write minutes from it — a summary of invented words reads "
+                "exactly like a real one. Read the transcript first; pass --force if it "
+                "does hold speech.",
+                err=True,
+            )
+            raise typer.Exit(1)
 
-    view = store.load_result_view(d)
-    # Checked BEFORE the announcement. This printed "Generating minutes locally… (this
-    # can take a few minutes)" and then, immediately, that notes were off — promising
-    # work that had already been ruled out. The precondition costs nothing to ask.
-    if (reason := notes_unavailable_reason(cfg.meeting, utterances=view.utterances)):
-        typer.echo(reason, err=True)
-        raise typer.Exit(1)
-    typer.echo("Generating minutes locally… (this can take a few minutes)")
-    minutes = generate_minutes(view.utterances, cfg.meeting, speaker_names=view.speaker_names)
-    if minutes is None:
-        # Everything checkable up front passed, so this is the model itself: it loaded and
-        # returned nothing usable for any window. Saying "notes are off" here would send
-        # the user to a setting that is already correct.
-        typer.echo(
-            "The local model produced no usable minutes for this transcript. See "
-            "`yazses logs` for the per-window failures.", err=True,
+        view = store.load_result_view(d)
+        # Checked BEFORE the announcement. This printed "Generating minutes locally… (this
+        # can take a few minutes)" and then, immediately, that notes were off — promising
+        # work that had already been ruled out. The precondition costs nothing to ask.
+        if (reason := notes_unavailable_reason(cfg.meeting, utterances=view.utterances)):
+            typer.echo(reason, err=True)
+            raise typer.Exit(1)
+        typer.echo("Generating minutes locally… (this can take a few minutes)")
+        minutes = generate_minutes(
+            view.utterances, cfg.meeting, speaker_names=view.speaker_names
         )
-        raise typer.Exit(1)
-    try:
-        previous = store.snapshot_outputs(d, ["notes.md"])
-        out = store.write_notes(d, render_minutes_md(minutes))
-    except OSError as exc:
-        typer.echo(f"Could not write the notes: {exc}", err=True)
-        raise typer.Exit(1)
-    if previous:
-        typer.echo(f"Previous notes kept in {previous}")
-    typer.echo(f"Wrote {out}")
+        if minutes is None:
+            # Everything checkable up front passed, so this is the model itself: it loaded and
+            # returned nothing usable for any window. Saying "notes are off" here would send
+            # the user to a setting that is already correct.
+            typer.echo(
+                "The local model produced no usable minutes for this transcript. See "
+                "`yazses logs` for the per-window failures.", err=True,
+            )
+            raise typer.Exit(1)
+        try:
+            previous = store.snapshot_outputs(d, ["notes.md"])
+            out = store.write_notes(d, render_minutes_md(minutes))
+        except OSError as exc:
+            typer.echo(f"Could not write the notes: {exc}", err=True)
+            raise typer.Exit(1)
+        if previous:
+            typer.echo(f"Previous notes kept in {previous}")
+        typer.echo(f"Wrote {out}")
 
 
 @meeting_app.command("enroll")

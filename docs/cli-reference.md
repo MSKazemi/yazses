@@ -1718,9 +1718,9 @@ clustering**, not pitch. Off by default — enable with `yazses features enable 
 | `yazses meeting status` | Show the running meeting (elapsed + live transcript), or recent meetings. Says so plainly when Meeting Mode is off. |
 | `yazses meeting list` | List stored meetings on this machine (no daemon required). Marks any meeting whose transcript failed its quality check `⚠ BAD TRANSCRIPT`. |
 | `yazses meeting summary [<id>]` | Show what a meeting produced, where each file is, and what not to trust. Omit the id for the most recent meeting. Exits `2` when the transcript is not a usable record. |
-| `yazses meeting relabel <id>` | Fix speaker labels and re-render: `--merge speaker_2=speaker_1` folds clusters, `--rename speaker_1=Alice` names one (both repeatable); `--format`/`-f` picks the re-render format (default `md`). Copies the files it replaces to `attempts/<n>/` first. Exits `1`, changing nothing, for an unknown format or a `--merge` speaker that is not in the meeting. |
-| `yazses meeting notes <id>` | Generate minutes (summary, decisions, action items) from a stored transcript. Needs `[meeting] notes = true` and a local `notes_model` GGUF; runs locally (slow on CPU). An existing `notes.md` is copied to `attempts/<n>/` before it is replaced. |
-| `yazses meeting recover <id>` | Re-run the post-pass on a meeting whose finalize never completed **or whose transcript failed its quality check**. The recording is kept whenever either is true, so a crash — and a decode that collapsed — leaves the whole meeting on disk; this transcribes, diarizes and names it and writes the same outputs. Never deletes the recording, and archives the previous outputs to `attempts/<n>/` rather than overwriting them — only once the new transcript exists, so a retry that fails leaves them where they were. `--force` re-runs a meeting that finished cleanly. |
+| `yazses meeting relabel <id>` | Fix speaker labels and re-render: `--merge speaker_2=speaker_1` folds clusters, `--rename speaker_1=Alice` names one (both repeatable); `--format`/`-f` picks the re-render format (default `md`). Copies the files it replaces to `attempts/<n>/` first. Exits `1`, changing nothing, for an unknown format, a `--merge` speaker that is not in the meeting, or a meeting that is in use. |
+| `yazses meeting notes <id>` | Generate minutes (summary, decisions, action items) from a stored transcript. Needs `[meeting] notes = true` and a local `notes_model` GGUF; runs locally (slow on CPU). An existing `notes.md` is copied to `attempts/<n>/` before it is replaced. Exits `1` for a meeting that is in use. |
+| `yazses meeting recover <id>` | Re-run the post-pass on a meeting whose finalize never completed **or whose transcript failed its quality check**. The recording is kept whenever either is true, so a crash — and a decode that collapsed — leaves the whole meeting on disk; this transcribes, diarizes and names it and writes the same outputs. Never deletes the recording, and archives the previous outputs to `attempts/<n>/` rather than overwriting them — only once the new transcript exists, so a retry that fails leaves them where they were. `--force` re-runs a meeting that finished cleanly, but not one that is in use: that exits `1`. |
 | `yazses meeting enroll <id> --speaker <cluster> --name <name>` | Enroll one speaker from a stored meeting as a named voiceprint, so they are auto-named next time. Both flags are required. Needs the recording to still exist — i.e. the meeting ran with `[meeting] retain_audio = true`. |
 
 ```bash
@@ -1737,6 +1737,16 @@ yazses meeting recover 20260812-140310   # a meeting that crashed: re-run the po
 yazses meeting summary             # where are my notes? (most recent meeting)
 yazses meeting summary 20260812-140310
 ```
+
+A meeting is **in use** while it is being recorded, while its post-pass runs, and while
+another `yazses meeting` command is working on it. `recover`, `relabel` and `notes` then
+change nothing and tell you what to do: check `meeting status`, run `meeting stop` if it is
+still recording, and run the command again once it has finished. `meeting list` shows such a
+meeting as `in progress` until it has a result, and `meeting summary` writes nothing into it.
+A crash releases the meeting by itself; there is no lock to remove by hand.
+
+An id is the local time the meeting started (`YYYYMMDD-HHMMSS`). A second meeting started
+within the same second takes the next free second.
 
 ### Where the notes are, and whether to believe them
 

@@ -131,6 +131,22 @@ def private_dir(path: str | Path) -> Path:
     return p
 
 
+def new_private_dir(path: str | Path) -> Path:
+    """Like :func:`private_dir`, but the folder must be new.
+
+    Raises ``FileExistsError`` when anything already has that name. Creating the directory
+    is the claim, so two processes asking for one name cannot both be given it.
+    """
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    if not _posix():
+        p.mkdir()
+        return p
+    p.mkdir(mode=PRIVATE_DIR_MODE)
+    _tighten(p)
+    return p
+
+
 def write_private_text(
     path: str | Path, text: str, *, append: bool = False, encoding: str = "utf-8",
 ) -> None:

@@ -563,6 +563,7 @@ clock, session) is injected, so the whole flow is unit-tested with fakes and no 
 | `stall.py` | Pure policy for the "meeting is not hearing audio" notice: after `STALL_NOTIFY_S`, once per stall, re-armed when audio resumes |
 | `store.py` | Per-meeting folder I/O (`meeting.json`, `transcript.json`, `live.jsonl`, rendered outputs, `attempts/`), `relabel` (re-render, never re-diarize), capture/quality summaries |
 | `recover.py` | Retry of a post-pass that never completed; refuses a finished meeting unless forced or its quality check failed |
+| `lock.py` | `MeetingLock` / `is_busy` — one owner per meeting folder, over `system/single_instance.SingleInstanceLock` |
 | `participants.py` | Opt-in enrolment of a named speaker cluster as an encrypted voiceprint (needs `retain_audio`) |
 
 Invariants (read from the code at the cited places):
@@ -594,6 +595,17 @@ Invariants (read from the code at the cited places):
   deletes the recording; a previous result moves to `attempts/` instead of being overwritten
   (`recover.py` module docstring, `store.archive_outputs`). The move happens only after the
   new decode succeeded, and is undone if the new outputs cannot be written.
+- **One owner per meeting folder** (`lock.py`). The daemon takes the lock when it creates
+  the folder and releases it when the post-pass has ended, successfully or not
+  (`core/daemon.py::_handle_meeting_start`, `_handle_meeting_stop`); `meeting recover`,
+  `relabel` and `notes` hold it from their first check to their last write, and
+  `meeting summary` writes only while holding it (`cli.py::_locked_meeting`). The `store`
+  and `recover` functions do not lock: a new caller that writes must. It is an OS file lock
+  on `<meeting>/.lock`, released by the kernel when its holder dies, so it cannot go stale;
+  the file is never deleted. A filesystem without file locks degrades to unlocked with a
+  warning. `list_meetings` marks a held, unfinished meeting `busy` instead of `recoverable`.
+- **One folder per meeting**: `store.reserve_meeting` creates the folder exclusively and
+  moves to the next free second when the `%Y%m%d-%H%M%S` id is taken.
 - **Biometrics stay local**: participant voiceprints are stored only encrypted with the
   machine-bound key and enrolled only by explicit user action (ADR-011/012).
 

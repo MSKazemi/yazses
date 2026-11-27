@@ -6,6 +6,12 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — meetings: commands could change a meeting that was still recording or being processed
+
+- `meeting recover`, `relabel` and `notes` could run on a meeting the daemon was still recording or finalizing (a running meeting's folder looks like a crashed one), and two processes could write the same files at once. Each meeting folder now has a lock, held by the daemon from the start of a meeting until its post-pass ends, and by each of these commands while it works. A command that finds it held changes nothing, exits 1 and says to check `yazses meeting status` (and to run `yazses meeting stop` if it is still recording). The lock belongs to the operating system, so a crash or a kill releases it; the `.lock` file left in the folder needs no cleaning up. On a filesystem without file locks, meetings work as before, unlocked, with a warning in the log. A daemon started before the upgrade holds no lock until it is restarted.
+- `meeting list` showed a running meeting as `unfinished` and offered `recover` for it. It now shows `in progress` (`"busy": true` in `--json`). `meeting summary` writes nothing into a meeting that is in use: it prints what is stored if the meeting has finished, and otherwise exits 1.
+- Two meetings started within one second got the same folder, so the second overwrote the first one's recording. The second now takes the next free second as its id; the id format is unchanged.
+
 ### Fixed — meetings: a transcript, or a recording, could be lost after it was captured
 
 - Stored meeting files (`transcript.*`, `meeting.json`, `quality.json`, `summary.md`, `notes.md`) were emptied and then rewritten, so a full disk or a crash during `meeting relabel`, `summary` or `recover` could leave an empty or half-written file where the only copy was. Each is now written to a temporary file and renamed into place.

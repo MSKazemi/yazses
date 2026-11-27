@@ -25,6 +25,7 @@ from yazses import cli
 from yazses.config import Config, MeetingConfig
 from yazses.meeting import recover, store
 from yazses.meeting.controller import MeetingController
+from yazses.meeting.lock import LOCK_NAME
 from yazses.meeting.session import MeetingSession, WavFileSink, read_wav_mono_f32
 from yazses.postprocess.prosody import Word
 from yazses.recimport.align import Utterance
@@ -62,7 +63,10 @@ def _meeting(tmp_path: Path, meeting_id: str = "20260101-100000") -> Path:
 
 
 def _contents(d: Path) -> dict[str, bytes]:
-    return {p.name: p.read_bytes() for p in d.iterdir() if p.is_file()}
+    # The lock file is bookkeeping a command leaves behind, not part of the meeting.
+    return {
+        p.name: p.read_bytes() for p in d.iterdir() if p.is_file() and p.name != LOCK_NAME
+    }
 
 
 def _disk_full(*_args, **_kwargs):

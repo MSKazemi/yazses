@@ -89,6 +89,9 @@ def recover_meeting(
     indistinguishable from one that finished normally — except for ``recovered: true``,
     which is recorded because the duration comes from the WAV rather than from a live
     sample count, and a reader deserves to know which.
+
+    The caller holds the meeting's lock (``meeting/lock.py``) from the refusal check to
+    the last write, so this never runs on a meeting the daemon is still recording.
     """
     from yazses.meeting import store
     from yazses.meeting.finalize import finalize_meeting

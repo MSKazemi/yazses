@@ -46,6 +46,7 @@ if TYPE_CHECKING:
     from yazses.learning.capture import CorpusWriter
     from yazses.learning.edit_watch import EditWatcher
     from yazses.meeting.controller import MeetingController
+    from yazses.meeting.lock import MeetingLock
     from yazses.perception import SharedPerceptionSource
     from yazses.perception.switch import CameraSwitch
     from yazses.pilot.service import PilotService
@@ -815,6 +816,9 @@ class Daemon:
         self._meeting_controller: MeetingController | None = None
         self._meeting_recorder: AudioRecorder | None = None
         self._meeting_finalizing = False
+        # Held from the start of a meeting until its post-pass ends, so no `yazses
+        # meeting` command writes the folder meanwhile.
+        self._meeting_lock: MeetingLock | None = None
         # slug -> monotonic time it was last reported to the user, so a fault that
         # recurs on every burst is explained once rather than every time. See
         # `system/diagnosis.py::should_notify` for why the ceiling matters more than
@@ -8676,14 +8680,17 @@ class Daemon:
             if self._state.state not in (TrayState.IDLE, TrayState.PAUSED):
                 return {"ok": False, "reason": f"busy ({self._state.state.value})"}
             controller = None
+            meeting_lock = None
             try:
                 from yazses.meeting import store
                 from yazses.meeting.controller import MeetingController
+                from yazses.meeting.lock import MeetingLock
                 from yazses.meeting.vad import build_is_silent
                 from yazses.recimport.factory import build_diarizer
 
-                meeting_id = time.strftime("%Y%m%d-%H%M%S")
-                meeting_dir = store.new_meeting(cfg, meeting_id)
+                meeting_id, meeting_dir = store.reserve_meeting(cfg)
+                meeting_lock = MeetingLock(meeting_dir)
+                meeting_lock.acquire()
                 sr = self._config.audio.sample_rate
                 acc = self._config.accessibility
                 controller = MeetingController(
@@ -8720,6 +8727,8 @@ class Daemon:
                         controller.stop_capture()
                     except Exception:  # noqa: BLE001 - cleanup must not mask the cause
                         log.debug("Releasing the failed meeting failed", exc_info=True)
+                if meeting_lock is not None:
+                    meeting_lock.release()
                 # The tray's Start meeting entry shows this reason itself, but the
                 # CLI caller and an auto-stop have no such surface — and a meeting
                 # that failed to start is exactly the failure someone walks away from.
@@ -8729,6 +8738,7 @@ class Daemon:
                 return {"ok": False, "reason": f"could not start meeting: {exc}"}
             self._meeting_controller = controller
             self._meeting_recorder = recorder
+            self._meeting_lock = meeting_lock
             self._state.state = TrayState.MEETING
         log.info("Meeting started: %s", meeting_id)
         threading.Thread(
@@ -8803,8 +8813,10 @@ class Daemon:
             recorder = self._meeting_recorder
             if controller is None:
                 return {"ok": False, "reason": "no meeting is running"}
+            meeting_lock = self._meeting_lock
             self._meeting_controller = None
             self._meeting_recorder = None
+            self._meeting_lock = None
             self._meeting_finalizing = True
             self._state.state = TrayState.TRANSCRIBING
 
@@ -8817,6 +8829,8 @@ class Daemon:
             audio = read_wav_mono_f32(wav_path)
         except Exception as exc:
             log.exception("Meeting stop/capture failed")
+            if meeting_lock is not None:
+                meeting_lock.release()
             with self._lock:
                 self._meeting_finalizing = False
                 self._state.state = TrayState.IDLE
@@ -8862,6 +8876,9 @@ class Daemon:
                 # away; without this the only report of a lost meeting is a log line.
                 self._notify_meeting_failure(controller.meeting_id, controller.dir)
             finally:
+                # Before the flag: once `finalizing` reads false, `recover` must work.
+                if meeting_lock is not None:
+                    meeting_lock.release()
                 with self._lock:
                     self._meeting_finalizing = False
                     if self._state.state == TrayState.TRANSCRIBING:
@@ -10496,6 +10513,8 @@ class Daemon:
                     self._meeting_controller.stop_capture()
             except Exception:
                 log.exception("Meeting recorder stop raised")
+            if (meeting_lock := getattr(self, "_meeting_lock", None)) is not None:
+                meeting_lock.release()
         # The push-to-talk recorder: a hold still in progress left its input stream open
         # until process exit. Stop it (idempotent, closes the stream even if stop() raises)
         # and drop the audio -- a take cut off by shutdown is never typed. Before the IPC
