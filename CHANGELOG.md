@@ -6,6 +6,14 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — models: a `distil-` checkpoint no longer counts as its namesake being downloaded ([#929](https://github.com/MSKazemi/yazses/issues/929))
+
+With only `distil-small.en` in the cache, `small.en` was reported as downloaded, and the same for `medium.en`, `large-v2` and `large-v3`. `yazses model list`, `yazses doctor`, the first-run download notice and `yazses language set` all took that answer. A model name that resolves to a Hugging Face repository now matches only that repository's cache folder.
+
+### Changed — models: the Read-Back voice is the first download decided by `ensure_model` ([#929](https://github.com/MSKazemi/yazses/issues/929))
+
+The Kokoro fetch now goes through `yazses.models.registry.ensure_model` with policy `auto`, so it behaves as before: a missing voice file is downloaded, a cached one is not, and a failed download raises the same error. For the policies that are not yet reachable, the `ask` message now names a command only where one exists (speech model, intent router, diarization) and the manual route otherwise. [ADR-035](design/adr/adr-035-model-download-policy.md) (**Proposed**) sets out `auto` / `ask` / `never`, where the key should live and which downloads are not yet routed. No config key, CLI or network path is added.
+
 ### Fixed — the `.mcpb` bundle finds YazSes installed with the Windows installer
 
 The installer, which winget and Chocolatey also run, puts `yazses.cmd` and `yazses-cli.exe` on PATH and no `yazses.exe`. The bundle's launcher starts programs without a shell, which looks only for `.com` and `.exe` files, so it reported that YazSes was not installed. On Windows it now tries `yazses-cli` after `yazses`. The [connect guide](docs/how-to/connect-mcp-client.md) says to write `yazses-cli` in a hand-written client configuration on such an install. Not tried on a Windows install or in a real MCP client (#638).

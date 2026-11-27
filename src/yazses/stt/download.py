@@ -183,17 +183,20 @@ def is_cached(name: str, cache_dir: Path | None = None) -> bool:
     cache = hub_cache_dir() if cache_dir is None else cache_dir
     if not cache.exists():
         return False
-    # Prefer the exact repo when we can resolve it; fall back to the trailing
-    # segment so an unknown-but-valid hub id still reports honestly.
+    # When the repo resolves, only that repo counts: a suffix match reported
+    # `small.en` (and `large-v3`, `medium.en`...) as cached when only the
+    # `distil-` checkpoint of the same suffix was. The trailing-segment match is
+    # kept for a name that resolves to no repo at all.
     repo = whisper_repo_id(name)
     exact = "models--" + repo.replace("/", "--") if repo else None
     token = name.split("/")[-1]
     for entry in cache.iterdir():
         if not (entry / "snapshots").exists():
             continue
-        if exact is not None and entry.name == exact:
-            return True
-        if entry.name.startswith("models--") and entry.name.endswith(token):
+        if exact is not None:
+            if entry.name == exact:
+                return True
+        elif entry.name.startswith("models--") and entry.name.endswith(token):
             return True
     return False
 

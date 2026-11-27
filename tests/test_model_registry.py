@@ -4,6 +4,7 @@ from __future__ import annotations
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from typer.testing import CliRunner
@@ -73,6 +74,13 @@ def test_slm_truncated_file_is_not_present(dirs):
     assert {e.id: e for e in reg.build_registry()}["slm:qwen2.5-0.5b"].state == "missing"
 
 
+def test_a_distil_checkpoint_does_not_make_its_suffix_namesake_present(dirs):
+    _stt_dir(dirs["hf"], "Systran/faster-distil-whisper-small.en")
+    e = {x.id: x for x in reg.build_registry()}
+    assert e["stt:distil-small.en"].present
+    assert e["stt:small.en"].state == "missing"
+
+
 def test_find_entry_accepts_kind_prefix_or_unambiguous_bare_name(dirs):
     entries = reg.build_registry()
     found = reg.find_entry(entries, "stt:base.en")
@@ -129,6 +137,103 @@ def test_never_names_the_manual_route_without_downloading():
     calls: list[str] = []
     r = _ensure("never", False, calls, manual_hint="https://huggingface.co/x")
     assert r.status == "missing" and not calls and "https://huggingface.co/x" in r.message
+
+
+def test_a_failed_download_can_be_reraised_unchanged():
+    boom = OSError("blocked")
+
+    def dl(name):
+        raise boom
+
+    r = reg.ensure_model("tts", "kokoro", "auto", is_cached=lambda n: False, download=dl)
+    assert r.error is boom
+    with pytest.raises(OSError) as caught:
+        r.raise_for_failure()
+    assert caught.value is boom
+
+
+@pytest.mark.parametrize(("policy", "cached"), [("auto", True), ("auto", False), ("ask", False),
+                                                ("never", False)])
+def test_only_a_failure_raises(policy, cached):
+    _ensure(policy, cached, []).raise_for_failure()
+
+
+def _missing(kind, name, **kw):
+    r = reg.ensure_model(
+        kind, name, "ask", is_cached=lambda n: False,
+        download=lambda n: pytest.fail("ask must not download"), **kw,
+    )
+    assert r.status == "missing"
+    return r.message
+
+
+@pytest.mark.parametrize(
+    ("kind", "name", "command"),
+    [
+        ("stt", "base.en", "yazses model download base.en"),
+        ("slm", "qwen2.5-0.5b", "yazses model download qwen2.5-0.5b"),
+        ("diarization", "sherpa", "yazses transcribe --download-models"),
+    ],
+)
+def test_ask_names_the_command_that_fetches_this_kind(kind, name, command):
+    assert command in _missing(kind, name)
+
+
+@pytest.mark.parametrize(
+    ("kind", "name"),
+    [("tts", "kokoro"), ("gaze", "face-landmarker"), ("stt", "someorg/some-ct2-model")],
+)
+def test_ask_never_names_a_command_that_cannot_fetch_the_model(kind, name):
+    message = _missing(kind, name, manual_hint="https://example.invalid/m")
+    assert "yazses model download" not in message
+    assert "https://example.invalid/m" in message
+
+
+# --- the first adopter: the Read-Back voice ----------------------------------------------
+
+
+@pytest.fixture
+def kokoro(tmp_path, monkeypatch):
+    """`_resolve_models` on a backend whose heavy `__init__` never ran."""
+    from yazses.tts.kokoro import KokoroTtsBackend
+
+    paths = (tmp_path / "model.onnx", tmp_path / "voices.bin")
+    monkeypatch.setattr("yazses.tts.download.model_paths", lambda: paths)
+    backend = object.__new__(KokoroTtsBackend)
+    backend._config = SimpleNamespace(model_path="", voices_path="")
+    return backend, paths
+
+
+@pytest.mark.parametrize("present", [0, 1])
+def test_the_voice_is_fetched_when_either_file_is_missing(kokoro, monkeypatch, present):
+    backend, paths = kokoro
+    for p in paths[:present]:
+        p.write_bytes(b"x")
+    calls: list[int] = []
+    monkeypatch.setattr("yazses.tts.download.download_models", lambda **kw: calls.append(1))
+    assert backend._resolve_models() == (str(paths[0]), str(paths[1]))
+    assert calls == [1]
+
+
+def test_a_cached_voice_is_never_refetched(kokoro, monkeypatch):
+    backend, paths = kokoro
+    for p in paths:
+        p.write_bytes(b"x")
+    monkeypatch.setattr(
+        "yazses.tts.download.download_models", lambda **kw: pytest.fail("must not download")
+    )
+    assert backend._resolve_models() == (str(paths[0]), str(paths[1]))
+
+
+def test_a_blocked_voice_download_still_raises_its_own_error(kokoro, monkeypatch):
+    backend, _ = kokoro
+
+    def blocked(**kw):
+        raise OSError("blocked by firewall")
+
+    monkeypatch.setattr("yazses.tts.download.download_models", blocked)
+    with pytest.raises(OSError, match="blocked by firewall"):
+        backend._resolve_models()
 
 
 def test_bad_kind_and_policy_are_rejected():

@@ -16,9 +16,11 @@ Two halves, both pure:
   never touches the network itself; the egress inventory (ADR-019) is unchanged because the
   only code that can fetch stays in the modules it already lists.
 
-A config key for the download policy (proposed, not yet in ``config.py``) would feed
-*policy*; adding it is an L3 change awaiting owner sign-off (ADR-030). Until then callers
-pass ``"auto"``, which is today's behaviour.
+A config key for the download policy (proposed in ADR-035, not yet in ``config.py``) would
+feed *policy*; adding it is an L3 change awaiting owner sign-off (ADR-030). Until then
+callers pass ``"auto"``, which is today's behaviour. The Read-Back voice
+(``tts/kokoro.py``) is the first fetch routed through :func:`ensure_model`; ADR-035 lists
+the ones that are not yet.
 """
 from __future__ import annotations
 
@@ -93,10 +95,21 @@ class EnsureResult:
     name: str
     message: str = ""
     path: Path | None = None
+    #: What *download* raised, when status is "failed".
+    error: Exception | None = None
 
     @property
     def ok(self) -> bool:
         return self.status in ("ready", "downloaded")
+
+    def raise_for_failure(self) -> None:
+        """Re-raise what a failed download raised, unchanged; otherwise do nothing.
+
+        For a caller whose own error handling already words a network failure. A
+        ``missing`` result is a policy decision, not a failure, so it raises nothing.
+        """
+        if self.error is not None:
+            raise self.error
 
 
 def _size_of(paths: tuple[Path, ...]) -> int:
@@ -267,6 +280,24 @@ def disk_usage(entries: list[ModelEntry]) -> dict[str, int]:
     return usage
 
 
+def _fetch_command(kind: str, name: str) -> str:
+    """The command that fetches this model on purpose, or "" when YazSes has none.
+
+    ``yazses model download`` knows Whisper short names and the intent-routing GGUFs
+    only; pointing anyone else at it ends in "Unknown model".
+    """
+    if kind == "diarization":
+        return "yazses transcribe --download-models"
+    if kind == "slm":
+        return f"yazses model download {name}"
+    if kind == "stt":
+        from yazses.stt.download import is_whisper_model
+
+        if is_whisper_model(name):
+            return f"yazses model download {name}"
+    return ""
+
+
 def ensure_model(
     kind: str,
     name: str,
@@ -281,12 +312,13 @@ def ensure_model(
 
     * ``auto``  -- fetch it when absent (today's behaviour).
     * ``ask``   -- never fetch; report what is missing and its size so the caller can start
-      anyway and tell the user.
+      anyway and tell the user, naming the command that fetches it (or *manual_hint* when
+      YazSes has no such command for this model).
     * ``never`` -- never fetch; report the manual route (*manual_hint*, e.g. a model URL).
 
     Pure: the only side effects are whatever the injected *download* does, and it is called
-    only under ``auto``. A *download* that raises yields ``failed`` carrying the error text
-    (the caller owns the wording of a network failure).
+    only under ``auto``. A *download* that raises an ``Exception`` yields ``failed``
+    carrying the error and its text (the caller owns the wording of a network failure).
     """
     if kind not in KINDS:
         raise ValueError(f"unknown model kind {kind!r}; expected one of {', '.join(KINDS)}")
@@ -296,14 +328,16 @@ def ensure_model(
         return EnsureResult("ready", kind, name)
 
     size = f" (~{size_mb} MB)" if size_mb else ""
+    hint = f" Get it by hand: {manual_hint}" if manual_hint else ""
     if policy == "ask":
+        command = _fetch_command(kind, name)
+        route = f" Fetch it with: {command}" if command else hint
         return EnsureResult(
             "missing", kind, name,
-            f"{kind} model {name!r}{size} is not on this machine. Nothing was downloaded. "
-            f"Fetch it with: yazses model download {name}",
+            f"{kind} model {name!r}{size} is not on this machine. Nothing was downloaded."
+            f"{route}",
         )
     if policy == "never":
-        hint = f" Get it by hand: {manual_hint}" if manual_hint else ""
         return EnsureResult(
             "missing", kind, name,
             f"{kind} model {name!r}{size} is not on this machine and downloads are off.{hint}",
@@ -311,5 +345,5 @@ def ensure_model(
     try:
         path = download(name)
     except Exception as exc:  # noqa: BLE001 -- the caller words the failure
-        return EnsureResult("failed", kind, name, str(exc))
+        return EnsureResult("failed", kind, name, str(exc), error=exc)
     return EnsureResult("downloaded", kind, name, path=path)
