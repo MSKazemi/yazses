@@ -515,6 +515,61 @@ def test_every_reported_row_has_a_claim_manifest_entry_naming_real_source_runs()
             assert all(r.split("@")[0] + "@" in run_ids for r in claim["source_runs"])
 
 
+def _claims(report: dict[str, Any]) -> dict[str, list[str]]:
+    """``claim_id without the stratum -> source file names`` for a one-stratum report."""
+    sid = stratum(report)["stratum_id"]
+    return {
+        c["claim_id"].removeprefix(f"{sid}/"): [r.split("@")[0] for r in c["source_runs"]]
+        for c in report["claim_manifest"]
+    }
+
+
+def test_an_across_unit_summary_claims_only_the_units_that_reached_the_minimum() -> None:
+    inputs, text = study(5)
+    rows = json.loads(text)["rows"]
+    inputs.append(("thin.json", raw(make_doc(outcomes={"correct_target": 3}))))
+    rows.append({"result": "thin.json", "participant_id": "P09", "session_id": "S0", "pilot": False})
+    report = analyze(inputs, unit="participant", links_text=json.dumps({"links_version": "1.0", "rows": rows}))
+    claims = _claims(report)
+    used = [f"r_p{p}_s0.json" for p in range(5)]
+    for category in ("correct_target", "wrong_target", "fallback_no_route", "invalid_tracking"):
+        assert claims[f"across_units/{category}"] == used, "P09 reached no rate, so it supports none"
+    # P09's own row still has a claim: it prints "insufficient data" with its n.
+    assert claims["outcomes/P09"] == ["thin.json"]
+
+
+def test_a_summary_below_the_minimum_units_still_names_the_runs_it_counted() -> None:
+    inputs, text = study(2)
+    report = analyze(inputs, unit="participant", links_text=text)
+    assert stratum(report)["across_units"]["correct_target"]["summary"] == INSUFFICIENT
+    assert _claims(report)["across_units/correct_target"] == ["r_p0_s0.json", "r_p1_s0.json"]
+
+
+def test_a_number_with_no_source_run_gets_no_claim() -> None:
+    inputs, text = study(5, counts={"correct_target": 3})  # no rate, and no latency measured
+    claims = _claims(analyze(inputs, unit="participant", links_text=text))
+    assert not any(k.startswith(("across_units/", "latency/", "session_retest")) for k in claims)
+    assert all(claims.values())
+
+
+def test_the_hourly_rate_summary_has_its_own_claim() -> None:
+    face = make_doc(FACE_SWITCH_TASK, {"detected": 20}, false_events=3)
+    report = analyze([("f.json", raw(face))], unit="run", links_text=links(("f.json", "P0", "S0", False)),
+                     min_exposure_s=1, min_units=1)
+    assert _claims(report)["across_units/false_activations_per_hour"] == ["f.json"]
+
+
+def test_a_retest_claim_leaves_out_the_session_that_was_too_thin_to_compare() -> None:
+    inputs, rows = [], []
+    for session, count in (("S0", 40), ("S1", 40), ("S2", 3)):
+        name = f"{session}.json"
+        inputs.append((name, raw(make_doc(outcomes={"correct_target": count}))))
+        rows.append((name, "P0", session, False))
+    claims = _claims(analyze(inputs, unit="participant", links_text=links(*rows)))
+    assert claims["session_retest/P0"] == ["S0.json", "S1.json"]
+    assert claims["session_retest_summary/correct_target"] == ["S0.json", "S1.json"]
+
+
 def test_every_output_is_labelled_provisional_with_its_n() -> None:
     inputs, text = study(5)
     report = analyze(inputs, unit="participant", links_text=text)

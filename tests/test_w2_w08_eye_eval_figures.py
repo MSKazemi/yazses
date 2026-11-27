@@ -67,7 +67,15 @@ def _stratum(sid: str, host: str, latencies: list[float]) -> dict[str, Any]:
         "latency": {"metric": "trial_time_ms_p50", "runs_with_value": len(latencies),
                     "per_run_p50": latencies, "missing_by_reason": {"not_measured": 1},
                     "pooling": "never pooled"},
-        "session_retest": {"outcome": "correct_target", "rows": [
+        "across_units": {
+            "units_total": 2,
+            "correct_target": {"units_with_enough_data": 1, "minimum_units": 1, "provisional": True,
+                               "min": 0.75, "median": 0.75, "max": 0.75},
+            "wrong_target": {"units_with_enough_data": 1, "minimum_units": 5, "provisional": True,
+                             "summary": INSUFFICIENT},
+        },
+        "session_retest": {"outcome": "correct_target", "participants_with_two_or_more_sessions": 1,
+                           "minimum_units": 1, "summary": {"min": 0.1, "median": 0.1, "max": 0.1}, "rows": [
             {"participant": "P01", "spread": 0.1, "sessions": [
                 {"session": "S0", "n": 20, "rate": 0.7}, {"session": "S1", "n": 20, "rate": 0.8}]}]},
     }
@@ -85,6 +93,10 @@ def report() -> dict[str, Any]:
              "row": "trial_time_ms_p50", "source_runs": ["a"]},
             {"claim_id": f"{sid}/session_retest/P01", "stratum_id": sid, "table": "session_retest",
              "row": "P01", "source_runs": ["a"]},
+            {"claim_id": f"{sid}/session_retest_summary/correct_target", "stratum_id": sid,
+             "table": "session_retest_summary", "row": "correct_target", "source_runs": ["a"]},
+            {"claim_id": f"{sid}/across_units/correct_target", "stratum_id": sid, "table": "across_units",
+             "row": "correct_target", "source_runs": ["a"]},
         ]
     return {
         "analysis_version": "1.0", "provisional": True, "study_mode": "research",
@@ -125,6 +137,11 @@ def rows(files: dict[str, bytes], name: str) -> list[dict[str, str]]:
         (lambda r: r["strata"][0]["units"][0]["outcomes"]["correct_target"].__setitem__("ci95_wilson", [0.9, 0.95]),
          "lo <= rate <= hi"),
         (lambda r: r.pop("claim_manifest"), "claim_manifest"),
+        (lambda r: r["strata"][0]["across_units"]["correct_target"].__setitem__("max", 1.2), "across_units"),
+        (lambda r: r["strata"][0]["across_units"]["correct_target"].__setitem__("min", 0.9), "across_units"),
+        (lambda r: r["strata"][0]["across_units"]["correct_target"].pop("median"), "across_units"),
+        (lambda r: r["strata"][0]["session_retest"]["summary"].__setitem__("max", float("nan")),
+         r"session_retest\.summary"),
         (lambda r: r.pop("aggregation_unit"), "aggregation_unit"),
     ],
 )
@@ -181,6 +198,43 @@ def test_exclusions_and_missing_data_are_tabled_with_reasons() -> None:
     ex = rows(files, "tables/exclusions.csv")
     assert ex == [{"run": "p", "category": "pilot", "reason": "pilot", "predefined": "true", "detail": '{"rule":"x"}'}]
     assert rows(files, "tables/missing_data.csv") == [{"run": "c", "family": "latency", "reason": "not_measured"}]
+
+
+def test_the_across_unit_summary_is_a_table_and_insufficient_stays_empty() -> None:
+    table = rows(build(report()), "tables/across_units.csv")
+    got = {r["metric"]: r for r in table if r["stratum_id"] == "aaaa"}
+    ok = got["correct_target"]
+    assert ok["unit_type"] == "participant" and ok["units_total"] == "2" and ok["units_with_enough_data"] == "1"
+    assert (ok["min"], ok["median"], ok["max"], ok["status"]) == ("0.7500", "0.7500", "0.7500", "ok")
+    thin = got["wrong_target"]
+    assert (thin["min"], thin["median"], thin["max"]) == ("", "", "")
+    assert thin["status"] == f"{INSUFFICIENT} (minimum units 5)"
+
+
+def test_an_hourly_rate_summary_may_exceed_one() -> None:
+    rep = report()
+    rep["strata"][0]["across_units"]["false_activations_per_hour"] = {
+        "units_with_enough_data": 5, "minimum_units": 5, "min": 0, "median": 2.5, "max": 12}
+    got = [r for r in rows(build(rep), "tables/across_units.csv") if r["metric"] == "false_activations_per_hour"]
+    assert [(r["min"], r["median"], r["max"]) for r in got] == [("0.0000", "2.5000", "12.0000")]
+
+
+def test_the_retest_summary_is_a_table_and_says_why_when_there_is_none() -> None:
+    rep = report()
+    rep["strata"][0]["session_retest"] = {"status": "not available: no links file"}  # bbbb
+    got = {r["stratum_id"]: r for r in rows(build(rep), "tables/session_retest_summary.csv")}
+    assert got["aaaa"]["median_spread"] == "0.1000" and got["aaaa"]["status"] == "ok"
+    assert got["bbbb"]["median_spread"] == "" and got["bbbb"]["status"] == "not available: no links file"
+    rep["strata"][1]["session_retest"]["summary"] = INSUFFICIENT  # aaaa
+    got = {r["stratum_id"]: r for r in rows(build(rep), "tables/session_retest_summary.csv")}
+    assert got["aaaa"]["median_spread"] == "" and got["aaaa"]["status"].startswith(INSUFFICIENT)
+
+
+def test_every_claim_the_analysis_makes_has_a_table_behind_it() -> None:
+    rep, raw = _fixture_report()
+    manifest = json.loads(F.build_outputs(rep, raw)["manifest.json"])
+    assert any("/across_units/" in c["claim_id"] for c in rep["claim_manifest"])
+    assert manifest["claims_without_a_file"] == []
 
 
 def test_the_manifest_places_every_claim_and_hashes_every_file() -> None:

@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — eye-control analysis: summary numbers now have a table and name their source files ([#426](https://github.com/MSKazemi/yazses/issues/426))
+
+The min / median / max across units and the summary of session spreads appeared only in the report, so a paper table had to be copied by hand and no claim said which result files stood behind them. `scripts/eye_eval_figures.py` now writes `tables/across_units.csv` and `tables/session_retest_summary.csv`, and `claim_manifest` has an entry for each. A session-retest claim no longer lists sessions that had too few trials to be compared, and a number with no source file no longer gets an empty claim. The report is now `analysis_version` 1.1; the figures script still reads 1.0 reports. No statistical test was added (that waits for [#425](https://github.com/MSKazemi/yazses/issues/425)), and only synthetic test records were used.
+
 ### Fixed — transcribe: help no longer says a diarized run downloads the speaker models ([#932](https://github.com/MSKazemi/yazses/issues/932))
 
 `yazses transcribe --help` and the progress line said the first diarized run downloads about 45 MB of models. With the default `sherpa` diarizer it never did: without the files the run writes a plain transcript and says so. The help, the progress line and the guides that said the same now point to `yazses transcribe --download-models`. Nothing about what is downloaded changed.

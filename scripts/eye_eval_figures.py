@@ -16,6 +16,8 @@ spreadsheet -- into
 * ``tables/false_activations.csv`` events / scored exposure hours per unit;
 * ``tables/latency.csv``           per-run p50 latency, one stratum (host + config) per row;
 * ``tables/session_retest.csv``    within-participant per-session primary rate and spread;
+* ``tables/across_units.csv``      min / median / max of the unit values, per stratum;
+* ``tables/session_retest_summary.csv``  min / median / max of the participants' spreads;
 * ``tables/exclusions.csv``        every exclusion with category, reason, predefined flag;
 * ``tables/missing_data.csv``      every missing metric family with its reason;
 * ``figures/outcomes_<stratum>.svg`` and ``figures/latency_<stratum>.svg``, one per stratum;
@@ -26,8 +28,9 @@ spreadsheet -- into
 What it holds to (each one is a #426 acceptance or analysis-integrity line):
 
 * **It refuses, rather than repairs.** An unknown ``analysis_version`` major, a report not
-  marked provisional, a stratum ID that is not a plain token, a duplicate stratum, or a
-  rate/interval that is not a number in [0, 1] stops everything; nothing is written.
+  marked provisional, a stratum ID that is not a plain token, a duplicate stratum, a
+  rate/interval that is not a number in [0, 1], or a min / median / max summary that is not
+  ordered, finite and in range stops everything; nothing is written.
 * **``insufficient data`` never becomes 0.** Such a cell is empty in the CSV, with the status
   column saying why, and the figure prints the words instead of drawing a mark at zero.
 * **Wrong target, fallback and lost tracking stay separate rows**, each with its own colour.
@@ -53,6 +56,7 @@ import csv
 import hashlib
 import io
 import json
+import math
 import re
 import sys
 from collections.abc import Sequence
@@ -60,7 +64,7 @@ from pathlib import Path
 from typing import Any
 from xml.sax.saxutils import escape
 
-FIGURES_VERSION = "1.0"
+FIGURES_VERSION = "1.1"
 SUPPORTED_ANALYSIS_MAJOR = "1"
 INSUFFICIENT = "insufficient data"  # the exact words `yazses.eyeeval.analysis` prints
 
@@ -90,6 +94,16 @@ class FiguresError(Exception):
 
 def _is_unit_number(value: Any) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool) and 0.0 <= float(value) <= 1.0
+
+
+def _spread_problems(entry: Any, at: str, upper: float) -> list[str]:
+    """A min / median / max summary: three finite, ordered numbers in ``[0, upper]``."""
+    values = [entry.get(k) for k in ("min", "median", "max")] if isinstance(entry, dict) else []
+    numbers = [float(v) for v in values if isinstance(v, (int, float)) and not isinstance(v, bool)]
+    if (len(numbers) == 3 and all(math.isfinite(v) and 0.0 <= v <= upper for v in numbers)
+            and numbers == sorted(numbers)):
+        return []
+    return [f"{at}: expected {INSUFFICIENT!r}, or finite min <= median <= max within [0, {upper:g}]."]
 
 
 def check_report(report: Any) -> list[str]:
@@ -141,6 +155,14 @@ def check_report(report: Any) -> list[str]:
                     and ci[0] <= entry["rate"] <= ci[1]
                 ):
                     problems.append(f"{at}: rate / interval are not numbers in [0, 1] with lo <= rate <= hi.")
+        for metric, entry in sorted((s.get("across_units") or {}).items()):
+            if metric == "units_total" or (isinstance(entry, dict) and entry.get("summary") == INSUFFICIENT):
+                continue
+            upper = math.inf if metric == "false_activations_per_hour" else 1.0
+            problems += _spread_problems(entry, f"{where}.across_units.{metric}", upper)
+        spread = (s.get("session_retest") or {}).get("summary")
+        if spread is not None and spread != INSUFFICIENT:
+            problems += _spread_problems(spread, f"{where}.session_retest.summary", 1.0)
     claims = report.get("claim_manifest")
     if not isinstance(claims, list) or not all(isinstance(c, dict) and "claim_id" in c for c in claims):
         problems.append("claim_manifest: expected a list of claims; without it no figure can name its sources.")
@@ -193,6 +215,34 @@ def _outcome_rows(s: dict[str, Any]) -> list[list[Any]]:
     return rows
 
 
+def _across_rows(s: dict[str, Any]) -> list[list[Any]]:
+    across = s.get("across_units") or {}
+    rows = []
+    for metric, e in sorted(across.items()):
+        if not isinstance(e, dict):  # ``units_total`` is a column, not a metric
+            continue
+        ok = e.get("summary") != INSUFFICIENT
+        rows.append([*_stratum_cols(s), s.get("unit"), metric, across.get("units_total"),
+                     e.get("units_with_enough_data"), e.get("minimum_units"),
+                     *[_num(e.get(k)) if ok else None for k in ("min", "median", "max")],
+                     "ok" if ok else f"{INSUFFICIENT} (minimum units {e.get('minimum_units')})"])
+    return rows
+
+
+def _retest_summary_rows(s: dict[str, Any]) -> list[list[Any]]:
+    rt = s.get("session_retest") or {}
+    summary = rt.get("summary")
+    if "status" in rt:  # no links file: say so rather than leave the stratum out
+        return [[*_stratum_cols(s), None, None, None, None, None, None, rt["status"]]]
+    if summary is None:
+        return []
+    ok = summary != INSUFFICIENT
+    return [[*_stratum_cols(s), rt.get("outcome"), rt.get("participants_with_two_or_more_sessions"),
+             rt.get("minimum_units"),
+             *[_num(summary[k]) if ok else None for k in ("min", "median", "max")],
+             "ok" if ok else f"{INSUFFICIENT} (minimum participants {rt.get('minimum_units')})"]]
+
+
 def build_tables(report: dict[str, Any]) -> dict[str, bytes]:
     strata = sorted(report["strata"], key=lambda s: s["stratum_id"])
     head = ["stratum_id", "task", "host", "config_hash"]
@@ -241,6 +291,15 @@ def build_tables(report: dict[str, Any]) -> dict[str, bytes]:
                                     sess.get("session"), sess.get("n"), sess.get("rate"), row.get("spread")])
     out["tables/session_retest.csv"] = _csv(
         [*head, "outcome", "participant", "session", "n", "rate", "participant_spread"], retest_rows)
+
+    out["tables/across_units.csv"] = _csv(
+        [*head, "unit_type", "metric", "units_total", "units_with_enough_data", "minimum_units",
+         "min", "median", "max", "status"],
+        [r for s in strata for r in _across_rows(s)])
+    out["tables/session_retest_summary.csv"] = _csv(
+        [*head, "outcome", "participants", "minimum_participants",
+         "min_spread", "median_spread", "max_spread", "status"],
+        [r for s in strata for r in _retest_summary_rows(s)])
 
     out["tables/exclusions.csv"] = _csv(
         ["run", "category", "reason", "predefined", "detail"],
@@ -409,6 +468,10 @@ def build_outputs(report: dict[str, Any], report_bytes: bytes) -> dict[str, byte
             picked = by_table.get("latency", [])
         elif path == "tables/session_retest.csv":
             picked = by_table.get("session_retest", [])
+        elif path == "tables/across_units.csv":
+            picked = by_table.get("across_units", [])
+        elif path == "tables/session_retest_summary.csv":
+            picked = by_table.get("session_retest_summary", [])
         elif path.startswith("figures/outcomes_"):
             sid = path[len("figures/outcomes_"):-len(".svg")]
             picked = [c for c in by_table.get("outcomes", []) if c.get("stratum_id") == sid]
@@ -430,8 +493,8 @@ def build_outputs(report: dict[str, Any], report_bytes: bytes) -> dict[str, byte
         "aggregation_unit": report["aggregation_unit"],
         "study_mode": report["study_mode"],
         "files": entries,
-        # A claim the report makes that no file carries (e.g. a session-retest row) is listed,
-        # so a paper cannot cite a number that has no table behind it without seeing it here.
+        # A claim the report makes that no file carries (a claim kind this script does not
+        # know) is listed, so a paper cannot cite a number with no table behind it unseen.
         "claims_without_a_file": sorted(str(c["claim_id"]) for c in claims if c["claim_id"] not in placed),
     }
     files["manifest.json"] = (json.dumps(manifest, indent=2, sort_keys=True, ensure_ascii=True) + "\n").encode("utf-8")
