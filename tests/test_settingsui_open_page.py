@@ -81,6 +81,9 @@ def _run(monkeypatch, argv, page=None) -> list[str]:
     monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
     from PySide6.QtWidgets import QApplication
 
+    from yazses.settingsui.single_window import Outcome
+    from yazses.settingsui.single_window_qt import Claim, SingleWindow
+
     done: list[str] = []
 
     class _Window:
@@ -96,6 +99,10 @@ def _run(monkeypatch, argv, page=None) -> list[str]:
     QApplication.instance() or QApplication([])
     monkeypatch.setattr(QApplication, "exec", lambda *a: 0)
     monkeypatch.setattr(settings_app, "SettingsWindow", _Window)
+    # No real lock or socket: a window open on this machine must not answer for the test.
+    monkeypatch.setattr(
+        settings_app, "claim_window", lambda *a, **k: Claim(Outcome.OWNER, SingleWindow())
+    )
     monkeypatch.setattr(settings_app, "apply_theme", lambda *a: None)
     monkeypatch.setattr("yazses.config.load_config", lambda *a, **k: Config())
     monkeypatch.setattr("sys.argv", ["yazses-settings", *argv])

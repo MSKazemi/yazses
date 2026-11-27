@@ -71,6 +71,12 @@ zero, because a daemon that dies while loading a model would otherwise be report
 as restarted. Declining keeps a persistent "restart pending" hint. Decisions live
 in `settingsui/restart.py` (Qt-free, IPC injected); the dialog is dumb.
 
+**There is one window.** Two windows editing one config file could overwrite each
+other, so a second launch takes an operating-system lock, finds it held, sends the
+open window the page it was asked for over a local socket (a Unix socket, or a named
+pipe on Windows) and exits. The lock decides who is first, so a crash leaves nothing
+that blocks the next launch (`settingsui/single_window.py`).
+
 **A row you cannot reach cannot explain itself.** `yazses features` has had
 `--on`/`--tier`/`--category` since it was written; the window had none of it, so
 the only way to a capability was to scroll past every other one.

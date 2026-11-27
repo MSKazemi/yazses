@@ -30,6 +30,7 @@ from yazses.ipc.protocol import (
     Response,
     RpcError,
 )
+from yazses.platform.base import Paths
 
 log = logging.getLogger(__name__)
 
@@ -44,6 +45,15 @@ def _pipe_name_from_path(path: Path) -> str:
     user = getpass.getuser() or "default"
     stem = path.stem or "daemon"
     return rf"\\.\pipe\yazses-{user}-{stem}"
+
+
+def window_endpoint_name(paths: Paths, tag: str) -> str:
+    """`Platform.local_endpoint` here: a bare pipe name, which Qt puts under ``\\\\.\\pipe\\``.
+
+    Pipes are not files in the state directory, so *paths* is unused; *tag* already
+    differs per user.
+    """
+    return f"yazses-ui-{tag}"
 
 
 def _close_quietly(win32file, handle) -> None:  # noqa: ANN001

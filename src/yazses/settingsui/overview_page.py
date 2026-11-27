@@ -131,7 +131,7 @@ class OverviewPage:
         elif not reply.get("ok"):
             self._say(str(reply.get("reason") or reply.get("error") or "It did not start."))
         else:
-            self._say("Recalibrating: speak normally for about three seconds.")
+            self._say(overview.RECALIBRATING)
 
     def _finished(self, outcome: Any) -> None:
         self.action_button.setEnabled(True)

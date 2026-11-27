@@ -38,6 +38,18 @@ Three ways, all the same window:
 It needs a graphical session but **not** a system tray. On a headless or SSH
 machine use `yazses features` instead, which does the same job in text.
 
+### One window
+
+There is only one window for your settings file. If it is already open, opening it
+again by any of the three ways starts nothing new: the open window comes to the front,
+on the page you asked for if you named one, with your unapplied changes still staged.
+`yazses settings` then returns at once and says so.
+
+Some desktops, Wayland ones in particular, do not let a program take the focus by
+itself; there the window may only be marked as wanting attention. If the open window
+does not respond within 10 seconds, a message says so and no second window is opened:
+switch to it, or close it (the message names its process) and try again.
+
 ## The layout
 
 A sidebar on the left holds twelve pages, and one shows at a time. The first seven are

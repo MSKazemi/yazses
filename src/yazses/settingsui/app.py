@@ -17,6 +17,11 @@ by touch, and by a screen reader, none of which can hover. The wording is
 its shipped state and leaves them staged, so the change is visible and
 cancellable before Apply commits it — and so a misclick costs nothing.
 
+There is one window per user and config file: a second launch asks the open one to come
+to the front, on the page it asked for, and exits
+(:mod:`yazses.settingsui.single_window`), so two windows cannot overwrite each other's
+settings.
+
 All the bookkeeping (what is staged, what was confirmed, what landed) lives in
 the pure :class:`~yazses.settingsui.controller.PendingChanges` /
 :class:`~yazses.settingsui.controller.SettingsController` pair, so this file only
@@ -68,6 +73,14 @@ from yazses.settingsui.palette import THEME_CHOICES
 from yazses.settingsui.privacy_view import privacy_card
 from yazses.settingsui.search import describe_filter, matches, visible_counts
 from yazses.settingsui.shell import SIDEBAR_WIDTH, SettingsShell, build_page
+from yazses.settingsui.single_window import (
+    ACTIVATION_ENV,
+    ALREADY_OPEN,
+    Outcome,
+    ShowRequest,
+    unanswered_message,
+)
+from yazses.settingsui.single_window_qt import claim_window, raise_window
 from yazses.settingsui.switches import SwitchHub
 from yazses.settingsui.theme import FOCUS_RING_CSS, mute_label, muted_style_for
 from yazses.settingsui.theme_qt import apply_theme
@@ -123,6 +136,9 @@ def run(page: str | None = None) -> None:
     *page* is the page to open on (`--page`); when the caller passes none it is read from
     the command line. An unknown name opens the window on Overview and is logged: a stale
     shortcut must still open the window.
+
+    If the window is already open, it is asked to come to the front (on *page*, if one was
+    named) and this process exits without opening another.
     """
     # No console on Windows for a GUI script: sys.stderr is None, which would
     # take down both basicConfig and the print() diagnostics below.
@@ -202,22 +218,49 @@ def run(page: str | None = None) -> None:
         raw_config_loader=_raw,
     )
 
+    # Read before Qt starts: a Wayland session's token is consumed by the first window.
+    token = os.environ.get(ACTIVATION_ENV, "")
     app = QApplication.instance() or QApplication(sys.argv)
-    model = build_settings_model(_load())
-    # Before the window is built, so secondary text is coloured against these colours;
-    # again with the window, which takes the stylesheet.
-    apply_theme(app, None, model.window_theme)
-    window = SettingsWindow(model, controller)
-    apply_theme(app, window._win, model.window_theme)
     requested = page if page is not None else page_from_argv(sys.argv[1:])
-    if requested is not None:
-        key = resolve_page(requested)
-        if key is None:
-            log.warning("There is no page named %r; opening Overview.", requested)
-        else:
-            window.open_page(key)
-    window.show()
-    sys.exit(app.exec())
+    key = resolve_page(requested)
+
+    # Before the window is built, so two launches at once cannot both build one.
+    claim = claim_window(platform, config_file, ShowRequest(key or "", token))
+    if claim.outcome is Outcome.FORWARDED:
+        print(ALREADY_OPEN)
+        sys.exit(0)
+    if claim.outcome is Outcome.UNANSWERED:
+        from PySide6.QtWidgets import QMessageBox
+
+        message = unanswered_message(claim.holder)
+        print(message, file=sys.stderr)
+        log.error("%s", message.replace("\n", " "))
+        # A launch from the tray or the app grid has no terminal to read that on.
+        QMessageBox.warning(None, "YazSes Settings", message)
+        sys.exit(1)
+
+    # Connected before the window connects its own `aboutToQuit` slot, which can wait
+    # minutes for an install: a closed window must not still count as the open one.
+    app.aboutToQuit.connect(claim.window.close)
+    try:
+        model = build_settings_model(_load())
+        # Before the window is built, so secondary text is coloured against these colours;
+        # again with the window, which takes the stylesheet.
+        apply_theme(app, None, model.window_theme)
+        window = SettingsWindow(model, controller)
+        apply_theme(app, window._win, model.window_theme)
+        if requested is not None:
+            if key is None:
+                log.warning("There is no page named %r; opening Overview.", requested)
+            else:
+                window.open_page(key)
+        window.show()
+        claim.window.attach(
+            lambda request: window.bring_to_front(request.page, request.token)
+        )
+        sys.exit(app.exec())
+    finally:
+        claim.window.close()
 
 
 def _key_to_hold(configured: str) -> str:
@@ -2664,6 +2707,16 @@ class SettingsWindow:
     def show(self) -> None:
         self._win.show()
         # Not left to the first timer tick: the opening page would sit on "Checking…".
+        self._refresh_current_page()
+
+    def bring_to_front(self, page: str = "", token: str = "") -> None:
+        """A later launch asked for this window: turn to *page*, if named, and raise it.
+
+        Staged changes are untouched; changing page writes nothing.
+        """
+        if page:
+            self.open_page(page)
+        raise_window(self._win, token)
         self._refresh_current_page()
 
 

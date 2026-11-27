@@ -123,6 +123,17 @@ file a year from now — at which point the daemon becomes reachable from anothe
 The guard asserts the address family, so that change fails the build instead of passing
 review. (These two were found *by* the guard, not by the audit that preceded it.)
 
+One module takes a local socket from Qt instead of from Python, which the import scan
+cannot see: its roots are top-level package names, and `PySide6.QtNetwork` is not one.
+
+| Module | What it is |
+|---|---|
+| `settingsui/single_window_qt.py` | `QLocalServer` / `QLocalSocket`: a Unix domain socket in the user's runtime directory, or a named pipe on Windows, restricted to that user. A second `yazses settings` sends the open window a page name and the desktop's activation token; no dictated text crosses it (added 2026-11-27) |
+
+A scan of its own finds every import from `PySide6.QtNetwork`, which also holds Qt's TCP,
+UDP and HTTP classes. The guard allows only the two local-socket classes, so taking any other
+fails the build.
+
 ### The two classes, which is the useful part
 
 **Class A — fetch.** Seven of the nine only pull *in*: model weights, a version number and,

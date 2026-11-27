@@ -756,6 +756,23 @@ because the guard it feeds must fire only on a specific, checkable signal (ADR-0
 """
 
 
+LocalEndpointNamer = Callable[[Paths, str], str]
+"""Names the endpoint a YazSes window listens on for later launches of itself.
+
+Given the platform's paths and a short tag naming one user's window, returns what the local
+socket listens on: a socket file path, or a bare pipe name where local sockets are not files.
+It names; it creates nothing. Never a network address (ADR-019).
+"""
+
+
+def socket_file_endpoint(paths: Paths, tag: str) -> str:
+    """The default `Platform.local_endpoint`: a socket file in the per-user runtime directory.
+
+    The name is short because a Unix socket path is limited to about 104 bytes on macOS.
+    """
+    return str(paths.state_dir / f"ui-{tag}.sock")
+
+
 @dataclass(frozen=True)
 class Platform:
     """Bundle of concrete backends for the current OS."""
@@ -824,4 +841,7 @@ class Platform:
     # `PRIMARY_MODIFIER_CMD`). macOS sets Cmd; every other bundle keeps the Ctrl default,
     # which is what keeps their spoken-command keys exactly what they always were.
     primary_modifier: str = PRIMARY_MODIFIER_CTRL
+    # Names the local socket through which a second `yazses settings` reaches the open
+    # window. The default is a socket file; Windows names a pipe instead.
+    local_endpoint: LocalEndpointNamer = socket_file_endpoint
     extras: dict[str, Any] = field(default_factory=dict)

@@ -17,6 +17,14 @@ UNRESPONSIVE: Mapping[str, Any] = {"unresponsive": True}
 #: The daemon's ``silent_streak_threshold`` when a reply does not carry one.
 _DEFAULT_SILENT_LIMIT = 3
 
+#: Shown once a recalibration has started. The seconds are the daemon's own
+#: (``core/daemon.py::_recalibrate_mic``: 1.5 s pause, 2 s of the room, 1.5 s pause, 4 s of
+#: speech); ``tests/test_settingsui_single_window.py`` holds them together.
+RECALIBRATING = (
+    "Recalibrating: stay quiet for about 5 seconds, then speak a sentence at your usual "
+    "volume for about 4 seconds."
+)
+
 
 @dataclass(frozen=True)
 class Health:
@@ -89,7 +97,8 @@ def health(status: Mapping[str, Any] | None) -> Health:
         return Health(
             "bad", "I can’t hear you",
             f"The last {streak} recordings were silent. The microphone may be muted or "
-            "set too quiet. Recalibrating takes about three seconds of speech.",
+            "set too quiet. Recalibrating takes about ten seconds: first quiet, then "
+            "your voice.",
             "recalibrate", "Recalibrate microphone",
         )
     from yazses.tray.menu import no_target_warning

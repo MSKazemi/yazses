@@ -77,6 +77,23 @@ def alert(message: str, title: str) -> bool:
         return False
 
 
+def allow_foreground(pid: int) -> bool:
+    """Let process *pid* bring its window to the front. False off Windows; never raises.
+
+    Windows lets a process take the foreground only if it has that right or is given it. A
+    second ``yazses settings`` was just launched, so it has the right, and hands it to the
+    window that is already open; without this that window only flashes in the taskbar.
+    """
+    if sys.platform != "win32":
+        return False
+    try:
+        import ctypes
+
+        return bool(ctypes.windll.user32.AllowSetForegroundWindow(int(pid)))
+    except Exception:  # noqa: BLE001 - the window still flashes, which is enough
+        return False
+
+
 def ensure_streams() -> bool:
     """Make ``sys.stdout``/``stderr``/``stdin`` safe to use. Idempotent.
 

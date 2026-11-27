@@ -90,7 +90,9 @@ that most often go wrong — the wrong microphone, and a daemon that needs a res
   [Overview page](settings-gui.md), so the two never disagree. Nothing is offered when there
   is nothing to fix, or while the daemon is starting, restarting or too busy to answer.
 - **Open YazSes** — opens the [window](settings-gui.md) on its Overview page: dictation,
-  meetings, file transcription and everything else.
+  meetings, file transcription and everything else. If the window is already open, it
+  comes to the front instead of opening a second time
+  ([One window](settings-gui.md#one-window)); **Settings…** does the same.
 - **`YazSes — idle`** and **`Mic: default`** — the same state the badge colour encodes, in words.
 - **Microphone** — every input device the system reports, with the active one marked. Picking
   one **pins** it, so a USB-C monitor or a headset that appears later can't quietly steal

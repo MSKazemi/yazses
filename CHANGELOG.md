@@ -6,6 +6,14 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — one Settings window: a second launch raises the open one
+
+Opening the window again (from the tray, `yazses settings` or the app grid) started a second one, and the two could overwrite each other's settings. Now the second launch asks the open window to come to the front, on the `--page` it asked for if it named one, and exits; staged changes stay staged. Who is first is decided by a file lock the operating system frees when its holder exits or crashes, and the request travels over a local socket only (a Unix socket, or a named pipe on Windows, open to your user alone; see ADR-019). If the open window does not answer within 10 seconds, a message says so and no second window opens. On Wayland, and on some other desktops, the system may only mark the window as wanting attention instead of moving it to the front. Not tried on a real desktop.
+
+### Fixed — the Overview page understated how long recalibration takes
+
+It said about three seconds of speech. YazSes records the quiet room and then four seconds of speech, about ten seconds in all; the page now says to stay quiet first and speak afterwards.
+
 ### Added — tray: **Open YazSes**, a one-click fix for a reported problem, and `yazses settings --page`
 
 The menu of all three trays (Linux, macOS, Windows) gains **Open YazSes**, which opens the window on Overview; **Settings…** now opens it on **Features**. While there is a problem one click can fix, the first entry of the menu offers it: **Start YazSes** when it is not running, **Restart YazSes** after an error, **Recalibrate microphone** after repeated silent recordings. The tray asks the same function as the window's Overview page (`settingsui/overview.py`), so the two cannot offer different fixes; a daemon that is busy or still starting is offered nothing. Start runs `yazses start --no-autostart` and leaves a running daemon alone. `yazses settings --page <key>` (and `yazses-settings --page <key>`) opens the window on a given page.

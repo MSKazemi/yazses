@@ -2028,6 +2028,9 @@ def settings(
     on a headless or SSH machine use `yazses features` instead. Restart the daemon
     after applying changes: `yazses restart`.
 
+    There is one window: if it is already open, it is brought to the front (on the
+    `--page` asked for) and no second window opens.
+
     `--install-launcher` puts an entry in your application menu. A .deb or snap
     does this for you; a pipx or uv-tool install cannot write outside its own
     virtualenv, which left those users with a settings window and no way to reach
