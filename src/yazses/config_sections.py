@@ -158,6 +158,7 @@ SECTION_NAMES: frozenset[str] = frozenset({
     "voicetimer",
     "wakeword",
     "whispermode",
+    "window",
     "windowctl",
     "wordfind",
     "wordgoal",

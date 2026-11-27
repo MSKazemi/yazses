@@ -115,7 +115,7 @@ def test_every_page_blurb_starts_at_the_left_edge(qapp):
 
 def test_the_general_and_hands_free_notes_start_at_the_left_edge(qapp):
     win = _window(qapp)
-    general = _labels(win._shell.stack.widget(0))
+    general = _labels(win._shell.stack.widget(next(i for i, s in enumerate(PAGES) if s.key == "general")))
     note = next(lb for text, lb in general.items() if text.startswith("Changes are staged"))
     assert note.indent() == 0
     handsfree = _labels(win._shell.stack.widget(next(i for i, s in enumerate(PAGES) if s.key == "handsfree")))

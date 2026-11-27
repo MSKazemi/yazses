@@ -12,12 +12,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from yazses.settingsui.pages import PAGES, PageSpec, page_label
+from yazses.settingsui.icons import brand_mark, sidebar_icon
+from yazses.settingsui.pages import PAGES, SHORTCUT_PAGES, PageSpec, page_label
 from yazses.settingsui.theme import FOCUS_RING_CSS, mute_label
 
 #: Sidebar width. Wide enough for "Hands-free •" at a large system font, narrow enough
 #: that the content area keeps most of a 760 px window.
-SIDEBAR_WIDTH = 168
+SIDEBAR_WIDTH = 196
 
 # No ``outline: 0`` here: that removed the focus cue entirely. The focused row gets a ring of
 # its own (``FOCUS_RING_CSS``) on top of its selection fill.
@@ -32,6 +33,10 @@ _SIDEBAR_STYLE = (
 
 #: Text shown as the tooltip on a sidebar entry that holds unapplied changes.
 DIRTY_TOOLTIP = "This page has changes you have not applied yet — click Apply."
+
+
+def _page_tip(title: str, number: int) -> str:
+    return f"{title} (Ctrl+{number})" if number <= SHORTCUT_PAGES else title
 
 
 def hairline(*, vertical: bool) -> Any:
@@ -92,11 +97,12 @@ class SettingsShell:
     """Sidebar + stacked pages + footer, laid out inside *central*."""
 
     def __init__(self, central: Any, win: Any) -> None:
-        from PySide6.QtCore import Qt
+        from PySide6.QtCore import QSize, Qt
         from PySide6.QtGui import QKeySequence, QShortcut
         from PySide6.QtWidgets import (
             QFrame,
             QHBoxLayout,
+            QLabel,
             QListWidget,
             QListWidgetItem,
             QStackedWidget,
@@ -123,20 +129,34 @@ class SettingsShell:
 
         self.sidebar = QListWidget()
         self.sidebar.setFixedWidth(SIDEBAR_WIDTH)
+        self.sidebar.setIconSize(QSize(18, 18))
         self.sidebar.setFrameShape(QFrame.Shape.NoFrame)
         self.sidebar.setStyleSheet(_SIDEBAR_STYLE)
         self.sidebar.setAccessibleName("Settings sections")
         self.sidebar.setAccessibleDescription(
-            "Choose a page. Ctrl+1 to Ctrl+6 jump to one; Ctrl+F searches the features; "
-            "Ctrl+Return applies the staged changes."
+            "Choose a page. Ctrl+1 to Ctrl+9 jump to the first nine; Ctrl+F searches "
+            "the features; Ctrl+Return applies the staged changes."
         )
-        self.sidebar.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.sidebar.setObjectName("yzSidebar")
+        self.sidebar.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         for i, spec in enumerate(PAGES, start=1):
             item = QListWidgetItem(spec.label)
             item.setData(Qt.ItemDataRole.UserRole, spec.key)
-            item.setToolTip(f"{spec.title} (Ctrl+{i})")
+            item.setIcon(sidebar_icon(spec.key))
+            item.setToolTip(_page_tip(spec.title, i))
             self.sidebar.addItem(item)
-        body.addWidget(self.sidebar)
+        column = QVBoxLayout()
+        column.setSpacing(0)
+        brand = QHBoxLayout()
+        brand.setContentsMargins(14, 14, 8, 4)
+        brand.setSpacing(10)
+        brand.addWidget(brand_mark(36))
+        name = QLabel("YazSes")
+        name.setStyleSheet("font-size: 15pt; font-weight: 700;")
+        brand.addWidget(name, 1)
+        column.addLayout(brand)
+        column.addWidget(self.sidebar, 1)
+        body.addLayout(column)
 
         self.sidebar_rule = hairline(vertical=True)
         body.addWidget(self.sidebar_rule)
@@ -151,10 +171,10 @@ class SettingsShell:
         self.footer_layout.setContentsMargins(12, 8, 12, 10)
         outer.addLayout(self.footer_layout)
 
-        # Ctrl+1..6 on the window, not the list: a shortcut on the list works only while
+        # Ctrl+1..9 on the window, not the list: a shortcut on the list works only while
         # the list has focus, which is exactly when you do not need one.
         self._shortcuts = []
-        for i, spec in enumerate(PAGES, start=1):
+        for i, spec in enumerate(PAGES[:SHORTCUT_PAGES], start=1):
             shortcut = QShortcut(QKeySequence(f"Ctrl+{i}"), win)
             shortcut.activated.connect(lambda key=spec.key: self.select(key))
             self._shortcuts.append(shortcut)
@@ -191,7 +211,7 @@ class SettingsShell:
             text = page_label(self._labels[key], dirty=is_dirty)
             if item.text() != text:
                 item.setText(text)
-            tip = DIRTY_TOOLTIP if is_dirty else f"{PAGES[row].title} (Ctrl+{row + 1})"
+            tip = DIRTY_TOOLTIP if is_dirty else _page_tip(PAGES[row].title, row + 1)
             if item.toolTip() != tip:
                 item.setToolTip(tip)
 

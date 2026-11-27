@@ -17,9 +17,11 @@ def _groups():
     return build_settings_model(Config()).groups
 
 
-def test_pages_are_the_six_in_the_agreed_order():
+def test_pages_are_in_the_agreed_order():
+    """The app pages first, then the pages that configure it."""
     assert [p.key for p in pages.PAGES] == [
-        "general", "speech", "audio", "features", "handsfree", "updates",
+        "overview", "dictation", "meetings", "files", "commands", "features",
+        "accessibility", "speech", "audio", "general", "handsfree", "updates",
     ]
 
 

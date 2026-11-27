@@ -125,7 +125,7 @@ RESET_SCOPE = (
     "This restores the capability switches only — the settings above them (hotkey, "
     "microphone, speech model, language, language profile, compute type, initial "
     "prompt, injection backend, desktop portal permission, text-target guard, onset "
-    "padding) and your vocabulary keep their current values."
+    "padding, window look) and your vocabulary keep their current values."
 )
 
 

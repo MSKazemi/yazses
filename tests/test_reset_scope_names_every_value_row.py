@@ -65,6 +65,7 @@ ROW_WORDS = {
     "consent": ("desktop portal permission", "desktop portal"),
     "guard": ("text-target guard", "target guard"),
     "padding": ("onset padding", "padding"),
+    "theme": ("window look",),
 }
 
 

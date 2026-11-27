@@ -6,6 +6,14 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the settings window is now a desktop app: dictation, meetings and file transcription without a terminal
+
+`yazses settings` opens on a new **Overview** page that says whether dictation works and offers one fix when it does not (start YazSes, restart it, or recalibrate a microphone that heard nothing). New pages: **Dictation** (key, level while recording, a practice box, writing options), **Meetings** (start and stop, live draft, stored transcripts, speaker names, export), **File transcription** (runs `yazses transcribe`, asks before replacing a transcript, can be cancelled), **Voice commands** and **Accessibility**. **General** now lists what can leave the computer, read from your settings. Switches on the new pages are the Features checkboxes, so Apply, confirmation and dependency install behave as before. The pages use only existing daemon calls; no network path was added and the window stores no dictated text.
+
+### Changed — the settings window has a dark violet look, and its pages were reordered
+
+The new `[window] theme` key is `violet-dark` (the default), `violet-light`, or `system`, which keeps your desktop's colours as before; change it under **General → Window look**. The **Speech** page is now called **Models**, and the sidebar runs the new pages first. `Ctrl+1` to `Ctrl+9` jump to the first nine pages.
+
 ### Changed — release checks: AUR, Flathub and nixpkgs are no longer checked
 
 `scripts/check-release-channels.py`, which the release completeness check and the daily channel drift watch run, no longer asks AUR, Flathub or nixpkgs for the new version. None of the three has accepted a first submission, so no tag could publish to them and the completeness check stayed red whatever shipped. Their recipes (`packaging/arch/`, `packaging/flatpak/`, `flake.nix`) are unchanged, and each check can be restored from git history when its channel accepts a submission. The check still fails while a channel the project does publish to lacks the version.

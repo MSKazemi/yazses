@@ -539,6 +539,22 @@ class SettingsController:
             return ToggleResult(ok=False, error=f"Could not save the guard: {exc}")
         return ToggleResult(ok=True)
 
+    def set_window_theme(self, theme: str) -> ToggleResult:
+        """Save this window's colours. Refused rather than clamped when unknown."""
+        from yazses.settingsui.palette import THEMES
+
+        cleaned = (theme or "").strip().lower()
+        if cleaned not in THEMES:
+            return ToggleResult(
+                ok=False,
+                error=f"{theme!r} is not a theme. Choose one of: {', '.join(THEMES)}.",
+            )
+        try:
+            self._writer("window", "theme", cleaned, True)
+        except Exception as exc:  # noqa: BLE001 - surfaced, never raised at Qt
+            return ToggleResult(ok=False, error=f"Could not save the theme: {exc}")
+        return ToggleResult(ok=True)
+
     def set_pre_speech_padding(self, value) -> ToggleResult:
         """Set the silence prepended before decode, clamped to a useful range.
 
