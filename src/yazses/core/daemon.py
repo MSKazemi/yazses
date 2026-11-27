@@ -1669,7 +1669,11 @@ class Daemon:
         the same `build_engine` call, so the language check and the output wrappers apply
         to the second load exactly as to the first.
         """
-        seconds = int(getattr(self._config.stt, "idle_unload_s", 0) or 0)
+        from yazses.system.residency import keep_alive_seconds
+
+        # Capped at a year: TOML can hold an integer too large for a float, and start-up
+        # must not fail on it.
+        seconds = int(keep_alive_seconds(getattr(self._config.stt, "idle_unload_s", 0)))
         if seconds <= 0:
             return engine
         from yazses.stt.resident import IdleUnloadEngine
@@ -1841,11 +1845,13 @@ class Daemon:
             return None
 
     def _prefetch_stt_engine(self) -> None:
-        """At a press: restart the keep-alive, or start the reload if the model is out.
+        """A recording began: restart the keep-alive, or start the reload if the model is out.
 
+        Called for a hold, and for the two recordings that do not go through one
+        (`ask_human`'s listener and Punch-In's re-speak), which leave the daemon IDLE.
         Capture never waits for this -- the recorder does not touch the engine -- so the
-        reload overlaps the user speaking instead of following the release. A no-op with
-        the plain engine.
+        reload overlaps the user speaking instead of following it. A no-op with the
+        plain engine.
         """
         engine = self._idle_unload_engine
         if engine is None:
@@ -7684,6 +7690,7 @@ class Daemon:
         if self._recorder is None or self._engine is None:
             return ""
         self._recorder.start()
+        self._prefetch_stt_engine()
         window = max(0.0, self._config.punch_in.record_seconds)
         if window:
             time.sleep(window)
@@ -10273,6 +10280,7 @@ class Daemon:
         outcome: str | None = None
         recorder.start()
         try:
+            self._prefetch_stt_engine()
             while outcome is None:
                 time.sleep(_ASK_HUMAN_POLL_S)
                 with self._lock:

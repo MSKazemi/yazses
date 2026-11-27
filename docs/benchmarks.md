@@ -1617,6 +1617,10 @@ not a benchmark:
   overloaded) and are not quoted, so every timing on this page is from Linux x86_64.
 - **No arm64 timings.** arm64 WER is published (Neoverse-N2 and Apple M1, above);
   latency and memory have not been measured on arm64.
+- **No time-to-ready or reload latency.** How long the daemon takes to become ready, and
+  how long the first dictation after an
+  [idle unload](how-to/low-ram-models.md#release-the-model-when-idle) waits for the
+  model, have not been measured.
 - **No cross-machine variance for timings.** Timings come from a few Linux x86_64
   hosts (the reference laptop, a 16-vCPU Xeon for the engine matrix, a 4-vCPU EPYC for
   Persian), and no timing is repeated across machines. WER has a cross-ISA spread (four
