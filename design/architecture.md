@@ -232,6 +232,7 @@ runtime path — see an internal planning note.)
 | File | Role |
 |---|---|
 | `daemon.py` | Orchestrator — owns state machine, IPC, pipeline wiring, signal handling |
+| `dictation_pause.py` | Pure rules for pausing dictation ([ADR-037](adr/adr-037-dictation-pause.md), **Proposed**): which capture paths a pause refuses, what happens to an open burst, and tickets that void a recording a pause interrupted. **Not wired**: nothing imports it, and `TrayState.PAUSED` is never set |
 
 ### Guards between the transcript and the injector
 
@@ -1232,6 +1233,7 @@ maintainer*, not *unbuilt* — several Proposed ADRs below have shipped code.
 | ADR-032 | Accepted | Make the MCP server discoverable (`.mcpb` bundle, MCP-registry entry) and let `ask_human` stop when the user stops speaking |
 | ADR-033 | Proposed | A reproducibility gate for offline ASR comparisons; no runtime, default or publication authorisation. Not ADR-v2-033 (wake word) |
 | ADR-034 | Proposed | Whether to recommend Parakeet where it loads; awaiting the maintainer, and changing `[stt] engine`'s default is L3 work |
+| ADR-037 | Proposed | Pausing dictation: a flag beside the daemon state that every dictation capture path must ask, discarding an open recording. Only the pure rules exist (`core/dictation_pause.py`) |
 
 ### v0.4.0 Configuration reference additions
 
