@@ -32,8 +32,9 @@ class CameraEntry:
     label: str        # "Camera"
     checked: bool     # True = ON
     action: str       # what a click asks for: "on" or "off"
-    indicator: str    # one line: held / released / failing
+    indicator: str    # one line: held / released / covered / failing
     holders: tuple[str, ...] = ()
+    covered: bool = False  # a camera looks covered and was released (#923)
 
 
 def camera_entry(status: dict) -> CameraEntry | None:
@@ -52,8 +53,13 @@ def camera_entry(status: dict) -> CameraEntry | None:
     on = str(raw.get("state", "on")).lower() != "off"
     failures = raw.get("failures")
     failed = sorted(failures) if isinstance(failures, dict) else []
+    # Indexes, so not `_names`: camera 0 is a camera.
+    raw_covered = raw.get("covered")
+    covered = on and isinstance(raw_covered, (list, tuple)) and len(raw_covered) > 0
     if not on:
         indicator = "Camera off: released for other applications"
+    elif covered:
+        indicator = "Camera covered: released until it is uncovered"
     elif holders:
         indicator = "Camera held by: " + ", ".join(holders)
     elif failed:
@@ -66,6 +72,7 @@ def camera_entry(status: dict) -> CameraEntry | None:
         action=OFF if on else ON,
         indicator=indicator,
         holders=holders,
+        covered=covered,
     )
 
 

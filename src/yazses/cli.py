@@ -6718,6 +6718,7 @@ def _echo_camera(result: dict) -> None:
     on = result.get("state") == "on"
     holders = [str(h) for h in (result.get("holders") or [])]
     consumers = result.get("consumers") or []
+    covered = result.get("covered") or []
     typer.echo(f"Camera: {'ON' if on else 'OFF'}")
     active = result.get("active")
     if isinstance(active, dict):
@@ -6728,8 +6729,13 @@ def _echo_camera(result: dict) -> None:
         typer.echo("No camera feature is running, so nothing holds the camera.")
     elif holders:
         typer.echo(f"Held by: {', '.join(holders)}")
-    else:
+    elif not covered:
         typer.echo("YazSes is not holding the camera.")
+    for index in covered:
+        typer.echo(
+            f"Camera {index} looks covered: YazSes released it and resumes when it is "
+            "uncovered. Check now: yazses camera on"
+        )
     failures = result.get("failures") or {}
     for name, reason in failures.items():
         typer.echo(f"  {name}: could not reopen the camera -- {reason}")
@@ -6822,7 +6828,7 @@ def _camera_clear() -> None:
     epilog=_examples("yazses camera status    is the camera on, and which features hold it"),
 )
 def camera_status() -> None:
-    """Show whether the camera is on and which YazSes features hold the device."""
+    """Show whether the camera is on or looks covered, and which YazSes features hold it."""
     _echo_camera(_camera_call("status"))
 
 

@@ -140,7 +140,10 @@ Glance-Type, the Face-Gesture Switch, the Head-Pointer, Gesture Chords, and the 
 preset that combines them read frames from your webcam. Each is off by default. Frames are
 processed in memory on your device and are neither saved nor transmitted: the capture code
 (`perception/camera.py`, `perception/source.py`) hands each frame to the face-landmark model
-and keeps nothing, and none of the camera features writes an image or video file. What *is* saved,
+and keeps nothing, and none of the camera features writes an image or video file. With
+`[camera] cover_detection` on, each measured frame is also reduced to two numbers, its average
+brightness and how much it varies, to tell a closed privacy cover; the daemon log records
+those two numbers when it decides a camera is covered. What *is* saved,
 when you calibrate, is numbers: the screen mapping in `gaze_calibration.json` and your
 resting face levels in `facegesture_baseline.json` and `facegesture_levels.json`, in your
 data directory. The one network access is the one-time download of the face-landmark model

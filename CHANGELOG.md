@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — a covered camera is released and comes back by itself ([#923](https://github.com/MSKazemi/yazses/issues/923))
+
+New `[camera] cover_detection` (off by default). YazSes releases a camera whose privacy cover is closed, shows it as covered in the tray, `yazses camera status`, `yazses status` and `yazses doctor`, and resumes the camera features when it is uncovered. On Linux it reads the camera's privacy control or the laptop's lens-cover switch where there is one; otherwise it judges from frames that stay black and even for about 5 seconds, and re-checks a covered camera after 5 s, then at most every 30 s. `yazses camera on` checks at once. The frame thresholds are not yet measured across webcams, and a completely unlit room is indistinguishable from a cover. The `camera` IPC reply gains `covered`, the list of camera indexes released this way.
+
 ### Fixed — docs: instructions and reference facts that no longer matched the code
 
 - `yazses features enable gaze` and `facegesture` are experimental and refused without `--force`; the capability matrix and two other pages now show it.

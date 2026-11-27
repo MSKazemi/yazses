@@ -743,6 +743,24 @@ A factory, and optional, for the pointer's reasons: nothing OS-specific runs whi
 Windows and the BSDs today) rather than one that always answers ``None``.
 """
 
+class CameraCoverSignal(Protocol):
+    """The hardware's own word on a privacy shutter or camera switch (#923)."""
+
+    def covered(self, index: int) -> bool | None:
+        """``True`` camera *index* is covered, ``False`` the hardware says it is not.
+
+        ``None`` when there is no such signal or it cannot be read, which is the case on
+        most machines: the caller then judges from frames. Must be cheap, must not start
+        a capture, and must never raise.
+        """
+        ...
+
+
+CameraCoverSignalFactory = Callable[[], CameraCoverSignal]
+"""Builds this platform's camera privacy-signal reader. A factory, and optional, for the
+pointer's reasons: no device node is touched while `get_platform()` merely runs.
+"""
+
 InputBlockProbe = Callable[[], str | None]
 """Says why the focused window will not receive synthetic input, or returns None.
 
@@ -825,4 +843,8 @@ class Platform:
     # `PRIMARY_MODIFIER_CMD`). macOS sets Cmd; every other bundle keeps the Ctrl default,
     # which is what keeps their spoken-command keys exactly what they always were.
     primary_modifier: str = PRIMARY_MODIFIER_CTRL
+    # Builds the reader of a hardware camera privacy signal (`CameraCoverSignal`), for
+    # `[camera] cover_detection`. Linux sets it (V4L2 privacy control, lens-cover input
+    # switch); None elsewhere, where a covered camera is judged from its frames.
+    camera_cover_factory: CameraCoverSignalFactory | None = None
     extras: dict[str, Any] = field(default_factory=dict)

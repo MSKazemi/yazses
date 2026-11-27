@@ -274,6 +274,41 @@ The tray menu has the same switch: a **Camera** entry (checked while on) and, un
 saying whether YazSes holds the camera right now and which features do. It only appears while a
 camera feature is enabled.
 
+## Covered camera (privacy shutter)
+
+By default YazSes keeps reading a camera whose privacy cover is closed. To have it let go
+instead, turn detection on in `config.toml` and run `yazses restart`:
+
+```toml
+[camera]
+cover_detection = true
+```
+
+YazSes then treats a camera as covered when:
+
+- on Linux, the camera reports its privacy control as set, or a laptop's lens-cover switch is
+  closed (the switch is only used while exactly one camera is plugged in); most machines have
+  neither signal; or
+- the picture stays almost black and almost perfectly even for about 5 seconds.
+
+It releases the camera, and `yazses camera status`, the tray's camera line, `yazses status` and
+`yazses doctor` say it looks covered. Once the hardware signal says open, the camera comes back
+at once. Otherwise YazSes opens it briefly to look, after 5 seconds and then less often (at most
+every 30 seconds), so the camera light may blink while it is covered. `yazses camera on` looks
+immediately. With `[handsfree_safety]` on, a pointer stopped this way still needs
+`yazses handsfree resume`, as after any lost signal.
+
+Limits:
+
+- The black-picture thresholds have **not been measured across webcams**. If your covered camera
+  is never detected, its picture is brighter or noisier than they allow. The daemon log shows
+  the two figures (`mean`, `spread`) whenever it decides from frames.
+- A completely unlit room with a dark screen looks the same as a cover. The camera comes back
+  when there is light.
+- The black-picture check needs a feature that reads the camera continuously (the face switch,
+  the Head-Pointer, gestures, or the shared camera of `[perception]`). Glance-Type gaze on its
+  own camera reads one frame per key hold, so only the hardware signal covers it.
+
 ## It works, but not after I reboot
 
 YazSes is a daemon, so it should already be running when you sit down:

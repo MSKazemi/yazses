@@ -115,6 +115,10 @@ class MediapipeGazeBackend:
                 self._open_retry_at = time.monotonic() + _OPEN_BACKOFF_S
 
     @property
+    def camera_index(self) -> int:
+        return self._camera_index
+
+    @property
     def camera_held(self) -> bool:
         return self._cap is not None
 

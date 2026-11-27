@@ -230,6 +230,11 @@ class GazeTargeter:
             fn()
 
     @property
+    def camera_index(self) -> int | None:
+        """The backend's own camera, or None on the shared source."""
+        return getattr(self._backend, "camera_index", None)
+
+    @property
     def camera_held(self) -> bool:
         return bool(getattr(self._backend, "camera_held", False))
 
