@@ -65,10 +65,11 @@ from yazses.settingsui.pages import (
 from yazses.settingsui.palette import THEME_CHOICES
 from yazses.settingsui.privacy_view import privacy_card
 from yazses.settingsui.search import describe_filter, matches, visible_counts
-from yazses.settingsui.shell import SettingsShell, build_page
+from yazses.settingsui.shell import SIDEBAR_WIDTH, SettingsShell, build_page
 from yazses.settingsui.switches import SwitchHub
 from yazses.settingsui.theme import FOCUS_RING_CSS, mute_label, muted_style_for
 from yazses.settingsui.theme_qt import apply_theme
+from yazses.settingsui.widgets import compact_combo as _compact_combo
 from yazses.system.relaunch import Mode, command_for
 
 log = logging.getLogger(__name__)
@@ -217,6 +218,10 @@ def _key_to_hold(configured: str) -> str:
         return ""
 
 
+#: The width a page keeps at the narrowest window, beside the sidebar.
+_PAGE_MIN_WIDTH = 592
+
+
 def _data_dir() -> str:
     """Where YazSes keeps its data, or "" on a platform that cannot say."""
     try:
@@ -232,28 +237,6 @@ def _rich_text():
     from PySide6.QtCore import Qt
 
     return Qt.TextFormat.RichText
-
-
-#: How many characters a drop-down is wide enough for, whatever it holds.
-_COMBO_MIN_CHARS = 18
-
-
-def _compact_combo():
-    """A QComboBox whose width does not follow its longest item.
-
-    By default a combo asks for the width of its widest entry, and the microphone box
-    holds "Follow the system default (currently <the device's full ALSA name>)": about
-    800 px at 16 pt, which pushed the Audio and Speech pages into a sideways scrollbar.
-    The policy must be set at construction; Qt caches the size hint, so setting it
-    after the box is laid out changes nothing. A long item is elided in the box and
-    shown in full in the list.
-    """
-    from PySide6.QtWidgets import QComboBox
-
-    box = QComboBox()
-    box.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
-    box.setMinimumContentsLength(_COMBO_MIN_CHARS)
-    return box
 
 
 def _top_aligned(*items):
@@ -408,7 +391,7 @@ class SettingsWindow:
         self._restart_thread: Any = None
         self._win.setWindowTitle("YazSes Settings")
         self._win.resize(1060, 760)
-        self._win.setMinimumSize(760, 520)
+        self._win.setMinimumSize(_PAGE_MIN_WIDTH + SIDEBAR_WIDTH, 520)
 
         central = QWidget()
         self._shell = SettingsShell(central, self._win)
@@ -1965,8 +1948,9 @@ class SettingsWindow:
 
         summary = self._summarise(report)
         if theme_changed:
-            nothing_else = not (report.applied or report.errors or report.unconfirmed)
-            summary = "Window look saved." if nothing_else else f"Window look saved. {summary}"
+            # "Nothing to apply." would contradict the line saying the look was saved.
+            others = report.applied or report.errors or report.unconfirmed
+            summary = f"Window look saved. {summary if others else ''}".strip()
         if hotkey_changed:
             summary = f"Hold-to-talk key set to {self._hotkey_baseline}. {summary}".strip()
         if speech_changed:

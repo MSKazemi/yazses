@@ -7,7 +7,15 @@ from typing import Any
 
 from yazses.settingsui import files
 from yazses.settingsui.context import PageContext
-from yazses.settingsui.widgets import button, card, label, page_widget, restyle, row
+from yazses.settingsui.widgets import (
+    button,
+    card,
+    compact_combo,
+    label,
+    page_widget,
+    restyle,
+    row,
+)
 
 _MODELS = (
     ("Your configured model", ""),
@@ -80,7 +88,6 @@ class FilesPage:
     def __init__(self, ctx: PageContext) -> None:
         from PySide6.QtWidgets import (
             QCheckBox,
-            QComboBox,
             QFormLayout,
             QListWidget,
             QPlainTextEdit,
@@ -113,10 +120,10 @@ class FilesPage:
         options, body = card()
         form = QFormLayout()
         form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
-        self.format_box = QComboBox()
+        self.format_box = compact_combo()
         for text, value in _FORMATS:
             self.format_box.addItem(text, value)
-        self.model_box = QComboBox()
+        self.model_box = compact_combo()
         for text, value in _MODELS:
             self.model_box.addItem(text, value)
         self.speakers = QCheckBox(_SPEAKERS_READY)

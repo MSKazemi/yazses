@@ -8,7 +8,15 @@ from typing import Any
 from yazses.recimport.render import VALID_FORMATS
 from yazses.settingsui import meetings
 from yazses.settingsui.context import PageContext
-from yazses.settingsui.widgets import button, card, label, page_widget, restyle, row
+from yazses.settingsui.widgets import (
+    button,
+    card,
+    compact_combo,
+    label,
+    page_widget,
+    restyle,
+    row,
+)
 
 #: How long to wait for the daemon to start or stop a meeting.
 _SLOW_CALL_S = 60.0
@@ -19,7 +27,6 @@ class MeetingsPage:
 
     def __init__(self, ctx: PageContext) -> None:
         from PySide6.QtWidgets import (
-            QComboBox,
             QFormLayout,
             QListWidget,
             QPlainTextEdit,
@@ -85,7 +92,7 @@ class MeetingsPage:
         self._names = QFormLayout()
         body.addLayout(self._names)
         self.rename_button = button("Save speaker names", self._rename)
-        self.export_format = QComboBox()
+        self.export_format = compact_combo()
         self.export_format.addItems(list(VALID_FORMATS))
         self.export_format.setAccessibleName("Export format")
         self.export_button = button("Export…", self._export)

@@ -695,6 +695,48 @@ def test_every_control_on_an_app_page_has_a_name(qapp, tmp_path, key):
     assert not unnamed
 
 
+# --- large fonts and wider fonts ----------------------------------------------------
+#
+# Windows' fonts are wider than a Linux runner's, so these hold the causes rather than
+# pixel widths: they fail the same way on every machine.
+
+
+@pytest.mark.parametrize("key", ("files", "meetings"))
+def test_no_drop_down_on_an_app_page_follows_its_longest_entry(qapp, key):
+    from PySide6.QtWidgets import QComboBox
+
+    win = _window(qapp)
+    boxes = win._app_pages[key].widget.findChildren(QComboBox)
+    assert boxes
+    compact = QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+    assert [b.accessibleName() for b in boxes if b.sizeAdjustPolicy() != compact] == []
+
+
+def test_a_capability_card_gives_its_text_the_full_width(qapp):
+    """The switch sits under the text: beside it, a large font left too little room."""
+    win = _window(qapp)
+    win._win.resize(760, 520)
+    win._win.show()
+    win._shell.select("accessibility")
+    for _ in range(4):
+        qapp.processEvents()
+    page = win._app_pages["accessibility"].widget
+    buttons = [b for slug in win._rows for b in win._switches.buttons(slug, within=page)]
+    assert buttons
+    for button in buttons:
+        texts = button.parentWidget().findChildren(QLabel)
+        lowest = max(lb.mapTo(button.parentWidget(), lb.rect().bottomLeft()).y() for lb in texts)
+        assert button.geometry().top() >= lowest, button.accessibleName()
+
+
+def test_the_wider_sidebar_does_not_narrow_the_pages(qapp):
+    """The narrowest window leaves a page as much room as the 168 px sidebar did."""
+    from yazses.settingsui.shell import SIDEBAR_WIDTH
+
+    win = _window(qapp)
+    assert win._win.minimumWidth() - SIDEBAR_WIDTH >= 760 - 168
+
+
 # Keep this last.
 
 

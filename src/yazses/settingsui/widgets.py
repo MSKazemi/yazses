@@ -54,6 +54,28 @@ def button(text: str, on_click: Any = None, *, primary: bool = False) -> Any:
     return widget
 
 
+#: How many characters a drop-down is wide enough for, whatever it holds.
+_COMBO_MIN_CHARS = 18
+
+
+def compact_combo() -> Any:
+    """A QComboBox whose width does not follow its longest item.
+
+    By default a combo asks for the width of its widest entry, and the microphone box
+    holds "Follow the system default (currently <the device's full ALSA name>)": about
+    800 px at 16 pt, which pushed the Audio and Speech pages into a sideways scrollbar.
+    The policy must be set at construction; Qt caches the size hint, so setting it
+    after the box is laid out changes nothing. A long item is elided in the box and
+    shown in full in the list.
+    """
+    from PySide6.QtWidgets import QComboBox
+
+    box = QComboBox()
+    box.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+    box.setMinimumContentsLength(_COMBO_MIN_CHARS)
+    return box
+
+
 def restyle(widget: Any, **properties: str) -> None:
     """Set dynamic properties and re-apply the stylesheet rules that select on them."""
     for name, value in properties.items():

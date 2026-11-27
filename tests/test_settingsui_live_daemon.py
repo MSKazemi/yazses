@@ -11,6 +11,7 @@ Windows. Skipped only without PySide6 -- the GUI CI job fails on any skip.
 """
 from __future__ import annotations
 
+import functools
 import os
 import shutil
 import tempfile
@@ -60,6 +61,11 @@ class _Microphone:
 @pytest.fixture(scope="module")
 def qapp():
     yield QApplication.instance() or QApplication([])
+
+
+def _idle(window):
+    """Whether no background call of the window is still running."""
+    return not window._background._busy
 
 
 def _wait(qapp, condition, seconds=30.0):
@@ -118,7 +124,7 @@ def live(qapp, tmp_path, monkeypatch):
     finally:
         win._page_timer.stop()
         win._level_timer.stop()
-        _wait(qapp, lambda: not win._background._busy, 10)
+        _wait(qapp, functools.partial(_idle, win), 10)
         win._win.hide()
         server.shutdown()
         shutil.rmtree(runtime, ignore_errors=True)

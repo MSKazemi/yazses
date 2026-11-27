@@ -115,6 +115,9 @@ generated docs regenerated; `CHANGELOG.md` updated; no AI authorship credit.
 - **A successful transcription's `Note:` lines are shown** above the result.
 - **Drawn, not shipped:** the brand mark, sidebar icons and the check box on the violet
   themes (Fusion's unchecked box was invisible on the dark window).
+- **The narrowest window is 788 px** (was 760), so pages keep their width beside the
+  wider sidebar. A capability card's switch sits under its text, and every new drop-down
+  is the compact kind: Windows' wider fonts showed all three at large sizes.
 - **Five existing tests changed:** three to the new page order and the Models label
   (`test_settingsui_pages.py`, `_window_pages.py`, `_window_polish.py`), and two guards
   to map the new theme setting (`test_report_classifies_every_config_string.py`,
