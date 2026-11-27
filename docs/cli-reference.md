@@ -1718,9 +1718,9 @@ clustering**, not pitch. Off by default — enable with `yazses features enable 
 | `yazses meeting status` | Show the running meeting (elapsed + live transcript), or recent meetings. Says so plainly when Meeting Mode is off. |
 | `yazses meeting list` | List stored meetings on this machine (no daemon required). Marks any meeting whose transcript failed its quality check `⚠ BAD TRANSCRIPT`. |
 | `yazses meeting summary [<id>]` | Show what a meeting produced, where each file is, and what not to trust. Omit the id for the most recent meeting. Exits `2` when the transcript is not a usable record. |
-| `yazses meeting relabel <id>` | Fix speaker labels and re-render: `--merge SPEAKER_2=speaker_1` folds clusters, `--rename speaker_1=Alice` names one (both repeatable); `--format`/`-f` picks the re-render format (default `md`). |
-| `yazses meeting notes <id>` | Generate minutes (summary, decisions, action items) from a stored transcript. Needs `[meeting] notes = true` and a local `notes_model` GGUF; runs locally (slow on CPU). |
-| `yazses meeting recover <id>` | Re-run the post-pass on a meeting whose finalize never completed **or whose transcript failed its quality check**. The recording is kept whenever either is true, so a crash — and a decode that collapsed — leaves the whole meeting on disk; this transcribes, diarizes and names it and writes the same outputs. Never deletes the recording, and archives the previous outputs to `attempts/<n>/` rather than overwriting them. `--force` re-runs a meeting that finished cleanly. |
+| `yazses meeting relabel <id>` | Fix speaker labels and re-render: `--merge speaker_2=speaker_1` folds clusters, `--rename speaker_1=Alice` names one (both repeatable); `--format`/`-f` picks the re-render format (default `md`). Copies the files it replaces to `attempts/<n>/` first. Exits `1`, changing nothing, for an unknown format or a `--merge` speaker that is not in the meeting. |
+| `yazses meeting notes <id>` | Generate minutes (summary, decisions, action items) from a stored transcript. Needs `[meeting] notes = true` and a local `notes_model` GGUF; runs locally (slow on CPU). An existing `notes.md` is copied to `attempts/<n>/` before it is replaced. |
+| `yazses meeting recover <id>` | Re-run the post-pass on a meeting whose finalize never completed **or whose transcript failed its quality check**. The recording is kept whenever either is true, so a crash — and a decode that collapsed — leaves the whole meeting on disk; this transcribes, diarizes and names it and writes the same outputs. Never deletes the recording, and archives the previous outputs to `attempts/<n>/` rather than overwriting them — only once the new transcript exists, so a retry that fails leaves them where they were. `--force` re-runs a meeting that finished cleanly. |
 | `yazses meeting enroll <id> --speaker <cluster> --name <name>` | Enroll one speaker from a stored meeting as a named voiceprint, so they are auto-named next time. Both flags are required. Needs the recording to still exist — i.e. the meeting ran with `[meeting] retain_audio = true`. |
 
 ```bash
@@ -1787,6 +1787,11 @@ all of them. The machine-readable `live.jsonl` remains the source of truth: the 
 is re-rendered from it at stop and at every `meeting recover`, so a write torn by a crash
 is repaired rather than left in the copy you read. Turn the incremental write off with
 `[meeting] live_markdown = false` — the file is then written once at stop, as before.
+
+If the disk fills up while a meeting is being recorded, `meeting status` says the recording is
+not being saved in full and the live transcript carries on. The meeting then keeps its
+recording regardless of `[meeting] retain_audio`, and the summary and the finishing
+notification say that audio is missing.
 
 A transcript that fails its quality check changes three things: the recording is **kept**
 regardless of `[meeting] retain_audio`, the minutes pass is skipped (a summary of invented

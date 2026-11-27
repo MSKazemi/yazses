@@ -209,6 +209,7 @@ class MeetingController:
             "elapsed_s": round(self._session.elapsed_s(), 1),
             "duration_s": round(self._session.duration_s(), 1),
             "stalled_s": self.stalled_s(),
+            "audio_write_failed": bool(getattr(self._session, "write_failed", False)),
             "live_lines": list(self._session.live_lines[-8:]),
             "line_count": len(self._session.live_lines),
             "live_transcript_path": str(live_md) if live_md.exists() else "",
@@ -279,8 +280,16 @@ class MeetingController:
         # The wall clock kept running while no audio arrived (input device lost). The
         # recording is the only evidence of what was heard, so it is kept for inspection.
         gap = store.capture_gap(self._session.elapsed_s(), self._session.duration_s())
+        # A recording the disk would not take in full is kept too: it and the live
+        # transcript are all the evidence there is of what the batch pass never saw.
+        unsaved: dict[str, object] = (
+            {"audio_write_failed": True,
+             "audio_unsaved_s": round(self._session.unsaved_s(), 1)}
+            if getattr(self._session, "write_failed", False) else {}
+        )
         audio_kept = (
-            bool(getattr(self._config, "retain_audio", False)) or quality.suspect or gap > 0
+            bool(getattr(self._config, "retain_audio", False))
+            or quality.suspect or gap > 0 or bool(unsaved)
         )
         meta = {
             "id": self.meeting_id,
@@ -295,6 +304,7 @@ class MeetingController:
             "quality_suspect": quality.suspect,
             "audio_kept": audio_kept,
             **({"capture_gap_s": gap} if gap > 0 else {}),
+            **unsaved,
             "status": "done",
         }
         store.write_meta(self._session.dir, meta)
@@ -322,6 +332,7 @@ class MeetingController:
             "quality_suspect": quality.suspect,
             "quality_warning": quality_warning(quality) or "",
             "audio_kept": audio_kept,
+            "audio_warning": store.audio_write_warning(meta) or "",
             "summary": lines,
             "files": {k: str(v) for k, v in written.items()},
         }

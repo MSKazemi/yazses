@@ -125,6 +125,7 @@ Read this part before you install anything.
 | During the meeting | Streamed to a WAV file in the YazSes data directory on your machine, plus a `live.jsonl` rolling transcript so a crash does not lose the meeting |
 | At `meeting stop` | Transcribed and diarized locally, then the **recording is deleted** — but only once that post-pass has *succeeded*, and not at all if `[meeting] retain_audio` is on |
 | If the post-pass never finishes | The recording is kept. `yazses meeting list` says so and `yazses meeting recover <id>` re-runs the transcription on it |
+| If the disk fills up mid-meeting | The live transcript carries on, `yazses meeting status` and the summary say audio is missing from the recording, and whatever was saved is kept |
 | Afterwards | The transcript, and any notes, stay in the meeting folder — plain files you own |
 | Enrolled voiceprints | Encrypted in the on-device learning corpus, machine-bound, never transmitted |
 

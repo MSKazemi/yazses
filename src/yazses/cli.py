@@ -709,6 +709,11 @@ def meeting_status() -> None:
         # is being appended to right now. An older daemon does not send this key.
         if live_md := result.get("live_transcript_path"):
             typer.echo(f"  Full live transcript so far: {live_md}")
+        if result.get("audio_write_failed"):
+            typer.echo(
+                "⚠ The recording is not being saved in full (disk full?). Free some "
+                "space; `yazses logs` has the error.", err=True,
+            )
     elif result.get("finalizing"):
         typer.echo("Finalizing the last meeting (transcribing + diarizing)…")
     else:
@@ -881,7 +886,7 @@ def meeting_list(
 def meeting_relabel(
     meeting_id: str = typer.Argument(..., help="Meeting id (see `yazses meeting list`)."),
     merge: list[str] = typer.Option(
-        None, "--merge", help="Fold one speaker into another: SPEAKER_2=speaker_1 (repeatable)."
+        None, "--merge", help="Fold one speaker into another: speaker_2=speaker_1 (repeatable)."
     ),
     rename: list[str] = typer.Option(
         None, "--rename", help="Name a speaker: speaker_1=Alice (repeatable)."
@@ -892,6 +897,7 @@ def meeting_relabel(
 
     Corrects an auto-count miscount without re-transcribing or re-diarizing (it only
     re-renders from the stored `transcript.json`). Runs locally, no daemon needed.
+    The files it replaces are first copied to `attempts/` in the meeting folder.
     """
     from yazses.meeting import store
 
@@ -899,12 +905,16 @@ def meeting_relabel(
     if not (d / "transcript.json").exists():
         typer.echo(f"No transcript for meeting {meeting_id} in {d}.", err=True)
         raise typer.Exit(1)
-    written = store.relabel(
-        d, merges=_parse_pairs(merge), renames=_parse_pairs(rename), fmt=fmt
-    )
+    merges, renames = _parse_pairs(merge), _parse_pairs(rename)
+    try:
+        written = store.relabel(d, merges=merges, renames=renames, fmt=fmt)
+    except (OSError, ValueError, KeyError) as exc:
+        typer.echo(f"Could not relabel {meeting_id}: {exc}", err=True)
+        raise typer.Exit(1)
     typer.echo(f"Re-rendered {meeting_id}:")
     for name, path in written.items():
         typer.echo(f"  {name}: {path}")
+    typer.echo(f"Previous versions are kept in {d / 'attempts'}")
 
 
 @meeting_app.command("recover")
@@ -1086,8 +1096,14 @@ def meeting_notes(
             "`yazses logs` for the per-window failures.", err=True,
         )
         raise typer.Exit(1)
-    out = d / "notes.md"
-    out.write_text(render_minutes_md(minutes), encoding="utf-8")
+    try:
+        previous = store.snapshot_outputs(d, ["notes.md"])
+        out = store.write_notes(d, render_minutes_md(minutes))
+    except OSError as exc:
+        typer.echo(f"Could not write the notes: {exc}", err=True)
+        raise typer.Exit(1)
+    if previous:
+        typer.echo(f"Previous notes kept in {previous}")
     typer.echo(f"Wrote {out}")
 
 
@@ -9182,6 +9198,20 @@ def transcribe(
         )
         raise typer.Exit(2)
 
+    # Checked before the model loads: a destination that cannot work should not cost a
+    # transcription, and one that is the recording itself would destroy it.
+    out_path = Path(out) if out else Path(audio_file).with_suffix("." + fmt)
+    if out_path.exists() and out_path.samefile(audio_file):
+        typer.echo(
+            f"Refusing to write the transcript over the input file {audio_file}. "
+            "Choose another path with --out.", err=True)
+        raise typer.Exit(2)
+    if out_path.is_dir() or not out_path.parent.is_dir():
+        typer.echo(
+            f"Cannot write to {out_path}: --out must name a file in an existing folder.",
+            err=True)
+        raise typer.Exit(2)
+
     want_diarize = ri.diarize if diarize is None else diarize
     eff = dataclasses.replace(
         ri,
@@ -9300,8 +9330,15 @@ def transcribe(
             )
 
     text = render_transcript(result, fmt)
-    out_path = Path(out) if out else Path(audio_file).with_suffix("." + fmt)
-    out_path.write_text(text, encoding="utf-8")
+    try:
+        out_path.write_text(text, encoding="utf-8")
+    except OSError as exc:
+        # The decode may have taken an hour. Put the text where it can still be saved.
+        typer.echo(
+            f"Could not write {out_path}: {exc}. The transcript follows on standard "
+            "output so it is not lost.", err=True)
+        typer.echo(text, nl=False)
+        raise typer.Exit(1)
     n_spk = len({u.speaker for u in result.utterances if u.speaker})
     summary = f" ({n_spk} speaker{'s' if n_spk != 1 else ''})" if result.diarized else ""
     typer.echo(f"Wrote {out_path}{summary}")

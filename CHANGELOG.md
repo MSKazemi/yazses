@@ -6,6 +6,16 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — meetings: a transcript, or a recording, could be lost after it was captured
+
+- Stored meeting files (`transcript.*`, `meeting.json`, `quality.json`, `summary.md`, `notes.md`) were emptied and then rewritten, so a full disk or a crash during `meeting relabel`, `summary` or `recover` could leave an empty or half-written file where the only copy was. Each is now written to a temporary file and renamed into place.
+- `meeting relabel` first copies the files it replaces to `attempts/<n>/` (a merge cannot be undone, and `transcript.md` may hold hand corrections). It now refuses, changing nothing and exiting 1, an unknown `--format` (which used to fail after `transcript.json` had already been rewritten) and a `--merge` naming a speaker who is not in the meeting (a typo moved the words into a speaker who did not exist). Merging two named speakers keeps the target's name instead of the folded one's. The `--merge` help example now uses the real lower-case ids.
+- `meeting recover` moved the previous outputs aside before reading the recording, so a retry that failed (no model, out of memory, Ctrl-C) left the meeting without a transcript. It now moves them only once the new result exists, and puts them back if the new files cannot be written.
+- A recording cut off in the middle of a sample could be neither finished nor recovered. The odd byte is now dropped.
+- When the disk filled up during a meeting, the lost audio went unreported, the live transcript stopped as well, and the recording was deleted as after a healthy meeting. The live transcript now carries on, the recording is kept, and `meeting status`, `summary.md` and the finishing notification say audio is missing.
+- `meeting notes` wrote `notes.md` with the default file permissions, relying on the meeting folder's own, and over any existing file. The file is now owner-only too, and the previous file is copied to `attempts/<n>/`.
+- `yazses transcribe` now refuses, before loading a model, an `--out` that is the input file, a folder, or inside a folder that does not exist (exit 2). If the transcript cannot be written after decoding, it is printed to standard output and the command exits 1 instead of ending in a traceback.
+
 ### Fixed — snap on Wayland: dictated text could not reach the clipboard
 
 The snap's private `XDG_RUNTIME_DIR` does not hold the Wayland socket, so `wl-copy` and `wl-paste` failed with "Failed to connect to a Wayland server": when typing failed, the clipboard fallback failed too and the dictation was lost. The clipboard commands are now given the host socket's full path; the daemon's own environment is unchanged. Where the copy works and nothing can press Ctrl+V, the notification now says the words are on the clipboard instead of that they were not typed.

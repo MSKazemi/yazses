@@ -8888,9 +8888,13 @@ class Daemon:
 
             mid = info.get("id", "")
             warning = str(info.get("quality_warning") or "")
+            audio_warning = str(info.get("audio_warning") or "")
             if warning:
                 title = "YazSes — meeting transcript is NOT reliable"
                 body = f"{warning}\n{info.get('dir', '')}"
+            elif audio_warning:
+                title = "YazSes — meeting recording is incomplete"
+                body = f"{audio_warning}\n{info.get('dir', '')}"
             else:
                 speakers = info.get("num_speakers") or 0
                 title = f"YazSes — meeting {mid} ready"

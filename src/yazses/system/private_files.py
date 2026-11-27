@@ -36,8 +36,11 @@ not touch: this module makes no claim of owner-only protection on Windows.
 """
 from __future__ import annotations
 
+import errno
 import logging
 import os
+import tempfile
+import time
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -158,6 +161,79 @@ def write_private_text(
         raise
     with fh:
         fh.write(text)
+
+
+# Windows refuses to rename over a file another process holds open without share-delete
+# (a virus scanner or an indexer, typically for a fraction of a second).
+_REPLACE_ATTEMPTS = 5
+_REPLACE_RETRY_S = 0.1
+
+
+def _replace(src: str, dst: Path) -> None:
+    for attempt in range(1, _REPLACE_ATTEMPTS + 1):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError:
+            if _posix() or attempt == _REPLACE_ATTEMPTS:
+                raise
+            time.sleep(_REPLACE_RETRY_S)
+
+
+def _sync_dir(path: Path) -> None:
+    """Flush a directory entry (a rename) to disk. POSIX only, best effort."""
+    if not _posix():
+        return
+    try:
+        fd = os.open(path, os.O_RDONLY)
+    except OSError:
+        return
+    try:
+        os.fsync(fd)
+    except OSError:
+        log.debug("could not sync %s", path, exc_info=True)
+    finally:
+        os.close(fd)
+
+
+def replace_private_text(path: str | Path, text: str, *, encoding: str = "utf-8") -> None:
+    """Replace ``path``'s content all at once: the old text or the new one, never less.
+
+    :func:`write_private_text` truncates and then writes, so a full disk, a crash or a
+    power cut in between leaves an empty or half-written file where the old one was. For
+    a file that is the only copy of something (a meeting transcript, whose recording is
+    deleted by default) that is data loss. Here the text goes to a new owner-only
+    temporary file beside ``path``, is flushed to disk, and is then renamed over it. On
+    any failure ``path`` is left as it was and ``OSError`` is raised.
+
+    Same owner-only and symlink contract as :func:`write_private_text`: the file ends up
+    ``0600``, and a symlinked ``path`` is refused with ``ELOOP``.
+    """
+    p = Path(path)
+    if _is_symlink(p):
+        raise OSError(errno.ELOOP, "refusing to write through a symlink", str(p))
+    if _posix():
+        _tighten(p.parent)
+    # mkstemp creates the file 0600.
+    fd, tmp = tempfile.mkstemp(dir=p.parent, prefix=f".{p.name}.", suffix=".tmp")
+    try:
+        try:
+            fh = os.fdopen(fd, "w", encoding=encoding)
+        except BaseException:
+            os.close(fd)
+            raise
+        with fh:
+            fh.write(text)
+            fh.flush()
+            os.fsync(fh.fileno())
+        _replace(tmp, p)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+    _sync_dir(p.parent)
 
 
 def write_private_bytes(path: str | Path, data: bytes) -> None:

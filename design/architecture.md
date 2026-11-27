@@ -581,10 +581,19 @@ Invariants (read from the code at the cited places):
   generation in a broad guard, and skips the notes pass for silent / no-speech audio and for
   `degenerate` / `thin` transcripts, so no invented minutes are written over a bad decode.
 - **The recording is kept whenever it is the only way to a better transcript**:
-  `audio_kept = retain_audio or quality.suspect or capture_gap > 0` (`controller.py::finalize`).
+  `audio_kept = retain_audio or quality.suspect or capture_gap > 0 or audio_write_failed`
+  (`controller.py::finalize`).
+- **A failed audio write is counted, not raised** (`session.py::MeetingSession.append_chunk`):
+  the live transcript keeps receiving audio, and the loss reaches `meeting.json`, the
+  summary, `meeting status` and the finishing notification.
+- **A stored transcript is replaced whole.** Rendered outputs, `meeting.json`, `quality.json`,
+  `summary.md` and `notes.md` go through `system/private_files.replace_private_text`
+  (temporary file, fsync, rename), so a full disk or a crash leaves the previous version.
+  `relabel` and `meeting notes` first copy what they replace into `attempts/`.
 - **Recovery never opens a `MeetingSession`** (its constructor truncates `audio.wav`) and never
   deletes the recording; a previous result moves to `attempts/` instead of being overwritten
-  (`recover.py` module docstring, `store.archive_outputs`).
+  (`recover.py` module docstring, `store.archive_outputs`). The move happens only after the
+  new decode succeeded, and is undone if the new outputs cannot be written.
 - **Biometrics stay local**: participant voiceprints are stored only encrypted with the
   machine-bound key and enrolled only by explicit user action (ADR-011/012).
 
