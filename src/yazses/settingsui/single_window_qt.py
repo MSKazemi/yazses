@@ -20,7 +20,11 @@ from pathlib import Path
 from typing import Any
 
 from yazses.settingsui import single_window as sw
-from yazses.system.single_instance import SingleInstanceLock, holder_pid
+from yazses.system.single_instance import (
+    SingleInstanceLock,
+    holder_pid,
+    locks_unsupported,
+)
 from yazses.system.wincon import allow_foreground
 
 log = logging.getLogger(__name__)
@@ -181,12 +185,21 @@ def claim_window(
     """Become the one window for *config_file*, or send *request* to the one that is open.
 
     Needs a Qt application object. A lock that cannot be taken at all (an unwritable data
-    directory) opens the window unguarded: settings must stay reachable.
+    directory, a filesystem without file locks) opens the window unguarded: settings must
+    stay reachable.
     """
     tag = sw.instance_tag(config_file, _user())
     lock_path = sw.lock_file(platform.paths.data_dir, tag)
     endpoint = platform.local_endpoint(platform.paths, tag)
     lock = SingleInstanceLock(lock_path)
+
+    def _acquire() -> bool:
+        if lock.acquire():
+            return True
+        error = lock.error
+        if error is not None and locks_unsupported(error):
+            raise error  # nobody holds it, and nobody ever could
+        return False
 
     def _forward(seconds: float) -> bool:
         holder = holder_pid(lock_path)
@@ -197,7 +210,7 @@ def claim_window(
         return send_request(endpoint, request, seconds)
 
     try:
-        outcome = sw.claim(lock.acquire, _forward, wait_s=wait_s)
+        outcome = sw.claim(_acquire, _forward, wait_s=wait_s)
     except OSError as exc:
         log.warning("Cannot tell whether the settings window is already open: %s", exc)
         return Claim(sw.Outcome.OWNER, SingleWindow())

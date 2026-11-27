@@ -5,6 +5,7 @@ processes, with throw-away directories, so nothing here can reach a window you h
 """
 from __future__ import annotations
 
+import errno
 import os
 import shutil
 import subprocess
@@ -422,6 +423,28 @@ def test_a_closed_window_frees_its_place(qapp, root):
 def test_an_unwritable_data_directory_still_opens_the_window(qapp, root):
     (root / "data").write_text("a file where the directory should be", encoding="utf-8")
     claim = _owner(root)
+    claim.window.close()
+
+
+def test_a_filesystem_without_file_locks_still_opens_the_window(root, monkeypatch):
+    from yazses.settingsui import single_window_qt
+
+    class _NoLocks:
+        def __init__(self, path):
+            self.error = None
+
+        def acquire(self):
+            self.error = OSError(errno.ENOLCK, "no locks available")
+            return False
+
+    monkeypatch.setattr(single_window_qt, "SingleInstanceLock", _NoLocks)
+    platform = SimpleNamespace(
+        paths=SimpleNamespace(data_dir=root), local_endpoint=lambda paths, tag: tag
+    )
+    claim = single_window_qt.claim_window(
+        platform, root / "config.toml", ShowRequest(), wait_s=0.0
+    )
+    assert claim.outcome is Outcome.OWNER
     claim.window.close()
 
 
