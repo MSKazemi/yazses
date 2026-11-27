@@ -124,8 +124,8 @@ reviewed by a medical or electrical-safety professional.
 - **Mains-connected computers: an open question.** This setup puts electrodes on a person while the board is
   connected over USB to a computer that is often powered from the wall. This project has not established what isolation
   that needs, and has no answer from the sensor's maker about it. Do not assume it is safe. Until you have a clear answer
-  from the maker's documentation, prefer a computer running on its own battery with the charger unplugged, and read the
-  sensor's manual for what it says about electrodes and power.
+  from the maker's documentation, run the computer on its own battery with the charger and every other mains-powered
+  cable unplugged, and read the sensor's manual for what it says about electrodes and power.
 - Do not put electrodes on broken or irritated skin, stop if the skin reacts, and ask a clinician first if you have an
   implanted medical device or any doubt.
 - Keep leads away from mains cables, and follow the sensor's manual for electrode type, preparation and cleaning.

@@ -56,8 +56,8 @@ These steps are a proposed checklist, not results.
 ## Safety and independence
 
 Not a medical device: Seeed says the sensor cannot be used for medical purposes. Electrodes on a person while the board is
-connected to a mains-powered computer are an open question; prefer a battery-powered computer and read the sensor's
-manual. YazSes is not made, reviewed or endorsed by Seeed Studio. Seeed, XIAO and Grove are their names.
+connected to a mains-powered computer are an open question. Until it is settled, run the computer on its battery with the
+charger and every other mains-powered cable unplugged, and read the sensor's manual. YazSes is not made, reviewed or endorsed by Seeed Studio. Seeed, XIAO and Grove are their names.
 
 If you try it, a result from real hardware, good or bad, is the most useful thing you can add: open an issue on the
 [YazSes repository](https://github.com/MSKazemi/yazses/issues).
