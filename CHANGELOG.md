@@ -86,6 +86,171 @@ Research prototype under `examples/hci-hf-lab/` only; nothing in YazSes itself c
 
 `scripts/hf_preflight.py` accepted a published page that loaded a script, stylesheet, image or frame from any `https` address, and a Space `requirements.txt` that installed from a URL or another package index. Both now fail the preflight, so they also stop the publish workflow. Links a visitor clicks and metadata such as `rel="canonical"` still pass. A file that is not valid UTF-8 is now reported as a failure instead of ending the run with a traceback. The check reads source text: it does not see a URL that a script builds at run time.
 
+### Fixed — Windows: `yazses restart` could stop an unrelated process after a sign-out or crash
+
+The daemon's PID file stays behind when Windows ends the daemon at sign-out or shutdown. YazSes read the number in it as the daemon, and Windows reuses process numbers: `yazses restart` stops that number without first asking whether it is a daemon, the one-click update waits for it, and if it now belonged to a Python or YazSes process, `yazses status` said "running" and the tray did not start a daemon. The Windows backend now asks the daemon's instance lock first, as Linux does: held means running and names the PID, free means not running. The PID file is used only where there is no lock file. Found by reading the code and tested with stand-ins; not run on Windows.
+
+### Fixed — Windows: autostart opened a console window on some pip installs
+
+On a Python installed on its own (not a virtual environment), pip puts `yazses-tray.exe` under `Scripts`. `yazses autostart enable` and `yazses start` looked only beside `python.exe`, so the sign-in entry ran the tray with the console interpreter. It now finds the launcher under `Scripts`, and without one uses `pythonw.exe`. The next `yazses start` rewrites an entry this interpreter wrote the old way. Found by reading the code and tested with stand-ins; not run on Windows.
+
+### Fixed — Windows tray: start-up notifications were dropped, and the icon was rewritten on every poll
+
+The tray starts reading the daemon before its icon is on screen, and a notification read then (a missing permission, a finished model download) was discarded. The newest five are now kept and shown once the icon appears. The tray also reassigned its icon several times a second; pystray writes a temporary `.ico` file for each assignment. The icon is now changed only when its colour changes. Found by reading the code and tested with stand-ins; not run on Windows.
+
+### Fixed — Windows: the daemon log lost lines containing non-Latin text
+
+`daemon.log` was written in the system code page, so a line with a folder or microphone name that the code page cannot hold was dropped, and `yazses logs` read the file as UTF-8. It is now written as UTF-8. Found by reading the code and tested with stand-ins; not run on Windows.
+
+### Fixed — text injection: dictation that was lost, doubled or altered
+
+- **Wayland, ydotool 1.x:** a backslash in the text was read as an escape (`ydotool type` does this by default from 1.0.4), so `C:\Users` lost two characters and a literal `\n` pressed Enter, with no error. Text containing a backslash is now typed with escapes off.
+- **Wayland, accented or non-Latin text:** where ydotool could type but YazSes could not open `/dev/uinput`, the ASCII start of the sentence was typed and the clipboard fallback then pasted the whole sentence after it. Both paths are now checked before the first keystroke.
+- **Clipboard fallback:** when the copy worked and Ctrl+V failed, the notice said the text could not be typed. It now says the words are on the clipboard.
+- **Linux, a timed-out correction:** a backspace or selection run that timed out part-way was sent again in full through the fallback, which could delete or select your own text. It is no longer replayed; the failure is reported.
+- **Windows:** line breaks and tabs are now sent as the Enter and Tab keys; sent as characters, many applications ignored them. In a chat app, a dictated "new line" therefore presses Enter, as it already did on Linux.
+- **Windows, `backend = "clipboard"`:** when Windows refused Ctrl+V, the previous clipboard was restored over the dictation, which was then gone with no error. The dictation now stays on the clipboard and you are told. Pasted line breaks use the Windows CR LF form.
+- **`backend = "unicode"`:** a line break pressed the Linefeed key or failed the whole burst; it now presses Enter.
+
+### Fixed — Android: microphone capture could stay stuck, spin, or keep the recorder open
+
+No Android app is released and none of this has run on a device. In `:platform:audio`, a recorder that could not be set up or started left capture marked as running, so every later start was silently ignored, and `startRecording` failing leaked the recorder. A generic `AudioRecord` read error span the capture thread, an exception in the audio consumer escaped that thread, and a thread that outlived a timed-out stop could release the next recording's recorder. The loop now lives in `:core:audio` (`CaptureLoop`) behind a small `PcmStream` interface, with unit tests; `CaptureStopReason` and `toFloats` moved there with it.
+
+### Fixed — Android: the text pipeline had fallen behind the desktop
+
+The Kotlin ports now match three desktop fixes that no contract vector covers: repeated digits ("4 7 4 7") are no longer deleted as a stutter; a spoken punctuation mark replaces the recogniser's own punctuation around it ("Hello, comma, world period." gives "Hello, world.") and two spoken tabs stay two; and the English built-in prompt is withheld for other languages (`mergeInitialPrompt(language = ...)`). A cut-off "um-" is also kept, and a quoted "um-um" removed, as on the desktop.
+
+### Fixed — Android: undo after a cancelled insert
+
+Cancelling a dictation session while text was being inserted now forgets the earlier insert, so a later undo cannot delete a number of characters measured on other text.
+
+### Fixed — meetings: commands could change a meeting that was still recording or being processed
+
+- `meeting recover`, `relabel` and `notes` could run on a meeting the daemon was still recording or finalizing (a running meeting's folder looks like a crashed one), and two processes could write the same files at once. Each meeting folder now has a lock, held by the daemon from the start of a meeting until its post-pass ends, and by each of these commands while it works. A command that finds it held changes nothing, exits 1 and says to check `yazses meeting status` (and to run `yazses meeting stop` if it is still recording). The lock belongs to the operating system, so a crash or a kill releases it; the `.lock` file left in the folder needs no cleaning up. On a filesystem without file locks, meetings work as before, unlocked, with a warning in the log. A daemon started before the upgrade holds no lock until it is restarted.
+- `meeting list` showed a running meeting as `unfinished` and offered `recover` for it. It now shows `in progress` (`"busy": true` in `--json`). `meeting summary` writes nothing into a meeting that is in use: it prints what is stored if the meeting has finished, and otherwise exits 1.
+- Two meetings started within one second got the same folder, so the second overwrote the first one's recording. The second now takes the next free second as its id; the id format is unchanged.
+
+### Fixed — meetings: a transcript, or a recording, could be lost after it was captured
+
+- Stored meeting files (`transcript.*`, `meeting.json`, `quality.json`, `summary.md`, `notes.md`) were emptied and then rewritten, so a full disk or a crash during `meeting relabel`, `summary` or `recover` could leave an empty or half-written file where the only copy was. Each is now written to a temporary file and renamed into place.
+- `meeting relabel` first copies the files it replaces to `attempts/<n>/` (a merge cannot be undone, and `transcript.md` may hold hand corrections). It now refuses, changing nothing and exiting 1, an unknown `--format` (which used to fail after `transcript.json` had already been rewritten) and a `--merge` naming a speaker who is not in the meeting (a typo moved the words into a speaker who did not exist). Merging two named speakers keeps the target's name instead of the folded one's. The `--merge` help example now uses the real lower-case ids.
+- `meeting recover` moved the previous outputs aside before reading the recording, so a retry that failed (no model, out of memory, Ctrl-C) left the meeting without a transcript. It now moves them only once the new result exists, and puts them back if the new files cannot be written.
+- A recording cut off in the middle of a sample could be neither finished nor recovered. The odd byte is now dropped.
+- When the disk filled up during a meeting, the lost audio went unreported, the live transcript stopped as well, and the recording was deleted as after a healthy meeting. The live transcript now carries on, the recording is kept, and `meeting status`, `summary.md` and the finishing notification say audio is missing.
+- `meeting notes` wrote `notes.md` with the default file permissions, relying on the meeting folder's own, and over any existing file. The file is now owner-only too, and the previous file is copied to `attempts/<n>/`.
+- `yazses transcribe` now refuses, before loading a model, an `--out` that is the input file, a folder, or inside a folder that does not exist (exit 2). If the transcript cannot be written after decoding, it is printed to standard output and the command exits 1 instead of ending in a traceback.
+
+### Fixed — microphone: an input that refuses 16 kHz can now record
+
+YazSes asked every input for 16 kHz and nothing else, so one that only opens at its own rate (typically a pinned raw ALSA `hw:` device or a Windows WASAPI entry) failed every recording with "Invalid sample rate". When, and only when, the rate is refused, the input is now opened at its default rate (or another common one) and the audio is converted to 16 kHz with an anti-aliasing filter written in NumPy; no new dependency. This covers dictation, Meeting Mode, the hands-free streams, `yazses mic-level` and **Re-calibrate**. The log says once which rate is used.
+
+### Fixed — microphone: a stalled stream is no longer reported as silence
+
+A stream that stayed open for at least a second and delivered no samples was discarded as `Silent audio`, with advice to run `yazses mic-level --set`, and its zero level was fed to the automatic threshold tuning. It is now reported as a stalled stream (`stream_stalled`), with a notification (off with `[audio] silent_streak_notify = false`) and no retune. It still counts toward the silent streak, so auto-heal can switch back to the last microphone that worked.
+
+Both are covered by tests with a fake audio library; neither was reproduced on audio hardware.
+
+### Fixed — microphone: a device re-scan can no longer cut a recording or playback short, or leave the daemon without a microphone
+
+- The device watcher re-initialises the audio library every few seconds while idle, which closes every open stream. It checked that the daemon was idle and then re-initialised, so a key press, the **Re-calibrate** recording, a spoken `ask_human` answer, a punch-in, an earcon or a read-back could start in between or run underneath it. Streams and playback now hold the audio library until they finish, and a re-scan waits or is skipped.
+- If re-initialising failed once (for example while the audio service restarted), no later re-scan could recover and every dictation failed until the daemon restarted. It is now retried, and the outage is logged once.
+- A stream that opened but would not start was left open, which could make the retries fail with "device busy". It is now closed.
+- The last of the three open attempts first refreshes the device list, so a replugged microphone is found even with `[audio] device_change_notify = false`.
+- A pinned `[audio] device` that is not found still falls back to the OS default, and now says so in the log instead of doing it silently.
+- Vocal Morse, the Mouth-Sound Switch and the Vocal Joystick stayed deaf for the rest of the session if their stream could not reopen after a re-scan. The reopen is now retried.
+
+These were found by reading the code and are covered by tests with a fake audio library; they were not reproduced on audio hardware.
+
+### Fixed — `yazses camera on` retries a camera another app was holding, and says whether it worked ([#922](https://github.com/MSKazemi/yazses/issues/922))
+
+With `[perception]` on, a shared camera that failed to open (a call still running when you typed `camera on`, or when the daemon started) stayed failed: running `yazses camera on` again did nothing, and only `camera off` followed by `on` brought it back. It now retries. For the face switch on its own camera, `camera on` used to reply before the device had been tried, so the reply could not name a failure; it now waits up to 5 s for that attempt, and `camera off` also waits for an open still in progress, so the camera is not reported free while it is being taken. When a feature could not reopen, the CLI says to close the other app and run `camera on` again. The "holding camera N" log line now points at `yazses camera off` instead of at stopping the service, and gaze on its own camera logs it too, with the matching release line. Tested with fake camera handles; not checked against a real webcam or call app. Sharing the camera with a call app remains open (#925).
+
+### Added — biosignal: `check-source` says what it saw of a ThinkGear headset's health ([#831](https://github.com/MSKazemi/yazses/issues/831))
+
+For a `thinkgear:` source, `yazses biosignal check-source` now ends with a protocol-health block, and `--json` carries it as `source_health`: reads trusted and held (by reason), contact reports (zero, contaminated, no skin contact), the longest stretch without one, accepted and rejected packets, skipped bytes, and a result line. It holds counts, reason codes and one duration: no sample, port or address in the block (the older `source` field and failed-clause texts can still name your port, so do not share them unedited). It does not change the exit code, and it says nothing about the waveform, a gesture or device support. `yazses biosignal monitor` now tags a held source-health line with the kind of problem (contact unknown, contaminated or stale, corrupt framing, stream integrity failure, rearm in progress), says when the waveform gate itself holds events (`Events HELD: waveform quality failure`), and calls the rate in its first line declared, not measured. `doctor` says that it does not open your source.
+
+The hardware guide gains a Linux Bluetooth investigation path (no model is promised a serial port), a first-use order from pairing to live use, and what each check does and does not show. Docs that said `doctor` opens the source and checks the rate, mains hum and clipping were wrong and are corrected. All of this was tested only on generated bytes and signals; no physical headset has been run.
+
+### Fixed — biosignal: `monitor` and `field-test --source` judged the calibration against the configured source
+
+With `--source` naming something other than `[biosignal] source`, both commands checked the saved calibration, and chose the count-unit quality thresholds, for the configured source. A calibration made for the source being read was refused, and one made for another board could be accepted. Both now use the source they read. A `file:` recording names no board, so it still uses the configured source, as `replay` does.
+
+### Fixed — Mandarin: opt-in staged dictation, Punch-In, pause formatting and word counts ([#501](https://github.com/MSKazemi/yazses/issues/501))
+
+All of these are off by default, except the count in the daemon's log line, and text with no Chinese or Japanese character behaves as before.
+
+- **Staged dictation** put a space between two Chinese bursts (`你好 世界`). The bursts now join as unstaged dictation does.
+- **Punch-In** saw a Chinese clause as one word, so re-speaking part of it could replace all of it. It now matches single characters.
+- **Prosody Ink and prosodic punctuation** attached pauses to the wrong places in Chinese, whose word timings are not space-separated words, and wrote ASCII marks. Both now leave such text unchanged.
+- **"N words" counts** (staged mode, `yazses wordgoal`, the daemon log) counted a Chinese sentence as one word. Each Chinese or Japanese character now counts as one.
+- **Field-aware search fields** now drop a trailing full-width mark such as `。`, as they already drop `.`.
+
+Tested with synthetic text only; no model, desktop or native-speaker check.
+
+### Added — design: a proposal for pausing dictation (ADR-037, not yet available)
+
+[ADR-037](design/adr/adr-037-dictation-pause.md) (Proposed) sets out what pausing dictation would cover (hotkeys, switches, Punch-In, `ask_human`, Vocal Morse), what it leaves running (meetings, hands-free control, explicit text commands) and what happens to a recording in progress. Its rules are in `core/dictation_pause.py` with tests. Nothing uses them yet: there is no new command, IPC method, tray entry or config key, and behaviour is unchanged.
+
+### Fixed — privacy: verbatim mode typed secrets that `[redaction]` was set to mask
+
+With `[redaction] enabled = true`, a dictation in verbatim mode was typed unmasked. Verbatim restores the text captured before the transform chain, and Redaction Ink ran inside that chain, so the restore undid it. All three ways into verbatim were affected: the spoken "dictate verbatim", a `[profiles.app]` entry set to `verbatim`, and Focus-Class Auto-Profile, which a fresh install switches on and which selects verbatim in terminals and code editors. The unmasked text also reached whatever follows the transforms (staged buffer, "send to", undo history, read-back, predictive completion, the learning corpus's final text). Redaction now applies to the verbatim text too, formatting stays off as before, and the SafeGlyph warning now reads the text that is actually typed.
+
+The same masking now also covers other places that type dictated words and skipped it: live `[streaming]` partials (while redaction is in `mask` mode nothing is typed live; the text appears on release), the spoken capabilities such as spelling and spoken code (stored snippets are still typed as written), Spoken Edit and Punch-In. `[redaction] mode = "hold"` is unchanged and masks nothing.
+
+### Added — `yazses doctor --strict` and `--json`, for scripts
+
+`yazses doctor` exits 0 even when a line is `FAIL`, so a script could not act on it. `--strict` exits 1 when there is at least one `FAIL` (`WARN` and `SKIP` do not count). `--json` prints one object with the result, the counts and each check's name and status; the explanations are left out because they can contain paths, device names, addresses and config values. Without either flag nothing changes.
+
+### Fixed — `yazses punch-in` reported "Daemon is not running" while it was recording
+
+The daemon records for `[punch_in] record_seconds` (4 s by default) before it answers, and the command waited 2 s. It now waits for the recording and the decode, and says when to re-speak the phrase.
+
+### Fixed — `yazses enroll` with the daemon running did nothing you could see
+
+It asked the daemon to run the wizard, which needs you to press Enter in a terminal a background daemon does not have. The wizard now always runs in your terminal; apply its result with `yazses restart`.
+
+### Fixed — command-line errors end in a sentence and a next step instead of a traceback
+
+- A daemon older than the command, a failed daemon request, or a reply that cannot be read now says so (`yazses restart` or `yazses logs`). A slow daemon is no longer reported as not running.
+- A config or data file you cannot write, or one another YazSes process is changing, is named.
+- `mic-level`, `enroll`, `enroll-voice`, `inject`, `test`, `tray`, `meeting relabel`, `meeting notes`, `meeting recover`, `report -o`, `vocab export -o` and `wordfind --lexicon` explain what failed.
+- `transcribe` checks the `--out` path before loading the model, refuses a folder or the audio file itself, and prints the transcript if it cannot be written.
+- `test` exits 1 when the daemon typed nothing, and no longer types a second time after a daemon timeout.
+- An unknown `case --style`, `outline render --format`, `braille --grade`, `meeting relabel --format` or `scratch` action is refused with exit code 2. It was ignored before, and a bad `relabel --format` crashed after rewriting `transcript.json`.
+- `enroll-voice` advised `systemctl`, which only exists on Linux; it now says `yazses restart`. The `punch-in` and `mark-wrong` refusals name the command that turns the feature on, and `doctor` says what to do about an unknown session type or a missing model cache.
+
+### Fixed — one Settings window: a second launch raises the open one
+
+Opening the window again (from the tray, `yazses settings` or the app grid) started a second one, and the two could overwrite each other's settings. Now the second launch asks the open window to come to the front, on the `--page` it asked for if it named one, and exits; staged changes stay staged. Who is first is decided by a file lock the operating system frees when its holder exits or crashes, and the request travels over a local socket only (a Unix socket, or a named pipe on Windows, open to your user alone; see ADR-019). If the open window does not answer within 10 seconds, a message says so and no second window opens. On Wayland, and on some other desktops, the system may only mark the window as wanting attention instead of moving it to the front. Not tried on a real desktop.
+
+### Fixed — the Overview page understated how long recalibration takes
+
+It said about three seconds of speech. YazSes records the quiet room and then four seconds of speech, about ten seconds in all; the page now says to stay quiet first and speak afterwards.
+
+### Added — tray: **Open YazSes**, a one-click fix for a reported problem, and `yazses settings --page`
+
+The menu of all three trays (Linux, macOS, Windows) gains **Open YazSes**, which opens the window on Overview; **Settings…** now opens it on **Features**. While there is a problem one click can fix, the first entry of the menu offers it: **Start YazSes** when it is not running, **Restart YazSes** after an error, **Recalibrate microphone** after repeated silent recordings. The tray asks the same function as the window's Overview page (`settingsui/overview.py`), so the two cannot offer different fixes; a daemon that is busy or still starting is offered nothing. Start runs `yazses start --no-autostart` and leaves a running daemon alone. `yazses settings --page <key>` (and `yazses-settings --page <key>`) opens the window on a given page.
+
+On macOS and Windows the tray now also receives the daemon's own silent-clip limit (`[audio] silent_streak_threshold`) and its loading state, so the icon turns red at your limit, not at the default of 3, and the meeting entries are greyed out while the model loads. The Linux tray's recalibration notice said to speak at once; the daemon measures the quiet room first, and the notice now says so. Not tried on a real macOS or Windows desktop.
+
+### Added — the settings window is now a desktop app: dictation, meetings and file transcription without a terminal
+
+`yazses settings` opens on a new **Overview** page that says whether dictation works and offers one fix when it does not (start YazSes, restart it, or recalibrate a microphone that heard nothing). New pages: **Dictation** (key, level while recording, a practice box, writing options), **Meetings** (start and stop, live draft, stored transcripts, speaker names, export), **File transcription** (runs `yazses transcribe`, asks before replacing a transcript, can be cancelled), **Voice commands** and **Accessibility**. **General** now lists what can leave the computer, read from your settings. Switches on the new pages are the Features checkboxes, so Apply, confirmation and dependency install behave as before. The pages use only existing daemon calls; no network path was added and the window stores no dictated text.
+
+### Changed — the settings window has a dark violet look, and its pages were reordered
+
+The new `[window] theme` key is `violet-dark` (the default), `violet-light`, or `system`, which keeps your desktop's colours as before; change it under **General → Window look**. The **Speech** page is now called **Models**, and the sidebar runs the new pages first. `Ctrl+1` to `Ctrl+9` jump to the first nine pages.
+
+### Added — a setup guide in the settings window for a new install
+
+On a new install the settings window opens a four-step guide: what YazSes does, a microphone check (live level while the key is held, with recalibration), the hold-to-talk key, and a practice box. It can be skipped at any step and reopened with **Run the setup guide** on the Overview page. It opens by itself at most once, and never on an install that already had a config file: the daemon's first start now leaves a `first-run-setup` marker beside the config it seeds, and the guide is offered for seven days from then. Opening the window before YazSes has ever started writes that same seeded config first, so saving a key there cannot leave a config without the recommended features. The guide uses only the existing `status` and `recalibrate_mic` calls and the controller's `set_hotkey`; it adds no network path and stores no dictated text. Tested headless with a stand-in daemon only, not with a real microphone.
+
+### Documentation — signing: the SignPath application was declined
+
+The README, the code signing page, the Windows install page and two design records said the
+SignPath Foundation application was pending. It was declined on 2026-11-17 for insufficient
+independent evidence of trust; Windows builds stay unsigned.
+
 ### Fixed — snap on Wayland: dictated text could not reach the clipboard
 
 The snap's private `XDG_RUNTIME_DIR` does not hold the Wayland socket, so `wl-copy` and `wl-paste` failed with "Failed to connect to a Wayland server": when typing failed, the clipboard fallback failed too and the dictation was lost. The clipboard commands are now given the host socket's full path; the daemon's own environment is unchanged. Where the copy works and nothing can press Ctrl+V, the notification now says the words are on the clipboard instead of that they were not typed.
