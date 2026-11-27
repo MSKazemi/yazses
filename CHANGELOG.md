@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — Wayland pointer: turning a pointer feature on after approving typing now asks for the pointer ([#403](https://github.com/MSKazemi/yazses/issues/403))
+
+The RemoteDesktop restore token saved by a typing-only run was offered again when a pointer feature later asked for the pointer. GNOME's portal restores the device grant stored with the token and shows no dialog, so the session came back keyboard-only each time and the pointer was reported as unavailable, with no way to recover but deleting the token file. YazSes now records what each token was asked for and leaves out one that does not cover the pointer, so the dialog appears once, with the wording that names the pointer. A pointer approval saved by an earlier release has no record and is asked once more. If that dialog is cancelled or left unanswered, the next negotiation offers the saved keyboard approval again, which GNOME restores without asking. A keyboard-only install sends the same request as before. Found by reading the GNOME and KDE portal sources and tested with a fake D-Bus; not yet checked on a real compositor.
+
 ### Fixed — models: a `distil-` checkpoint no longer counts as its namesake being downloaded ([#929](https://github.com/MSKazemi/yazses/issues/929))
 
 With only `distil-small.en` in the cache, `small.en` was reported as downloaded, and the same for `medium.en`, `large-v2` and `large-v3`. `yazses model list`, `yazses doctor`, the first-run download notice and `yazses language set` all took that answer. A model name that resolves to a Hugging Face repository now matches only that repository's cache folder.

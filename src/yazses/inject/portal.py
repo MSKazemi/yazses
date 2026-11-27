@@ -19,7 +19,10 @@ declared and auto-connected.
 
 The cost is a consent dialog. ``persist_mode=2`` plus the returned restore token
 makes it a once-ever dialog rather than a once-per-session one, which is the whole
-reason the token is written to disk here.
+reason the token is written to disk here. A token also answers only for what the user was
+asked when it was issued: GNOME's portal restores the device grant stored with it and
+shows no dialog, whatever the new request asks for. So the mask is recorded beside the
+token (`token_devices`), and a request that adds the pointer leaves an older token out.
 
 Everything heavy is imported lazily and every failure is contained: this sits on
 the dictation hot path, and an injector that raises loses the user's words.
@@ -37,6 +40,7 @@ dependency-free boundary: it may not import this module, D-Bus, or anything else
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 import threading
@@ -131,6 +135,12 @@ PORTAL_POINTER_CAPABILITIES = PointerCapabilities(
 
 TOKEN_FILENAME = "portal_remote_desktop_token"
 
+#: Sidecar to the token: which device mask the user was asked about, and the SHA-256 of the
+#: token that answer belongs to. A separate file so the token file keeps its format, which
+#: an older YazSes reads unchanged. The digest is what spots a token an older YazSes
+#: rewrote without updating this.
+TOKEN_DEVICES_FILENAME = f"{TOKEN_FILENAME}.devices"
+
 # Seconds between the press and release of one character. The portal delivers
 # events in order, so this is not needed for correctness; it exists because a
 # burst of hundreds of events in a few milliseconds is the shape that made
@@ -194,8 +204,32 @@ def read_token() -> str:
         return ""
 
 
-def write_token(token: str) -> None:
-    """Persist the restore token so consent is asked once, not once per session."""
+def _token_digest(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def token_devices(token: str) -> int:
+    """The device mask the user has been asked about for *token*. Never raises.
+
+    The keyboard is always in it: every request this client has ever made included it. A
+    token with no matching record -- saved by an earlier YazSes, or rewritten by one --
+    answers for the keyboard alone.
+    """
+    try:
+        record = token_path().with_name(TOKEN_DEVICES_FILENAME)
+        devices, digest = record.read_text(encoding="utf-8").split()
+        if digest == _token_digest(token):
+            return int(devices) | DEVICE_KEYBOARD
+    except Exception:  # noqa: BLE001 - no record means "keyboard", never a failure
+        pass
+    return DEVICE_KEYBOARD
+
+
+def write_token(token: str, devices: int = DEVICE_KEYBOARD) -> None:
+    """Persist the restore token so consent is asked once, not once per session.
+
+    *devices* is the mask the user has been asked about, kept for `token_devices`.
+    """
     if not token:
         return
     try:
@@ -204,6 +238,9 @@ def write_token(token: str) -> None:
         path.write_text(token, encoding="utf-8")
         # The token authorises silent input injection; keep it owner-only.
         path.chmod(0o600)
+        path.with_name(TOKEN_DEVICES_FILENAME).write_text(
+            f"{int(devices)} {_token_digest(token)}\n", encoding="utf-8"
+        )
     except Exception as exc:  # pragma: no cover - disk/permission edge
         logger.debug("could not persist portal restore token: %s", exc)
 
@@ -361,6 +398,11 @@ class _PortalSession:
         #: ``False`` the mask cannot be widened -- that is the point at which a late
         #: consumer must be told "keyboard only" instead of being queued.
         self._asked_pointer: bool | None = None
+        #: Set once a negotiation has left the saved token out to ask for a device it does
+        #: not answer for. Asked once per process: if that dialog is cancelled or never
+        #: answered, the next negotiation offers the old token again, so dictation gets its
+        #: keyboard grant back instead of raising a dialog on every burst.
+        self._widening_asked = False
         #: True only once `Start` has returned, i.e. the user has answered the dialog and the
         #: grant is known. `_session_handle` is set far earlier -- `CreateSession` succeeds
         #: before the dialog is raised -- so a handle says "a negotiation is in flight", not
@@ -586,6 +628,18 @@ class _PortalSession:
             "persist_mode": ("u", PERSIST_UNTIL_REVOKED),
         }
         saved = read_token()
+        saved_devices = token_devices(saved) if saved else 0
+        if saved and types & ~saved_devices and not self._widening_asked:
+            # GNOME restores the grant stored with the token and shows no dialog, whatever
+            # this request asks for -- so a token from a keyboard-only run would answer
+            # "no pointer" forever. Left out, the user is asked. The file is not touched:
+            # only a successful `Start` replaces it.
+            self._widening_asked = True
+            logger.info(
+                "asking for the Remote Desktop permission again: the saved approval does "
+                "not cover the pointer"
+            )
+            saved = ""
         if saved:
             select["restore_token"] = ("s", saved)
         self._call_with_response(
@@ -600,10 +654,16 @@ class _PortalSession:
         started = self._call_with_response(
             "Start", "osa{sv}", (self._session_handle, "", {}), remaining("Start")
         )
+        devices = started.get("devices")
+        devices_value = devices[1] if isinstance(devices, tuple) else devices
         token = started.get("restore_token")
         token_value = token[1] if isinstance(token, tuple) else token
         if token_value:
-            write_token(str(token_value))
+            # A restored session was not asked anything new, so it keeps the old record;
+            # one negotiated without a token was asked for `types`. Anything granted counts.
+            asked = saved_devices if saved else types
+            granted = devices_value if isinstance(devices_value, int) else 0
+            write_token(str(token_value), asked | granted)
 
         # What was *granted*, not what was asked for. The compositor answers with the
         # device mask it actually gave, and the portals differ: a build with no pointer
@@ -618,8 +678,6 @@ class _PortalSession:
         # consumer that closed meanwhile used to discard a grant the compositor had really
         # given: the next consumer was then refused with "running for the keyboard alone",
         # which was false, and told to restart for a dialog it had already been through.
-        devices = started.get("devices")
-        devices_value = devices[1] if isinstance(devices, tuple) else devices
         self._pointer_granted = bool(
             self._asked_pointer
             and isinstance(devices_value, int)
@@ -1214,6 +1272,7 @@ __all__ = [
     "open_pointer_sink",
     "portal_available",
     "read_token",
+    "token_devices",
     "token_path",
     "write_token",
 ]

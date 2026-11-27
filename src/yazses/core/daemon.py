@@ -1517,8 +1517,10 @@ class Daemon:
         API for synthetic input, but read cold by someone who installed an
         offline dictation tool it says the opposite of what is happening, and
         Cancel is the rational answer to it. The explanation is spoken only when
-        a dialog is actually coming: with a restore token already on disk the
-        portal asks nothing, and a toast on every start would be pure noise.
+        a dialog is actually coming: with a restore token on disk that covers what
+        is being requested the portal asks nothing, and a toast on every start
+        would be pure noise. A token that does not cover the pointer is left out of
+        the request, so then a dialog is coming and is explained.
         """
         injector = getattr(self, "_injector", None)
         backend = getattr(injector, "_primary", injector)
@@ -1529,17 +1531,24 @@ class Daemon:
         def _explain() -> None:
             """Say what the dialog is before it appears. Never raises."""
             try:
-                from yazses.inject.portal import consent_explanation, read_token
+                from yazses.inject.portal import (
+                    DEVICE_POINTER,
+                    consent_explanation,
+                    read_token,
+                    token_devices,
+                )
                 from yazses.system.snap import in_strict_snap
 
-                if read_token():
+                wants_pointer = bool(getattr(backend, "wants_pointer", False))
+                saved = read_token()
+                if saved and (not wants_pointer or token_devices(saved) & DEVICE_POINTER):
                     return
                 # Follow the request, not the feature list: a pointer consumer registered
                 # on the session (Head-Pointer on Wayland) puts POINTER in the very
                 # SelectDevices this dialog answers, and the copy must say so.
                 title, body = consent_explanation(
                     can_avoid=not in_strict_snap(),
-                    wants_pointer=bool(getattr(backend, "wants_pointer", False)),
+                    wants_pointer=wants_pointer,
                 )
                 log.info("%s — %s", title, body.replace("\n", " "))
                 from yazses.system.notify import notify

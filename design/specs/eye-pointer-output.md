@@ -122,7 +122,11 @@ Requirements:
 - one RemoteDesktop session;
 - request `POINTER` when needed;
 - preserve `KEYBOARD` for existing portal injection;
-- restore-token behavior unchanged;
+- restore-token behavior unchanged for the keyboard; a saved token is offered with a
+  pointer request only if the user was asked about the pointer when it was issued (GNOME
+  restores the stored device grant with no dialog, so an older keyboard-only token would
+  otherwise refuse the pointer for good). The widening ask is made at most once per process,
+  and a cancelled one leaves the saved token in use;
 - no events before session permission;
 - refusal/unavailable is explicit;
 - pointer motion/button/axis D-Bus calls tested with fakes;

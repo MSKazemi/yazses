@@ -128,6 +128,18 @@ You are asked **once** — the answer is remembered with a restore token stored 
 `~/.local/share/yazses/portal_remote_desktop_token` (mode `0600`). Delete that file to be
 asked again.
 
+The one case where you are asked a second time: you approved typing first and turned a
+pointer feature on later. The saved approval does not cover the pointer, and GNOME would
+restore the keyboard-only grant without showing a dialog, so YazSes asks again (a pointer
+approval saved by 2.52.0 or earlier is asked once more too, because nothing recorded what it
+covered). If you cancel that dialog, the next dictation offers the saved keyboard approval
+again, which GNOME restores without asking; KDE compares it with what is requested and may
+show the dialog again. The question returns at the next start while the pointer feature
+stays on.
+The file `portal_remote_desktop_token.devices` beside the token records what you were asked.
+If you approved typing but left the pointer out in the dialog itself, you are not asked
+again until you delete the token file.
+
 ### Getting rid of the prompt entirely
 
 The portal is a *fallback*. YazSes prefers `ydotool`, which injects directly and needs no

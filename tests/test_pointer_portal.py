@@ -559,7 +559,7 @@ def test_closing_the_sink_leaves_the_session_typing() -> None:
 # Restore-token behaviour is unchanged by the pointer.
 # --------------------------------------------------------------------------- #
 def test_the_restore_token_is_offered_and_saved_exactly_as_before(sandboxed_token) -> None:
-    portal.write_token("token-from-last-time")
+    portal.write_token("token-from-last-time", KEYBOARD_AND_POINTER)
     session = _FakePortalSession(restore_token="token-for-next-time")
     _open(session)
 
