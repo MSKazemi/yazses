@@ -280,6 +280,22 @@ def test_renaming_a_speaker_updates_the_transcript(qapp, tmp_path):
     assert "Alice" in page.transcript.toPlainText()
 
 
+def test_renaming_a_meeting_in_use_says_why_nothing_was_saved(qapp, tmp_path):
+    from yazses.meeting.lock import MeetingLock
+    from yazses.settingsui import meetings
+
+    folder = _meeting_dir(tmp_path / "meetings")
+    win = _window(qapp, _meeting_config(tmp_path))
+    page = win._app_pages["meetings"]
+    page.refresh()
+    page.list.setCurrentRow(0)
+    page.name_fields["speaker_0"].setText("Alice")
+    with MeetingLock(folder):
+        page.rename_button.click()
+    assert meetings.BUSY in _text(page.widget)
+    assert "Alice" not in page.transcript.toPlainText()
+
+
 def test_start_sends_the_speaker_count_and_shows_a_refusal_verbatim(qapp, tmp_path):
     daemon = _Daemon(meeting_start={"ok": False, "reason": "no microphone"},
                      meeting_status={"ok": True, "enabled": True, "active": False})

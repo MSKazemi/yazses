@@ -20,6 +20,10 @@ _STAMP = re.compile(r"^(\d{4})-?(\d{2})-?(\d{2})[_T-](\d{2})-?(\d{2})")
 _STALL_WARNING_S = 10.0
 
 NO_TRANSCRIPT = "No finished transcript for this meeting."
+BUSY = (
+    "The names were not saved: this meeting is still being processed, or a "
+    "`yazses meeting` command is working on it. Try again when it has finished."
+)
 
 
 @dataclass(frozen=True)
@@ -61,7 +65,8 @@ def meeting_rows(listing: Sequence[Mapping[str, Any]]) -> list[MeetingRow]:
         finished = meta.get("status") == "done"
         parts = [duration_summary(dict(meta))]
         if not finished:
-            parts.append("unfinished")
+            # A meeting someone holds is running, not failed (as `meeting list` says).
+            parts.append("in progress" if meta.get("busy") else "unfinished")
         elif meta.get("quality_suspect"):
             parts.append("check the quality")
         rows.append(MeetingRow(
@@ -114,12 +119,18 @@ def speakers(meeting_dir: str | Path) -> dict[str, str]:
 
 
 def rename(meeting_dir: str | Path, names: Mapping[str, str], fmt: str) -> None:
-    """Apply the non-empty *names* and re-render, as ``yazses meeting relabel`` does."""
+    """Apply the non-empty *names* and re-render, as ``yazses meeting relabel`` does.
+
+    Holds the meeting's lock, and raises ``MeetingBusyError``, changing nothing, while
+    the daemon or a ``yazses meeting`` command holds it.
+    """
+    from yazses.meeting.lock import MeetingLock
     from yazses.meeting.store import relabel
 
     renames = {k: v.strip() for k, v in names.items() if v.strip()}
     if renames:
-        relabel(meeting_dir, renames=renames, fmt=fmt)
+        with MeetingLock(meeting_dir):
+            relabel(meeting_dir, renames=renames, fmt=fmt)
 
 
 def export(meeting_dir: str | Path, fmt: str, dest: str | Path) -> Path:
@@ -135,7 +146,8 @@ def export(meeting_dir: str | Path, fmt: str, dest: str | Path) -> Path:
         raise ValueError(NO_TRANSCRIPT)
     from yazses.system.private_files import write_private_text
 
-    write_private_text(dest, render_transcript(view, fmt))
+    # The folder is one the user picked (their home, a shared folder): not ours to restrict.
+    write_private_text(dest, render_transcript(view, fmt), tighten_parent=False)
     return dest
 
 
