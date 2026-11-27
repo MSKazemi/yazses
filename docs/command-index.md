@@ -298,6 +298,8 @@ Show the learning corpus size, event counts, and date range.
 Check system prerequisites and report what's OK / missing.
 
 - `--mic` — Also record a short ambient clip and compare its level to the VAD threshold.
+- `--strict` — Exit with code 1 if any line is FAIL. WARN and SKIP lines do not count.
+- `--json` — Print one JSON object with each check's name and status, without the explanations.
 
 ## `yazses enroll`
 

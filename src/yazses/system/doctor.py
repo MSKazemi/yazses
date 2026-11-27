@@ -832,6 +832,30 @@ def _model_check(model: str, hf_cache: Path) -> _Check:
     )
 
 
+def _session_type_check(session: str, known: bool) -> _Check:
+    """The desktop session row; an unknown one says what that means and what to do."""
+    if known:
+        return ("Session type", "OK", session)
+    return (
+        "Session type",
+        "WARN",
+        f"{session} — neither DISPLAY nor WAYLAND_DISPLAY is set. Run `yazses doctor` "
+        "from a terminal inside your desktop session, not over SSH or from a service.",
+    )
+
+
+def _model_cache_check(hf_cache: Path) -> _Check:
+    """The model cache row; a missing folder says how it gets created."""
+    if hf_cache.exists():
+        return ("Model cache", "OK", str(hf_cache))
+    return (
+        "Model cache",
+        "WARN",
+        f"{hf_cache} — not created yet; the first `yazses model download` (or the first "
+        "`yazses start`) creates it.",
+    )
+
+
 def _autostart_check(platform) -> _Check | None:
     """Answer the question nobody thinks to ask until after a reboot: does it come back?
 
@@ -2610,7 +2634,10 @@ def microphone_detail(
     return state
 
 
-def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
+def run_doctor(
+    check_mic: bool = False, mic_seconds: float = 2.0, *, emit: bool = True
+) -> list[_Check]:
+    """Run every check, print the report unless *emit* is false, and return the rows."""
     platform = get_platform()
     perms = platform.permissions
     paths = platform.paths
@@ -2797,7 +2824,7 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
         is_x11 = bool(os.environ.get("DISPLAY"))
         session = "Wayland" if is_wayland else ("X11" if is_x11 else "unknown")
         session_ok = is_wayland or is_x11
-        checks.append(("Session type", "OK" if session_ok else "WARN", session))
+        checks.append(_session_type_check(session, session_ok))
 
         # Injection backends are informational (only one is needed per session);
         # the actual pass/fail signal is the "Injection" readiness check below.
@@ -2823,7 +2850,7 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     from yazses.stt.download import hub_cache_dir
 
     hf_cache = hub_cache_dir()
-    checks.append(("Model cache", "OK" if hf_cache.exists() else "WARN", str(hf_cache)))
+    checks.append(_model_cache_check(hf_cache))
 
     # Whether the decoder can load at all. Deliberately *before* the model row: a
     # model that is merely not downloaded yet is a warning, an engine that will not
@@ -2931,6 +2958,9 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     except Exception:
         pass
 
+    if not emit:
+        return checks
+
     print(f"YazSes doctor ({platform.name}):")
     for name, status, detail in checks:
         print(_format_check(name, status, detail))
@@ -2948,6 +2978,47 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     print("Need help, hit a bug, or want a feature?")
     print(f"  Author: {branding.AUTHOR} <{branding.EMAIL}>")
     print(f"  Issues: {branding.ISSUES}")
+    return checks
+
+
+#: Version of the `yazses doctor --json` object. Raise it when a key is renamed,
+#: removed or changes meaning; adding a key does not need it.
+JSON_SCHEMA_VERSION = 1
+
+
+def has_failure(checks: list[_Check]) -> bool:
+    """Whether any row is FAIL, which is what `yazses doctor --strict` exits 1 on. Pure."""
+    return any(status == "FAIL" for _name, status, _detail in checks)
+
+
+def json_report(checks: list[_Check], platform_name: str) -> dict[str, object]:
+    """The `yazses doctor --json` object. Pure.
+
+    **No row detail, by construction.** A detail is free text built from this machine and
+    its config: the config path, microphone names (often named after their owner), a BLE
+    address, an endpoint URL, and config values quoted back by `Config validity`.
+    `system/report.py` hides several of those from a diagnostic bundle by looking at the
+    config *key*, which cannot be done to a finished sentence, and `redact_text` alone
+    only covers the home folder and the account name. So only the row name and its status
+    leave here. Row names are fixed strings written in this codebase; keep them that way,
+    and never interpolate a user's value into one.
+    """
+    # Imported here: reading it walks the package metadata, and `status` imports this module.
+    from yazses import __version__
+
+    statuses = [status for _name, status, _detail in checks]
+    counts = {tag.lower(): statuses.count(tag) for tag in ("OK", "WARN", "FAIL", "SKIP")}
+    result = "fail" if counts["fail"] else "warn" if counts["warn"] else "ok"
+    return {
+        "schema_version": JSON_SCHEMA_VERSION,
+        "yazses": __version__,
+        "platform": platform_name,
+        "result": result,
+        "counts": counts,
+        "checks": [
+            {"name": name.strip(), "status": status} for name, status, _detail in checks
+        ],
+    }
 
 
 def _verdict_line(checks: list[_Check], cfg, platform) -> str:

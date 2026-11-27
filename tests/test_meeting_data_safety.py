@@ -225,7 +225,8 @@ def test_the_cli_refuses_a_bad_relabel_with_exit_1(monkeypatch, tmp_path):
     before = _contents(d)
 
     result = _invoke(
-        monkeypatch, tmp_path, ["meeting", "relabel", d.name, "--format", "docx"])
+        monkeypatch, tmp_path,
+        ["meeting", "relabel", d.name, "--merge", "speaker_9=speaker_0"])
 
     assert result.exit_code == 1, result.output
     assert "Could not relabel" in result.output

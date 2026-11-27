@@ -1070,7 +1070,7 @@ Host-side helpers and the CLI-facing config/diagnostics surface (no daemon neede
 
 | File | Role |
 |---|---|
-| `doctor.py` | `yazses doctor` diagnostics: version, daemon status (over IPC), permissions, session/injection tools, STT-model availability, config + hotkey summary, optional `--mic` ambient-vs-VAD sample, enabled extras |
+| `doctor.py` | `yazses doctor` diagnostics: version, daemon status (over IPC), permissions, session/injection tools, STT-model availability, config + hotkey summary, optional `--mic` ambient-vs-VAD sample, enabled extras. Exit code 0 whatever the rows say unless `--strict` (1 on any `FAIL`). `--json` (`json_report`, `schema_version` 1) carries row names and statuses only: details hold paths, device names, addresses and config values, so a row name must never interpolate a user's value |
 | `miclevel.py` | `yazses mic-level` — record + `analyze()` mean/peak vs `vad_threshold`, recommend a threshold, `update_threshold_in_config` |
 | `configedit.py` | `set_config_key(path, section, key, value)` — comment-preserving TOML writer used by `hotkey set` / `features enable/disable` |
 | `features.py` | Capability registry (single source of truth for `yazses features`). `Feature`/`_Def`, recommendation tiers (core/on/rec/opt/exp), `feature_status(cfg)`, `find_feature`, `toggleable_slugs`; drives the advice column + the experimental-guard on enable |
@@ -1106,7 +1106,7 @@ from the tree, so a method added to the daemon, or a caller added or removed, fa
 | `punch_in` | CLI | Re-record over a selected span |
 | `readback_speak` | CLI | Speak a phrase through the read-back TTS |
 | `mark_last_wrong` | CLI | Flag the last dictation as a misrecognition (learning signal) |
-| `enroll_start` | CLI | Start the accessibility enrollment wizard |
+| `enroll_start` | nothing | Start the accessibility enrollment wizard. `yazses enroll` runs the wizard in its own terminal, because the daemon has none |
 | `remote_start` | CLI | Start an SSH remote session |
 | `remote_stop` | CLI | Disconnect the remote session |
 | `meeting_start` | CLI, tray | Begin a meeting capture |
@@ -1125,7 +1125,7 @@ from the tree, so a method added to the daemon, or a caller added or removed, fa
 | `streaming_enable` | nothing | Turn streaming transcription on at runtime, building the `StreamingEngine` if it is absent |
 | `streaming_disable` | nothing | Turn it off again |
 
-The last three are registered, implemented, and unreachable: no CLI command, tray entry or
+`enroll_start` and the last three rows are registered, implemented, and unreachable: no CLI command, tray entry or
 MCP tool sends them, so they answer a hand-written JSON-RPC client and nothing else. They
 are recorded as unreachable rather than deleted, because two of them are the only runtime
 streaming toggle that exists. Before wiring one up, note that neither writes `config.toml`,
