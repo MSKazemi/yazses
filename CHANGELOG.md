@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — Android: microphone capture could stay stuck, spin, or keep the recorder open
+
+No Android app is released and none of this has run on a device. In `:platform:audio`, a recorder that could not be set up or started left capture marked as running, so every later start was silently ignored, and `startRecording` failing leaked the recorder. A generic `AudioRecord` read error span the capture thread, an exception in the audio consumer escaped that thread, and a thread that outlived a timed-out stop could release the next recording's recorder. The loop now lives in `:core:audio` (`CaptureLoop`) behind a small `PcmStream` interface, with unit tests; `CaptureStopReason` and `toFloats` moved there with it.
+
 ### Fixed — snap on Wayland: dictated text could not reach the clipboard
 
 The snap's private `XDG_RUNTIME_DIR` does not hold the Wayland socket, so `wl-copy` and `wl-paste` failed with "Failed to connect to a Wayland server": when typing failed, the clipboard fallback failed too and the dictation was lost. The clipboard commands are now given the host socket's full path; the daemon's own environment is unchanged. Where the copy works and nothing can press Ctrl+V, the notification now says the words are on the clipboard instead of that they were not typed.

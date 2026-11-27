@@ -40,8 +40,9 @@ below were written before that code, so that many people can build it at once.
   screen will be generated from), `:core:model` (the model catalogue, checksum check,
   download policy and install ordering, with no network code) and `:core:bench` (the
   benchmark result format, error-rate helpers and the Whisper English normaliser).
-- **Microphone capture, written but never run:** `:platform:audio` has the `AudioRecord`
-  shim. It compiles and has not run on a device, which is why #88 is still open.
+- **Microphone capture, never run on a device:** the capture loop in `:core:audio` is tested
+  on the JVM with a fake stream. `:platform:audio` has the `AudioRecord` shim behind it,
+  which compiles and has not run on a device; that is why #88 is still open.
 - **Placeholders only:** `:app`, `:model`, `:bench`, every `:feature:*` module (including
   the keyboard), both `:native:*` engines, and `:core:config` (one placeholder class).
   No speech engine is connected yet.
